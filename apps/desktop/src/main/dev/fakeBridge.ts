@@ -1,5 +1,5 @@
 import type { BridgeTransport } from '@session/client'
-import { createFakeTransport, friends } from '@session/client/fake'
+import { createFakeTransport, crowd, friends } from '@session/client/fake'
 
 /**
  * The bridge, backed by the fake.
@@ -9,7 +9,13 @@ import { createFakeTransport, friends } from '@session/client/fake'
  * shipped bundle.
  */
 export function createFakeBridge(): BridgeTransport {
-  const { world, clients } = friends(['Alice', 'Bob'], { history: 4 })
+  // A conversation list big enough to measure, when something asks for one. The default stays the
+  // two-account fixture, so nothing about the ordinary dev loop changes.
+  const peers = Number(process.env['SESSION_FAKE_CONVERSATIONS'] ?? '0')
+  const { world, clients } =
+    peers > 0
+      ? crowd({ peers, history: Number(process.env['SESSION_FAKE_HISTORY'] ?? '1') })
+      : friends(['Alice', 'Bob'], { history: 4 })
   const alice = clients['Alice']
   if (!alice) throw new Error('the fixture did not produce a client')
 

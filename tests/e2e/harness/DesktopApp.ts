@@ -7,6 +7,7 @@ import { _electron, type ElectronApplication, type Page } from '@playwright/test
 import type { ElementId } from '@session/test-ids'
 
 import type { ISessionApp } from './ISessionApp'
+import type { IPerformanceProbe } from './PerformanceProbe'
 
 const repoRoot = fileURLToPath(new URL('../../..', import.meta.url))
 
@@ -17,7 +18,7 @@ const repoRoot = fileURLToPath(new URL('../../..', import.meta.url))
  * writes is the same string the component was given. There is no per-platform locator table
  * here, and there should not need to be one.
  */
-export class DesktopApp implements ISessionApp {
+export class DesktopApp implements ISessionApp, IPerformanceProbe {
   readonly platform = 'desktop' as const
 
   private constructor(
@@ -88,6 +89,51 @@ export class DesktopApp implements ISessionApp {
 
   async screenshot(name: string): Promise<void> {
     await this.page.screenshot({ path: join(repoRoot, 'test-results', `${name}.png`) })
+  }
+
+  // -- IPerformanceProbe ------------------------------------------------------------------
+
+  async startProbe(): Promise<void> {
+    await this.page.evaluate(() => {
+      const w = window as unknown as { __longTasks?: { start: number; duration: number }[] }
+      if (w.__longTasks) return
+      w.__longTasks = []
+      // buffered, so a task that ran between load and this call is not lost - which is most of
+      // startup, and startup is the interesting part.
+      new PerformanceObserver((list) => {
+        for (const entry of list.getEntries()) {
+          w.__longTasks?.push({ start: entry.startTime, duration: entry.duration })
+        }
+      }).observe({ type: 'longtask', buffered: true })
+    })
+  }
+
+  async readLongTasks(): Promise<{ start: number; duration: number }[]> {
+    return this.page.evaluate(() => {
+      const w = window as unknown as { __longTasks?: { start: number; duration: number }[] }
+      return w.__longTasks ?? []
+    })
+  }
+
+  async timeUntilVisible(testId: string, timeoutMs = 30_000): Promise<number> {
+    const start = performance.now()
+    await this.page.getByTestId(testId).first().waitFor({ state: 'visible', timeout: timeoutMs })
+    return performance.now() - start
+  }
+
+  async countFrames(windowMs: number): Promise<number> {
+    return this.page.evaluate(async (ms: number) => {
+      return new Promise<number>((resolve) => {
+        let frames = 0
+        const deadline = performance.now() + ms
+        const tick = () => {
+          frames++
+          if (performance.now() < deadline) requestAnimationFrame(tick)
+          else resolve(frames)
+        }
+        requestAnimationFrame(tick)
+      })
+    }, windowMs)
   }
 
   async close(): Promise<void> {

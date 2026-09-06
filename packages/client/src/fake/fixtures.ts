@@ -131,3 +131,32 @@ export function strangers(
     },
   }
 }
+
+/**
+ * One account with an arbitrarily large, already-approved conversation list.
+ *
+ * `solo` cycles the eight named fixtures and so tops out at eight peers, which is the right size
+ * for a flow test and useless for a measurement: the costs worth knowing - the projection re-sorting
+ * the list, React mounting every row - only appear at a scale no hand-written fixture reaches.
+ * Names here are generated rather than drawn from FIXTURE_NAMES for the same reason.
+ */
+export function crowd(options: { peers: number; history?: number; name?: FixtureName }): FakeSetup {
+  resetFakeIds()
+  const world = new FakeWorld()
+  const self = world.account(options.name ?? 'Alice')
+  const history = options.history ?? 1
+
+  for (let i = 0; i < options.peers; i += 1) {
+    const peer = world.account(`Peer ${String(i).padStart(4, '0')}`)
+    ensureDm(peer, self, world)
+    ensureDm(self, peer, world)
+    for (let m = 0; m < history; m += 1) {
+      peer.send(self.sessionId, `Message ${String(m + 1)} from ${peer.displayName}`)
+    }
+  }
+  // Settled once at the end rather than per message: settling is O(the whole world), so doing it
+  // inside the loop makes seeding quadratic and a thousand peers never finish.
+  world.settle()
+
+  return { world, clients: { [self.displayName]: new FakeSessionClient(self, world) } }
+}
