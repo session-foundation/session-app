@@ -5,7 +5,7 @@ import { join } from 'node:path'
 
 import { createNodeBridgeTransport } from '@session/bridge-node'
 import { createSessionClient, type ConversationId, type SessionClient } from '@session/client'
-import { afterAll, beforeAll, describe, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { accountId } from './fixtures'
 import { ms, report, table } from './measure'
@@ -88,9 +88,10 @@ describeAddon('the database, with something in it', () => {
     for (const [convos, perConvo] of [
       [200, 0],
       [200, 1],
-      [200, 20],
       [200, 200],
       [1000, 20],
+      [5000, 5],
+      [10000, 2],
     ] as const) {
       const client = await open(`c${String(convos)}m${String(perConvo)}`)
       const random = seeded(convos * 31 + perConvo)
@@ -124,6 +125,20 @@ describeAddon('the database, with something in it', () => {
       client.close()
     }
 
+    // A regression guard, not decoration. The conversation list's snippet is a correlated
+    // subquery per row, and it is only cheap because messages_history covers its ORDER BY
+    // exactly. Anything that breaks that - a column added to the ORDER BY, an index renamed,
+    // a WHERE clause the index no longer serves - turns this into a scan per row, and the
+    // symptom would be a conversation list that got slow for reasons nothing points at.
+    const flat = rows.filter((r) => r[0]?.startsWith('200 x'))
+    const withMessages = flat.map((r) => Number(r[5]))
+    const worst = Math.max(...withMessages)
+    const best = Math.min(...withMessages.filter((n) => n > 0))
+    expect(
+      worst / best,
+      'listing 200 conversations must not get materially more expensive as messages pile up',
+    ).toBeLessThan(3)
+
     report(
       '\n\n== THE CONVERSATION LIST vs MESSAGE VOLUME ==  milliseconds\n\n' +
         table(rows, [
@@ -151,7 +166,9 @@ describeAddon('the database, with something in it', () => {
     const rows: string[][] = []
     let written = 0
 
-    for (const depth of [100, 1000, 5000, 20000]) {
+    // Capped below SQLITE_MAX_VARIABLE_NUMBER: `all at once` asks for the whole transcript,
+    // and libsession's attachment query binds one variable per message. See limit.test.ts.
+    for (const depth of [100, 1000, 5000, 10000, 20000, 32000]) {
       while (written < depth) {
         await client.sendMessage(id, { body: `message number ${String(written)}` })
         written++

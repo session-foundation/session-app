@@ -16,7 +16,7 @@ import { DesktopApp } from '../harness/DesktopApp'
  *   cd tests/e2e && env -u ELECTRON_RUN_AS_NODE pnpm exec playwright test performance
  */
 
-const SIZES = [10, 100, 500, 1000]
+const SIZES = [100, 1000, 5000]
 
 interface Row {
   peers: number
@@ -31,6 +31,7 @@ const rows: Row[] = []
 
 for (const peers of SIZES) {
   test(`a list of ${String(peers)} conversations @desktop @perf`, async () => {
+    test.setTimeout(300_000)
     // Read by apps/desktop's dev entry, which passes it to the fake's crowd fixture.
     process.env['SESSION_FAKE_CONVERSATIONS'] = String(peers)
     process.env['SESSION_FAKE_HISTORY'] = '1'
