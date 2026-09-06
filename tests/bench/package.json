@@ -1,0 +1,26 @@
+{
+  "name": "@session/bench",
+  "version": "0.0.0",
+  "private": true,
+  "description": "What the bridge costs on the JavaScript thread",
+  "type": "module",
+  "scripts": {
+    "bench": "vitest bench --run",
+    "report": "vitest run src/report.test.ts",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "devDependencies": {
+    "@bufbuild/protobuf": "catalog:",
+    "@session/client": "workspace:*",
+    "@session/eslint-config": "workspace:*",
+    "@session/proto": "workspace:*",
+    "@session/state": "workspace:*",
+    "@session/typescript-config": "workspace:*",
+    "@types/node": "catalog:",
+    "eslint": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

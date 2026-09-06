@@ -1,0 +1,24 @@
+diff --git a/cmake/TargetArch.cmake b/cmake/TargetArch.cmake
+index 3761e4df8..045050a08 100644
+--- a/cmake/TargetArch.cmake
++++ b/cmake/TargetArch.cmake
+@@ -73,6 +73,8 @@ function(target_architecture output_var)
+                 set(osx_arch_x86_64 TRUE)
+             elseif("${osx_arch}" STREQUAL "ppc64" AND ppc_support)
+                 set(osx_arch_ppc64 TRUE)
++            elseif("${osx_arch}" STREQUAL "arm64")
++                set(osx_arch_arm64 TRUE)
+             else()
+                 message(FATAL_ERROR "Invalid OS X arch name: ${osx_arch}")
+             endif()
+@@ -91,6 +93,10 @@ function(target_architecture output_var)
+             list(APPEND ARCH x86_64)
+         endif()
+ 
++        if(osx_arch_arm64)
++            list(APPEND ARCH arm64)
++        endif()
++
+         if(osx_arch_ppc64)
+             list(APPEND ARCH ppc64)
+         endif()

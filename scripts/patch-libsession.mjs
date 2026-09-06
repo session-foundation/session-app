@@ -23,6 +23,7 @@ const patches = join(root, 'patches')
 const targets = {
   'session-deps-libevent-with-pic.patch': 'libsession-util/cmake/session-deps',
   'session-deps-cross-cmake-toolchain.patch': 'libsession-util/cmake/session-deps',
+  'session-router-macos-arm64.patch': 'libsession-util/external/session-router',
 }
 
 let applied = 0
