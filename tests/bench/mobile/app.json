@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "name": "Session Bench",
+    "slug": "session-bench",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": { "supportsTablet": true, "bundleIdentifier": "org.getsession.bench" },
+    "android": { "package": "org.getsession.bench" }
+  }
+}
