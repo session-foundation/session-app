@@ -3,12 +3,12 @@ import { mkdtemp, mkdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { createNodeBridgeTransport } from '@session/bridge-node'
+import { createNodeBridgeTransport } from './index'
 import { createSessionClient, type ConversationId, type SessionClient } from '@session/client'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { accountId } from './fixtures'
-import { ms, report, table } from './measure'
+import { accountId } from '@session/bench/fixtures'
+import { ms, report, table } from '@session/bench/measure'
 
 /**
  * What the database costs once there is something in it.
@@ -26,10 +26,7 @@ import { ms, report, table } from './measure'
  * term that grows, and it is the one worth knowing.
  */
 
-const addon = join(
-  import.meta.dirname,
-  '../../../packages/bridge-node/build/Release/session_bridge_node.node',
-)
+const addon = join(import.meta.dirname, '../build/Release/session_bridge_node.node')
 const describeAddon = existsSync(addon) ? describe : describe.skip
 
 function seeded(seed: number): () => number {

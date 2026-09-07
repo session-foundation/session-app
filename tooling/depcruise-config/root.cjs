@@ -43,7 +43,7 @@ module.exports = {
     mayOnlyDependOn('state', ['client', 'basic-types']),
     mayOnlyDependOn('ui', ['theme-tokens', 'test-ids', 'basic-types']),
     mayOnlyDependOn('app', ['client', 'state', 'basic-types']),
-    mayOnlyDependOn('bridge-node', ['client', 'client-contract', 'proto', 'bridge-types']),
+    mayOnlyDependOn('bridge-node', ['client', 'client-contract', 'proto', 'bridge-types', 'bench']),
     mayOnlyDependOn('bridge-rn', ['bridge-types']),
     mayOnlyDependOn('screens', [
       'ui',
@@ -155,7 +155,12 @@ module.exports = {
 
   options: {
     doNotFollow: { path: 'node_modules' },
-    exclude: { path: '(node_modules|/gen/|/generated/|dist/|build/|/out/)' },
+    // The last two are deliberately outside the import graph rather than accidentally orphaned:
+    // tests/bench/mobile/web holds esbuild output, and nitro-stub.ts is reached by Metro's
+    // resolver rather than by an import, so nothing can name it as a dependency.
+    exclude: {
+      path: '(node_modules|/gen/|/generated/|dist/|build/|/out/|tests/bench/mobile/web/|tests/bench/mobile/src/nitro-stub)',
+    },
     tsPreCompilationDeps: true,
     tsConfig: { fileName: 'tsconfig.json' },
     enhancedResolveOptions: {

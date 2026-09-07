@@ -397,6 +397,9 @@ importers:
       '@bufbuild/protobuf':
         specifier: 'catalog:'
         version: 2.14.1
+      '@session/bench':
+        specifier: workspace:*
+        version: link:../../tests/bench
       '@session/client-contract':
         specifier: workspace:*
         version: link:../client-contract

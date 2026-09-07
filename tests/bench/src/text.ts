@@ -22,7 +22,7 @@ export function mulberry32(seed: number): () => number {
   }
 }
 
-export const WORDS =
+const WORDS =
   'the a of and to in is it you that he was for on are as with his they at be this from I have or by one had not but what all were we when your can said there use an each which she do how their if will up other about out many then them these so'.split(
     ' ',
   )

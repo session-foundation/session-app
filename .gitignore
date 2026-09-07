@@ -55,3 +55,4 @@ blob-report/
 
 # Built by esbuild for the on-device browser benchmark; reproducible from src/web-entry.ts.
 tests/bench/mobile/web/bench.js
+tests/bench/mobile/web/render.js
