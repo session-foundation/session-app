@@ -38,10 +38,14 @@ createServer((req, res) => {
         const { platform, version, engine, rows } = JSON.parse(body)
         const pad = (v, w, left) => (left ? String(v).padEnd(w) : String(v).padStart(w))
         console.log(`\n== ${platform} · ${engine} ==\n${version}\n`)
-        console.log(`${pad('rows', 6, true)}${pad('KB', 9)}${pad('decode', 10)}${pad('project', 10)}${pad('TOTAL', 9)}`)
+        console.log(
+          `${pad('rows', 6, true)}${pad('KB', 9)}${pad('decode', 10)}${pad('project', 10)}${pad('TOTAL', 9)}`,
+        )
         console.log('-'.repeat(44))
         for (const r of rows) {
-          console.log(`${pad(r.label, 6, true)}${pad(r.kb.toFixed(1), 9)}${pad(r.decode.toFixed(3), 10)}${pad(r.project.toFixed(3), 10)}${pad(r.total.toFixed(3), 9)}`)
+          console.log(
+            `${pad(r.label, 6, true)}${pad(r.kb.toFixed(1), 9)}${pad(r.decode.toFixed(3), 10)}${pad(r.project.toFixed(3), 10)}${pad(r.total.toFixed(3), 9)}`,
+          )
         }
         console.log('')
       } catch (e) {
@@ -51,6 +55,9 @@ createServer((req, res) => {
     return
   }
   const entry = files[req.url ?? '/']
-  if (!entry) { res.writeHead(404).end(); return }
+  if (!entry) {
+    res.writeHead(404).end()
+    return
+  }
   res.writeHead(200, { 'content-type': entry[0] }).end(entry[1]())
 }).listen(8090, '0.0.0.0', () => console.log('web bench on http://0.0.0.0:8090'))

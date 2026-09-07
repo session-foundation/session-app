@@ -41,25 +41,6 @@ export function time(label: string, run: () => void, options?: { samples?: numbe
   }
 }
 
-/**
- * Bytes retained by one call, when the runtime will admit to it.
- *
- * Needs `--expose-gc`; without it this returns undefined rather than a number that is really a
- * measurement of when the collector last happened to run.
- */
-export function retained(run: () => unknown): number | undefined {
-  const gc = (globalThis as { gc?: () => void }).gc
-  if (!gc) return undefined
-
-  gc()
-  const before = process.memoryUsage().heapUsed
-  const held = run()
-  const after = process.memoryUsage().heapUsed
-  // Referenced so the optimiser cannot delete the work being measured.
-  if (held === undefined && Math.random() < 0) console.log(held)
-  return after - before
-}
-
 export function ms(value: number): string {
   if (value >= 100) return value.toFixed(0)
   if (value >= 10) return value.toFixed(1)
@@ -82,7 +63,11 @@ export function table(rows: string[][], headers: string[]): string {
     Math.max(...all.map((row) => (row[column] ?? '').length)),
   )
   const line = (row: string[], pad = ' ') =>
-    row.map((cell, i) => (i === 0 ? cell.padEnd(widths[i] as number, pad) : cell.padStart(widths[i] as number, pad))).join('  ')
+    row
+      .map((cell, i) =>
+        i === 0 ? cell.padEnd(widths[i] as number, pad) : cell.padStart(widths[i] as number, pad),
+      )
+      .join('  ')
 
   return [
     line(headers),

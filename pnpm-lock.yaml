@@ -729,9 +729,6 @@ importers:
       '@bufbuild/protobuf':
         specifier: 'catalog:'
         version: 2.14.1
-      '@session/bridge-node':
-        specifier: workspace:*
-        version: link:../../packages/bridge-node
       '@session/client':
         specifier: workspace:*
         version: link:../../packages/client

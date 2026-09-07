@@ -11,9 +11,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@bufbuild/protobuf": "catalog:",
-    "@session/client": "workspace:*",
-    "@session/proto": "workspace:*",
     "@session/state": "workspace:*",
     "expo": "catalog:",
     "react": "catalog:",

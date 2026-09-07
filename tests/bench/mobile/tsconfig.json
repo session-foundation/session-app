@@ -1,5 +1,5 @@
 {
-  "extends": "@session/typescript-config/base.json",
+  "extends": "@session/typescript-config/bundler.json",
   "compilerOptions": {
     "jsx": "react-jsx",
     "types": []

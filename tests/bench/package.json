@@ -21,7 +21,11 @@
     "@types/node": "catalog:",
     "eslint": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:",
-    "@session/bridge-node": "workspace:*"
+    "vitest": "catalog:"
+  },
+  "exports": {
+    "./fixtures": "./src/fixtures.ts",
+    "./measure": "./src/measure.ts",
+    "./pipeline": "./src/pipeline.ts"
   }
 }

@@ -67,7 +67,9 @@ function Harness() {
       { id: 'render-out', style: { marginTop: 20, fontSize: 13 } },
       results.length === 0
         ? 'Nothing measured yet.'
-        : results.map((r) => `${String(r.rows).padStart(5)}  ${r.mountMs.toFixed(0)} ms`).join('\n'),
+        : results
+            .map((r) => `${String(r.rows).padStart(5)}  ${r.mountMs.toFixed(0)} ms`)
+            .join('\n'),
     ),
   )
 }

@@ -27,10 +27,19 @@ window.runBench = () => {
     void fetch('/results', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ platform: 'web', version: navigator.userAgent, engine: 'JavaScriptCore', rows }),
+      body: JSON.stringify({
+        platform: 'web',
+        version: navigator.userAgent,
+        engine: 'JavaScriptCore',
+        rows,
+      }),
     }).then(
-      () => { out.textContent += '\n\nSent to the dev machine.' },
-      () => { out.textContent += '\n\n(could not send; read the numbers above)' },
+      () => {
+        out.textContent += '\n\nSent to the dev machine.'
+      },
+      () => {
+        out.textContent += '\n\n(could not send; read the numbers above)'
+      },
     )
   }, 60)
 }

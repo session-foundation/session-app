@@ -154,9 +154,9 @@ export default function App() {
               {sent === 'sent' ? 'Results sent to the dev machine.' : sent === '' ? '' : sent}
             </Text>
             <Text style={{ color: '#7b8781', fontSize: 12, marginTop: 8, lineHeight: 18 }}>
-              Milliseconds, median of the samples. Compare against the desktop run: the ratio is
-              the Hermes-and-phone multiplier, and it is what decides whether the serialisation is
-              worth removing from the mobile path.
+              Milliseconds, median of the samples. Compare against the desktop run: the ratio is the
+              Hermes-and-phone multiplier, and it is what decides whether the serialisation is worth
+              removing from the mobile path.
             </Text>
           </View>
         ) : (

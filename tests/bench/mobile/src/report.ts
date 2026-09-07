@@ -13,7 +13,7 @@ import type { BenchRow } from './run'
  * Best effort by design. There may be no collector listening, and the benchmark is still useful
  * when there is not - the table is on screen either way.
  */
-export function collectorUrl(): string | null {
+function collectorUrl(): string | null {
   // Two routes, because neither is reliable alone. `NativeModules.SourceCode` is absent under the
   // new architecture, which is what made this return null and report "no collector"; RN's own
   // getDevServer is the supported replacement but is an internal path and may move again.

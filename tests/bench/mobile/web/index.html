@@ -1,25 +1,52 @@
 <!doctype html>
 <html>
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Session bench</title>
-<style>
-  body { background:#0d0f10; color:#e7ede9; font-family:-apple-system,system-ui,sans-serif;
-         margin:0; padding:24px 18px; }
-  h1 { font-size:20px; margin:0 0 4px; }
-  p.sub { color:#7b8781; font-size:13px; margin:0 0 20px; }
-  button { background:#31f196; color:#0d0f10; border:0; border-radius:8px;
-           padding:14px 20px; font-size:16px; font-weight:600; width:100%; }
-  pre { font-family:ui-monospace,Menlo,monospace; font-size:12px; line-height:1.5;
-        color:#e7ede9; white-space:pre-wrap; word-break:break-all; margin-top:22px; }
-</style>
-</head>
-<body>
-  <h1>Session bench</h1>
-  <p class="sub">The JavaScript half, in this browser's engine.</p>
-  <button onclick="window.runBench()">Run the benchmark</button>
-  <pre id="out">Nothing measured yet.</pre>
-  <script src="/bench.js"></script>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Session bench</title>
+    <style>
+      body {
+        background: #0d0f10;
+        color: #e7ede9;
+        font-family: -apple-system, system-ui, sans-serif;
+        margin: 0;
+        padding: 24px 18px;
+      }
+      h1 {
+        font-size: 20px;
+        margin: 0 0 4px;
+      }
+      p.sub {
+        color: #7b8781;
+        font-size: 13px;
+        margin: 0 0 20px;
+      }
+      button {
+        background: #31f196;
+        color: #0d0f10;
+        border: 0;
+        border-radius: 8px;
+        padding: 14px 20px;
+        font-size: 16px;
+        font-weight: 600;
+        width: 100%;
+      }
+      pre {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 12px;
+        line-height: 1.5;
+        color: #e7ede9;
+        white-space: pre-wrap;
+        word-break: break-all;
+        margin-top: 22px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Session bench</h1>
+    <p class="sub">The JavaScript half, in this browser's engine.</p>
+    <button onclick="window.runBench()">Run the benchmark</button>
+    <pre id="out">Nothing measured yet.</pre>
+    <script src="/bench.js"></script>
+  </body>
 </html>
