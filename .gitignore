@@ -6,13 +6,26 @@ coverage/
 .turbo/
 *.log
 
-# Expo prebuild output - generated, never committed
+# Expo prebuild output - generated, never committed.
+#
+# Listed per app rather than globbed: `**/android/` and `**/ios/` would also swallow
+# packages/bridge-rn/android and .../ios, which are real tracked sources - CMakeLists.txt,
+# OnLoad.cpp, the Kotlin package, the podspec's README. So a new Expo app needs four lines here.
 apps/mobile/android/
 apps/mobile/ios/
-apps/mobile/.expo/
 apps/mobile/.gitignore
 apps/mobile/.tamagui/
 apps/mobile/expo-env.d.ts
+tests/bench/mobile/android/
+tests/bench/mobile/ios/
+tests/bench/mobile/.tamagui/
+tests/bench/mobile/expo-env.d.ts
+
+# `expo start` writes this, and it is per-machine: a device list and Expo's own README about
+# why not to commit it. Matched anywhere rather than per-app, because there are two Expo
+# projects now - apps/mobile and tests/bench/mobile - and the next one should not have to
+# remember to add a line here.
+**/.expo/
 
 # Native build artifacts
 prebuilds/
