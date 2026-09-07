@@ -1,0 +1,9 @@
+{
+  "extends": "@session/typescript-config/bundler.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "types": [],
+    "lib": ["ES2023", "DOM"]
+  },
+  "include": ["*.ts", "*.tsx", "src/**/*"]
+}

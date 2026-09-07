@@ -3,12 +3,17 @@ packages:
   - packages/*
   - tooling/*
   - tests/*
+  # The mobile benchmark is an Expo app nested inside tests/bench, so `tests/*` does not reach it.
+  # Without this its package.json is fiction: the dependencies are never installed and it works only
+  # because the hoisted layout happens to carry what it needs.
+  - tests/bench/mobile
 
 catalog:
   '@bufbuild/buf': 1.72.0
   '@bufbuild/protobuf': 2.14.1
   '@bufbuild/protoc-gen-es': 2.14.1
   '@eslint/js': 10.0.1
+  '@legendapp/list': 3.3.10
   '@playwright/test': 1.62.1
   '@tamagui/babel-plugin': 2.7.7
   '@types/node': 22.20.1
