@@ -168,17 +168,13 @@ it('account ids: what they cost on the wire', () => {
       (idBytes / 1024).toFixed(1),
       (total / 1024).toFixed(1),
       `${((idBytes / total) * 100).toFixed(0)}%`,
-      // conversation_id is identical for every message in the page and is also on the envelope.
-      '0.0',
     ])
   }
 
   report(
     '\n\n== ACCOUNT IDS ==  500 messages, bytes spent on identity\n\n' +
-      table(rows, ['shape', 'msgs', 'uniq', 'id KB', 'total KB', 'id %', 'dup convId KB']) +
+      table(rows, ['shape', 'msgs', 'uniq', 'id KB', 'total KB', 'id %']) +
       '\n' +
-      '  id %            share of a message page that is account ids, as hex strings\n' +
-      '  dup convId KB   Message.conversation_id, repeated per message, and already on the\n' +
-      '                  envelope - free to remove, no interning scheme required\n',
+      '  id %  share of a message page that is account ids, as hex strings\n',
   )
 })

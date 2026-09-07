@@ -66,9 +66,7 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
       <Separator borderColor="$bordersColor" />
 
       {ready ? (
-        // No itemHeight here, unlike the conversation list: a message bubble is as tall as its
-        // body wraps to, so there is nothing constant to give. The list still windows; it measures
-        // rows as they come into view rather than being able to skip straight to an offset.
+        // No itemHeight: a bubble is as tall as its body wraps to, so the list has to measure.
         <List
           data={messages}
           keyExtractor={(message) => String(message.id)}

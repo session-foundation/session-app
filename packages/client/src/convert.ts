@@ -94,13 +94,7 @@ function fromAttachmentPb(pb: AttachmentPb): Attachment {
   }
 }
 
-/**
- * `conversationId` is supplied rather than read off the message, because the wire no longer carries
- * it: every container already establishes which conversation it is - an event names it beside the
- * message, and a page answers a request that named one - so repeating it per row was 29% of a page
- * spent on something the reader already knew. The facade type keeps the field, since a message
- * knowing its conversation is worth having; only the bytes lost it.
- */
+/** The id comes from the envelope: the wire does not carry one per message, only the facade type. */
 export function fromMessagePb(pb: MessagePb, conversationId: string): Message {
   const deleted = fromDeletionPb(pb.deleted ?? DeletionPb.UNSPECIFIED)
   return {
