@@ -2,9 +2,19 @@ import { routes, useNav } from '@session/app'
 import type { Conversation } from '@session/client'
 import { useConversations, useUnreadRequestCount } from '@session/state'
 import { ELEMENT } from '@session/test-ids'
-import { Avatar, Screen, ScrollView, Separator, Text, XStack, YStack } from '@session/ui'
+import { Avatar, List, Screen, Separator, Text, XStack, YStack } from '@session/ui'
 
 import { conversationTitle } from './conversationTitle'
+
+/**
+ * The height of one row, which the list needs in order to place a scrollbar without measuring.
+ *
+ * It is `$1.5` of padding top and bottom either side of a 40px avatar - the tallest thing in the
+ * row - and both text lines are `numberOfLines={1}`, so nothing here can wrap and change it. A row
+ * that grew a second line would need this changed with it; `ConversationRow` is the only place
+ * that could, which is why the constant lives beside it.
+ */
+const ROW_HEIGHT = 60
 
 /**
  * The conversation list.
@@ -94,24 +104,25 @@ export function ConversationListScreen() {
 
       <Separator borderColor="$bordersColor" />
 
-      {conversations.length === 0 ? (
-        <YStack flex={1} alignItems="center" justifyContent="center" padding="$3">
-          <Text tone="secondary" testID={ELEMENT.conversationList.empty}>
-            No conversations yet
-          </Text>
-        </YStack>
-      ) : (
-        <ScrollView flex={1}>
-          {conversations.map((conversation, index) => (
-            <ConversationRow
-              key={conversation.id}
-              conversation={conversation}
-              index={index}
-              onPress={() => nav.push(routes.conversation(conversation.id))}
-            />
-          ))}
-        </ScrollView>
-      )}
+      <List
+        data={conversations}
+        itemHeight={ROW_HEIGHT}
+        keyExtractor={(conversation) => conversation.id}
+        renderItem={(conversation, index) => (
+          <ConversationRow
+            conversation={conversation}
+            index={index}
+            onPress={() => nav.push(routes.conversation(conversation.id))}
+          />
+        )}
+        empty={
+          <YStack flex={1} alignItems="center" justifyContent="center" padding="$3">
+            <Text tone="secondary" testID={ELEMENT.conversationList.empty}>
+              No conversations yet
+            </Text>
+          </YStack>
+        }
+      />
     </Screen>
   )
 }
@@ -129,8 +140,8 @@ function ConversationRow({
 
   return (
     <XStack
+      height={ROW_HEIGHT}
       paddingHorizontal="$2"
-      paddingVertical="$1.5"
       gap="$2"
       alignItems="center"
       hoverStyle={{ backgroundColor: '$backgroundSecondary' }}
