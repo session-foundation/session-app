@@ -98,8 +98,14 @@ message Reply {
 }
 
 message Message {
+  // Field 2 held conversation_id, which every container already establishes: a MessageEvent names
+  // the conversation beside the message, and a MessageList answers a request that named one. It was
+  // 29% of a page of messages - a 66-character account id repeated per row - and the reader
+  // already knew it before it arrived.
+  reserved 2;
+  reserved "conversation_id";
+
   int64 id = 1;
-  string conversation_id = 2;
   string author = 3;
   int64 timestamp = 4;
   string body = 5;

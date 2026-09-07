@@ -96,7 +96,7 @@ it('one new message arriving in a transcript that is already loaded', () => {
           ready: true,
           messages: messages.map((m) => ({
             id: Number(m.id),
-            conversationId: m.conversationId,
+            conversationId,
             author: m.author,
             timestamp: Number(m.timestamp),
             body: m.body,
@@ -157,11 +157,8 @@ it('account ids: what they cost on the wire', () => {
     const n = 500
     const { messages } = makeCorpus({ conversations: 1, messages: n, authorCount: authors })
 
-    const idBytes = messages.reduce((sum, m) => sum + m.author.length + m.conversationId.length, 0)
-    const total = messages.reduce(
-      (sum, m) => sum + m.author.length + m.conversationId.length + m.body.length + 24,
-      0,
-    )
+    const idBytes = messages.reduce((sum, m) => sum + m.author.length, 0)
+    const total = messages.reduce((sum, m) => sum + m.author.length + m.body.length + 24, 0)
     const unique = new Set(messages.map((m) => m.author)).size
 
     rows.push([
@@ -172,7 +169,7 @@ it('account ids: what they cost on the wire', () => {
       (total / 1024).toFixed(1),
       `${((idBytes / total) * 100).toFixed(0)}%`,
       // conversation_id is identical for every message in the page and is also on the envelope.
-      (messages.reduce((s, m) => s + m.conversationId.length, 0) / 1024).toFixed(1),
+      '0.0',
     ])
   }
 

@@ -91,7 +91,7 @@ function decodeEvent(pb: EventPb): SessionEvent | null {
         ? {
             type: 'message-added',
             conversationId: pb.kind.value.conversationId,
-            message: fromMessagePb(pb.kind.value.message),
+            message: fromMessagePb(pb.kind.value.message, pb.kind.value.conversationId),
           }
         : null
     case 'messageUpdated':
@@ -99,7 +99,7 @@ function decodeEvent(pb: EventPb): SessionEvent | null {
         ? {
             type: 'message-updated',
             conversationId: pb.kind.value.conversationId,
-            message: fromMessagePb(pb.kind.value.message),
+            message: fromMessagePb(pb.kind.value.message, pb.kind.value.conversationId),
           }
         : null
     case 'historyReplaced':
@@ -347,7 +347,8 @@ export function createSessionClient(transport: BridgeTransport): SessionClient {
             : { before: { timestamp: toBigInt(before.timestamp), id: toBigInt(before.id) } }),
         },
       })
-      return expect(response, 'messageList').messages.map(fromMessagePb)
+      // The id the caller asked for: a page of messages answers a request that named one.
+      return expect(response, 'messageList').messages.map((m) => fromMessagePb(m, id))
     },
 
     async sendMessage(id, message: OutgoingMessage, options): Promise<number> {

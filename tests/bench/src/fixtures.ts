@@ -77,13 +77,11 @@ export function makeCorpus(options: {
     )
   }
 
-  const conversationId = accounts[0] as string
   const messages: MessagePb[] = []
   for (let i = 0; i < options.messages; i++) {
     messages.push(
       create(MessageSchema, {
         id: BigInt(i + 1),
-        conversationId,
         author: accounts[i % authorCount] as string,
         timestamp: BigInt(now - (options.messages - i) * 30_000),
         // Real message bodies are mostly short with a long tail; a flat length would flatter

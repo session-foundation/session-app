@@ -69,8 +69,9 @@ void encode(const client::Attachment& from, pb::Attachment* to) {
 }
 
 void encode(const client::Message& from, pb::Message* to) {
+    // No conversation id: every container already names the conversation, and repeating a
+    // 66-character account id per row was 29% of a page of messages. See types.proto.
     to->set_id(from.id);
-    to->set_conversation_id(from.conversation.to_string());
     to->set_author(to_hex(from.sender));
     to->set_timestamp(epoch_ms(from.timestamp));
     to->set_body(from.body);

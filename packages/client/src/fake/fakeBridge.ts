@@ -71,10 +71,10 @@ function conversationToPb(c: Conversation): ConversationInit {
   }
 }
 
+/** The wire no longer carries conversation_id: every container already names the conversation. */
 function messageToPb(m: Message): MessageInit {
   return {
     id: BigInt(m.id),
-    conversationId: m.conversationId,
     author: m.author,
     timestamp: BigInt(m.timestamp),
     body: m.body,
