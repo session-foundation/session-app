@@ -1,7 +1,8 @@
 import { create, toBinary, fromBinary } from '@bufbuild/protobuf'
-import { FrameSchema, MnemonicSchema } from '@session/proto'
+import { MnemonicSchema } from '@session/proto'
+import type { Conversation, ConversationId } from '@session/client'
 import { applyEvent, compareConversations, emptyState } from '@session/state'
-import type { Conversation, ConversationId, SessionState } from '@session/state'
+import type { SessionState } from '@session/state'
 import { it } from 'vitest'
 
 import { conversationListFrame, conversationUpdatedFrame, makeCorpus } from './fixtures'
@@ -58,7 +59,8 @@ function upsertOptimised(state: SessionState, conversation: Conversation): Sessi
 
   const current = state[toOrder]
   const existing = current.indexOf(conversation.id)
-  const without = existing >= 0 ? [...current.slice(0, existing), ...current.slice(existing + 1)] : current
+  const without =
+    existing >= 0 ? [...current.slice(0, existing), ...current.slice(existing + 1)] : current
   const at = binarySearch(without, target, conversation)
   const order = [...without.slice(0, at), conversation.id, ...without.slice(at)]
 
@@ -114,7 +116,15 @@ it('upsertConversation: what dropping the re-sort is worth', () => {
 
   report(
     '\n\n== upsertConversation: CURRENT vs NO RE-SORT ==  milliseconds, median\n\n' +
-      table(rows, ['store holds', 'current', 'optimised', 'saved', 'saved %', 'x20 now', 'x20 after']) +
+      table(rows, [
+        'store holds',
+        'current',
+        'optimised',
+        'saved',
+        'saved %',
+        'x20 now',
+        'x20 after',
+      ]) +
       '\n' +
       '  x20 is one poll cycle touching twenty rows, which is where this stops being academic.\n' +
       '  The optimised version keeps the order sorted and moves one row: a binary search and a\n' +
@@ -168,7 +178,10 @@ it('account ids: what the two payload changes are worth, and where interning sto
     })
 
     // The allocation the current scheme forces: a distinct 66-character string per message.
-    const encodedTable = toBinary(MnemonicSchema, create(MnemonicSchema, { words: messages.map((m) => m.author) }))
+    const encodedTable = toBinary(
+      MnemonicSchema,
+      create(MnemonicSchema, { words: messages.map((m) => m.author) }),
+    )
     const parseAuthors = time('parse authors', () => {
       fromBinary(MnemonicSchema, encodedTable)
     })
@@ -177,7 +190,7 @@ it('account ids: what the two payload changes are worth, and where interning sto
       label,
       `${String(count)}/${String(authors)}`,
       (total / 1024).toFixed(1),
-      `${(((convIdBytes) / total) * 100).toFixed(0)}%`,
+      `${((convIdBytes / total) * 100).toFixed(0)}%`,
       (internedTotal / 1024).toFixed(1),
       `${((1 - internedTotal / (total - convIdBytes)) * 100).toFixed(0)}%`,
       ms(parseAuthors.median),

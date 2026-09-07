@@ -205,7 +205,7 @@ describeAddon('the database, with something in it', () => {
         ms(p95(first)),
         ms(mid(deep)),
         ms(mid(all)),
-        ms(mid(all) / depth * 1000),
+        ms((mid(all) / depth) * 1000),
       ])
     }
 

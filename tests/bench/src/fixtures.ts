@@ -10,6 +10,8 @@ import {
   type Message as MessagePb,
 } from '@session/proto'
 
+import { mulberry32, words } from './text'
+
 /**
  * Payloads shaped like the ones that actually cross the bridge.
  *
@@ -18,34 +20,12 @@ import {
  * Message weighs. A fixture with short ids would understate every decode measurement here.
  */
 
-/** Deterministic, so two runs of the suite are comparable. */
-function mulberry32(seed: number): () => number {
-  let a = seed >>> 0
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0
-    let t = Math.imul(a ^ (a >>> 15), 1 | a)
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
-  }
-}
-
 const HEX = '0123456789abcdef'
 
 export function accountId(random: () => number): string {
   let id = '05'
   for (let i = 0; i < 64; i++) id += HEX[Math.floor(random() * 16)]
   return id
-}
-
-const WORDS =
-  'the a of and to in is it you that he was for on are as with his they at be this from I have or by one had not but what all were we when your can said there use an each which she do how their if will up other about out many then them these so'.split(
-    ' ',
-  )
-
-function words(random: () => number, count: number): string {
-  const out: string[] = []
-  for (let i = 0; i < count; i++) out.push(WORDS[Math.floor(random() * WORDS.length)] as string)
-  return out.join(' ')
 }
 
 export interface Corpus {
