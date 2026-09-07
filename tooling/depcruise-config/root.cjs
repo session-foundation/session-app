@@ -155,11 +155,8 @@ module.exports = {
 
   options: {
     doNotFollow: { path: 'node_modules' },
-    // The last two are deliberately outside the import graph rather than accidentally orphaned:
-    // tests/bench/mobile/web holds esbuild output, and nitro-stub.ts is reached by Metro's
-    // resolver rather than by an import, so nothing can name it as a dependency.
     exclude: {
-      path: '(node_modules|/gen/|/generated/|dist/|build/|/out/|tests/bench/mobile/web/|tests/bench/mobile/src/nitro-stub)',
+      path: '(node_modules|/gen/|/generated/|dist/|build/|/out/)',
     },
     tsPreCompilationDeps: true,
     tsConfig: { fileName: 'tsconfig.json' },

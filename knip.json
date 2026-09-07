@@ -3,16 +3,6 @@
   "workspaces": {
     "packages/localization": {
       "project": ["src/**/*.ts", "!src/localization-src/**"]
-    },
-    "tests/bench/mobile": {
-      "entry": [
-        "src/web-entry.ts",
-        "src/web-render-entry.tsx",
-        "src/nitro-stub.ts",
-        "collector.mjs",
-        "web/serve.mjs"
-      ],
-      "project": ["**/*.{ts,tsx,mjs,js}", "!android/**", "!ios/**", "!web/*.js"]
     }
   },
   "ignoreDependencies": [
