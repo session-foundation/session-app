@@ -1,0 +1,10 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Render bench</title>
+<style>
+  body { background:#0d0f10; margin:0; }
+  /* react-native's layout assumes every ancestor is a flex container; a browser root is not.
+     Without this the tree renders correct and zero pixels tall - the same trap the desktop app hit. */
+  #root { display:flex; flex-direction:column; height:100vh; }
+</style>
+</head>
+<body><div id="root"></div><script src="/render.js"></script></body></html>

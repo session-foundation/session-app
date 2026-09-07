@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Pressable, ScrollView, Text, View } from 'react-native'
 
 import type { Conversation } from './conversations'
@@ -99,16 +99,39 @@ export function RenderBench({
   // Taken before the tree is built and read once it has committed. requestAnimationFrame after a
   // commit fires once the frame carrying it has been produced, which is the closest thing to "the
   // rows are on screen" available from inside the app.
+  //
+  // An effect rather than a ref callback: react-native-web hands ScrollView's ref through a
+  // different path than react-native does, and a callback ref that changes identity is invoked
+  // again on every render - which on the web left this reporting nothing at all. An effect with an
+  // empty dependency list fires once per mounted tree on both renderers, which is what is wanted.
   const [start] = useState(() => Date.now())
-  const report = useCallback(
-    (node: unknown) => {
-      if (node) requestAnimationFrame(() => onMounted(Date.now() - start))
-    },
-    [onMounted, start],
-  )
+  const reported = useRef(false)
+
+  useEffect(() => {
+    if (reported.current) return
+    reported.current = true
+    // Whichever of the two lands first. requestAnimationFrame is the better signal - it fires
+    // once the frame carrying the commit has been produced - but a browser does not run it in a
+    // hidden tab, and a hidden tab is exactly where an automated run happens. The timeout is the
+    // floor that keeps the run moving; the rAF is what makes the number mean "on screen".
+    let done = false
+    const finish = () => {
+      if (done) return
+      done = true
+      onMounted(Date.now() - start)
+    }
+    const frame = requestAnimationFrame(finish)
+    const timer = setTimeout(finish, 0)
+    return () => {
+      cancelAnimationFrame(frame)
+      clearTimeout(timer)
+    }
+    // Once per mounted tree. onMounted and start are stable for the life of one.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
-    <ScrollView ref={report as never} style={{ flex: 1 }}>
+    <ScrollView style={{ flex: 1 }}>
       {conversations.map((conversation) => (
         <Row key={conversation.id} conversation={conversation} />
       ))}

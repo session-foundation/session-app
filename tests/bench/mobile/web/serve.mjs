@@ -24,6 +24,8 @@ const here = fileURLToPath(new URL('.', import.meta.url))
 const files = {
   '/': ['text/html', () => readFileSync(join(here, 'index.html'))],
   '/bench.js': ['application/javascript', () => readFileSync(join(here, 'bench.js'))],
+  '/render': ['text/html', () => readFileSync(join(here, 'render.html'))],
+  '/render.js': ['application/javascript', () => readFileSync(join(here, 'render.js'))],
 }
 
 createServer((req, res) => {
