@@ -4,8 +4,9 @@ import { createServer } from 'node:http'
 /**
  * Catches the results the phone posts back, prints them, and exits.
  *
- * Run it beside `expo start`. It exits after the first report so it cannot be left running and
- * quietly catching somebody else's numbers later.
+ * Run it beside `expo start`. It keeps listening: a benchmark is normally run more than once -
+ * to see whether the numbers are stable, or after a change - and a collector that exits on the
+ * first report means noticing that only when the second run appears to have vanished.
  */
 const server = createServer((req, res) => {
   if (req.method !== 'POST') {
@@ -33,7 +34,6 @@ const server = createServer((req, res) => {
     } catch (e) {
       console.error('could not read the report:', e.message, body.slice(0, 200))
     }
-    server.close(() => process.exit(0))
   })
 })
 

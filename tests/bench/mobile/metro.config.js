@@ -16,4 +16,19 @@ config.resolver.nodeModulesPaths = [
 ]
 config.resolver.disableHierarchicalLookup = true
 
+/**
+ * The bench never opens a bridge, but importing the client's barrel reaches one: Metro picks the
+ * `.native` transport, which needs a Nitro module Expo Go cannot have. Resolving it to a stub is
+ * what lets the JavaScript half be measured without a dev client.
+ */
+const stub = path.resolve(__dirname, 'src/nitro-stub.ts')
+const defaultResolve = config.resolver.resolveRequest
+
+config.resolver.resolveRequest = (context, moduleName, platform) => {
+  if (moduleName === '@session/bridge-rn' || moduleName === 'react-native-nitro-modules') {
+    return { type: 'sourceFile', filePath: stub }
+  }
+  return (defaultResolve ?? context.resolveRequest)(context, moduleName, platform)
+}
+
 module.exports = config

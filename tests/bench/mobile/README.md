@@ -64,13 +64,29 @@ What the ratio decides:
 | 1000 | 120.7 | 2.200  | 0.200   | 2.40  | 4.4x             |
 | 5000 | 604.8 | 11.667 | 1.000   | 12.67 | 4.4x             |
 
-**The A11 hardware factor is 4.4x**, and it holds across every size, which is what a clean
-measurement looks like. On the pre-registered thresholds above that is "not worth removing".
+**The A11 hardware factor is 4.4x**, and it holds across every size. Taken alone it says "not
+worth removing" - and taken alone it is misleading, which is the point of the next table.
 
-**It is a floor, not the answer.** Safari runs JavaScriptCore with a JIT; Hermes has none, so the
-app will be slower than this by a further factor nobody has measured. That gap is the last input
-to the serialisation decision, and getting it needs Expo Go (`npx expo login` first) or a dev
-client.
+## Measured: iPhone X, iOS 16.7.12, Expo Go / Hermes
+
+| rows | KB    | decode  | project | total  | vs Mac | vs JSC on the same phone |
+| ---- | ----- | ------- | ------- | ------ | ------ | ------------------------ |
+| 100  | 12.0  | 2.943   | 0.094   | 3.04   | 43x    | 6.5x                     |
+| 500  | 60.5  | 15.488  | 0.632   | 16.12  | 60x    | 13.8x                    |
+| 1000 | 120.7 | 30.763  | 1.371   | 32.13  | 58x    | 13.4x                    |
+| 5000 | 604.8 | 153.685 | 8.264   | 161.95 | 56x    | 12.8x                    |
+
+**The factors do not multiply.** Hardware alone is 4.4x and the estimate `4.4 x (2 to 3)` gave
+9-13x; the real number is **58x**, out by a factor of five. Hermes costs 13.4x on the very device
+where JavaScriptCore costs 4.4x, and anyone reasoning from separately-measured factors would have
+carried that error into a design decision. Measure the combination.
+
+**Decode is 95-97% of it.** At a thousand conversations that is 32 ms on the JavaScript thread -
+two dropped frames at 60 Hz - for a single `conversation_list_replaced`. At five thousand it is
+162 ms.
+
+On the thresholds above this is comfortably in "the direct-JSI path earns its maintenance cost",
+and the pass-count argument in the write-up is attacking exactly the 96%.
 
 ## The browser fallback
 

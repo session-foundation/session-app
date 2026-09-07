@@ -1,4 +1,4 @@
-import { NativeModules, Platform } from 'react-native'
+import { Platform } from 'react-native'
 
 import type { BenchRow } from './run'
 
@@ -14,11 +14,36 @@ import type { BenchRow } from './run'
  * when there is not - the table is on screen either way.
  */
 export function collectorUrl(): string | null {
-  const source = (NativeModules as { SourceCode?: { scriptURL?: string } }).SourceCode
-  const scriptUrl = source?.scriptURL
-  if (!scriptUrl) return null
-  const host = /^https?:\/\/([^/:]+)/.exec(scriptUrl)?.[1]
-  return host ? `http://${host}:19999/results` : null
+  // Two routes, because neither is reliable alone. `NativeModules.SourceCode` is absent under the
+  // new architecture, which is what made this return null and report "no collector"; RN's own
+  // getDevServer is the supported replacement but is an internal path and may move again.
+  const candidates: (string | undefined)[] = []
+
+  try {
+    const getDevServer = (
+      require('react-native/Libraries/Core/Devtools/getDevServer') as {
+        default: () => { url?: string }
+      }
+    ).default
+    candidates.push(getDevServer().url)
+  } catch {
+    // Not available; fall through to the older one.
+  }
+
+  try {
+    const { NativeModules } = require('react-native') as {
+      NativeModules: { SourceCode?: { scriptURL?: string } }
+    }
+    candidates.push(NativeModules.SourceCode?.scriptURL)
+  } catch {
+    // Neither route worked; the table on screen is still the result.
+  }
+
+  for (const candidate of candidates) {
+    const host = candidate ? /^https?:\/\/([^/:]+)/.exec(candidate)?.[1] : undefined
+    if (host) return `http://${host}:19999/results`
+  }
+  return null
 }
 
 export async function sendResults(rows: BenchRow[]): Promise<'sent' | 'no collector' | 'failed'> {
