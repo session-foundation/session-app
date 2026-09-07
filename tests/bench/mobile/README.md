@@ -55,6 +55,36 @@ What the ratio decides:
 - **Above about 20x** - the decode is a frame on its own, and the direct-JSI path earns its
   maintenance cost.
 
+## Measured: iPhone X, iOS 16.7.12, Safari / JavaScriptCore
+
+| rows | KB    | decode | project | total | vs the Mac above |
+| ---- | ----- | ------ | ------- | ----- | ---------------- |
+| 100  | 12.0  | 0.433  | 0.033   | 0.47  | 6.7x             |
+| 500  | 60.5  | 1.067  | 0.100   | 1.17  | 4.3x             |
+| 1000 | 120.7 | 2.200  | 0.200   | 2.40  | 4.4x             |
+| 5000 | 604.8 | 11.667 | 1.000   | 12.67 | 4.4x             |
+
+**The A11 hardware factor is 4.4x**, and it holds across every size, which is what a clean
+measurement looks like. On the pre-registered thresholds above that is "not worth removing".
+
+**It is a floor, not the answer.** Safari runs JavaScriptCore with a JIT; Hermes has none, so the
+app will be slower than this by a further factor nobody has measured. That gap is the last input
+to the serialisation decision, and getting it needs Expo Go (`npx expo login` first) or a dev
+client.
+
+## The browser fallback
+
+When Expo Go will not open - it requires an account, and the App Store build tracks the newest SDK
+rather than this project's - Safari answers the hardware half with nothing installed:
+
+```sh
+node_modules/.bin/esbuild tests/bench/mobile/src/web-entry.ts --bundle --format=iife \
+  --outfile=tests/bench/mobile/web/bench.js
+node tests/bench/mobile/web/serve.mjs
+```
+
+Then open `http://<this machine>:8090` on the phone. Results post back to the terminal.
+
 ## Timing resolution
 
 `performance.now()` is not guaranteed sub-millisecond under Hermes, so `perCall` times a batch and

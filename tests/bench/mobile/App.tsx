@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react'
 import { Platform, Pressable, ScrollView, StatusBar, Text, View } from 'react-native'
 
+import { sendResults } from './src/report'
 import { runJsThreadBench, type BenchRow } from './src/run'
 
 /**
@@ -18,6 +19,7 @@ import { runJsThreadBench, type BenchRow } from './src/run'
 export default function App() {
   const [rows, setRows] = useState<BenchRow[]>([])
   const [running, setRunning] = useState(false)
+  const [sent, setSent] = useState<string>('')
 
   const run = useCallback(() => {
     setRunning(true)
@@ -26,8 +28,10 @@ export default function App() {
     // the thread being blocked.
     requestAnimationFrame(() => {
       setTimeout(() => {
-        setRows(runJsThreadBench())
+        const measured = runJsThreadBench()
+        setRows(measured)
         setRunning(false)
+        void sendResults(measured).then(setSent)
       }, 50)
     })
   }, [])
@@ -75,7 +79,10 @@ export default function App() {
                 ]}
               />
             ))}
-            <Text style={{ color: '#7b8781', fontSize: 12, marginTop: 18, lineHeight: 18 }}>
+            <Text style={{ color: '#31f196', fontSize: 12, marginTop: 14 }}>
+              {sent === 'sent' ? 'Results sent to the dev machine.' : sent === '' ? '' : sent}
+            </Text>
+            <Text style={{ color: '#7b8781', fontSize: 12, marginTop: 8, lineHeight: 18 }}>
               Milliseconds, median of the samples. Compare against the desktop run: the ratio is
               the Hermes-and-phone multiplier, and it is what decides whether the serialisation is
               worth removing from the mobile path.
