@@ -1,4 +1,4 @@
-import { test } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 import { ELEMENT } from '@session/test-ids'
 
 import { DesktopApp } from '../harness/DesktopApp'
@@ -74,6 +74,15 @@ for (const peers of SIZES) {
       const fps = await app.countFrames(1_000)
 
       const tasks = await app.readLongTasks()
+
+      // A long task is over 50 ms of blocked main thread - a threshold, not a duration, so this
+      // means the same thing on a fast laptop and a slow runner. Before the lists were windowed
+      // this was 2 at five thousand with a worst of 879 ms; after, it is 0 at every size.
+      expect(
+        tasks.map((t) => `${t.duration.toFixed(0)}ms`),
+        'the main thread must not block for over 50ms',
+      ).toEqual([])
+
       rows.push({
         peers,
         toList,
@@ -89,6 +98,27 @@ for (const peers of SIZES) {
     }
   })
 }
+
+/**
+ * The property the windowing bought, asserted as a ratio so it survives a change of machine.
+ *
+ * Fifty times the rows should cost about the same, because only a screenful is ever mounted.
+ * Measured on the branch before the fix this was 18x - 59 ms at a hundred rows against 1,059 ms
+ * at five thousand - so a bound of 3x is far below the regression and far above the noise.
+ */
+test('the list appears in time that does not grow with the list @desktop @perf', () => {
+  const smallest = rows[0]
+  const largest = rows[rows.length - 1]
+  if (!smallest || !largest || rows.length < 2) {
+    throw new Error('the size sweep did not run, so there is nothing to compare')
+  }
+  const growth = largest.toList / Math.max(smallest.toList, 1)
+  expect(
+    growth,
+    `to-list went from ${smallest.toList.toFixed(0)}ms at ${String(smallest.peers)} rows to ` +
+      `${largest.toList.toFixed(0)}ms at ${String(largest.peers)} - it should be flat`,
+  ).toBeLessThan(3)
+})
 
 test.afterAll(() => {
   if (rows.length === 0) return
