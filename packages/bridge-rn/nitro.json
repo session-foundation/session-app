@@ -14,6 +14,12 @@
         "language": "c++",
         "implementationClassName": "HybridSessionBridge"
       }
+    },
+    "BenchStructs": {
+      "all": {
+        "language": "c++",
+        "implementationClassName": "HybridBenchStructs"
+      }
     }
   },
   "ignorePaths": ["node_modules"]

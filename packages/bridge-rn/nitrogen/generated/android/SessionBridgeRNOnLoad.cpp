@@ -16,6 +16,7 @@
 #include <NitroModules/HybridObjectRegistry.hpp>
 
 #include "HybridSessionBridge.hpp"
+#include "HybridBenchStructs.hpp"
 
 namespace margelo::nitro::session::bridge::rn {
 
@@ -42,6 +43,15 @@ void registerAllNatives() {
                     "The HybridObject \"HybridSessionBridge\" is not default-constructible! "
                     "Create a public constructor that takes zero arguments to be able to autolink this HybridObject.");
       return std::make_shared<HybridSessionBridge>();
+    }
+  );
+  HybridObjectRegistry::registerHybridObjectConstructor(
+    "BenchStructs",
+    []() -> std::shared_ptr<HybridObject> {
+      static_assert(std::is_default_constructible_v<HybridBenchStructs>,
+                    "The HybridObject \"HybridBenchStructs\" is not default-constructible! "
+                    "Create a public constructor that takes zero arguments to be able to autolink this HybridObject.");
+      return std::make_shared<HybridBenchStructs>();
     }
   );
 }

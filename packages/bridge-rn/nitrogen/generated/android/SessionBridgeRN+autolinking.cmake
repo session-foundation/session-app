@@ -33,6 +33,9 @@ target_sources(
   # Autolinking Setup
   ../nitrogen/generated/android/SessionBridgeRNOnLoad.cpp
   # Shared Nitrogen C++ sources
+  ../nitrogen/generated/shared/c++/HybridBenchConversationHandleSpec.cpp
+  ../nitrogen/generated/shared/c++/HybridBenchMessageHandleSpec.cpp
+  ../nitrogen/generated/shared/c++/HybridBenchStructsSpec.cpp
   ../nitrogen/generated/shared/c++/HybridSessionBridgeSpec.cpp
   # Android-specific Nitrogen C++ sources
   
