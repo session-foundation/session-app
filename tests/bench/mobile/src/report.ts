@@ -66,3 +66,33 @@ export async function sendResults(rows: BenchRow[]): Promise<'sent' | 'no collec
     return 'failed'
   }
 }
+
+/** The render numbers, on the same collector as the decode ones. */
+export async function sendRenderResults(
+  results: { rows: number; mountMs: number }[],
+): Promise<'sent' | 'no collector' | 'failed'> {
+  const url = collectorUrl()
+  if (!url) return 'no collector'
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        platform: Platform.OS,
+        version: String(Platform.Version),
+        engine: (globalThis as { HermesInternal?: unknown }).HermesInternal ? 'Hermes' : 'JSC',
+        kind: 'render',
+        rows: results.map((r) => ({
+          label: String(r.rows),
+          kb: 0,
+          decode: 0,
+          project: 0,
+          total: r.mountMs,
+        })),
+      }),
+    })
+    return response.ok ? 'sent' : 'failed'
+  } catch {
+    return 'failed'
+  }
+}

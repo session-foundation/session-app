@@ -18,9 +18,9 @@ const server = createServer((req, res) => {
   req.on('end', () => {
     res.writeHead(200, { 'content-type': 'application/json' }).end('{"ok":true}')
     try {
-      const { platform, version, engine, rows } = JSON.parse(body)
+      const { platform, version, engine, rows, kind } = JSON.parse(body)
       const pad = (v, w, left) => (left ? String(v).padEnd(w) : String(v).padStart(w))
-      console.log(`\n== ${platform} ${version} · ${engine} ==\n`)
+      console.log(`\n== ${platform} ${version} · ${engine}${kind === 'render' ? ' · RENDER (mount ms)' : ''} ==\n`)
       console.log(
         `${pad('rows', 6, true)}${pad('KB', 8)}${pad('decode', 9)}${pad('project', 9)}${pad('TOTAL', 8)}`,
       )

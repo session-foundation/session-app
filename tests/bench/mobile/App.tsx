@@ -1,7 +1,9 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Platform, Pressable, ScrollView, StatusBar, Text, View } from 'react-native'
 
-import { sendResults } from './src/report'
+import { makeConversations, type Conversation } from './src/conversations'
+import { RenderBench, type RenderResult } from './src/RenderBench'
+import { sendRenderResults, sendResults } from './src/report'
 import { runJsThreadBench, type BenchRow } from './src/run'
 
 /**
@@ -20,6 +22,41 @@ export default function App() {
   const [rows, setRows] = useState<BenchRow[]>([])
   const [running, setRunning] = useState(false)
   const [sent, setSent] = useState<string>('')
+  const [renderRows, setRenderRows] = useState<Conversation[] | null>(null)
+  const [renderResults, setRenderResults] = useState<RenderResult[]>([])
+  const [pending, setPending] = useState<number[]>([])
+
+  // Each size is mounted as its own tree and timed on commit, then the next one starts. Rendering
+  // them all at once would measure one enormous list rather than the curve.
+  const onMounted = useCallback(
+    (mountMs: number) => {
+      setRenderResults((done) => {
+        const rows = renderRows?.length ?? 0
+        return [...done, { rows, mountMs }]
+      })
+      setRenderRows(null)
+      setPending((rest) => {
+        const [next, ...remaining] = rest
+        if (next !== undefined) setTimeout(() => setRenderRows(makeConversations(next)), 250)
+        return remaining
+      })
+    },
+    [renderRows],
+  )
+
+  const runRender = useCallback(() => {
+    setRenderResults([])
+    const sizes = [100, 500, 1000, 5000]
+    const [first, ...rest] = sizes
+    setPending(rest)
+    if (first !== undefined) setRenderRows(makeConversations(first))
+  }, [])
+
+  useEffect(() => {
+    if (renderResults.length === 4 && pending.length === 0) {
+      void sendRenderResults(renderResults).then(setSent)
+    }
+  }, [renderResults, pending])
 
   const run = useCallback(() => {
     setRunning(true)
@@ -35,6 +72,17 @@ export default function App() {
       }, 50)
     })
   }, [])
+
+  if (renderRows) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#0d0f10', paddingTop: 64 }}>
+        <Text style={{ color: '#7b8781', fontSize: 13, paddingHorizontal: 20, paddingBottom: 8 }}>
+          Mounting {renderRows.length} rows...
+        </Text>
+        <RenderBench conversations={renderRows} onMounted={onMounted} />
+      </View>
+    )
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: '#0d0f10', paddingTop: 64 }}>
@@ -63,6 +111,29 @@ export default function App() {
             {running ? 'Running…' : 'Run the benchmark'}
           </Text>
         </Pressable>
+
+        <Pressable
+          onPress={runRender}
+          disabled={running}
+          style={{
+            backgroundColor: '#1c2122',
+            paddingVertical: 14,
+            borderRadius: 8,
+            alignItems: 'center',
+            marginBottom: 24,
+          }}
+        >
+          <Text style={{ color: '#31f196', fontWeight: '600' }}>Run the render benchmark</Text>
+        </Pressable>
+
+        {renderResults.length > 0 ? (
+          <View style={{ marginBottom: 24 }}>
+            <Row cells={['rows', 'mount ms']} header />
+            {renderResults.map((r) => (
+              <Row key={r.rows} cells={[String(r.rows), r.mountMs.toFixed(0)]} />
+            ))}
+          </View>
+        ) : null}
 
         {rows.length > 0 ? (
           <View>

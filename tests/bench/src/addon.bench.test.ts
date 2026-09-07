@@ -57,7 +57,8 @@ describeAddon('the addon, with real libsession', () => {
     let random = seeded(7)
     let opened = 0
 
-    for (const target of [10, 100, 500, 1000]) {
+    // The same four sizes every table in this suite uses, so the rows line up across tiers.
+    for (const target of [100, 500, 1000, 5000]) {
       while (opened < target) {
         await client.openDm(accountId(random))
         opened++

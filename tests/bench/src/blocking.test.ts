@@ -45,7 +45,7 @@ it('a small response arriving behind a conversation list', () => {
   const rows: string[][] = []
   const response = smallResponse(1)
 
-  for (const n of [0, 100, 500, 1000, 2000, 5000]) {
+  for (const n of [0, 100, 500, 1000, 5000]) {
     const frames: Uint8Array[] = []
     if (n > 0) {
       const { conversations } = makeCorpus({ conversations: n, messages: 0 })
@@ -90,7 +90,7 @@ it('a small response arriving behind a conversation list', () => {
 it('a storm of single-conversation updates, as polling produces', () => {
   const rows: string[][] = []
 
-  for (const listSize of [100, 1000, 5000]) {
+  for (const listSize of [100, 500, 1000, 5000]) {
     const { conversations } = makeCorpus({ conversations: listSize, messages: 0 })
 
     // Seed the store, then update one row at a time - what a poll cycle looks like when unread

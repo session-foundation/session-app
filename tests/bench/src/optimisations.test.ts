@@ -82,7 +82,7 @@ function upsertOptimised(state: SessionState, conversation: Conversation): Sessi
 it('upsertConversation: what dropping the re-sort is worth', () => {
   const rows: string[][] = []
 
-  for (const n of [100, 500, 1000, 5000, 10000]) {
+  for (const n of [100, 500, 1000, 5000]) {
     const { conversations } = makeCorpus({ conversations: n, messages: 0 })
     let seeded = emptyState
     pipe.push(conversationListFrame(conversations))

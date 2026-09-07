@@ -85,13 +85,15 @@ describeAddon('the database, with something in it', () => {
   it('the conversation list, as the message table fills up', async () => {
     const rows: string[][] = []
 
+    // Two questions in one table, so the sizes have to serve both: the standard sweep at a fixed
+    // message depth, plus three rows at 500 conversations that vary only the message volume.
     for (const [convos, perConvo] of [
-      [200, 0],
-      [200, 1],
-      [200, 200],
+      [100, 20],
+      [500, 0],
+      [500, 20],
+      [500, 200],
       [1000, 20],
-      [5000, 5],
-      [10000, 2],
+      [5000, 20],
     ] as const) {
       const client = await open(`c${String(convos)}m${String(perConvo)}`)
       const random = seeded(convos * 31 + perConvo)
@@ -126,11 +128,16 @@ describeAddon('the database, with something in it', () => {
     }
 
     // A regression guard, not decoration. The conversation list's snippet is a correlated
-    // subquery per row, and it is only cheap because messages_history covers its ORDER BY
-    // exactly. Anything that breaks that - a column added to the ORDER BY, an index renamed,
-    // a WHERE clause the index no longer serves - turns this into a scan per row, and the
-    // symptom would be a conversation list that got slow for reasons nothing points at.
-    const flat = rows.filter((r) => r[0]?.startsWith('200 x'))
+    // subquery per row, and it stays cheap only because messages_history covers its ORDER BY
+    // exactly. Anything that breaks that - a column added to the ORDER BY, an index renamed, a
+    // WHERE the index no longer serves - turns it into a scan per row, and the symptom is a
+    // conversation list that got slow for reasons nothing points at.
+    //
+    // The bound is 3x rather than "flat" because it is not flat: at five hundred conversations,
+    // going from ten thousand messages to a hundred thousand costs 0.82 ms to 1.85 ms. Sublinear,
+    // and small in absolute terms, but real - an earlier version of this measured only forty
+    // thousand messages and concluded there was no effect at all.
+    const flat = rows.filter((r) => r[0]?.startsWith('500 x'))
     const withMessages = flat.map((r) => Number(r[5]))
     const worst = Math.max(...withMessages)
     const best = Math.min(...withMessages.filter((n) => n > 0))

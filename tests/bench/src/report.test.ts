@@ -25,7 +25,7 @@ afterAll(() => {
 it('conversation list: where the time goes', () => {
   const rows: string[][] = []
 
-  for (const n of [1, 10, 100, 500, 1000, 5000]) {
+  for (const n of [100, 500, 1000, 5000]) {
     const { conversations } = makeCorpus({ conversations: n, messages: 0 })
     const bytes = conversationListFrame(conversations)
 
