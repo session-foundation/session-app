@@ -1,6 +1,6 @@
 import type { Conversation, ConversationId, Message, SessionEvent } from '@session/client'
 
-import { compareConversations, transferKey, type MessageWindow, type SessionState } from './types'
+import { transferKey, type MessageWindow, type SessionState } from './types'
 
 /**
  * The whole projection, as one pure function.
@@ -90,9 +90,13 @@ function upsertConversation(state: SessionState, conversation: Conversation): Se
 
   const { [conversation.id]: _removed, ...withoutFromOther } = state[from]
   const target = { ...state[to], [conversation.id]: conversation }
-  const order = Object.values(target)
-    .sort(compareConversations)
-    .map((c) => c.id)
+
+  // The row keeps its place, and a row arriving from the other list goes on the end. Neither is
+  // this file's decision to make: libsession orders the lists, and the only case that moves a
+  // conversation between them - approval - is followed by a replacement carrying the real order,
+  // so an appended row is corrected within the same batch rather than left where it was put.
+  const already = state[toOrder].includes(conversation.id)
+  const order = already ? state[toOrder] : [...state[toOrder], conversation.id]
 
   return {
     ...state,

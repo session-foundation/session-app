@@ -56,10 +56,6 @@ export const emptyState: SessionState = {
 }
 
 /** Pinned first, then most recent, then by id so the order never wobbles between renders. */
-export function compareConversations(a: Conversation, b: Conversation): number {
-  return b.priority - a.priority || b.lastActivity - a.lastActivity || a.id.localeCompare(b.id)
-}
-
 export function transferKey(messageId: number, index: number): string {
   return `${messageId}:${index}`
 }

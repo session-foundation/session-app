@@ -14,5 +14,5 @@ export {
   useTransfer,
   useUnreadRequestCount,
 } from './hooks'
-export { compareConversations, emptyState, transferKey } from './types'
+export { emptyState, transferKey } from './types'
 export type { MessageWindow, SessionState, TransferProgress } from './types'
