@@ -1,148 +1,19 @@
 import { create, toBinary, fromBinary } from '@bufbuild/protobuf'
 import { MnemonicSchema } from '@session/proto'
-import type { Conversation, ConversationId } from '@session/client'
-import { applyEvent, compareConversations, emptyState } from '@session/state'
-import type { SessionState } from '@session/state'
 import { it } from 'vitest'
 
-import { conversationListFrame, conversationUpdatedFrame, makeCorpus } from './fixtures'
+import { makeCorpus } from './fixtures'
 import { ms, report, table, time } from './measure'
-import { decodeOne, loopback, type Loopback } from './pipeline'
 
 /**
- * What the two proposed changes are actually worth.
+ * What interning account ids on a message page is worth, and where it stops paying.
  *
- * Both are measured against the code as it stands rather than projected from it: an A/B where the
- * only difference is the thing being changed. The optimised `upsertConversation` here is a sketch
- * for measurement, not a patch - it exists to put a number on the ceiling before anyone spends a
- * day reaching for it.
+ * Measured against the payload as it stands rather than projected from it. This is the last of the
+ * proposals that is still open: `Message.conversation_id` has left the wire, and the projection no
+ * longer sorts, so both of the changes this file used to size are done.
  */
 
-const pipe: Loopback = loopback()
-
-// -- The optimised projection -------------------------------------------------------------------
-
-/**
- * The same semantics as `upsertConversation`, without rebuilding the order from scratch.
- *
- * The current one calls Object.values on the whole index, sorts it with a JavaScript comparator,
- * and maps it to ids - three N-length allocations and an O(N log N) sort with a callback per
- * comparison, for a payload of one row. This keeps the order array sorted and moves the single row
- * that changed: a binary search for where it belongs, and one splice. The array copy is still O(N),
- * but a memmove is not a comparator.
- */
-function binarySearch(
-  order: readonly ConversationId[],
-  index: Record<ConversationId, Conversation>,
-  needle: Conversation,
-): number {
-  let low = 0
-  let high = order.length
-  while (low < high) {
-    const mid = (low + high) >>> 1
-    const at = index[order[mid] as ConversationId]
-    if (at !== undefined && compareConversations(at, needle) < 0) low = mid + 1
-    else high = mid
-  }
-  return low
-}
-
-function upsertOptimised(state: SessionState, conversation: Conversation): SessionState {
-  const intoRequests = conversation.request
-  const from = intoRequests ? 'conversations' : 'requests'
-  const fromOrder = intoRequests ? 'conversationOrder' : 'requestOrder'
-  const to = intoRequests ? 'requests' : 'conversations'
-  const toOrder = intoRequests ? 'requestOrder' : 'conversationOrder'
-
-  const { [conversation.id]: _gone, ...withoutFromOther } = state[from]
-  const target = { ...state[to], [conversation.id]: conversation }
-
-  const current = state[toOrder]
-  const existing = current.indexOf(conversation.id)
-  const without =
-    existing >= 0 ? [...current.slice(0, existing), ...current.slice(existing + 1)] : current
-  const at = binarySearch(without, target, conversation)
-  const order = [...without.slice(0, at), conversation.id, ...without.slice(at)]
-
-  // Only pay to rewrite the other list when the row was actually in it.
-  const otherOrder = state[fromOrder]
-  const otherIndex = otherOrder.indexOf(conversation.id)
-  const otherNext =
-    otherIndex >= 0
-      ? [...otherOrder.slice(0, otherIndex), ...otherOrder.slice(otherIndex + 1)]
-      : otherOrder
-
-  return {
-    ...state,
-    [from]: withoutFromOther,
-    [fromOrder]: otherNext,
-    [to]: target,
-    [toOrder]: order,
-  }
-}
-
-it('upsertConversation: what dropping the re-sort is worth', () => {
-  const rows: string[][] = []
-
-  for (const n of [100, 500, 1000, 5000]) {
-    const { conversations } = makeCorpus({ conversations: n, messages: 0 })
-    let seeded = emptyState
-    pipe.push(conversationListFrame(conversations))
-    for (const event of pipe.drain()) seeded = applyEvent(seeded, event)
-
-    const single = conversations[0]
-    if (!single) throw new Error('no fixture conversation')
-    const event = decodeOne(pipe, conversationUpdatedFrame({ ...single, unreadCount: 9 }))
-    if (event.type !== 'conversation-updated') throw new Error('wrong event')
-
-    const before = time('current', () => {
-      applyEvent(seeded, event)
-    })
-    const after = time('optimised', () => {
-      upsertOptimised(seeded, event.conversation)
-    })
-
-    const saved = before.median - after.median
-    rows.push([
-      String(n),
-      ms(before.median),
-      ms(after.median),
-      ms(saved),
-      before.median === 0 ? '-' : `${((saved / before.median) * 100).toFixed(0)}%`,
-      ms(before.median * 20),
-      ms(after.median * 20),
-    ])
-  }
-
-  report(
-    '\n\n== upsertConversation: CURRENT vs NO RE-SORT ==  milliseconds, median\n\n' +
-      table(rows, [
-        'store holds',
-        'current',
-        'optimised',
-        'saved',
-        'saved %',
-        'x20 now',
-        'x20 after',
-      ]) +
-      '\n' +
-      '  x20 is one poll cycle touching twenty rows, which is where this stops being academic.\n' +
-      '  The optimised version keeps the order sorted and moves one row: a binary search and a\n' +
-      '  splice, instead of Object.values + sort + map over everything.\n',
-  )
-})
-
-// -- Interning ----------------------------------------------------------------------------------
-
-/**
- * Both proposals, sized and timed against a real codec.
- *
- * The interned payload is built with the schema that exists - a repeated string for the table, and
- * an index in place of each author - so the numbers come from protobuf-es rather than from
- * arithmetic about protobuf-es. The reconstruction step is timed separately and added back, since
- * that is the cost the saving has to beat.
- */
-it('account ids: what the two payload changes are worth, and where interning stops paying', () => {
+it('account ids: what interning is worth, and where it stops paying', () => {
   const rows: string[][] = []
 
   for (const [label, count, authors] of [
