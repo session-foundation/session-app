@@ -41,7 +41,11 @@ function replay(events: SessionEvent[], from: SessionState = emptyState): Sessio
 }
 
 describe('applyEvent', () => {
-  it('orders pinned conversations first, then by recency', () => {
+  it('keeps the order libsession sent, rather than imposing one', () => {
+    // Deliberately not the order our own comparator would produce: libsession orders both lists
+    // in SQL, and it orders them differently from each other - requests carry no priority term.
+    // A store that re-sorted would disagree with the request list today and with any later change
+    // to the sort rules.
     const state = replay([
       {
         type: 'conversation-list-replaced',
@@ -53,7 +57,7 @@ describe('applyEvent', () => {
       },
     ])
 
-    expect(state.conversationOrder).toEqual(['b', 'a', 'c'])
+    expect(state.conversationOrder).toEqual(['a', 'b', 'c'])
   })
 
   it('moves an approved conversation out of the request list', () => {

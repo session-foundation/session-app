@@ -2,7 +2,7 @@ import type { Conversation, ConversationId, Message, SessionClient } from '@sess
 import { createStore, type StoreApi } from 'zustand/vanilla'
 
 import { applyEvent } from './applyEvent'
-import { compareConversations, emptyState, type MessageWindow, type SessionState } from './types'
+import { emptyState, type MessageWindow, type SessionState } from './types'
 
 export interface SessionActions {
   /**
@@ -228,7 +228,10 @@ function index(
 ): Partial<SessionState> {
   const byId: Record<ConversationId, Conversation> = {}
   for (const conversation of conversations) byId[conversation.id] = conversation
-  const order = [...conversations].sort(compareConversations).map((c) => c.id)
+  // Arrival order - see the note on the twin of this function in applyEvent.ts. libsession orders
+  // both lists in SQL and does not order them the same way, so re-sorting here disagreed with the
+  // request list rather than duplicating work.
+  const order = conversations.map((c) => c.id)
   return target === 'conversations'
     ? { conversations: byId, conversationOrder: order }
     : { requests: byId, requestOrder: order }
