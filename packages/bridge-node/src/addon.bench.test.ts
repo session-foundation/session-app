@@ -53,11 +53,14 @@ describeAddon('the addon, with real libsession', () => {
     const rows: string[][] = []
     let random = seeded(7)
     let opened = 0
+    /** A real conversation to ask about, for the small command that goes on libsession's loop. */
+    let someConversation = ''
 
     // The same four sizes every table in this suite uses, so the rows line up across tiers.
     for (const target of [100, 500, 1000, 5000]) {
       while (opened < target) {
-        await client.openDm(accountId(random))
+        const id = await client.openDm(accountId(random))
+        if (!someConversation) someConversation = id
         opened++
       }
 
@@ -69,25 +72,40 @@ describeAddon('the addon, with real libsession', () => {
       }
       times.sort((a, b) => a - b)
 
-      // A small command straight afterwards, to see what the round trip costs on its own.
-      const smallTimes: number[] = []
+      // Two small commands, because the shim does not treat them alike. `getConversation` goes
+      // through `Client::_async`, which is `loop.call`, so it queues on the same single loop the
+      // big read is occupying. `getPref` is answered inline in the shim from `core.globals` and
+      // never reaches that loop. Only the first can be blocked - and measuring the second was the
+      // mistake in the previous version of this benchmark, which reported no blocking from a
+      // command that could not have been blocked.
+      const queuedAlone: number[] = []
       for (let i = 0; i < 12; i++) {
         const start = performance.now()
-        await client.getPref('bench')
-        smallTimes.push(performance.now() - start)
+        await client.getConversation(someConversation)
+        queuedAlone.push(performance.now() - start)
       }
-      smallTimes.sort((a, b) => a - b)
+      queuedAlone.sort((a, b) => a - b)
 
-      // The one that matters: a small command issued while the big one is still in flight.
-      const blockedTimes: number[] = []
+      const queuedBehind: number[] = []
+      for (let i = 0; i < 12; i++) {
+        const big = client.getConversations()
+        const start = performance.now()
+        await client.getConversation(someConversation)
+        queuedBehind.push(performance.now() - start)
+        await big
+      }
+      queuedBehind.sort((a, b) => a - b)
+
+      // The inline command behind the same big read, as a control.
+      const inlineBehind: number[] = []
       for (let i = 0; i < 12; i++) {
         const big = client.getConversations()
         const start = performance.now()
         await client.getPref('bench')
-        blockedTimes.push(performance.now() - start)
+        inlineBehind.push(performance.now() - start)
         await big
       }
-      blockedTimes.sort((a, b) => a - b)
+      inlineBehind.sort((a, b) => a - b)
 
       const mid = (a: number[]) => a[Math.floor(a.length / 2)] as number
       const p95 = (a: number[]) => a[Math.floor(a.length * 0.95)] as number
@@ -96,27 +114,36 @@ describeAddon('the addon, with real libsession', () => {
         String(target),
         ms(mid(times)),
         ms(p95(times)),
-        ms(mid(smallTimes)),
-        ms(mid(blockedTimes)),
-        ms(mid(blockedTimes) - mid(smallTimes)),
+        ms(mid(queuedAlone)),
+        ms(mid(queuedBehind)),
+        ms(mid(queuedBehind) - mid(queuedAlone)),
+        ms(mid(inlineBehind)),
       ])
       random = seeded(7 + target)
     }
 
     report(
       '\n\n== TIER 2: THE REAL ADDON ==  milliseconds, median unless stated\n\n' +
-        table(rows, ['convos', 'getAll', 'getAll p95', 'small', 'small behind', 'blocked by']) +
+        table(rows, [
+          'convos',
+          'getAll',
+          'getAll p95',
+          'queued',
+          'queued behind',
+          'blocked by',
+          'inline behind',
+        ]) +
         '\n' +
-        '  getAll        getConversations round trip: sqlite -> encode.cpp -> protobuf ->\n' +
-        '                thread-safe function -> JS decode -> facade\n' +
-        '  small         getPref round trip, the floor for any command\n' +
-        '  small behind  the same getPref, issued while getConversations is still in flight\n' +
-        '  blocked by    the difference - and it is zero, because libsession answers the\n' +
-        '                cheap command first. Verified separately: with getConversations and\n' +
-        '                getPref both in flight over 1000 conversations, the resolution order\n' +
-        '                is small then big. Commands are NOT serialised in submission order.\n' +
-        '                The FIFO guarantee is about an event and the response that must follow\n' +
-        '                it, not about making every command queue behind every other one.\n',
+        '  getAll         getConversations round trip: sqlite -> encode.cpp -> protobuf ->\n' +
+        '                 thread-safe function -> JS decode -> facade\n' +
+        '  queued         getConversation, alone. It goes through Client::_async, which is\n' +
+        '                 loop.call, so it runs on the same single loop as the big read\n' +
+        '  queued behind  the same command, issued while getConversations is still in flight\n' +
+        '  blocked by     the difference: what a user-facing command waits for when a large\n' +
+        '                 read is already running\n' +
+        '  inline behind  getPref behind the same big read, as a control. The shim answers it\n' +
+        '                 from core.globals without touching the loop, so it cannot be blocked -\n' +
+        '                 which is why measuring it said nothing about blocking at all\n',
     )
   }, 600_000)
 })
