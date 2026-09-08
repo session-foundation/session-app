@@ -43,7 +43,7 @@ module.exports = {
     mayOnlyDependOn('state', ['client', 'basic-types']),
     mayOnlyDependOn('ui', ['theme-tokens', 'test-ids', 'basic-types']),
     mayOnlyDependOn('app', ['client', 'state', 'basic-types']),
-    mayOnlyDependOn('bridge-node', ['client', 'client-contract', 'proto', 'bridge-types', 'bench']),
+    mayOnlyDependOn('bridge-node', ['client', 'client-contract', 'proto', 'bridge-types']),
     mayOnlyDependOn('bridge-rn', ['bridge-types']),
     mayOnlyDependOn('screens', [
       'ui',

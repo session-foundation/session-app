@@ -14,6 +14,24 @@ import { DesktopApp } from '../harness/DesktopApp'
  * Run it by hand, like the rest of the e2e suite:
  *   pnpm --filter @session/desktop build
  *   cd tests/e2e && env -u ELECTRON_RUN_AS_NODE pnpm exec playwright test performance
+ *
+ * Measured on an Apple Silicon Mac, before the lists were windowed and after, same spec both
+ * times. Recorded here rather than only in a report because the numbers are what the bounds in
+ * this file are set against, and a bound whose origin nobody can find is a bound nobody will
+ * trust to change:
+ *
+ *   rows   to list          tap to convo   long tasks   worst block
+ *   100     59 ->  46 ms     39 ->  3 ms    0 -> 0        0 ->   0 ms
+ *   1000   258 ->  43 ms    103 -> 42 ms    1 -> 0      198 ->   0 ms
+ *   5000  1059 ->  53 ms    410 -> 42 ms    2 -> 0      879 ->   0 ms
+ *
+ * The interesting column is `to list`: 18x growth from a hundred rows to five thousand before,
+ * 1.15x after. That flatness is what windowing buys and what this spec asserts, as a ratio rather
+ * than a duration so it means the same on a CI runner.
+ *
+ * The whole suite is ~5.5 s warm and ~12 s including a cold desktop build. It needs no native
+ * addon - the harness sets SESSION_FAKE - and Playwright drives the app's own Electron binary, so
+ * there is no browser download either.
  */
 
 const SIZES = [100, 1000, 5000]
