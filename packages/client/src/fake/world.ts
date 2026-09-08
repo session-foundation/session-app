@@ -124,28 +124,35 @@ export class FakeAccount {
   }
 
   /**
-   * Both lists, when a row moved rather than merely changed. libsession's `_emit_lists_replaced`,
-   * reached through the same condition its `_touch_reordered` expresses.
+   * The list a row moved in, when it moved rather than merely changed.
    *
-   * A conversation's place is decided by `lastActivity` and `priority`, and by which of the two
-   * lists it is in, so a subscriber told only that the row changed would not know it had moved -
-   * and could not work it out without reimplementing a sort that is not even the same for both
-   * lists. But most of what changes a conversation leaves it exactly where it was: a read receipt,
-   * a nickname, an expiry. Announcing there is two list rebuilds to say nothing.
+   * A conversation's place is decided by `lastActivity` and `priority`, so a subscriber told only
+   * that the row changed would not know it had moved - and could not work it out without
+   * reimplementing a sort that is not even the same for both lists. But most of what changes a
+   * conversation leaves it exactly where it was: a read receipt, a nickname, an expiry. Announcing
+   * there is a list rebuild to say nothing.
    *
-   * The real client cannot cheaply compare before and after, so it takes the decision at the call
-   * site. Here the previous row is in hand, so the comparison is the honest way to say the same
-   * thing.
+   * **One list, not both.** A conversation is in exactly one - libsession's two queries are strict
+   * complements, `priority >= 0 AND [NOT] IS_REQUEST` - so replacing both says one true thing and
+   * one false one, and pays for a full rebuild to do it. The exception is a row that crossed
+   * between them, which is the only case where both genuinely changed: one lost it, the other
+   * gained it.
    */
   private announceIfMoved(before: Conversation | undefined, after: Conversation): void {
+    const crossed = before !== undefined && before.request !== after.request
     const moved =
       before === undefined ||
+      crossed ||
       before.priority !== after.priority ||
-      before.lastActivity !== after.lastActivity ||
-      before.request !== after.request
+      before.lastActivity !== after.lastActivity
     if (!moved) return
-    this.emit({ type: 'conversation-list-replaced', conversations: this.list() })
-    this.emit({ type: 'request-list-replaced', conversations: this.requests() })
+
+    if (crossed || !after.request) {
+      this.emit({ type: 'conversation-list-replaced', conversations: this.list() })
+    }
+    if (crossed || after.request) {
+      this.emit({ type: 'request-list-replaced', conversations: this.requests() })
+    }
   }
 
   /** Adds a conversation and announces it, the way libsession would on first contact. */

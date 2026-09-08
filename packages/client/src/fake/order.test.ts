@@ -1,9 +1,17 @@
 import { describe, expect, it } from 'vitest'
 
-import { friends } from './fixtures'
+import { friends, strangers } from './fixtures'
 
-describe('the fake announces list order the way libsession does', () => {
-  it('sends the lists when a message changes where a conversation belongs', async () => {
+/**
+ * Which list the fake announces, and when.
+ *
+ * A conversation's place is decided by `lastActivity` and `priority`, so a row that moved has to
+ * say so - a `conversation-updated` names the row and not its position. But a conversation is in
+ * exactly one of the two lists, so only one of them can have changed, unless the row crossed
+ * between them.
+ */
+describe('the fake announces the list a row moved in', () => {
+  it('replaces the conversation list when a message arrives, and not the request list', async () => {
     const { world, clients } = friends(['Alice', 'Bob'])
     const alice = clients['Alice']
     const bob = clients['Bob']
@@ -15,16 +23,51 @@ describe('the fake announces list order the way libsession does', () => {
     world.settle()
     stop()
 
-    // The row, and then where it now sits: last_activity decides the order, so an update alone
-    // would leave a display to sort for itself.
-    expect(seen, `saw: ${seen.join(', ')}`).toContain('conversation-updated')
-    expect(seen, `saw: ${seen.join(', ')}`).toContain('conversation-list-replaced')
-    expect(seen, `saw: ${seen.join(', ')}`).toContain('request-list-replaced')
+    const saw = `saw: ${seen.join(', ')}`
+    expect(seen, saw).toContain('conversation-updated')
+    expect(seen, saw).toContain('conversation-list-replaced')
+    // Alice and Bob are already friends, so nothing about the request list changed.
+    expect(seen, saw).not.toContain('request-list-replaced')
   })
-})
 
-describe('but not when the row stayed where it was', () => {
-  it('says nothing about the lists when only the unread count changed', async () => {
+  it('replaces the request list when a message arrives for a request, and not the other', async () => {
+    const { world, clients } = strangers(['Alice', 'Bob'])
+    const alice = clients['Alice']
+    const bob = clients['Bob']
+    if (!alice || !bob) throw new Error('fixture did not produce both clients')
+
+    const seen: string[] = []
+    const stop = alice.onEvent((event) => seen.push(event.type))
+    await bob.sendMessage(world.account('Alice').sessionId, { body: 'let me in again' })
+    world.settle()
+    stop()
+
+    const saw = `saw: ${seen.join(', ')}`
+    expect(seen, saw).toContain('request-list-replaced')
+    expect(seen, saw).not.toContain('conversation-list-replaced')
+  })
+
+  it('replaces both when a row crosses between them', async () => {
+    const { world, clients } = strangers(['Alice', 'Bob'])
+    const alice = clients['Alice']
+    if (!alice) throw new Error('fixture did not produce a client')
+
+    const [request] = await alice.getMessageRequests()
+    if (!request) throw new Error('expected a request to approve')
+
+    const seen: string[] = []
+    const stop = alice.onEvent((event) => seen.push(event.type))
+    await alice.approveConversation(request.id)
+    world.settle()
+    stop()
+
+    // The only case where both genuinely changed: one list lost the row, the other gained it.
+    const saw = `saw: ${seen.join(', ')}`
+    expect(seen, saw).toContain('conversation-list-replaced')
+    expect(seen, saw).toContain('request-list-replaced')
+  })
+
+  it('says nothing about either list when the row did not move', async () => {
     const { world, clients } = friends(['Alice', 'Bob'])
     const alice = clients['Alice']
     const bob = clients['Bob']
@@ -41,9 +84,11 @@ describe('but not when the row stayed where it was', () => {
     world.settle()
     stop()
 
-    // The row changed - it has no unread messages now - but it has not moved, and replacing both
-    // lists to say so is two rebuilds for nothing.
-    expect(seen, `saw: ${seen.join(', ')}`).toContain('conversation-updated')
-    expect(seen, `saw: ${seen.join(', ')}`).not.toContain('conversation-list-replaced')
+    // The row changed - it has no unread messages now - but it has not moved, and rebuilding a
+    // list to say so is work for nothing.
+    const saw = `saw: ${seen.join(', ')}`
+    expect(seen, saw).toContain('conversation-updated')
+    expect(seen, saw).not.toContain('conversation-list-replaced')
+    expect(seen, saw).not.toContain('request-list-replaced')
   })
 })
