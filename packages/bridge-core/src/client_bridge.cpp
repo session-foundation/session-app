@@ -21,6 +21,7 @@
 #endif
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cmath>
 #include <cstddef>
@@ -808,6 +809,17 @@ struct ClientBridge::Impl {
     }
 };
 
+namespace {
+    /// The bridge this process opened. One per process is already true - the apps open exactly
+    /// one - and `current()` is what lets a platform image loader rely on it, since the operating
+    /// system calls one of those and has nothing to hand it.
+    std::atomic<ClientBridge*> the_bridge{nullptr};
+}  // namespace
+
+ClientBridge* ClientBridge::current() {
+    return the_bridge.load(std::memory_order_acquire);
+}
+
 ClientBridge::ClientBridge(InitOptions options, Sink sink) :
         _impl{std::make_unique<Impl>(std::move(sink), options)} {
 
@@ -914,6 +926,10 @@ ClientBridge::ClientBridge(InitOptions options, Sink sink) :
     // An account that is already there needs no onboarding, so this is where its network comes
     // from. A deferred one gets it from createAccount or restoreAccount instead.
     _impl->on_account();
+
+    // Published last: everything a media request needs is built by now, so a loader that arrives
+    // the instant this returns finds a bridge that can answer.
+    the_bridge.store(this, std::memory_order_release);
 }
 
 ClientBridge::~ClientBridge() {
@@ -923,12 +939,66 @@ ClientBridge::~ClientBridge() {
 void ClientBridge::close() {
     if (!_impl)
         return;
+    // Unpublished first: a loader reading `current()` after this gets nullptr and fails its
+    // request rather than a pointer to something being destroyed. Compare-exchange so that a
+    // bridge closing after a second one was opened does not clear the second one's entry.
+    ClientBridge* self = this;
+    the_bridge.compare_exchange_strong(self, nullptr, std::memory_order_acq_rel);
     // Order matters. remove_logger is serialised against logging, so once it returns the callback
     // is neither running nor reachable; destroying the Client then joins Core's loop, so nothing
     // is mid-emit by the time the Impl the two of them write to goes.
     remove_logger(_impl->logger);
     _impl->client.reset();
     _impl.reset();
+}
+
+void ClientBridge::fetch_media(double message_id, double index, MediaHandler cb) {
+    if (!_impl || !_impl->client) {
+        cb(Media{"the bridge is closed", {}, {}});
+        return;
+    }
+
+    try {
+        const int64_t id = whole<int64_t>(message_id, "media.messageId");
+        const auto at = whole<size_t>(index, "media.index");
+        auto* impl = _impl.get();
+
+        impl->client->message(
+                id,
+                [impl, id, at, cb = std::move(cb)](
+                        std::optional<std::string> error,
+                        std::optional<client::Message> msg) mutable {
+                    if (error) {
+                        cb(Media{std::move(error), {}, {}});
+                        return;
+                    }
+                    if (!msg || at >= msg->attachments.size()) {
+                        cb(Media{not_found("attachment", std::to_string(id)), {}, {}});
+                        return;
+                    }
+
+                    // The sender's claim, and the only description there is. Whoever renders it
+                    // is handling bytes from a stranger either way.
+                    std::string content_type =
+                            msg->attachments[at].content_type.value_or("application/octet-stream");
+
+                    impl->client->attachment_data(
+                            id,
+                            at,
+                            impl->report(AttachmentTransfer::download, msg->conversation),
+                            [cb = std::move(cb), content_type = std::move(content_type)](
+                                    std::optional<std::string> failure,
+                                    std::vector<std::byte> bytes) mutable {
+                                if (failure) {
+                                    cb(Media{std::move(failure), {}, {}});
+                                    return;
+                                }
+                                cb(Media{std::nullopt, std::move(content_type), std::move(bytes)});
+                            });
+                });
+    } catch (const std::exception& e) {
+        cb(Media{std::string{e.what()}, {}, {}});
+    }
 }
 
 void ClientBridge::call(Request request) {

@@ -22,8 +22,12 @@ sessionTest({
     await alice.tap(ELEMENT.conversationList.row(0))
     await alice.waitForVisible(ELEMENT.conversation.screen)
 
+    // The pictures fetch themselves as they draw, through the media scheme the main process
+    // serves - no tap, and no prompt, because nobody asked for them by hand.
+    expect(await alice.imageLoaded(ELEMENT.conversation.attachmentImage)).toBe(true)
+
     const names = await alice.readAllText(ELEMENT.conversation.attachmentName)
-    expect(names).toContain('harbour.jpg')
+    expect(names).toContain('itinerary.pdf')
 
     await alice.tap(ELEMENT.conversation.attachmentDownload)
 

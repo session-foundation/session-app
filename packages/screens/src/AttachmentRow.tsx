@@ -3,7 +3,7 @@ import type { Attachment, Message } from '@session/client'
 import { tr } from '@session/localization'
 import { useAttachmentTransfer, useSessionActions } from '@session/state'
 import { ELEMENT } from '@session/test-ids'
-import { Progress, Text, XStack, YStack } from '@session/ui'
+import { Image, Progress, Text, XStack, YStack } from '@session/ui'
 import { useState } from 'react'
 
 import { formatBytes } from './formatBytes'
@@ -25,6 +25,51 @@ export function AttachmentRow({
   attachment: Attachment
   /** The conversation has never been asked what to fetch unprompted. Asked once, on first tap. */
   onFirstDownload?: () => void
+}) {
+  // libsession's rule for what can be shown as a picture, not one re-derived from content types
+  // here - it owns the definition and a gallery elsewhere would answer differently.
+  const uri = message.galleryViewable ? requirePorts().media.urlFor(message.id, attachment.index) : null
+  if (uri !== null) {
+    return <MediaAttachment attachment={attachment} uri={uri} />
+  }
+  return <FileAttachment message={message} attachment={attachment} onFirstDownload={onFirstDownload} />
+}
+
+/**
+ * A picture, fetched by the platform as it draws.
+ *
+ * No download affordance and no auto-download prompt: the element asking for its own bytes is
+ * what starts the transfer, and the same call reads the cache, joins one already running, or
+ * starts one. The box is sized from the dimensions the sender supplied so the transcript does
+ * not jump when the bytes land.
+ */
+function MediaAttachment({ attachment, uri }: { attachment: Attachment; uri: string }) {
+  const width = Math.min(attachment.width ?? DEFAULT_MEDIA_SIZE, DEFAULT_MEDIA_SIZE)
+  const ratio = attachment.width && attachment.height ? attachment.height / attachment.width : 1
+
+  return (
+    <Image
+      uri={uri}
+      width={width}
+      height={Math.round(width * ratio)}
+      borderRadius={MEDIA_RADIUS}
+      testID={ELEMENT.conversation.attachmentImage}
+    />
+  )
+}
+
+/** As wide as a bubble is allowed to be, so a picture never sets the bubble's width. */
+const DEFAULT_MEDIA_SIZE = 240
+const MEDIA_RADIUS = 10
+
+function FileAttachment({
+  message,
+  attachment,
+  onFirstDownload,
+}: {
+  message: Message
+  attachment: Attachment
+  onFirstDownload?: (() => void) | undefined
 }) {
   const actions = useSessionActions()
   const download = useAttachmentTransfer('download', message.id, attachment.index)

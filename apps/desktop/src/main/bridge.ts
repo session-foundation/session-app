@@ -14,6 +14,8 @@ import {
 } from '@session/basic-types'
 import type { BridgeTransport } from '@session/client'
 
+import type { MediaSource } from './media'
+
 const { app, safeStorage } = electron
 
 /**
@@ -70,7 +72,7 @@ function loadDotEnv(): void {
  * The fake is reached through a dynamic import from a dev-only module, so a production build
  * has no path to it at all. Everything above this file sees frames either way.
  */
-export async function createBridge(): Promise<BridgeTransport> {
+export async function createBridge(): Promise<BridgeTransport & MediaSource> {
   loadDotEnv()
 
   if (process.env['EXPO_PUBLIC_SESSION_FAKE'] === '1') {

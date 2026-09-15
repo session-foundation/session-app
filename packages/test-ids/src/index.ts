@@ -34,6 +34,7 @@ export const ELEMENT = {
     messageState: 'message-state',
     messageRetry: 'message-retry',
     attachment: 'message-attachment',
+    attachmentImage: 'message-attachment-image',
     attachmentName: 'message-attachment-name',
     attachmentState: 'message-attachment-state',
     attachmentProgress: 'message-attachment-progress',
@@ -110,6 +111,7 @@ export type ElementId =
   | 'message-state'
   | 'message-retry'
   | 'message-attachment'
+  | 'message-attachment-image'
   | 'message-attachment-name'
   | 'message-attachment-state'
   | 'message-attachment-progress'

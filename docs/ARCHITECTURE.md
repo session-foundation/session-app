@@ -110,10 +110,11 @@ something that half works. `approveConversation`: approval is not a flag anyone 
 recorded by messages flowing, so writing to someone is what approves them. `pollOnce`: Core owns
 its poll ticker and exposes no one-shot entry point. Both are open questions in `STATUS.md`.
 Attachment metadata, transfer progress and the per-conversation auto-download setting cross;
-bytes do not. A cache file libsession wrote is encrypted, so reaching one means a decrypting path
-per platform rather than a payload on this stream - see `STATUS.md`. `downloadAttachment` is also
-how a caller asks whether the bytes are here: libsession records nothing about a transfer, so the
-one call reads the cache, joins a fetch already running, or starts one.
+bytes do not. They leave by a second channel instead: `session-media://attachment/<id>/<index>`,
+resolved natively by each platform straight out of `ClientBridge::fetch_media`, so a picture never
+passes through JavaScript and never rides this stream. `downloadAttachment` is how a caller asks
+whether the bytes are here: libsession records nothing about a transfer, so the one call reads the
+cache, joins a fetch already running, or starts one.
 
 ## The fake, and why it is not a stub
 
@@ -437,3 +438,23 @@ Append one paragraph per decision. Undocumented decisions are what rot.
   a flag goes stale on an eviction or a pruned cache directory and this cannot. session-cli, on
   the same branch, draws a whole gallery this way - every tile calls `attachment_data` as it
   mounts. The cost is that a row offers "download" for a file already here and the tap is instant.
+
+- **2026-09-15 - Media bytes leave by a scheme, not by the frame stream.** The argument that put
+  responses on the event stream is about state an event could contradict; a decrypted attachment is
+  not state, nothing can contradict it, and a multi-megabyte payload on a FIFO stalls every state
+  frame behind it. So `ClientBridge::fetch_media` answers its own caller, and what reaches a
+  renderer is a URL its platform resolves: `protocol.handle` on Electron, and an image loader per
+  platform on mobile - an `RCTImageURLLoader` on iOS, a Fresco fetcher on Android - both reaching
+  the bridge through `ClientBridge::current()`, because the operating system calls those and has
+  nothing to hand them. Progress still goes to the sink, so a picture loading draws the same bar a
+  tap does. It also means the codegen subset never has to grow a bytes primitive.
+
+  Two things this cost, both found by running it. A standard scheme gets the special-scheme host
+  parser, so `session-media://5/0` canonicalises to the host `0.0.0.5` - hence the fixed
+  `attachment` authority with both ids in the path. And tamagui's `Image` passes `source` through
+  as a DOM attribute, producing an `<img>` with nothing to load; `@session/ui`'s wraps
+  react-native's instead, which react-native-web turns into something that fetches.
+
+  `MediaPort.urlFor` returns null where a platform has no resolver yet, and the attachment row
+  draws its file form instead. Mobile returns null today: saying so beats rendering an image that
+  never loads.

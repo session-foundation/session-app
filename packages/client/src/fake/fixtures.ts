@@ -49,10 +49,12 @@ export const FIXTURE_NAMES = [
 export type FixtureName = (typeof FIXTURE_NAMES)[number]
 
 /**
- * One picture and one file, which is what makes the two halves of the attachment row visible:
- * a message whose attachments are all images is gallery-viewable and one that mixes them is not.
+ * Pictures only, so the message is gallery-viewable and draws as pictures.
+ *
+ * Dimensions are the sender's and are what the placeholder is laid out from, so they are set:
+ * without them a transcript jumps as each one lands.
  */
-const SEEDED_ATTACHMENTS: Attachment[] = [
+const SEEDED_PICTURES: Attachment[] = [
   {
     index: 0,
     contentType: 'image/jpeg',
@@ -60,6 +62,33 @@ const SEEDED_ATTACHMENTS: Attachment[] = [
     size: 2_411_724,
     voiceMessage: false,
     width: 1600,
+    height: 1200,
+    uploaded: true,
+  },
+  {
+    index: 1,
+    contentType: 'image/png',
+    filename: 'ferry.png',
+    size: 812_004,
+    voiceMessage: false,
+    width: 1200,
+    height: 1600,
+    uploaded: true,
+  },
+]
+
+/**
+ * One picture and one file, which libsession's rule makes *not* gallery-viewable: a message is
+ * only shown as pictures when every attachment is one. This is what draws the file form.
+ */
+const SEEDED_FILES: Attachment[] = [
+  {
+    index: 0,
+    contentType: 'image/jpeg',
+    filename: 'receipt.jpg',
+    size: 96_500,
+    voiceMessage: false,
+    width: 900,
     height: 1200,
     uploaded: true,
   },
@@ -106,9 +135,13 @@ export function friends(
   }
 
   // Delivered rather than sent: sending an attachment is not in the protocol, so the only way one
-  // exists is arriving. Nothing is fetched for it - the conversation has not been asked yet.
+  // exists is arriving. Nothing is fetched for either - the conversation has not been asked yet.
+  // Two messages, because the two halves of the attachment row are chosen by libsession's
+  // gallery rule and a fixture with only one of them leaves the other undrawn.
   if (options.attachments ?? true) {
-    first.deliverFrom(second, 'Here are the photos', world.now(), SEEDED_ATTACHMENTS)
+    first.deliverFrom(second, 'Here are the photos', world.now(), SEEDED_PICTURES)
+    world.settle()
+    first.deliverFrom(second, 'And the paperwork', world.now(), SEEDED_FILES)
     world.settle()
   }
 

@@ -16,8 +16,11 @@ a time, via the `port-feature` skill.
 - **Sending an attachment.** Receiving one works: metadata, a download with progress, saving to a
   chosen path, and the per-conversation auto-download setting. `sendMessage` still takes a body
   and nothing else, so `SendState::uploading` is a state nothing here can reach.
-- **Showing an attachment.** A downloaded file has no way to reach a screen: the cache is
-  encrypted and bytes stay off the protocol. See the decision log.
+- **Showing an attachment on mobile.** Desktop draws pictures inline over the `session-media`
+  scheme; React Native needs a native image loader per platform - an `RCTImageURLLoader` on iOS, a
+  Fresco fetcher on Android - and neither is written, so `MediaPort.urlFor` returns null there and
+  the file form is what mobile shows.
+- **A full-size viewer.** Tapping a picture does nothing: there is no screen to open.
 - **Anything a message can be beyond text**: no reactions, replies, edits, deletes or read
   receipts.
 - **A devnet cannot have its own Pro backend.** The key libsession verifies proofs against is a
@@ -49,12 +52,9 @@ a time, via the `port-feature` skill.
   can be designed: a supported one-shot poll entry point; decrypting a push envelope without
   opening the database, for the notification service extension; and whether an extension and the
   app can hold the same database at once.
-- **Showing an attachment.** The cache files libsession writes are encrypted, so displaying one
-  needs a decrypting path rather than bytes over the bridge: a registered scheme resolved natively
-  on each platform - `protocol.handle` on Electron, an `RCTImageURLLoader` on iOS, a Fresco fetcher
-  on Android - all calling one media entry point on `ClientBridge`. Thumbnails belong to the same
-  design and should be generated locally from whatever can produce one, not fetched as a second
-  file.
+- **Thumbnails.** A transcript fetches whole attachments to draw them, which is what libsession
+  offers today. They should be generated locally from whatever can produce one rather than fetched
+  as a second file from the server, and that needs an image decoder wherever it happens.
 - **Two things to ask libsession for.** `conversation_id` inside `AttachmentProgress`, so a report
   from a command's own handler carries what the background callback already does and a screen can
   drop what it is not showing. And `attachment_cache_size()`, a sum over the cache index: there is

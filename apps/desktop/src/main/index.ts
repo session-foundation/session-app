@@ -10,6 +10,7 @@ const { app, BrowserWindow, MessageChannelMain, ipcMain, session } = electron
 import type { Request } from '@session/client'
 
 import { createBridge } from './bridge'
+import { registerMediaScheme, serveMedia } from './media'
 import {
   applyContentProtection,
   denyAllPermissions,
@@ -44,8 +45,12 @@ app.setName('session-app')
 
 const here = fileURLToPath(new URL('.', import.meta.url))
 
+// Before whenReady, which is the only point Electron accepts a privileged scheme.
+registerMediaScheme()
+
 async function createWindow(): Promise<void> {
   const bridge = await createBridge()
+  serveMedia(bridge)
 
   const window = new BrowserWindow({
     width: 1100,

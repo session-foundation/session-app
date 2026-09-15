@@ -49,7 +49,9 @@ export function contentSecurityPolicy({ dev }: { dev: boolean }): string {
     "default-src 'none'",
     `script-src 'self'${dev ? " 'unsafe-inline'" : ''}`,
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob:",
+    // session-media: is the one door to an attachment's bytes - see main/media.ts. Named here
+    // and nowhere else, so nothing but an image can reach it.
+    "img-src 'self' data: blob: session-media:",
     "font-src 'self' data:",
     `connect-src 'self'${dev ? ' ws:' : ''}`,
     "base-uri 'none'",

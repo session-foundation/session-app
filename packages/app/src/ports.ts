@@ -40,6 +40,20 @@ export interface FilesPort {
   revealInFolder(path: string): Promise<void>
 }
 
+/**
+ * How an attachment's bytes are named for something that draws them.
+ *
+ * A URL rather than the bytes: they are resolved natively - a registered scheme on Electron, an
+ * image loader on each mobile platform - so they never cross into JavaScript and never ride the
+ * frame stream, whose ordering is what makes a display bindable.
+ *
+ * `null` means this platform has no such resolver yet, and a caller draws the file form instead.
+ * A platform that cannot show a picture should say so rather than render a broken one.
+ */
+export interface MediaPort {
+  urlFor(messageId: number, index: number): string | null
+}
+
 export interface MediaProbePort {
   /** libsession does not measure images; whoever attaches one supplies the dimensions. */
   imageSize(path: string): Promise<{ width: number; height: number } | null>
@@ -75,6 +89,7 @@ export interface Ports {
   network: NetworkPort
   secureStore: SecureStore
   files: FilesPort
+  media: MediaPort
   mediaProbe: MediaProbePort
   notifications: NotificationsPort
   clipboard: ClipboardPort

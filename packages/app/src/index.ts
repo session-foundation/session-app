@@ -6,6 +6,7 @@ export type {
   ClipboardPort,
   FilesPort,
   LinkingPort,
+  MediaPort,
   MediaProbePort,
   NotificationsPort,
   PickedFile,

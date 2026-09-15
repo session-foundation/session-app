@@ -2,6 +2,7 @@
 #include <session_bridge/client_bridge.hpp>
 #include <session_bridge/gen/napi.hpp>
 
+#include <cstdint>
 #include <cstring>
 #include <memory>
 #include <optional>
@@ -23,6 +24,7 @@ class SessionBridge : public Napi::ObjectWrap<SessionBridge> {
                 "SessionBridge",
                 {
                         InstanceMethod<&SessionBridge::Call>("call"),
+                        InstanceMethod<&SessionBridge::FetchMedia>("fetchMedia"),
                         InstanceMethod<&SessionBridge::Close>("close"),
                 });
         exports.Set("SessionBridge", ctor);
@@ -177,6 +179,75 @@ class SessionBridge : public Napi::ObjectWrap<SessionBridge> {
             throw Napi::TypeError::New(info.Env(), e.what());
         }
         _bridge->call(std::move(*request));
+    }
+
+    /// `fetchMedia(messageId, index) -> Promise<{ contentType, bytes }>`.
+    ///
+    /// A promise rather than a frame, because bytes do not belong on the frame stream: its
+    /// ordering is what makes a display bindable, and a file on it would stall every state frame
+    /// behind a payload no event can contradict. The main process turns this into a response to
+    /// a registered scheme, so the renderer receives a URL rather than a payload.
+    ///
+    /// Its own thread-safe function per request, released when that request settles: these are
+    /// as rare as a picture coming on screen, and one shared across them would have to outlive
+    /// them all to be released safely.
+    Napi::Value FetchMedia(const Napi::CallbackInfo& info) {
+        Napi::Env env = info.Env();
+        auto deferred = Napi::Promise::Deferred::New(env);
+
+        if (!_bridge) {
+            deferred.Reject(Napi::Error::New(env, "the bridge is closed").Value());
+            return deferred.Promise();
+        }
+        if (info.Length() < 2 || !info[0].IsNumber() || !info[1].IsNumber())
+            throw Napi::TypeError::New(env, "fetchMedia(messageId, index)");
+
+        const double message_id = info[0].As<Napi::Number>().DoubleValue();
+        const double index = info[1].As<Napi::Number>().DoubleValue();
+
+        auto* settle = new Napi::Promise::Deferred(deferred);
+        auto tsfn = Napi::ThreadSafeFunction::New(
+                env, Napi::Function::New(env, [](const Napi::CallbackInfo&) {}),
+                "sessionBridgeMedia", 0, 1);
+
+        _bridge->fetch_media(
+                message_id, index, [settle, tsfn](session_bridge::Media media) mutable {
+                    auto* payload = new session_bridge::Media(std::move(media));
+                    auto status = tsfn.BlockingCall(
+                            payload,
+                            [settle](Napi::Env cb_env,
+                                     Napi::Function,
+                                     session_bridge::Media* m) {
+                                std::unique_ptr<session_bridge::Media> owned{m};
+                                std::unique_ptr<Napi::Promise::Deferred> answer{settle};
+
+                                if (owned->error) {
+                                    answer->Reject(
+                                            Napi::Error::New(cb_env, *owned->error).Value());
+                                    return;
+                                }
+
+                                // Copied into a Buffer rather than wrapping the vector: the
+                                // vector dies with this callback, and a Buffer that outlived its
+                                // storage is the one failure mode here that is not a crash.
+                                auto bytes = Napi::Buffer<uint8_t>::Copy(
+                                        cb_env,
+                                        reinterpret_cast<const uint8_t*>(owned->bytes.data()),
+                                        owned->bytes.size());
+
+                                Napi::Object result = Napi::Object::New(cb_env);
+                                result.Set("contentType", owned->content_type);
+                                result.Set("bytes", bytes);
+                                answer->Resolve(result);
+                            });
+                    if (status != napi_ok) {
+                        delete payload;
+                        delete settle;
+                    }
+                    tsfn.Release();
+                });
+
+        return deferred.Promise();
     }
 
     void Close(const Napi::CallbackInfo&) { Shutdown(); }
