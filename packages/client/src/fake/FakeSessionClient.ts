@@ -292,10 +292,23 @@ export class FakeSessionClient implements SessionClient {
     return Promise.resolve()
   }
 
-  setAttachmentCacheLimit(): Promise<void> {
+  getCacheDir(): Promise<string> {
     this.assertOpen()
-    // The fake caches in memory and never evicts, so there is nothing a limit could bound. It
-    // accepts one rather than refusing, because refusing would fail a boot that is correct.
+    // The fake writes nothing to disk, and says so rather than naming a directory that is not
+    // there: a screen offering to reveal one has to handle the empty case anyway.
+    return Promise.resolve('')
+  }
+
+  getAttachmentCacheLimit(): Promise<number | undefined> {
+    this.assertOpen()
+    return Promise.resolve(this.account.attachmentCacheLimit())
+  }
+
+  setAttachmentCacheLimit(bytes?: number): Promise<void> {
+    this.assertOpen()
+    // Remembered but not enforced: the fake caches in memory and never evicts, so a limit has
+    // nothing to bound. It is kept so a screen that reads one back sees what it wrote.
+    this.account.setAttachmentCacheLimit(bytes)
     return Promise.resolve()
   }
 

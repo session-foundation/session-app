@@ -337,6 +337,16 @@ struct PathResult {
             path{std::move(path_)} {}
 };
 
+/// Unset means no limit.
+struct ByteCountResult {
+    static constexpr std::string_view type_tag = "byteCount";
+
+    std::optional<double> bytes;
+
+    explicit ByteCountResult(std::optional<double> bytes_) :
+            bytes{std::move(bytes_)} {}
+};
+
 /// What a Response carries when the command succeeded.
 using Result = std::variant<
         EmptyResult,
@@ -349,7 +359,8 @@ using Result = std::variant<
         HexResult,
         PrefResult,
         BoolResult,
-        PathResult>;
+        PathResult,
+        ByteCountResult>;
 
 struct Response {
     double id;
@@ -929,6 +940,19 @@ struct SetAutoDownloadCommand {
             conversation_id{std::move(conversation_id_)}, mode{std::move(mode_)} {}
 };
 
+/// The directory libsession was given to cache downloads in.
+///
+/// Asked for rather than read back from the options the app passed, because the app that passed
+/// them is not always the one that draws them: the desktop renderer is sandboxed and the path
+/// was chosen in the main process.
+struct GetCacheDirCommand {
+    static constexpr std::string_view type_tag = "getCacheDir";
+};
+
+struct GetAttachmentCacheLimitCommand {
+    static constexpr std::string_view type_tag = "getAttachmentCacheLimit";
+};
+
 /// How much disk the cached attachments may occupy, evicted least-recently-used. Bytes on disk,
 /// which is what caching actually costs: the files are encrypted and padded, so the total is
 /// larger than the same attachments as plain files. Unset means no limit.
@@ -1034,6 +1058,8 @@ using Command = std::variant<
         DownloadAttachmentCommand,
         SaveAttachmentCommand,
         SetAutoDownloadCommand,
+        GetCacheDirCommand,
+        GetAttachmentCacheLimitCommand,
         SetAttachmentCacheLimitCommand,
         GetPrefCommand,
         SetPrefCommand,

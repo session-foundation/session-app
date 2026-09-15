@@ -59,10 +59,11 @@ a time, via the `port-feature` skill.
   from a command's own handler carries what the background callback already does and a screen can
   drop what it is not showing. And `attachment_cache_size()`, a sum over the cache index: there is
   a getter for the limit and none for the usage, so nothing can say how full it is.
-- **Settings has nothing to say about the attachment cache.** Showing the directory and the size
-  limit needs two catalogue keys that do not exist, and inventing English is not this repo's to
-  do. The limit is set at boot instead - 5GB on desktop, 500MB on mobile - and nobody can see or
-  change it.
+- **Three strings in settings have no catalogue key.** The attachment cache section needs
+  "Attachment Cache", "Reveal" and "No limit", and the Crowdin set has nothing that fits, so they
+  sit in `packages/screens/src/pendingCopy.ts` and ship as English in every locale. Each is named
+  for the token it is destined for; `copy.contract.test.ts` pins the list so a fourth cannot join
+  quietly. They want a pull request against session-localization and a submodule bump.
 - **`device::Type` for the new clients.** Device records are user-visible on linked devices, so
   this is an upstream conversation.
 - **The desktop app's name is a placeholder.** `app.setName('session-app')` deliberately avoids

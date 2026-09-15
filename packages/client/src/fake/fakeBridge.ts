@@ -186,6 +186,11 @@ const handlers: { [K in Command['type']]: Handler<K> } = {
     await client.setAutoDownload(cmd.conversationId, cmd.mode)
     return empty
   },
+  getCacheDir: async (client) => ({ type: 'path', path: await client.getCacheDir() }),
+  getAttachmentCacheLimit: async (client) => {
+    const bytes = await client.getAttachmentCacheLimit()
+    return { type: 'byteCount', ...(bytes === undefined ? {} : { bytes }) }
+  },
   setAttachmentCacheLimit: async (client, cmd) => {
     await client.setAttachmentCacheLimit(cmd.bytes)
     return empty

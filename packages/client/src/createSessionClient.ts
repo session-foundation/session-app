@@ -239,6 +239,16 @@ export function createSessionClient(transport: BridgeTransport): SessionClient {
       await call({ type: 'setAutoDownload', conversationId: id, mode })
     },
 
+    async getCacheDir(): Promise<string> {
+      const response = await call({ type: 'getCacheDir' })
+      return expect(response, 'path').path
+    },
+
+    async getAttachmentCacheLimit(): Promise<number | undefined> {
+      const response = await call({ type: 'getAttachmentCacheLimit' })
+      return expect(response, 'byteCount').bytes
+    },
+
     async setAttachmentCacheLimit(bytes): Promise<void> {
       await call({ type: 'setAttachmentCacheLimit', ...(bytes === undefined ? {} : { bytes }) })
     },

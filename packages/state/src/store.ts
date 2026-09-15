@@ -53,6 +53,9 @@ export interface SessionActions {
    * should prompt again.
    */
   setAutoDownload: (id: ConversationId, mode: AutoDownload) => Promise<void>
+  /** Where libsession caches downloads, and how much of it they may take. */
+  getCacheSettings: () => Promise<{ cacheDir: string; limit: number | undefined }>
+  setAttachmentCacheLimit: (bytes?: number) => Promise<void>
   dispose: () => void
 }
 
@@ -240,6 +243,18 @@ export function createSessionStore(
 
     async setAutoDownload(id, mode): Promise<void> {
       await client.setAutoDownload(id, mode)
+    },
+
+    async getCacheSettings(): Promise<{ cacheDir: string; limit: number | undefined }> {
+      const [cacheDir, limit] = await Promise.all([
+        client.getCacheDir(),
+        client.getAttachmentCacheLimit(),
+      ])
+      return { cacheDir, limit }
+    },
+
+    async setAttachmentCacheLimit(bytes): Promise<void> {
+      await client.setAttachmentCacheLimit(bytes)
     },
 
     async createAccount(): Promise<void> {

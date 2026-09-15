@@ -62,6 +62,10 @@ export const ELEMENT = {
     accountId: 'settings-account-id',
     copyAccountId: 'settings-copy-account-id',
     networkStatus: 'settings-network-status',
+    cacheFolder: 'settings-cache-folder',
+    cacheReveal: 'settings-cache-reveal',
+    cacheLimit: 'settings-cache-limit',
+    cacheLimitOption: (bytes: number) => `settings-cache-limit-${bytes}` as const,
   },
   networkOverlay: {
     badge: 'network-overlay-badge',
@@ -130,6 +134,10 @@ export type ElementId =
   | 'settings-account-id'
   | 'settings-copy-account-id'
   | 'settings-network-status'
+  | 'settings-cache-folder'
+  | 'settings-cache-reveal'
+  | 'settings-cache-limit'
+  | `settings-cache-limit-${number}`
   | 'network-overlay-badge'
   | 'new-conversation'
   | 'new-conversation-back'

@@ -529,6 +529,28 @@ struct JSIConverter<::session_bridge::PathResult> final {
 };
 
 template <>
+struct JSIConverter<::session_bridge::ByteCountResult> final {
+    static inline ::session_bridge::ByteCountResult fromJSI(jsi::Runtime& runtime, const jsi::Value& arg) {
+        jsi::Object obj = arg.asObject(runtime);
+        return ::session_bridge::ByteCountResult(
+                ::session_bridge::optional_from_jsi<double>(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "bytes"))));
+    }
+    static inline jsi::Value toJSI(jsi::Runtime& runtime, const ::session_bridge::ByteCountResult& arg) {
+        jsi::Object obj(runtime);
+        obj.setProperty(runtime, PropNameIDCache::get(runtime, "type"), ::session_bridge::ascii(runtime, ::session_bridge::ByteCountResult::type_tag));
+        if (arg.bytes)
+            obj.setProperty(runtime, PropNameIDCache::get(runtime, "bytes"), JSIConverter<double>::toJSI(runtime, *arg.bytes));
+        return obj;
+    }
+    static inline bool canConvert(jsi::Runtime& runtime, const jsi::Value& value) {
+        if (!value.isObject())
+            return false;
+        jsi::Value type = value.getObject(runtime).getProperty(runtime, PropNameIDCache::get(runtime, "type"));
+        return type.isString() && type.getString(runtime).utf8(runtime) == ::session_bridge::ByteCountResult::type_tag;
+    }
+};
+
+template <>
 struct JSIConverter<::session_bridge::Result> final {
     static inline ::session_bridge::Result fromJSI(jsi::Runtime& runtime, const jsi::Value& arg) {
         jsi::Object obj = arg.asObject(runtime);
@@ -555,6 +577,8 @@ struct JSIConverter<::session_bridge::Result> final {
             return JSIConverter<::session_bridge::BoolResult>::fromJSI(runtime, arg);
         if (tag == "path")
             return JSIConverter<::session_bridge::PathResult>::fromJSI(runtime, arg);
+        if (tag == "byteCount")
+            return JSIConverter<::session_bridge::ByteCountResult>::fromJSI(runtime, arg);
         throw std::invalid_argument("Result: unknown type \"" + tag + "\"");
     }
     static inline jsi::Value toJSI(jsi::Runtime& runtime, const ::session_bridge::Result& arg) {
@@ -571,7 +595,7 @@ struct JSIConverter<::session_bridge::Result> final {
         if (!type.isString())
             return false;
         std::string tag = type.getString(runtime).utf8(runtime);
-        return tag == "empty" || tag == "accountInfo" || tag == "mnemonic" || tag == "conversationList" || tag == "conversation" || tag == "messageList" || tag == "messageId" || tag == "hex" || tag == "pref" || tag == "bool" || tag == "path";
+        return tag == "empty" || tag == "accountInfo" || tag == "mnemonic" || tag == "conversationList" || tag == "conversation" || tag == "messageList" || tag == "messageId" || tag == "hex" || tag == "pref" || tag == "bool" || tag == "path" || tag == "byteCount";
     }
 };
 
@@ -1696,6 +1720,44 @@ struct JSIConverter<::session_bridge::SetAutoDownloadCommand> final {
 };
 
 template <>
+struct JSIConverter<::session_bridge::GetCacheDirCommand> final {
+    static inline ::session_bridge::GetCacheDirCommand fromJSI(jsi::Runtime&, const jsi::Value&) {
+        return ::session_bridge::GetCacheDirCommand{};
+    }
+    static inline jsi::Value toJSI(jsi::Runtime& runtime, const ::session_bridge::GetCacheDirCommand& arg) {
+        (void)arg;
+        jsi::Object obj(runtime);
+        obj.setProperty(runtime, PropNameIDCache::get(runtime, "type"), ::session_bridge::ascii(runtime, ::session_bridge::GetCacheDirCommand::type_tag));
+        return obj;
+    }
+    static inline bool canConvert(jsi::Runtime& runtime, const jsi::Value& value) {
+        if (!value.isObject())
+            return false;
+        jsi::Value type = value.getObject(runtime).getProperty(runtime, PropNameIDCache::get(runtime, "type"));
+        return type.isString() && type.getString(runtime).utf8(runtime) == ::session_bridge::GetCacheDirCommand::type_tag;
+    }
+};
+
+template <>
+struct JSIConverter<::session_bridge::GetAttachmentCacheLimitCommand> final {
+    static inline ::session_bridge::GetAttachmentCacheLimitCommand fromJSI(jsi::Runtime&, const jsi::Value&) {
+        return ::session_bridge::GetAttachmentCacheLimitCommand{};
+    }
+    static inline jsi::Value toJSI(jsi::Runtime& runtime, const ::session_bridge::GetAttachmentCacheLimitCommand& arg) {
+        (void)arg;
+        jsi::Object obj(runtime);
+        obj.setProperty(runtime, PropNameIDCache::get(runtime, "type"), ::session_bridge::ascii(runtime, ::session_bridge::GetAttachmentCacheLimitCommand::type_tag));
+        return obj;
+    }
+    static inline bool canConvert(jsi::Runtime& runtime, const jsi::Value& value) {
+        if (!value.isObject())
+            return false;
+        jsi::Value type = value.getObject(runtime).getProperty(runtime, PropNameIDCache::get(runtime, "type"));
+        return type.isString() && type.getString(runtime).utf8(runtime) == ::session_bridge::GetAttachmentCacheLimitCommand::type_tag;
+    }
+};
+
+template <>
 struct JSIConverter<::session_bridge::SetAttachmentCacheLimitCommand> final {
     static inline ::session_bridge::SetAttachmentCacheLimitCommand fromJSI(jsi::Runtime& runtime, const jsi::Value& arg) {
         jsi::Object obj = arg.asObject(runtime);
@@ -1908,6 +1970,10 @@ struct JSIConverter<::session_bridge::Command> final {
             return JSIConverter<::session_bridge::SaveAttachmentCommand>::fromJSI(runtime, arg);
         if (tag == "setAutoDownload")
             return JSIConverter<::session_bridge::SetAutoDownloadCommand>::fromJSI(runtime, arg);
+        if (tag == "getCacheDir")
+            return JSIConverter<::session_bridge::GetCacheDirCommand>::fromJSI(runtime, arg);
+        if (tag == "getAttachmentCacheLimit")
+            return JSIConverter<::session_bridge::GetAttachmentCacheLimitCommand>::fromJSI(runtime, arg);
         if (tag == "setAttachmentCacheLimit")
             return JSIConverter<::session_bridge::SetAttachmentCacheLimitCommand>::fromJSI(runtime, arg);
         if (tag == "getPref")
@@ -1938,7 +2004,7 @@ struct JSIConverter<::session_bridge::Command> final {
         if (!type.isString())
             return false;
         std::string tag = type.getString(runtime).utf8(runtime);
-        return tag == "getAccountInfo" || tag == "createAccount" || tag == "restoreAccountFromWords" || tag == "restoreAccountFromSeed" || tag == "getSeedMnemonic" || tag == "setDisplayName" || tag == "attachNetwork" || tag == "setPollInterval" || tag == "pollOnce" || tag == "setPushToken" || tag == "handlePushPayload" || tag == "getConversations" || tag == "getMessageRequests" || tag == "getConversation" || tag == "openDm" || tag == "markRead" || tag == "setBlocked" || tag == "setNickname" || tag == "setPriority" || tag == "approveConversation" || tag == "deleteConversation" || tag == "getMessages" || tag == "sendMessage" || tag == "retrySend" || tag == "deleteMessage" || tag == "downloadAttachment" || tag == "saveAttachment" || tag == "setAutoDownload" || tag == "setAttachmentCacheLimit" || tag == "getPref" || tag == "setPref" || tag == "deliverTestMessage" || tag == "getTestAccountSeed" || tag == "approveTestContact" || tag == "echoTestFrame";
+        return tag == "getAccountInfo" || tag == "createAccount" || tag == "restoreAccountFromWords" || tag == "restoreAccountFromSeed" || tag == "getSeedMnemonic" || tag == "setDisplayName" || tag == "attachNetwork" || tag == "setPollInterval" || tag == "pollOnce" || tag == "setPushToken" || tag == "handlePushPayload" || tag == "getConversations" || tag == "getMessageRequests" || tag == "getConversation" || tag == "openDm" || tag == "markRead" || tag == "setBlocked" || tag == "setNickname" || tag == "setPriority" || tag == "approveConversation" || tag == "deleteConversation" || tag == "getMessages" || tag == "sendMessage" || tag == "retrySend" || tag == "deleteMessage" || tag == "downloadAttachment" || tag == "saveAttachment" || tag == "setAutoDownload" || tag == "getCacheDir" || tag == "getAttachmentCacheLimit" || tag == "setAttachmentCacheLimit" || tag == "getPref" || tag == "setPref" || tag == "deliverTestMessage" || tag == "getTestAccountSeed" || tag == "approveTestContact" || tag == "echoTestFrame";
     }
 };
 

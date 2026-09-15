@@ -6,6 +6,7 @@ import { Button, Screen, Separator, Text, XStack, YStack } from '@session/ui'
 
 import { requirePorts } from '@session/app'
 
+import { AttachmentCacheSection } from './AttachmentCacheSection'
 import { BackButton } from './BackButton'
 
 /**
@@ -89,6 +90,10 @@ export function SettingsScreen() {
             the catalogue has no words for, and both read as a fault on a build that is working. */}
         <Text testID={ELEMENT.settings.networkStatus}>{requirePorts().network.name}</Text>
       </YStack>
+
+      <Separator borderColor="$bordersColor" />
+
+      <AttachmentCacheSection />
     </Screen>
   )
 }

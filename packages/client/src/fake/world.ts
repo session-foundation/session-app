@@ -97,6 +97,7 @@ export class FakeAccount {
   private readonly downloading = new Map<string, Promise<void>>()
   /** Bumped by a restart: a transfer that was running does not survive the process. */
   private generation = 0
+  private cacheLimit: number | undefined
 
   constructor(options: FakeAccountOptions) {
     this.displayName = options.displayName
@@ -411,6 +412,14 @@ export class FakeAccount {
 
   isCached(messageId: number, index: number): boolean {
     return this.cached.has(`${messageId}:${index}`)
+  }
+
+  attachmentCacheLimit(): number | undefined {
+    return this.cacheLimit
+  }
+
+  setAttachmentCacheLimit(bytes?: number): void {
+    this.cacheLimit = bytes
   }
 
   setAutoDownload(id: ConversationId, mode: AutoDownload): void {

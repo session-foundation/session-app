@@ -126,6 +126,15 @@ export type Command =
   /** Also records that the question was asked at all, which is why `none` is worth sending. */
   | { type: 'setAutoDownload'; conversationId: ConversationId; mode: AutoDownload }
   /**
+   * The directory libsession was given to cache downloads in.
+   *
+   * Asked for rather than read back from the options the app passed, because the app that passed
+   * them is not always the one that draws them: the desktop renderer is sandboxed and the path
+   * was chosen in the main process.
+   */
+  | { type: 'getCacheDir' }
+  | { type: 'getAttachmentCacheLimit' }
+  /**
    * How much disk the cached attachments may occupy, evicted least-recently-used. Bytes on disk,
    * which is what caching actually costs: the files are encrypted and padded, so the total is
    * larger than the same attachments as plain files. Unset means no limit.
@@ -184,6 +193,8 @@ export type Result =
   | { type: 'bool'; value: boolean }
   /** Where a save landed, which is not always where it was asked to go: a collision becomes `name (2)`. */
   | { type: 'path'; path: string }
+  /** Unset means no limit. */
+  | { type: 'byteCount'; bytes?: number }
 
 export interface Response {
   id: number

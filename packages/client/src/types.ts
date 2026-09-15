@@ -105,11 +105,14 @@ export interface SessionClient {
   ): Promise<string>
   /** Also records that the question was asked, which is why `none` is worth sending. */
   setAutoDownload(id: ConversationId, mode: AutoDownload): Promise<void>
+  /** Where libsession caches downloads. Empty when the bridge was opened without one. */
+  getCacheDir(): Promise<string>
   /**
    * How much disk the cached attachments may occupy, evicted least-recently-used. Bytes on disk,
    * which is more than the files are: they are encrypted and padded. Undefined means no limit,
    * which is also the default - turning caching on without a bound is how a cache eats a disk.
    */
+  getAttachmentCacheLimit(): Promise<number | undefined>
   setAttachmentCacheLimit(bytes?: number): Promise<void>
 
   getPref(key: string): Promise<string | undefined>

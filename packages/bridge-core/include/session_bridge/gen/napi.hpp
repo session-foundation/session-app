@@ -520,6 +520,23 @@ struct Codec<::session_bridge::PathResult> {
 };
 
 template <>
+struct Codec<::session_bridge::ByteCountResult> {
+    static constexpr std::string_view name = "ByteCountResult";
+    static Napi::Value to(Napi::Env env, const ::session_bridge::ByteCountResult& value) {
+        Napi::Object obj = Napi::Object::New(env);
+        obj.Set("type", Napi::String::New(env, ::session_bridge::ByteCountResult::type_tag.data(), ::session_bridge::ByteCountResult::type_tag.size()));
+        if (value.bytes)
+            obj.Set("bytes", Codec<double>::to(env, *value.bytes));
+        return obj;
+    }
+    static ::session_bridge::ByteCountResult from(const Napi::Value& value, std::string_view where) {
+        Napi::Object obj = object(value, where);
+        return ::session_bridge::ByteCountResult(
+                optional<double>(obj.Get("bytes"), "ByteCountResult.bytes"));
+    }
+};
+
+template <>
 struct Codec<::session_bridge::Result> {
     static constexpr std::string_view name = "Result";
     static Napi::Value to(Napi::Env env, const ::session_bridge::Result& value) {
@@ -554,6 +571,8 @@ struct Codec<::session_bridge::Result> {
             return Codec<::session_bridge::BoolResult>::from(value, where);
         if (tag == "path")
             return Codec<::session_bridge::PathResult>::from(value, where);
+        if (tag == "byteCount")
+            return Codec<::session_bridge::ByteCountResult>::from(value, where);
         throw std::invalid_argument(std::string{where} + ": unknown type \"" + tag + "\"");
     }
 };
@@ -1454,6 +1473,36 @@ struct Codec<::session_bridge::SetAutoDownloadCommand> {
 };
 
 template <>
+struct Codec<::session_bridge::GetCacheDirCommand> {
+    static constexpr std::string_view name = "GetCacheDirCommand";
+    static Napi::Value to(Napi::Env env, const ::session_bridge::GetCacheDirCommand& value) {
+        (void)value;
+        Napi::Object obj = Napi::Object::New(env);
+        obj.Set("type", Napi::String::New(env, ::session_bridge::GetCacheDirCommand::type_tag.data(), ::session_bridge::GetCacheDirCommand::type_tag.size()));
+        return obj;
+    }
+    static ::session_bridge::GetCacheDirCommand from(const Napi::Value& value, std::string_view where) {
+        object(value, where);
+        return ::session_bridge::GetCacheDirCommand{};
+    }
+};
+
+template <>
+struct Codec<::session_bridge::GetAttachmentCacheLimitCommand> {
+    static constexpr std::string_view name = "GetAttachmentCacheLimitCommand";
+    static Napi::Value to(Napi::Env env, const ::session_bridge::GetAttachmentCacheLimitCommand& value) {
+        (void)value;
+        Napi::Object obj = Napi::Object::New(env);
+        obj.Set("type", Napi::String::New(env, ::session_bridge::GetAttachmentCacheLimitCommand::type_tag.data(), ::session_bridge::GetAttachmentCacheLimitCommand::type_tag.size()));
+        return obj;
+    }
+    static ::session_bridge::GetAttachmentCacheLimitCommand from(const Napi::Value& value, std::string_view where) {
+        object(value, where);
+        return ::session_bridge::GetAttachmentCacheLimitCommand{};
+    }
+};
+
+template <>
 struct Codec<::session_bridge::SetAttachmentCacheLimitCommand> {
     static constexpr std::string_view name = "SetAttachmentCacheLimitCommand";
     static Napi::Value to(Napi::Env env, const ::session_bridge::SetAttachmentCacheLimitCommand& value) {
@@ -1640,6 +1689,10 @@ struct Codec<::session_bridge::Command> {
             return Codec<::session_bridge::SaveAttachmentCommand>::from(value, where);
         if (tag == "setAutoDownload")
             return Codec<::session_bridge::SetAutoDownloadCommand>::from(value, where);
+        if (tag == "getCacheDir")
+            return Codec<::session_bridge::GetCacheDirCommand>::from(value, where);
+        if (tag == "getAttachmentCacheLimit")
+            return Codec<::session_bridge::GetAttachmentCacheLimitCommand>::from(value, where);
         if (tag == "setAttachmentCacheLimit")
             return Codec<::session_bridge::SetAttachmentCacheLimitCommand>::from(value, where);
         if (tag == "getPref")

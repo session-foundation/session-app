@@ -685,6 +685,19 @@ struct ClientBridge::Impl {
         convo(cmd.conversation_id).set_auto_download(mode, on(id, [this, id] { ok(id); }));
     }
 
+    void handle(double id, const GetCacheDirCommand&) {
+        respond(id, PathResult{options.cache_dir.string()});
+    }
+
+    void handle(double id, const GetAttachmentCacheLimitCommand&) {
+        client->attachment_cache_limit(on(id, [this, id](std::optional<int64_t> bytes) {
+            respond(id,
+                    ByteCountResult{
+                            bytes ? std::optional<double>{static_cast<double>(*bytes)}
+                                  : std::nullopt});
+        }));
+    }
+
     void handle(double id, const SetAttachmentCacheLimitCommand& cmd) {
         std::optional<int64_t> bytes;
         if (cmd.bytes)
