@@ -359,7 +359,11 @@ export class FakeAccount {
     // asked yet, and nothing is fetched while it is unset.
     const mode = this.get(conversationId)?.autoDownload
     for (const attachment of attachments) {
-      if (wantedBy(mode, attachment)) void this.downloadAttachment(message.id, attachment.index)
+      // Caught rather than voided: nobody asked for this one, so there is nobody to tell when a
+      // restart cancels it, and an unhandled rejection would take a test run down with it.
+      if (wantedBy(mode, attachment)) {
+        this.downloadAttachment(message.id, attachment.index).catch(() => undefined)
+      }
     }
     return message
   }
