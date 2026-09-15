@@ -107,6 +107,18 @@ export function useMessages(id: ConversationId | undefined): {
     if (!window.ready && !window.fetching) void store.actions.loadHistory(id)
   }, [id, window.ready, window.fetching, store])
 
+  // Dropped when this stops showing `id`, and reloaded on the way back.
+  //
+  // Keyed on the id rather than on unmounting, because on a wide layout the detail pane stays
+  // mounted and only the prop changes - there is no unmount to hang this on. Its own effect so
+  // the cleanup sees the id it was set up with rather than whatever is current.
+  useEffect(() => {
+    if (id === undefined) return undefined
+    return () => {
+      store.actions.forgetHistory(id)
+    }
+  }, [id, store])
+
   const loadOlder = useCallback(() => {
     if (id !== undefined) void store.actions.loadOlder(id)
   }, [id, store])

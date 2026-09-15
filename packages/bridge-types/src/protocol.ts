@@ -1,5 +1,6 @@
 import type {
   AccountInfo,
+  AttachmentStatus,
   AttachmentTransfer,
   AutoDownload,
   Conversation,
@@ -186,7 +187,18 @@ export type Result =
    * newest first because that is the direction paging runs; the shim reverses. Getting this
    * wrong shows up as a conversation that reads bottom to top.
    */
-  | { type: 'messageList'; messages: Message[] }
+  /**
+   * A page, and what its attachments are doing.
+   *
+   * The two travel together because a transfer has no stored state to look up later: a window
+   * that arrived without them would draw every attachment as untouched and then correct itself.
+   * Deliberately not fields on `Attachment` - that is libsession's account of the message, and
+   * this is what this device is doing about it, which changes far more often and is also what
+   * `attachment-progress` reports. One writer for the first picture, one for the updates.
+   *
+   * Attachments with nothing to fetch are absent rather than listed as idle.
+   */
+  | { type: 'messageList'; messages: Message[]; transfers: AttachmentStatus[] }
   | { type: 'messageId'; messageId: number }
   | { type: 'hex'; hex: string }
   | { type: 'pref'; value?: string }

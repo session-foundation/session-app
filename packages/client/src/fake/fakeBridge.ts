@@ -147,14 +147,14 @@ const handlers: { [K in Command['type']]: Handler<K> } = {
     return empty
   },
 
-  getMessages: async (client, cmd) => ({
-    type: 'messageList',
-    messages: await client.getMessages(cmd.conversationId, {
+  getMessages: async (client, cmd) => {
+    const page = await client.getMessages(cmd.conversationId, {
       limit: cmd.limit,
       includeDeleted: cmd.includeDeleted,
       ...(cmd.before === undefined ? {} : { before: cmd.before }),
-    }),
-  }),
+    })
+    return { type: 'messageList', messages: page.messages, transfers: page.transfers }
+  },
   sendMessage: async (client, cmd) => ({
     type: 'messageId',
     messageId: await client.sendMessage(cmd.conversationId, {

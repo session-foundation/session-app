@@ -43,6 +43,16 @@ sessionTest({
       .poll(async () => alice.isVisible(ELEMENT.conversation.attachmentSave), { timeout: 10_000 })
       .toBe(true)
 
+    // Left and come back. The window is dropped when a screen stops showing it, so the store has
+    // nothing to remember this by: what redraws it as downloaded is the page saying so, which is
+    // the only thing that can - no event ever announces a file that is simply already here.
+    await alice.tap(ELEMENT.conversation.back)
+    await alice.tap(ELEMENT.conversationList.row(0))
+    await alice.waitForVisible(ELEMENT.conversation.screen)
+    await expect
+      .poll(async () => alice.isVisible(ELEMENT.conversation.attachmentSave), { timeout: 10_000 })
+      .toBe(true)
+
     await alice.screenshot('attachment-download-desktop')
   },
 })

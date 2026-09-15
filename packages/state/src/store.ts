@@ -1,8 +1,16 @@
-import type { AutoDownload, ConversationId, Message, SessionClient } from '@session/client'
+import type {
+  AttachmentStatus,
+  AutoDownload,
+  ConversationId,
+  Message,
+  SessionClient,
+} from '@session/client'
 import { createStore, type StoreApi } from 'zustand/vanilla'
 
-import { applyEvent, mergePages } from './applyEvent'
-import { emptyState, type MessageWindow, type SessionState } from './types'
+import { ATTACHMENT_OK } from '@session/client'
+
+import { applyEvent, mergePages, withoutConversation } from './applyEvent'
+import { emptyState, transferKey, type MessageWindow, type SessionState } from './types'
 
 export interface SessionActions {
   /**
@@ -53,6 +61,14 @@ export interface SessionActions {
    * should prompt again.
    */
   setAutoDownload: (id: ConversationId, mode: AutoDownload) => Promise<void>
+  /**
+   * Drops a conversation's loaded history and everything hanging off it.
+   *
+   * Called when a screen stops showing one. A window that outlived its screen was both a leak -
+   * every conversation ever opened kept its full page for the session - and a lie about
+   * transfers, since reports for a loaded window are recorded whether or not anything draws them.
+   */
+  forgetHistory: (id: ConversationId) => void
   /** Where libsession caches downloads, and how much of it they may take. */
   getCacheSettings: () => Promise<{ cacheDir: string; limit: number | undefined }>
   setAttachmentCacheLimit: (bytes?: number) => Promise<void>
@@ -141,6 +157,47 @@ export function createSessionStore(
     })
   }
 
+  /**
+   * Whatever the page said its attachments were doing, before the window is marked ready.
+   *
+   * Seeded rather than left to the reports: a transfer has no stored state, so a window that
+   * arrived without this would draw every attachment as untouched. Written first so that no
+   * render happens between the messages appearing and their transfers being known.
+   *
+   * Only what a report cannot say: a `done` entry stands for a cached file that nothing is
+   * fetching, which no event will ever announce.
+   */
+  function seedTransfers(id: ConversationId, statuses: AttachmentStatus[]): void {
+    if (statuses.length === 0) return
+    store.setState((state) => {
+      const transfers = { ...state.transfers }
+      for (const status of statuses) {
+        const key = transferKey('download', status.messageId, status.index)
+        if (status.transferring) {
+          transfers[key] = {
+            conversationId: id,
+            state: 'running',
+            done: status.done,
+            total: status.total,
+          }
+        } else if (status.cached) {
+          transfers[key] = {
+            conversationId: id,
+            state: 'done',
+            done: 0,
+            total: 0,
+            result: ATTACHMENT_OK,
+          }
+        } else {
+          // Nothing doing and nothing here: an entry would claim to know something the row
+          // learns better from its absence.
+          delete transfers[key]
+        }
+      }
+      return { transfers }
+    })
+  }
+
   function windowFrom(messages: Message[], previous: Message[] = []): Partial<MessageWindow> {
     const all = mergePages(messages, previous)
     const oldest = all[0]
@@ -194,8 +251,9 @@ export function createSessionStore(
       const existing = store.getState().histories[id]
       if (existing?.fetching) return
       patchWindow(id, { fetching: true })
-      const messages = await client.getMessages(id, { limit: PAGE })
-      patchWindow(id, windowFrom(messages))
+      const page = await client.getMessages(id, { limit: PAGE })
+      seedTransfers(id, page.transfers)
+      patchWindow(id, windowFrom(page.messages))
     },
 
     async loadOlder(id): Promise<void> {
@@ -203,8 +261,17 @@ export function createSessionStore(
       if (!window || window.fetching || window.exhausted || !window.oldestCursor) return
 
       patchWindow(id, { fetching: true })
-      const older = await client.getMessages(id, { limit: PAGE, before: window.oldestCursor })
-      patchWindow(id, windowFrom(older, store.getState().histories[id]?.messages ?? []))
+      const page = await client.getMessages(id, { limit: PAGE, before: window.oldestCursor })
+      seedTransfers(id, page.transfers)
+      patchWindow(id, windowFrom(page.messages, store.getState().histories[id]?.messages ?? []))
+    },
+
+    forgetHistory(id): void {
+      store.setState((state) => {
+        const { [id]: dropped, ...histories } = state.histories
+        if (dropped === undefined) return state
+        return { histories, transfers: withoutConversation(state.transfers, id) }
+      })
     },
 
     async send(id, body, replyTo): Promise<void> {

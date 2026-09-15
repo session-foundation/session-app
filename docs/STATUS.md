@@ -21,6 +21,10 @@ a time, via the `port-feature` skill.
   Fresco fetcher on Android - and neither is written, so `MediaPort.urlFor` returns null there and
   the file form is what mobile shows.
 - **A full-size viewer.** Tapping a picture does nothing: there is no screen to open.
+- **Returning to a conversation starts at the newest page.** A window is dropped when its screen
+  stops showing it, so paging depth and scroll position go with it. Keeping both - so that coming
+  back puts you where you were - is its own piece of work and wants doing deliberately rather than
+  by keeping every window loaded for the session, which is what this replaced.
 - **Anything a message can be beyond text**: no reactions, replies, edits, deletes or read
   receipts.
 - **A devnet cannot have its own Pro backend.** The key libsession verifies proofs against is a

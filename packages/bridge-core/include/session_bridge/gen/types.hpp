@@ -279,16 +279,46 @@ struct Message {
             id{std::move(id_)}, conversation_id{std::move(conversation_id_)}, author{std::move(author_)}, timestamp{std::move(timestamp_)}, body{std::move(body_)}, outgoing{std::move(outgoing_)}, send_state{std::move(send_state_)}, sync_state{std::move(sync_state_)}, attachments{std::move(attachments_)}, gallery_viewable{std::move(gallery_viewable_)}, reply_to{std::move(reply_to_)}, deleted{std::move(deleted_)} {}
 };
 
-/// Oldest first, whatever page it is - the direction a transcript is read. libsession answers
-/// newest first because that is the direction paging runs; the shim reverses. Getting this
-/// wrong shows up as a conversation that reads bottom to top.
+/// What one attachment's bytes are doing on this device, as of the answer that carried it.
+///
+/// The one way back to the truth about a transfer: nothing about one is stored, so a screen that
+/// was not listening - it had not opened this conversation, the app had not started - cannot learn
+/// from the reports what it missed. It arrives with the page of messages it describes, so a row
+/// never draws a state it is about to correct.
+struct AttachmentStatus {
+    double message_id;
+    double index;
+    /// Asking for the bytes would answer from disk. A strong hint: a sweep can falsify it, and a
+    /// fetch that misses simply downloads.
+    bool cached;
+    /// A transfer is running, and `done`/`total` are where it has got to - the same encrypted-byte
+    /// figures `attachment-progress` carries, so a bar seeded here and then fed by reports does not
+    /// jump. A save is never visible here: it keeps nothing, so there is nothing to join.
+    bool transferring;
+    double done;
+    double total;
+
+    AttachmentStatus(double message_id_, double index_, bool cached_, bool transferring_, double done_, double total_) :
+            message_id{std::move(message_id_)}, index{std::move(index_)}, cached{std::move(cached_)}, transferring{std::move(transferring_)}, done{std::move(done_)}, total{std::move(total_)} {}
+};
+
+/// A page, and what its attachments are doing.
+///
+/// The two travel together because a transfer has no stored state to look up later: a window
+/// that arrived without them would draw every attachment as untouched and then correct itself.
+/// Deliberately not fields on `Attachment` - that is libsession's account of the message, and
+/// this is what this device is doing about it, which changes far more often and is also what
+/// `attachment-progress` reports. One writer for the first picture, one for the updates.
+///
+/// Attachments with nothing to fetch are absent rather than listed as idle.
 struct MessageListResult {
     static constexpr std::string_view type_tag = "messageList";
 
     std::vector<::session_bridge::Message> messages;
+    std::vector<::session_bridge::AttachmentStatus> transfers;
 
-    explicit MessageListResult(std::vector<::session_bridge::Message> messages_) :
-            messages{std::move(messages_)} {}
+    MessageListResult(std::vector<::session_bridge::Message> messages_, std::vector<::session_bridge::AttachmentStatus> transfers_) :
+            messages{std::move(messages_)}, transfers{std::move(transfers_)} {}
 };
 
 struct MessageIdResult {

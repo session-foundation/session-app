@@ -19,6 +19,9 @@ namespace session_bridge {
 /// Spelled out rather than reached through an enclosing namespace: this namespace is flat, so
 /// nothing of libsession's is in scope unless a file says so.
 Attachment to_bridge(::session::client::Attachment&& from);
+/// Taken by reference: a status is a handful of scalars, and the vector it came in is the
+/// caller's.
+AttachmentStatus to_bridge(const ::session::client::AttachmentStatus& from);
 Message to_bridge(::session::client::Message&& from);
 Conversation to_bridge(::session::client::AnyConversation&& from);
 

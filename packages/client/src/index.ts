@@ -10,6 +10,7 @@ export {
 export type {
   AccountInfo,
   Attachment,
+  AttachmentStatus,
   AttachmentTransfer,
   AutoDownload,
   Command,

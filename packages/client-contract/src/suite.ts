@@ -172,7 +172,7 @@ export function runSessionClientContract(
       await alice.sendMessage((await bob.getAccountInfo()).sessionId ?? '', { body: 'ping' })
       await settle()
 
-      const messages = await bob.getMessages(aliceId)
+      const { messages } = await bob.getMessages(aliceId)
       expect(messages.map((m) => m.body)).toContain('ping')
     })
 
@@ -222,12 +222,12 @@ export function runSessionClientContract(
         await settle()
       }
 
-      const newest = await alice.getMessages(bobId, { limit: 2 })
+      const { messages: newest } = await alice.getMessages(bobId, { limit: 2 })
       expect(newest.length).toBe(2)
 
       const oldest = newest[0]
       if (!oldest) throw new Error('unreachable')
-      const older = await alice.getMessages(bobId, {
+      const { messages: older } = await alice.getMessages(bobId, {
         limit: 2,
         before: { timestamp: oldest.timestamp, id: oldest.id },
       })
@@ -241,7 +241,7 @@ export function runSessionClientContract(
       await alice.sendMessage(bobId, { body: 'in flight' })
 
       const restarted = await harness.restart(alice)
-      const messages = await restarted.getMessages(bobId)
+      const { messages } = await restarted.getMessages(bobId)
       const inFlight = messages.find((m) => m.body === 'in flight')
 
       expect(inFlight).toBeDefined()
@@ -256,7 +256,7 @@ export function runSessionClientContract(
       await settle()
 
       const seen = collect(alice)
-      await alice.deleteMessage((await alice.getMessages(bobId))[0]?.id ?? 0, 'here')
+      await alice.deleteMessage((await alice.getMessages(bobId)).messages[0]?.id ?? 0, 'here')
       expect(seen.events.some((e) => e.type === 'conversation-removed')).toBe(false)
       seen.stop()
     })
@@ -266,16 +266,16 @@ export function runSessionClientContract(
       await alice.sendMessage(bobId, { body: 'hello' })
       await settle()
 
-      const before = await alice.getMessages(bobId)
+      const { messages: before } = await alice.getMessages(bobId)
       const target = before[0]
       if (!target) throw new Error('unreachable')
       await alice.deleteMessage(target.id, 'here')
       await settle()
 
-      const visible = await alice.getMessages(bobId)
+      const { messages: visible } = await alice.getMessages(bobId)
       expect(visible.some((m) => m.id === target.id)).toBe(false)
 
-      const withDeleted = await alice.getMessages(bobId, { includeDeleted: true })
+      const { messages: withDeleted } = await alice.getMessages(bobId, { includeDeleted: true })
       const deleted = withDeleted.find((m) => m.id === target.id)
       expect(deleted?.deleted).toBe('here')
     })
@@ -451,6 +451,29 @@ export function runSessionClientContract(
       // progress indicator from reading two transfers as one.
       expect(saves.length).toBeGreaterThan(0)
       seen.stop()
+    })
+
+    it('answers a page with what its attachments are doing', async () => {
+      const { client, conversationId, messageId, index, settle } = await harness.withAttachment()
+
+      const before = await client.getMessages(conversationId)
+      const idle = before.transfers.find((t) => t.messageId === messageId && t.index === index)
+      // Reported even though nothing is happening to it: "nobody is fetching this" is what a row
+      // offering to fetch it needs to hear, and is not the same as having nothing to fetch.
+      expect(idle).toBeDefined()
+      expect(idle?.cached).toBe(false)
+      expect(idle?.transferring).toBe(false)
+
+      const running = client.downloadAttachment(messageId, index)
+      await settle()
+      await running
+
+      // The reason this exists: a screen that was not listening has no other way back to the
+      // truth, and asking for the bytes to find out would be a download rather than a question.
+      const after = await client.getMessages(conversationId)
+      const cached = after.transfers.find((t) => t.messageId === messageId && t.index === index)
+      expect(cached?.cached).toBe(true)
+      expect(cached?.transferring).toBe(false)
     })
 
     it('remembers being told to download nothing, which is not the same as never asking', async () => {

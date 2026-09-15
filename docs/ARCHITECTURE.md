@@ -458,3 +458,32 @@ Append one paragraph per decision. Undocumented decisions are what rot.
   `MediaPort.urlFor` returns null where a platform has no resolver yet, and the attachment row
   draws its file form instead. Mobile returns null today: saying so beats rendering an image that
   never loads.
+
+- **2026-09-16 - A history window does not outlive the screen showing it.** It used to: once loaded,
+  `histories[id]` stayed for the session, so every conversation ever opened kept its page and its
+  transfers. `useMessages` now drops it when it stops showing that id - keyed on the id rather than
+  on unmounting, because a wide layout keeps the detail pane mounted and only swaps the prop.
+
+  That makes the store a view of what is on screen, which in turn makes it safe to discard progress
+  reports for conversations nobody is looking at. The cost is that returning to a conversation
+  reloads it: paging depth and scroll position are lost, which wants solving on its own and is in
+  `STATUS.md`.
+
+- **2026-09-16 - A page of messages arrives with what its attachments are doing.**
+  `attachment_transfers` answers *nothing doing / running at N of M / already cached* without
+  starting anything, and `messageList` carries the answer beside the messages.
+
+  It exists because nothing about a transfer is stored, so a screen that was not listening - the
+  conversation was not open, the renderer reloaded, the process restarted - has no other way back
+  to the truth, and asking for the bytes to find out would be a download rather than a question.
+  It travels with the page rather than being asked for per row so that a row never draws a state it
+  is about to correct, and because the shim only ever uses the handler form: thirty async calls
+  would need a fan-in it has no pattern for, one batch is one handler.
+
+  Deliberately not fields on `Attachment`. That is libsession's account of the message; this is
+  what this device is doing about it, it changes far more often, and it is also what
+  `attachment-progress` reports - so putting it there would give one field two writers that
+  disagree the moment a transfer ticks. One writer for the first picture, one for the updates.
+
+  It also answers "is this downloaded?", which supersedes the earlier decision not to record that:
+  a cached file can offer Save rather than pretending it needs fetching.

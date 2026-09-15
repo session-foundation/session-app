@@ -122,7 +122,7 @@ function carrier(a: Peer, b: Peer): () => Promise<void> {
     } catch {
       return // No conversation yet, so nothing has been written into it.
     }
-    for (const message of messages) {
+    for (const message of messages.messages) {
       const key = `${from.sessionId}:${String(message.id)}`
       if (!message.outgoing || delivered.has(key)) continue
       delivered.add(key)
@@ -244,6 +244,7 @@ describeAddon('addon', () => {
         'reports a download from nothing to a result': OFFLINE_ATTACHMENTS,
         'answers a download of what is already here without reporting again': OFFLINE_ATTACHMENTS,
         'reports a save as its own transfer': OFFLINE_ATTACHMENTS,
+        'answers a page with what its attachments are doing': OFFLINE_ATTACHMENTS,
         'remembers being told to download nothing, which is not the same as never asking':
           OFFLINE_ATTACHMENTS,
       },

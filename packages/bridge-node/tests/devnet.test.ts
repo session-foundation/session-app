@@ -128,7 +128,7 @@ describe.skipIf(seedUrl === undefined)('a local devnet', () => {
         await alice.sendMessage(conversation, { body })
         const deadline = started + within
         while (Date.now() < deadline) {
-          const messages = await bob.getMessages(aliceId)
+          const { messages } = await bob.getMessages(aliceId)
           if (messages.some((message) => message.body === body)) return Date.now() - started
           await new Promise((resolve) => setTimeout(resolve, 50))
         }

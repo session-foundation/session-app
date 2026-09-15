@@ -3,6 +3,7 @@ import { isHex64, isIpv4, isPort } from '@session/basic-types'
 import { BridgeClosedError, SessionClientError } from '../errors'
 import type {
   AccountInfo,
+  AttachmentStatus,
   AutoDownload,
   Conversation,
   ConversationId,
@@ -244,7 +245,7 @@ export class FakeSessionClient implements SessionClient {
       before?: { timestamp: number; id: number }
       includeDeleted?: boolean
     },
-  ): Promise<Message[]> {
+  ): Promise<{ messages: Message[]; transfers: AttachmentStatus[] }> {
     this.assertOpen()
     // A limit is a page size, not a sentinel: there is no value meaning "all of it", because
     // history grows without bound.
@@ -267,7 +268,8 @@ export class FakeSessionClient implements SessionClient {
       : all
     const limit = options?.limit ?? 50
     // Newest-first paging, returned oldest-first so a transcript can render it directly.
-    return Promise.resolve(older.slice(Math.max(0, older.length - limit)))
+    const messages = older.slice(Math.max(0, older.length - limit))
+    return Promise.resolve({ messages, transfers: this.account.transfersFor(messages) })
   }
 
   downloadAttachment(messageId: number, index: number): Promise<void> {

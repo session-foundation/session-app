@@ -13,6 +13,7 @@ export { ATTACHMENT_FILE_MISSING, ATTACHMENT_OK, ATTACHMENT_UNREADABLE } from '.
 export type {
   AccountInfo,
   Attachment,
+  AttachmentStatus,
   AttachmentTransfer,
   AutoDownload,
   Conversation,

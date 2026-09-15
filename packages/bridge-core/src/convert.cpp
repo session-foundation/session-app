@@ -84,6 +84,16 @@ Attachment to_bridge(::session::client::Attachment&& from) {
             from.saved_at ? std::optional<double>{epoch_ms(*from.saved_at)} : std::nullopt);
 }
 
+AttachmentStatus to_bridge(const ::session::client::AttachmentStatus& from) {
+    return AttachmentStatus(
+            static_cast<double>(from.message_id),
+            static_cast<double>(from.index),
+            from.cached,
+            from.transferring,
+            static_cast<double>(from.done),
+            static_cast<double>(from.total));
+}
+
 Message to_bridge(::session::client::Message&& from) {
     std::optional<Reply> reply;
     if (from.reply) {

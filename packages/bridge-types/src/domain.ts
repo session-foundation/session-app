@@ -49,6 +49,28 @@ export type AutoDownload = 'none' | 'image-attachments' | 'all'
  */
 export type AttachmentTransfer = 'download' | 'save'
 
+/**
+ * What one attachment's bytes are doing on this device, as of the answer that carried it.
+ *
+ * The one way back to the truth about a transfer: nothing about one is stored, so a screen that
+ * was not listening - it had not opened this conversation, the app had not started - cannot learn
+ * from the reports what it missed. It arrives with the page of messages it describes, so a row
+ * never draws a state it is about to correct.
+ */
+export interface AttachmentStatus {
+  messageId: number
+  index: number
+  /** Asking for the bytes would answer from disk. A strong hint: a sweep can falsify it, and a
+   *  fetch that misses simply downloads. */
+  cached: boolean
+  /** A transfer is running, and `done`/`total` are where it has got to - the same encrypted-byte
+   *  figures `attachment-progress` carries, so a bar seeded here and then fed by reports does not
+   *  jump. A save is never visible here: it keeps nothing, so there is nothing to join. */
+  transferring: boolean
+  done: number
+  total: number
+}
+
 /** Accepted and verified: the only `AttachmentProgress.result` that means finished. */
 export const ATTACHMENT_OK = 0
 /** The file is no longer at the path it was attached from. Reported on an upload, never a fetch. */

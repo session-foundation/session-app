@@ -187,7 +187,7 @@ describeAddon('the database, with something in it', () => {
 
       // The oldest page, reached by cursor. What scrolling to the top costs, per page.
       const page = await client.getMessages(id, { limit: 30 })
-      const oldest = page[0]
+      const oldest = page.messages[0]
       const deep = oldest
         ? await timeAsync(() =>
             client.getMessages(id, {

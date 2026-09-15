@@ -1,5 +1,6 @@
 import type {
   AccountInfo,
+  AttachmentStatus,
   AutoDownload,
   Command,
   Conversation,
@@ -188,7 +189,10 @@ export function createSessionClient(transport: BridgeTransport): SessionClient {
       await call({ type: 'deleteConversation', conversationId: id, keepMessages })
     },
 
-    async getMessages(id, options): Promise<Message[]> {
+    async getMessages(
+      id,
+      options,
+    ): Promise<{ messages: Message[]; transfers: AttachmentStatus[] }> {
       const before = options?.before
       const response = await call({
         type: 'getMessages',
@@ -197,7 +201,8 @@ export function createSessionClient(transport: BridgeTransport): SessionClient {
         includeDeleted: options?.includeDeleted ?? false,
         ...(before === undefined ? {} : { before }),
       })
-      return expect(response, 'messageList').messages
+      const page = expect(response, 'messageList')
+      return { messages: page.messages, transfers: page.transfers }
     },
 
     async sendMessage(id, message: OutgoingMessage): Promise<number> {

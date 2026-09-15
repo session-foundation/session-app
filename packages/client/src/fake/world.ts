@@ -17,6 +17,7 @@
 import type {
   AccountInfo,
   Attachment,
+  AttachmentStatus,
   AttachmentTransfer,
   AutoDownload,
   Conversation,
@@ -95,6 +96,8 @@ export class FakeAccount {
   private readonly cached = new Set<string>()
   /** Downloads in flight, so a second request for one joins it rather than starting another. */
   private readonly downloading = new Map<string, Promise<void>>()
+  /** Where each running transfer has got to, so a page can be told without waiting for a report. */
+  private readonly running = new Map<string, { done: number; total: number }>()
   /** Bumped by a restart: a transfer that was running does not survive the process. */
   private generation = 0
   private cacheLimit: number | undefined
@@ -302,6 +305,7 @@ export class FakeAccount {
     // reports are dropped and whoever was waiting is told, rather than left holding a promise.
     this.generation += 1
     this.downloading.clear()
+    this.running.clear()
 
     const inFlight: SendState[] = ['pending', 'sending']
     for (const [id, state] of this.conversations) {
@@ -414,6 +418,31 @@ export class FakeAccount {
     return this.cached.has(`${messageId}:${index}`)
   }
 
+  /**
+   * What each of these messages' attachments is doing, the way a page answers alongside itself.
+   *
+   * Nothing to fetch is left out rather than reported idle, which is libsession's rule: an
+   * outgoing attachment that has not uploaded is not a row offering to download anything.
+   */
+  transfersFor(messages: Message[]): AttachmentStatus[] {
+    const out: AttachmentStatus[] = []
+    for (const message of messages) {
+      for (const attachment of message.attachments) {
+        if (!attachment.uploaded) continue
+        const running = this.running.get(`${message.id}:${attachment.index}`)
+        out.push({
+          messageId: message.id,
+          index: attachment.index,
+          cached: this.isCached(message.id, attachment.index),
+          transferring: running !== undefined,
+          done: running?.done ?? 0,
+          total: running?.total ?? 0,
+        })
+      }
+    }
+    return out
+  }
+
   attachmentCacheLimit(): number | undefined {
     return this.cacheLimit
   }
@@ -486,8 +515,18 @@ export class FakeAccount {
     const world = this.world
     const generation = this.generation
 
+    const key = `${messageId}:${index}`
     const report = (done: number, result?: number): void => {
       if (generation !== this.generation) return
+      // The size is not known until the server answers, which is what the first report means.
+      const announced = done === 0 && result === undefined ? 0 : total
+      // Remembered as well as announced, and remembered as exactly what was announced: a page
+      // loading midway is told where this is without waiting for the next report, and a caller
+      // cannot tell the two routes apart.
+      if (transfer === 'download') {
+        if (result === undefined) this.running.set(key, { done, total: announced })
+        else this.running.delete(key)
+      }
       this.emit({
         type: 'attachment-progress',
         transfer,
@@ -495,7 +534,7 @@ export class FakeAccount {
         messageId,
         index,
         done,
-        total: done === 0 && result === undefined ? 0 : total,
+        total: announced,
         ...(result === undefined ? {} : { result }),
       })
     }

@@ -3,7 +3,14 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import type { Attachment, Conversation, Frame, Message, Request } from '@session/bridge-types'
+import type {
+  Attachment,
+  AttachmentStatus,
+  Conversation,
+  Frame,
+  Message,
+  Request,
+} from '@session/bridge-types'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { createNodeBridgeTransport } from '#src/index'
@@ -275,6 +282,22 @@ describeEcho('the generated converters', () => {
     voiceMessage: false,
     uploaded: false,
   }
+  const fullStatus: AttachmentStatus = {
+    messageId: 42,
+    index: 0,
+    cached: true,
+    transferring: true,
+    done: 1_200_000,
+    total: 2_411_748,
+  }
+  const bareStatus: AttachmentStatus = {
+    messageId: 42,
+    index: 1,
+    cached: false,
+    transferring: false,
+    done: 0,
+    total: 0,
+  }
   const fullMessage: Message = {
     id: 42,
     conversationId,
@@ -339,7 +362,11 @@ describeEcho('the generated converters', () => {
       type: 'response',
       response: {
         id: 900_007,
-        result: { type: 'messageList', messages: [fullMessage, bareMessage] },
+        result: {
+          type: 'messageList',
+          messages: [fullMessage, bareMessage],
+          transfers: [fullStatus, bareStatus],
+        },
       },
     },
     { type: 'response', response: { id: 900_008, result: { type: 'messageId', messageId: 99 } } },

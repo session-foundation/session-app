@@ -101,7 +101,7 @@ function recordTransfer(
   }
 }
 
-function withoutConversation(
+export function withoutConversation(
   transfers: SessionState['transfers'],
   id: ConversationId,
 ): SessionState['transfers'] {
