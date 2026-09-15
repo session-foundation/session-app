@@ -96,8 +96,15 @@ async function openTransport(): Promise<BridgeTransport> {
   })
 }
 
+/**
+ * A phone's disk is not a desktop's, and neither is its data plan. Small enough that a long
+ * scroll through a picture-heavy conversation evicts rather than accumulates.
+ */
+const ATTACHMENT_CACHE_LIMIT = 500_000_000
+
 export const storePromise = openTransport().then((transport) =>
   createSessionStore(createSessionClient(transport), {
+    attachmentCacheLimit: ATTACHMENT_CACHE_LIMIT,
     // Reaches logcat as ReactNativeJS on Android, and the device console on iOS.
     log: (level, line) => {
       console[level](line)

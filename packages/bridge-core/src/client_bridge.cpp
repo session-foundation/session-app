@@ -23,7 +23,10 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstddef>
 #include <cstring>
+#include <filesystem>
+#include <functional>
 #include <limits>
 #include <ranges>
 #include <stdexcept>
@@ -334,6 +337,35 @@ struct ClientBridge::Impl {
         return client::Conversation{*client, client::ConversationId::parse(id)};
     }
 
+    /// One transfer report, on the stream, whoever asked for it.
+    ///
+    /// Taken by const reference and copied out of: libsession lends a progress payload rather than
+    /// giving it, because the same one is reported against repeatedly.
+    void attachment_progress(
+            AttachmentTransfer transfer,
+            const client::ConversationId& convo_id,
+            const client::AttachmentProgress& p) {
+        event(AttachmentProgressSessionEvent{
+                transfer,
+                convo_id.to_string(),
+                static_cast<double>(p.message_id),
+                static_cast<double>(p.index),
+                static_cast<double>(p.done),
+                static_cast<double>(p.total),
+                p.result ? std::optional<double>{static_cast<double>(*p.result)} : std::nullopt});
+    }
+
+    /// The progress handler a command passes libsession, which reports to the stream rather than
+    /// to the request: a transfer outlives the tap that started it, and the row that draws it may
+    /// not have existed when it began.
+    std::function<void(const client::AttachmentProgress&)> report(
+            AttachmentTransfer transfer, client::ConversationId convo_id) {
+        return [this, transfer, convo_id = std::move(convo_id)](
+                       const client::AttachmentProgress& p) {
+            attachment_progress(transfer, convo_id, p);
+        };
+    }
+
     // One handler per command. Dispatch is a std::visit over the Command variant, so a command
     // added to @session/bridge-types that has no handler here is a compile error, not a request
     // that quietly falls through.
@@ -592,6 +624,74 @@ struct ClientBridge::Impl {
         }
     }
 
+    void handle(double id, const DownloadAttachmentCommand& cmd) {
+        const int64_t message_id = whole<int64_t>(cmd.message_id, "downloadAttachment.messageId");
+        const auto index = whole<size_t>(cmd.index, "downloadAttachment.index");
+        // Looked up for its conversation, which the progress reports carry and this command does
+        // not: libsession's AttachmentProgress names the message and not the conversation.
+        client->message(message_id, on(id, [this, id, message_id, index](
+                                              std::optional<client::Message> msg) {
+            if (!msg)
+                fail(id, not_found("message", std::to_string(message_id)));
+            else
+                // The bytes are dropped: this is the call that *fills* the cache, and filling it
+                // is the whole of what the command does. What reads the file is the media scheme.
+                client->attachment_data(
+                        message_id,
+                        index,
+                        report(AttachmentTransfer::download, msg->conversation),
+                        on(id, [this, id](std::vector<std::byte>) { ok(id); }));
+        }));
+    }
+
+    void handle(double id, const SaveAttachmentCommand& cmd) {
+        const int64_t message_id = whole<int64_t>(cmd.message_id, "saveAttachment.messageId");
+        const auto index = whole<size_t>(cmd.index, "saveAttachment.index");
+        const std::filesystem::path dest{cmd.destination};
+        const bool notify = cmd.notify_sender, replace = cmd.replace;
+        client->message(
+                message_id,
+                on(id,
+                   [this, id, message_id, index, dest, notify, replace](
+                           std::optional<client::Message> msg) {
+                       if (!msg)
+                           fail(id, not_found("message", std::to_string(message_id)));
+                       else
+                           client->save_attachment(
+                                   message_id,
+                                   index,
+                                   dest,
+                                   report(AttachmentTransfer::save, msg->conversation),
+                                   on(id,
+                                      [this, id](std::filesystem::path saved_to) {
+                                          respond(id, PathResult{saved_to.string()});
+                                      }),
+                                   notify,
+                                   replace);
+                   }));
+    }
+
+    void handle(double id, const SetAutoDownloadCommand& cmd) {
+        client::AutoDownload mode = client::AutoDownload::none;
+        // No default label: -Werror=switch makes a new mode a build failure rather than one that
+        // silently downloads nothing.
+        switch (cmd.mode) {
+            case AutoDownload::none: mode = client::AutoDownload::none; break;
+            case AutoDownload::image_attachments:
+                mode = client::AutoDownload::image_attachments;
+                break;
+            case AutoDownload::all: mode = client::AutoDownload::all; break;
+        }
+        convo(cmd.conversation_id).set_auto_download(mode, on(id, [this, id] { ok(id); }));
+    }
+
+    void handle(double id, const SetAttachmentCacheLimitCommand& cmd) {
+        std::optional<int64_t> bytes;
+        if (cmd.bytes)
+            bytes = whole<int64_t>(*cmd.bytes, "setAttachmentCacheLimit.bytes");
+        client->set_attachment_cache_limit(bytes, on(id, [this, id] { ok(id); }));
+    }
+
     void handle(double id, const GetPrefCommand& cmd) {
         respond(id, PrefResult{client->core.globals.get_text(cmd.key)});
     }
@@ -740,8 +840,15 @@ ClientBridge::ClientBridge(InitOptions options, Sink sink) :
                     [impl](const client::ConversationId& id) {
                         impl->event(HistoryReplacedSessionEvent{id.to_string()});
                     },
-            // attachment_progress and display_picture_progress are deliberately left unset:
-            // no transfer is part of the protocol, so there is no frame to report one on.
+            .attachment_progress =
+                    [impl](const client::ConversationId& convo_id,
+                           const client::AttachmentProgress& p) {
+                        // Background fetches only: a transfer a command started reports through
+                        // the handler that command passed, and both land on the same stream.
+                        impl->attachment_progress(AttachmentTransfer::download, convo_id, p);
+                    },
+            // display_picture_progress is deliberately left unset: no screen draws a display
+            // picture yet, so there is nothing a report would feed.
     };
 
     // The key options are types rather than values, so which one is used has to be a branch

@@ -30,6 +30,33 @@ function message(overrides: Partial<Message> = {}): Message {
     body: 'hello',
     outgoing: false,
     sendState: 'sent',
+    attachments: [],
+    galleryViewable: false,
+    ...overrides,
+  }
+}
+
+/** A conversation whose history is loaded, which is what a progress report needs to land. */
+function loaded(messages: Message[] = []): SessionState {
+  return {
+    ...emptyState,
+    histories: {
+      '05alice': { ready: true, messages, exhausted: true, fetching: false },
+    },
+  }
+}
+
+function progress(
+  overrides: Partial<Extract<SessionEvent, { type: 'attachment-progress' }>> = {},
+): SessionEvent {
+  return {
+    type: 'attachment-progress',
+    transfer: 'download',
+    conversationId: '05alice',
+    messageId: 1,
+    index: 0,
+    done: 0,
+    total: 0,
     ...overrides,
   }
 }
@@ -291,5 +318,73 @@ describe('mergePages', () => {
     // A page is asked for from before the oldest message loaded, so an overlap is libsession
     // answering something other than what was asked - not something to paper over here.
     expect(mergePages(older, previous).map((m) => m.id)).toEqual([1, 3, 2])
+  })
+})
+
+describe('attachment transfers', () => {
+  it('records a report against the transfer it belongs to', () => {
+    const state = replay(
+      [progress(), progress({ done: 512, total: 2048 })],
+      loaded([message({ attachments: [] })]),
+    )
+
+    expect(state.transfers['download:1:0']).toEqual({
+      conversationId: '05alice',
+      state: 'running',
+      done: 512,
+      total: 2048,
+    })
+  })
+
+  it('keeps a download and a save of the same attachment apart', () => {
+    // libsession joins downloads with each other and never joins a save, so both can be running
+    // against one file: keyed only by message and index they would overwrite each other and the
+    // bar would jump backwards.
+    const state = replay(
+      [
+        progress({ transfer: 'download', done: 1024, total: 2048 }),
+        progress({ transfer: 'save', done: 64, total: 2048 }),
+      ],
+      loaded(),
+    )
+
+    expect(state.transfers['download:1:0']?.done).toBe(1024)
+    expect(state.transfers['save:1:0']?.done).toBe(64)
+  })
+
+  it('treats a result of zero as finished and anything else as failed', () => {
+    const ok = replay([progress({ done: 2048, total: 2048, result: 0 })], loaded())
+    expect(ok.transfers['download:1:0']?.state).toBe('done')
+
+    const bad = replay([progress({ done: 2048, total: 2048, result: -20002 })], loaded())
+    expect(bad.transfers['download:1:0']?.state).toBe('failed')
+    expect(bad.transfers['download:1:0']?.result).toBe(-20002)
+  })
+
+  it('does not finish a transfer that has moved every byte but reported no result', () => {
+    // done === total arrives before the verification does, so reading it as finished shows a
+    // file as ready that may still fail.
+    const state = replay([progress({ done: 2048, total: 2048 })], loaded())
+    expect(state.transfers['download:1:0']?.state).toBe('running')
+  })
+
+  it('drops reports for a conversation whose history is not loaded', () => {
+    // An auto-downloading conversation reports whether or not anyone is looking at it.
+    const state = replay([progress()], emptyState)
+    expect(Object.keys(state.transfers)).toEqual([])
+  })
+
+  it('forgets a conversation transfers when its history is replaced', () => {
+    const state = replay(
+      [progress({ done: 512, total: 2048 }), { type: 'history-replaced', conversationId: '05alice' }],
+      loaded(),
+    )
+    expect(Object.keys(state.transfers)).toEqual([])
+  })
+
+  it('leaves the transfer map alone when nothing in it changed', () => {
+    const before = replay([progress()], loaded())
+    const after = applyEvent(before, { type: 'history-replaced', conversationId: '05bob' })
+    expect(after.transfers).toBe(before.transfers)
   })
 })

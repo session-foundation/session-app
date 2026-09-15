@@ -14,7 +14,11 @@ import { createPortTransport } from './portTransport'
 
 const client = createSessionClient(createPortTransport())
 
+/** A desktop has disk to spare, and a transcript full of pictures is what fills it. */
+const ATTACHMENT_CACHE_LIMIT = 5_000_000_000
+
 export const store = createSessionStore(client, {
+  attachmentCacheLimit: ATTACHMENT_CACHE_LIMIT,
   // The renderer's console, which reaches the terminal when Electron is run with
   // --enable-logging and the DevTools console otherwise.
   log: (level, line) => {

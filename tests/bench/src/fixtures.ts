@@ -81,6 +81,10 @@ export function makeCorpus(options: {
       body: words(random, 3 + Math.floor(random() * 30)),
       outgoing: i % 2 === 0,
       sendState: 'sent',
+      // Text only: what the benchmark measures is the per-row cost of a transcript, and an
+      // attachment on every row would measure a conversation nobody has.
+      attachments: [],
+      galleryViewable: false,
     })
   }
 

@@ -33,6 +33,15 @@ export const ELEMENT = {
     messageBody: 'message-body',
     messageState: 'message-state',
     messageRetry: 'message-retry',
+    attachment: 'message-attachment',
+    attachmentName: 'message-attachment-name',
+    attachmentState: 'message-attachment-state',
+    attachmentProgress: 'message-attachment-progress',
+    attachmentDownload: 'message-attachment-download',
+    attachmentSave: 'message-attachment-save',
+    autoDownloadPrompt: 'auto-download-prompt',
+    autoDownloadYes: 'auto-download-yes',
+    autoDownloadNo: 'auto-download-no',
     composerInput: 'message-composer',
     sendButton: 'send-button',
   },
@@ -96,6 +105,15 @@ export type ElementId =
   | 'message-body'
   | 'message-state'
   | 'message-retry'
+  | 'message-attachment'
+  | 'message-attachment-name'
+  | 'message-attachment-state'
+  | 'message-attachment-progress'
+  | 'message-attachment-download'
+  | 'message-attachment-save'
+  | 'auto-download-prompt'
+  | 'auto-download-yes'
+  | 'auto-download-no'
   | 'message-composer'
   | 'send-button'
   | 'requests'

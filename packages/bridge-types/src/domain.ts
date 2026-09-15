@@ -33,6 +33,68 @@ export type SendState =
 export type Deletion = 'here' | 'everywhere'
 
 /**
+ * What a conversation fetches without being asked.
+ *
+ * Device-local and never synced: auto-downloading everything on a desktop and nothing on a phone
+ * is the case it exists for.
+ */
+export type AutoDownload = 'none' | 'image-attachments' | 'all'
+
+/**
+ * Which kind of transfer a progress report belongs to.
+ *
+ * libsession joins concurrent downloads of one file with each other but never joins a save, so one
+ * attachment can have two live transfers at once. Keyed without this they interleave, and a bar
+ * jumps backwards.
+ */
+export type AttachmentTransfer = 'download' | 'save'
+
+/** Accepted and verified: the only `AttachmentProgress.result` that means finished. */
+export const ATTACHMENT_OK = 0
+/** The file is no longer at the path it was attached from. Reported on an upload, never a fetch. */
+export const ATTACHMENT_FILE_MISSING = -20001
+/** It arrived but could not be turned back into the file it claims to be. Not worth retrying. */
+export const ATTACHMENT_UNREADABLE = -20002
+
+/**
+ * An attachment on a stored message, in either direction.
+ *
+ * Nothing here says whether the bytes are on this device: that is answered by asking for them, and
+ * `downloadAttachment` answers at once when they are already cached.
+ */
+export interface Attachment {
+  /** Position in the message's list, and what every attachment call takes. */
+  index: number
+  /** The sender's claim on an incoming attachment: a display hint, not a fact about the bytes. */
+  contentType?: string
+  filename?: string
+  /** Shown with the attachment, and distinct from the message body. */
+  caption?: string
+  /**
+   * The file's size before encryption. Unset on an outgoing attachment that has not uploaded, and
+   * the sender's claim on an incoming one. Not comparable with a progress report's `total`, which
+   * counts encrypted bytes.
+   */
+  size?: number
+  voiceMessage: boolean
+  /** Supplied by whoever attached the file - libsession does not measure images. */
+  width?: number
+  height?: number
+  /**
+   * On the file server: an outgoing attachment's upload finished, and always true for an incoming
+   * one. Deliberately not "the bytes are here" - libsession records no local path, because the
+   * application chose it and a stored copy would go stale the moment the file moved.
+   */
+  uploaded: boolean
+  /**
+   * When the recipient last saved it - us on an incoming attachment, the other party on one we
+   * sent. Unset means *not known to have been saved*, which is not the same as not saved: it
+   * depends on the other end volunteering a notification.
+   */
+  savedAt?: number
+}
+
+/**
  * Where a page of history starts. Newest-first, keyed by (timestamp, id) so that a page seam
  * cannot duplicate or skip a message that shares a timestamp with its neighbour.
  */
@@ -76,6 +138,13 @@ export interface Message {
    * Optional rather than defaulted, because `sent` here would claim a sync that never happened.
    */
   syncState?: SendState
+  attachments: Attachment[]
+  /**
+   * Whether this message's attachments could be shown as pictures rather than listed as files.
+   * libsession's rule, not one to re-derive from content types: today it is "has attachments, and
+   * every one of them is an image", and it may narrow.
+   */
+  galleryViewable: boolean
   replyTo?: Reply
   deleted?: Deletion
 }
@@ -94,6 +163,12 @@ export interface Conversation {
   markedUnread: boolean
   snippet?: string
   muteUntil?: number
+  /**
+   * Unset means nobody has been asked yet, which is not the same as having been asked and said no:
+   * Session asks once per conversation and remembers the answer, and only the former should prompt
+   * again. Setting it - `none` included - is what records that the question was asked.
+   */
+  autoDownload?: AutoDownload
   request: boolean
   awaitingApproval: boolean
   noteToSelf: boolean

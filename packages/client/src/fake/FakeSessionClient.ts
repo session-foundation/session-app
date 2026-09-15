@@ -3,6 +3,7 @@ import { isHex64, isIpv4, isPort } from '@session/basic-types'
 import { BridgeClosedError, SessionClientError } from '../errors'
 import type {
   AccountInfo,
+  AutoDownload,
   Conversation,
   ConversationId,
   Deletion,
@@ -267,6 +268,35 @@ export class FakeSessionClient implements SessionClient {
     const limit = options?.limit ?? 50
     // Newest-first paging, returned oldest-first so a transcript can render it directly.
     return Promise.resolve(older.slice(Math.max(0, older.length - limit)))
+  }
+
+  downloadAttachment(messageId: number, index: number): Promise<void> {
+    this.assertOpen()
+    if (!this.account.locate(messageId, index)) {
+      return Promise.reject(new SessionClientError(`No attachment ${messageId}:${index}`))
+    }
+    return this.account.downloadAttachment(messageId, index)
+  }
+
+  saveAttachment(messageId: number, index: number, destination: string): Promise<string> {
+    this.assertOpen()
+    if (!this.account.locate(messageId, index)) {
+      return Promise.reject(new SessionClientError(`No attachment ${messageId}:${index}`))
+    }
+    return this.account.saveAttachment(messageId, index, destination)
+  }
+
+  setAutoDownload(id: ConversationId, mode: AutoDownload): Promise<void> {
+    this.assertOpen()
+    this.account.setAutoDownload(id, mode)
+    return Promise.resolve()
+  }
+
+  setAttachmentCacheLimit(): Promise<void> {
+    this.assertOpen()
+    // The fake caches in memory and never evicts, so there is nothing a limit could bound. It
+    // accepts one rather than refusing, because refusing would fail a boot that is correct.
+    return Promise.resolve()
   }
 
   sendMessage(id: ConversationId, message: OutgoingMessage): Promise<number> {

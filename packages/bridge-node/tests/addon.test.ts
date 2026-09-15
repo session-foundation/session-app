@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import type { Conversation, Frame, Message, Request } from '@session/bridge-types'
+import type { Attachment, Conversation, Frame, Message, Request } from '@session/bridge-types'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { createNodeBridgeTransport } from '#src/index'
@@ -239,6 +239,7 @@ describeEcho('the generated converters', () => {
     markedUnread: true,
     snippet: 'see you',
     muteUntil: 1_700_000_100_000,
+    autoDownload: 'image-attachments',
     request: true,
     awaitingApproval: false,
     noteToSelf: false,
@@ -257,6 +258,23 @@ describeEcho('the generated converters', () => {
     noteToSelf: false,
     blocked: false,
   }
+  const fullAttachment: Attachment = {
+    index: 0,
+    contentType: 'image/jpeg',
+    filename: 'harbour ñ.jpg',
+    caption: 'the harbour',
+    size: 2_411_724,
+    voiceMessage: true,
+    width: 1600,
+    height: 1200,
+    uploaded: true,
+    savedAt: 1_700_000_200_000,
+  }
+  const bareAttachment: Attachment = {
+    index: 1,
+    voiceMessage: false,
+    uploaded: false,
+  }
   const fullMessage: Message = {
     id: 42,
     conversationId,
@@ -266,6 +284,8 @@ describeEcho('the generated converters', () => {
     outgoing: true,
     sendState: 'uploading',
     syncState: 'pending',
+    attachments: [fullAttachment, bareAttachment],
+    galleryViewable: true,
     replyTo: { author, timestamp: 1_699_999_999_999, messageId: 7, body: 'orig' },
     deleted: 'here',
   }
@@ -277,6 +297,8 @@ describeEcho('the generated converters', () => {
     body: '',
     outgoing: false,
     sendState: 'sent',
+    attachments: [],
+    galleryViewable: false,
   }
 
   const frames: Frame[] = [
@@ -326,6 +348,7 @@ describeEcho('the generated converters', () => {
     { type: 'response', response: { id: 900_011, result: { type: 'pref' } } },
     { type: 'response', response: { id: 900_012, result: { type: 'bool', value: true } } },
     { type: 'response', response: { id: 900_013, result: { type: 'empty' } } },
+    { type: 'response', response: { id: 900_014, result: { type: 'path', path: '/tmp/a (2).jpg' } } },
     { type: 'event', event: { type: 'conversation-added', conversation: fullConversation } },
     { type: 'event', event: { type: 'conversation-updated', conversation: bareConversation } },
     { type: 'event', event: { type: 'conversation-removed', conversationId } },
@@ -337,6 +360,31 @@ describeEcho('the generated converters', () => {
     { type: 'event', event: { type: 'message-added', conversationId, message: fullMessage } },
     { type: 'event', event: { type: 'message-updated', conversationId, message: bareMessage } },
     { type: 'event', event: { type: 'history-replaced', conversationId } },
+    {
+      type: 'event',
+      event: {
+        type: 'attachment-progress',
+        transfer: 'download',
+        conversationId,
+        messageId: 42,
+        index: 0,
+        done: 0,
+        total: 0,
+      },
+    },
+    {
+      type: 'event',
+      event: {
+        type: 'attachment-progress',
+        transfer: 'save',
+        conversationId,
+        messageId: 42,
+        index: 1,
+        done: 2_411_748,
+        total: 2_411_748,
+        result: 0,
+      },
+    },
     { type: 'event', event: { type: 'log', message: 'm', category: 'c', level: 'info' } },
   ]
 

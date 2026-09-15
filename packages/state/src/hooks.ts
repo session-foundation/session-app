@@ -1,4 +1,10 @@
-import type { AccountInfo, Conversation, ConversationId, Message } from '@session/client'
+import type {
+  AccountInfo,
+  AttachmentTransfer,
+  Conversation,
+  ConversationId,
+  Message,
+} from '@session/client'
 import {
   createContext,
   createElement,
@@ -11,7 +17,8 @@ import {
 import { useStore } from 'zustand'
 
 import type { SessionActions, SessionStore } from './store'
-import type { MessageWindow } from './types'
+import type { AttachmentTransferState, MessageWindow } from './types'
+import { transferKey } from './types'
 
 const StoreContext = createContext<SessionStore | null>(null)
 
@@ -113,6 +120,22 @@ export function useMessages(id: ConversationId | undefined): {
     }),
     [window, loadOlder],
   )
+}
+
+/**
+ * How one attachment transfer is going, or undefined when none has been seen this session.
+ *
+ * Undefined does not mean the bytes are absent: a transfer that finished before this app was
+ * started left nothing behind, because libsession records nothing about one either. The way to
+ * find out is to ask for the file - a cached one answers at once.
+ */
+export function useAttachmentTransfer(
+  transfer: AttachmentTransfer,
+  messageId: number,
+  index: number,
+): AttachmentTransferState | undefined {
+  const store = useSessionStore()
+  return useStore(store, (state) => state.transfers[transferKey(transfer, messageId, index)])
 }
 
 /** Unread requests, which is not the same as the number of requests. */

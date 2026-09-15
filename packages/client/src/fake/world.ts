@@ -16,12 +16,16 @@
 
 import type {
   AccountInfo,
+  Attachment,
+  AttachmentTransfer,
+  AutoDownload,
   Conversation,
   ConversationId,
   Message,
   SendState,
   SessionEvent,
 } from '@session/bridge-types'
+import { ATTACHMENT_OK } from '@session/bridge-types'
 
 export interface FakeAccountOptions {
   displayName: string
@@ -37,6 +41,33 @@ function nextId(): number {
 
 export function resetFakeIds(): void {
   seq = 0
+}
+
+/**
+ * What a transfer of `size` plaintext bytes moves.
+ *
+ * Progress counts encrypted bytes, which are more than the file is: a 24-byte header and 17 bytes
+ * of framing per 32KiB chunk. Reproduced rather than approximated so that a caller reading a
+ * percentage off `Attachment.size` disagrees with the fake, as it would with libsession.
+ */
+function encryptedSize(size: number): number {
+  return 24 + size + Math.ceil(size / 32_768) * 17
+}
+
+/** How many reports a transfer makes between starting and finishing. */
+const TRANSFER_STEPS = 4
+
+/** libsession's rule: has attachments, and every one of them is an image. */
+function galleryViewable(attachments: Attachment[]): boolean {
+  return (
+    attachments.length > 0 && attachments.every((a) => a.contentType?.startsWith('image/') === true)
+  )
+}
+
+function wantedBy(mode: AutoDownload | undefined, attachment: Attachment): boolean {
+  if (mode === 'all') return true
+  if (mode === 'image-attachments') return attachment.contentType?.startsWith('image/') === true
+  return false
 }
 
 interface FakeConversationState {
@@ -60,6 +91,12 @@ export class FakeAccount {
   private readonly listeners = new Set<(event: SessionEvent) => void>()
   private readonly prefs = new Map<string, string>()
   private world: FakeWorld | undefined
+  /** Attachments whose bytes are in the cache, keyed `messageId:index`. */
+  private readonly cached = new Set<string>()
+  /** Downloads in flight, so a second request for one joins it rather than starting another. */
+  private readonly downloading = new Map<string, Promise<void>>()
+  /** Bumped by a restart: a transfer that was running does not survive the process. */
+  private generation = 0
 
   constructor(options: FakeAccountOptions) {
     this.displayName = options.displayName
@@ -260,6 +297,11 @@ export class FakeAccount {
    * show a spinner for ever after a crash.
    */
   restart(): void {
+    // A transfer is not stored anywhere, so one that was running is simply gone: its remaining
+    // reports are dropped and whoever was waiting is told, rather than left holding a promise.
+    this.generation += 1
+    this.downloading.clear()
+
     const inFlight: SendState[] = ['pending', 'sending']
     for (const [id, state] of this.conversations) {
       for (const message of state.messages) {
@@ -277,7 +319,12 @@ export class FakeAccount {
     }
   }
 
-  deliverFrom(sender: FakeAccount, body: string, timestamp: number): Message {
+  deliverFrom(
+    sender: FakeAccount,
+    body: string,
+    timestamp: number,
+    attachments: Attachment[] = [],
+  ): Message {
     const conversationId = sender.sessionId
     if (!this.conversations.has(conversationId)) {
       this.upsertConversation({
@@ -296,7 +343,7 @@ export class FakeAccount {
       })
     }
 
-    return this.addMessage(conversationId, {
+    const message = this.addMessage(conversationId, {
       id: nextId(),
       conversationId,
       author: sender.sessionId,
@@ -304,7 +351,17 @@ export class FakeAccount {
       body,
       outgoing: false,
       sendState: 'sent',
+      attachments,
+      galleryViewable: galleryViewable(attachments),
     })
+
+    // Whatever the conversation said to fetch unasked, fetched now. Unset means nobody has been
+    // asked yet, and nothing is fetched while it is unset.
+    const mode = this.get(conversationId)?.autoDownload
+    for (const attachment of attachments) {
+      if (wantedBy(mode, attachment)) void this.downloadAttachment(message.id, attachment.index)
+    }
+    return message
   }
 
   send(id: ConversationId, body: string, replyTo?: number): number {
@@ -318,6 +375,9 @@ export class FakeAccount {
       outgoing: true,
       // Stored and shown before it is sent - which is why the app needs no optimistic copy.
       sendState: 'pending',
+      // Sending an attachment is not in the protocol, so an outgoing message never has one.
+      attachments: [],
+      galleryViewable: false,
       // A second send, to our own swarm, so our other devices see it. Left unset on an incoming
       // message, which is why `deliverFrom` does not set one.
       syncState: 'pending',
@@ -328,6 +388,124 @@ export class FakeAccount {
     this.addMessage(id, message)
     this.world?.scheduleSend(this, id, message)
     return message.id
+  }
+
+  // -- Attachments ---------------------------------------------------------------------------
+
+  /** The attachment and the conversation it hangs off, or undefined if there is no such pair. */
+  locate(
+    messageId: number,
+    index: number,
+  ): { conversationId: ConversationId; message: Message; attachment: Attachment } | undefined {
+    for (const [conversationId, state] of this.conversations) {
+      const message = state.messages.find((m) => m.id === messageId)
+      const attachment = message?.attachments.find((a) => a.index === index)
+      if (message && attachment) return { conversationId, message, attachment }
+    }
+    return undefined
+  }
+
+  isCached(messageId: number, index: number): boolean {
+    return this.cached.has(`${messageId}:${index}`)
+  }
+
+  setAutoDownload(id: ConversationId, mode: AutoDownload): void {
+    this.touch(id, { autoDownload: mode })
+  }
+
+  /**
+   * Fetches an attachment into the cache, reporting as it goes.
+   *
+   * Cached already means no reports at all and an answer now - the case a progress indicator has
+   * to survive. A fetch already running is joined rather than duplicated, which is why the
+   * promise is remembered.
+   */
+  downloadAttachment(messageId: number, index: number): Promise<void> {
+    const found = this.locate(messageId, index)
+    if (!found) return Promise.reject(new Error(`No attachment ${messageId}:${index}`))
+    const key = `${messageId}:${index}`
+    if (this.cached.has(key)) return Promise.resolve()
+
+    const joined = this.downloading.get(key)
+    if (joined) return joined
+
+    const running = this.transfer('download', found.conversationId, messageId, index).then(() => {
+      this.cached.add(key)
+      this.downloading.delete(key)
+    })
+    this.downloading.set(key, running)
+    return running
+  }
+
+  /**
+   * Writes an attachment somewhere, fetching it if the cache does not hold it.
+   *
+   * Never joined with a download of the same file: a save streams to its destination and leaves
+   * the cache alone, so the two are separate transfers even for the same bytes.
+   */
+  saveAttachment(messageId: number, index: number, destination: string): Promise<string> {
+    const found = this.locate(messageId, index)
+    if (!found) return Promise.reject(new Error(`No attachment ${messageId}:${index}`))
+
+    return this.transfer('save', found.conversationId, messageId, index).then(() => {
+      const saved = found.message.attachments.map((a) =>
+        a.index === index ? { ...a, savedAt: this.world?.now() ?? Date.now() } : a,
+      )
+      this.updateMessage(found.conversationId, messageId, { attachments: saved })
+      return destination
+    })
+  }
+
+  /**
+   * One transfer, reported on the world's clock.
+   *
+   * The first report is 0 of 0 - the size is not known until the server answers - and exactly one
+   * report carries a result, which is the only thing that says it finished.
+   */
+  private transfer(
+    transfer: AttachmentTransfer,
+    conversationId: ConversationId,
+    messageId: number,
+    index: number,
+  ): Promise<void> {
+    const found = this.locate(messageId, index)
+    const total = encryptedSize(found?.attachment.size ?? 0)
+    const world = this.world
+    const generation = this.generation
+
+    const report = (done: number, result?: number): void => {
+      if (generation !== this.generation) return
+      this.emit({
+        type: 'attachment-progress',
+        transfer,
+        conversationId,
+        messageId,
+        index,
+        done,
+        total: done === 0 && result === undefined ? 0 : total,
+        ...(result === undefined ? {} : { result }),
+      })
+    }
+
+    report(0)
+    if (!world) {
+      report(total, ATTACHMENT_OK)
+      return Promise.resolve()
+    }
+
+    return new Promise<void>((resolve, reject) => {
+      for (let step = 1; step < TRANSFER_STEPS; step += 1) {
+        world.schedule(step, () => report(Math.round((total * step) / TRANSFER_STEPS)))
+      }
+      world.schedule(TRANSFER_STEPS, () => {
+        if (generation !== this.generation) {
+          reject(new Error('the transfer did not survive the restart'))
+          return
+        }
+        report(total, ATTACHMENT_OK)
+        resolve()
+      })
+    })
   }
 
   setSendState(id: ConversationId, messageId: number, sendState: SendState): void {
@@ -367,6 +545,11 @@ export class FakeWorld {
 
   find(sessionId: string): FakeAccount | undefined {
     return [...this.accounts.values()].find((a) => a.sessionId === sessionId)
+  }
+
+  /** Runs `run` `steps` ticks from now, which is how a multi-step progression is staged. */
+  schedule(steps: number, run: () => void): void {
+    this.queue.push({ at: this.clock + this.stepMs * steps, run })
   }
 
   scheduleSend(sender: FakeAccount, conversationId: ConversationId, message: Message): void {

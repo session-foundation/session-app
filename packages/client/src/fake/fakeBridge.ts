@@ -171,6 +171,26 @@ const handlers: { [K in Command['type']]: Handler<K> } = {
     return { type: 'bool', value: true }
   },
 
+  downloadAttachment: async (client, cmd) => {
+    await client.downloadAttachment(cmd.messageId, cmd.index)
+    return empty
+  },
+  saveAttachment: async (client, cmd) => ({
+    type: 'path',
+    path: await client.saveAttachment(cmd.messageId, cmd.index, cmd.destination, {
+      notifySender: cmd.notifySender,
+      replace: cmd.replace,
+    }),
+  }),
+  setAutoDownload: async (client, cmd) => {
+    await client.setAutoDownload(cmd.conversationId, cmd.mode)
+    return empty
+  },
+  setAttachmentCacheLimit: async (client, cmd) => {
+    await client.setAttachmentCacheLimit(cmd.bytes)
+    return empty
+  },
+
   getPref: async (client, cmd) => {
     const value = await client.getPref(cmd.key)
     return { type: 'pref', ...(value === undefined ? {} : { value }) }

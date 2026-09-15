@@ -1,6 +1,8 @@
+import { ATTACHMENT_OK } from '@session/client'
 import type { Conversation, ConversationId, Message, SessionEvent } from '@session/client'
 
-import type { MessageWindow, SessionState } from './types'
+import type { AttachmentTransferState, MessageWindow, SessionState } from './types'
+import { transferKey } from './types'
 
 /**
  * The whole projection, as one pure function.
@@ -46,7 +48,11 @@ export function applyEvent(state: SessionState, event: SessionEvent): SessionSta
             fetching: false,
           },
         },
+        transfers: withoutConversation(state.transfers, event.conversationId),
       }
+
+    case 'attachment-progress':
+      return recordTransfer(state, event)
 
     case 'log':
       return state
@@ -57,6 +63,50 @@ export function applyEvent(state: SessionState, event: SessionEvent): SessionSta
       event satisfies never
       return state
   }
+}
+
+/**
+ * Records one report, dropping those for a conversation nobody has loaded.
+ *
+ * Same rule as a message event, and for the same reason: an auto-downloading conversation
+ * reports whether or not anyone is looking at it, and keeping what no screen can draw would
+ * leave this growing for the life of the session.
+ */
+function recordTransfer(
+  state: SessionState,
+  event: Extract<SessionEvent, { type: 'attachment-progress' }>,
+): SessionState {
+  if (!state.histories[event.conversationId]?.ready) return state
+
+  const entry: AttachmentTransferState & { conversationId: ConversationId } = {
+    conversationId: event.conversationId,
+    // A result is what ends a transfer - `done === total` does not, and arrives before it.
+    state:
+      event.result === undefined
+        ? 'running'
+        : event.result === ATTACHMENT_OK
+          ? 'done'
+          : 'failed',
+    done: event.done,
+    total: event.total,
+    ...(event.result === undefined ? {} : { result: event.result }),
+  }
+
+  return {
+    ...state,
+    transfers: {
+      ...state.transfers,
+      [transferKey(event.transfer, event.messageId, event.index)]: entry,
+    },
+  }
+}
+
+function withoutConversation(
+  transfers: SessionState['transfers'],
+  id: ConversationId,
+): SessionState['transfers'] {
+  const kept = Object.entries(transfers).filter(([, t]) => t.conversationId !== id)
+  return kept.length === Object.keys(transfers).length ? transfers : Object.fromEntries(kept)
 }
 
 type ListKey = 'conversations' | 'requests'
@@ -105,6 +155,7 @@ function removeConversation(state: SessionState, id: ConversationId): SessionSta
     conversations: without(state.conversations, id),
     requests: without(state.requests, id),
     histories,
+    transfers: withoutConversation(state.transfers, id),
   }
 }
 

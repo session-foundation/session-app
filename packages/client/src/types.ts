@@ -11,6 +11,7 @@
 
 import type {
   AccountInfo,
+  AutoDownload,
   Conversation,
   ConversationId,
   Deletion,
@@ -88,6 +89,28 @@ export interface SessionClient {
   /** Resumes a send that failed, and answers whether there was anything left to resume. */
   retrySend(messageId: number): Promise<boolean>
   deleteMessage(messageId: number, scope: Deletion): Promise<void>
+
+  /**
+   * Fetch an attachment into libsession's cache, reporting progress as `attachment-progress`
+   * events. Also how a caller asks whether the bytes are already here: a cached file resolves at
+   * once and reports nothing, and a fetch already running is joined rather than duplicated.
+   */
+  downloadAttachment(messageId: number, index: number): Promise<void>
+  /** Resolves with where the file actually landed: a name collision becomes `name (2)`. */
+  saveAttachment(
+    messageId: number,
+    index: number,
+    destination: string,
+    options?: { notifySender?: boolean; replace?: boolean },
+  ): Promise<string>
+  /** Also records that the question was asked, which is why `none` is worth sending. */
+  setAutoDownload(id: ConversationId, mode: AutoDownload): Promise<void>
+  /**
+   * How much disk the cached attachments may occupy, evicted least-recently-used. Bytes on disk,
+   * which is more than the files are: they are encrypted and padded. Undefined means no limit,
+   * which is also the default - turning caching on without a bound is how a cache eats a disk.
+   */
+  setAttachmentCacheLimit(bytes?: number): Promise<void>
 
   getPref(key: string): Promise<string | undefined>
   setPref(key: string, value: string): Promise<void>

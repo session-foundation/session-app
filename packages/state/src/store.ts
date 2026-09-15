@@ -1,4 +1,4 @@
-import type { ConversationId, Message, SessionClient } from '@session/client'
+import type { AutoDownload, ConversationId, Message, SessionClient } from '@session/client'
 import { createStore, type StoreApi } from 'zustand/vanilla'
 
 import { applyEvent, mergePages } from './applyEvent'
@@ -37,6 +37,22 @@ export interface SessionActions {
    * sent again, which is why this is not "send it once more".
    */
   retry: (messageId: number) => Promise<boolean>
+  /**
+   * Fetches an attachment, and answers whether the bytes are here by fetching them: one that is
+   * already cached resolves at once and reports nothing at all.
+   *
+   * Progress arrives as events, so nothing is returned: a row that mounts halfway through a
+   * transfer reads the same state as one that started it.
+   */
+  downloadAttachment: (messageId: number, index: number) => Promise<void>
+  /** Resolves with where the file actually landed, which a collision can change. */
+  saveAttachment: (messageId: number, index: number, destination: string) => Promise<string>
+  /**
+   * What this conversation fetches unasked. Sending `none` is not the same as never calling
+   * this: the call is what records that the question was asked, and only an unanswered one
+   * should prompt again.
+   */
+  setAutoDownload: (id: ConversationId, mode: AutoDownload) => Promise<void>
   dispose: () => void
 }
 
@@ -61,6 +77,12 @@ export interface SessionStoreOptions {
    * passes its own; leaving it out is silence.
    */
   log?: (level: LogLevel, line: string) => void
+  /**
+   * How much disk the attachment cache may occupy, in bytes. Left out means no limit, which is
+   * libsession's default and is how a cache eats a disk - so every app should pass one, and what
+   * it should be is a per-platform question a phone and a desktop answer differently.
+   */
+  attachmentCacheLimit?: number
 }
 
 /**
@@ -132,6 +154,10 @@ export function createSessionStore(
 
   const actions: SessionActions = {
     async hydrate(): Promise<void> {
+      if (options.attachmentCacheLimit !== undefined) {
+        await client.setAttachmentCacheLimit(options.attachmentCacheLimit)
+      }
+
       const account = await client.getAccountInfo()
       store.setState({ account })
 
@@ -202,6 +228,18 @@ export function createSessionStore(
 
     async retry(messageId): Promise<boolean> {
       return client.retrySend(messageId)
+    },
+
+    async downloadAttachment(messageId, index): Promise<void> {
+      await client.downloadAttachment(messageId, index)
+    },
+
+    async saveAttachment(messageId, index, destination): Promise<string> {
+      return client.saveAttachment(messageId, index, destination)
+    },
+
+    async setAutoDownload(id, mode): Promise<void> {
+      await client.setAutoDownload(id, mode)
     },
 
     async createAccount(): Promise<void> {

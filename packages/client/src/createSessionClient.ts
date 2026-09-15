@@ -1,5 +1,6 @@
 import type {
   AccountInfo,
+  AutoDownload,
   Command,
   Conversation,
   ConversationId,
@@ -216,6 +217,30 @@ export function createSessionClient(transport: BridgeTransport): SessionClient {
 
     async deleteMessage(messageId, scope: Deletion): Promise<void> {
       await call({ type: 'deleteMessage', messageId, scope })
+    },
+
+    async downloadAttachment(messageId, index): Promise<void> {
+      await call({ type: 'downloadAttachment', messageId, index })
+    },
+
+    async saveAttachment(messageId, index, destination, options): Promise<string> {
+      const response = await call({
+        type: 'saveAttachment',
+        messageId,
+        index,
+        destination,
+        notifySender: options?.notifySender ?? true,
+        replace: options?.replace ?? false,
+      })
+      return expect(response, 'path').path
+    },
+
+    async setAutoDownload(id, mode: AutoDownload): Promise<void> {
+      await call({ type: 'setAutoDownload', conversationId: id, mode })
+    },
+
+    async setAttachmentCacheLimit(bytes): Promise<void> {
+      await call({ type: 'setAttachmentCacheLimit', ...(bytes === undefined ? {} : { bytes }) })
     },
 
     async getPref(key): Promise<string | undefined> {

@@ -109,10 +109,11 @@ Two commands in the protocol have no libsession counterpart and answer with an e
 something that half works. `approveConversation`: approval is not a flag anyone sets, it is
 recorded by messages flowing, so writing to someone is what approves them. `pollOnce`: Core owns
 its poll ticker and exposes no one-shot entry point. Both are open questions in `STATUS.md`.
-Attachments do not cross the bridge at all: not the bytes, not the metadata on a message, not
-the transfer progress, not the per-conversation auto-download setting. Reading a cache file
-libsession wrote means decrypting it, which is a design of its own - see `STATUS.md` - and the
-rest was protocol surface for a feature no screen offers yet.
+Attachment metadata, transfer progress and the per-conversation auto-download setting cross;
+bytes do not. A cache file libsession wrote is encrypted, so reaching one means a decrypting path
+per platform rather than a payload on this stream - see `STATUS.md`. `downloadAttachment` is also
+how a caller asks whether the bytes are here: libsession records nothing about a transfer, so the
+one call reads the cache, joins a fetch already running, or starts one.
 
 ## The fake, and why it is not a stub
 
@@ -417,3 +418,22 @@ Append one paragraph per decision. Undocumented decisions are what rot.
   A devnet with nothing configured attaches **nothing**, never mainnet: real traffic on a build
   whose owner believes it is a sandbox is the failure worth preventing, and an overlay stamping
   `devnet` over it would confirm the belief rather than contradict it.
+
+- **2026-09-15 - Every attachment transfer is broadcast, not routed.** The protocol used to tag a
+  report with the request id of the command that asked for it, so the facade could hand it to that
+  command's callback. A download outlives the tap that started it and is drawn by a row that may
+  not have existed when it began, so the report goes on the stream like any other event and lands
+  in the store. `SessionEvent` stays one union and the facade keeps its plain fan-out. It is the
+  one arm that is not whole state, because libsession stores none for a transfer in flight.
+
+- **2026-09-15 - `Conversation.autoDownload` is optional, and unset is not `none`.** Unset means
+  nobody has been asked what this conversation should fetch unprompted; `none` means they were
+  asked and declined. Only the first should prompt, and calling the setter - with either answer -
+  is what records that the question was put. The protobuf bridge collapsed the two and was wrong.
+
+- **2026-09-15 - Nothing records whether an attachment is downloaded, and nothing should.**
+  `Attachment` carries `uploaded` and `saved_at` and no local path, so after a restart there is no
+  flag saying the bytes are cached. Asking for them is the answer, and it is better than a flag:
+  a flag goes stale on an eviction or a pruned cache directory and this cannot. session-cli, on
+  the same branch, draws a whole gallery this way - every tile calls `attachment_data` as it
+  mounts. The cost is that a row offers "download" for a file already here and the tap is instant.

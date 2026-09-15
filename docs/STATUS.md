@@ -13,7 +13,11 @@ a time, via the `port-feature` skill.
 
 - **Push.** `setPushToken` and `handlePushPayload` are in the protocol and the shim answers both
   with an error naming itself.
-- **Attachments**, in any form - nothing about them is in the protocol. See the decision log.
+- **Sending an attachment.** Receiving one works: metadata, a download with progress, saving to a
+  chosen path, and the per-conversation auto-download setting. `sendMessage` still takes a body
+  and nothing else, so `SendState::uploading` is a state nothing here can reach.
+- **Showing an attachment.** A downloaded file has no way to reach a screen: the cache is
+  encrypted and bytes stay off the protocol. See the decision log.
 - **Anything a message can be beyond text**: no reactions, replies, edits, deletes or read
   receipts.
 - **A devnet cannot have its own Pro backend.** The key libsession verifies proofs against is a
@@ -45,9 +49,20 @@ a time, via the `port-feature` skill.
   can be designed: a supported one-shot poll entry point; decrypting a push envelope without
   opening the database, for the notification service extension; and whether an extension and the
   app can hold the same database at once.
-- **Attachments.** The cache files libsession writes are encrypted, so displaying one needs a
-  decrypting path - a custom protocol on desktop, something equivalent on mobile - rather than
-  bytes over the bridge. Whatever comes back should be designed with the screens that use it.
+- **Showing an attachment.** The cache files libsession writes are encrypted, so displaying one
+  needs a decrypting path rather than bytes over the bridge: a registered scheme resolved natively
+  on each platform - `protocol.handle` on Electron, an `RCTImageURLLoader` on iOS, a Fresco fetcher
+  on Android - all calling one media entry point on `ClientBridge`. Thumbnails belong to the same
+  design and should be generated locally from whatever can produce one, not fetched as a second
+  file.
+- **Two things to ask libsession for.** `conversation_id` inside `AttachmentProgress`, so a report
+  from a command's own handler carries what the background callback already does and a screen can
+  drop what it is not showing. And `attachment_cache_size()`, a sum over the cache index: there is
+  a getter for the limit and none for the usage, so nothing can say how full it is.
+- **Settings has nothing to say about the attachment cache.** Showing the directory and the size
+  limit needs two catalogue keys that do not exist, and inventing English is not this repo's to
+  do. The limit is set at boot instead - 5GB on desktop, 500MB on mobile - and nobody can see or
+  change it.
 - **`device::Type` for the new clients.** Device records are user-visible on linked devices, so
   this is an upstream conversation.
 - **The desktop app's name is a placeholder.** `app.setName('session-app')` deliberately avoids

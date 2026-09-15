@@ -1,5 +1,6 @@
 import type {
   AccountInfo,
+  AttachmentTransfer,
   Conversation,
   ConversationId,
   Message,
@@ -22,6 +23,30 @@ export interface MessageWindow {
   fetching: boolean
 }
 
+/**
+ * How one attachment transfer is going, as the reports left it.
+ *
+ * Per session and never persisted, because libsession stores nothing about a transfer either:
+ * what is on this device is answered by asking for it, not by a flag that can go stale.
+ */
+export interface AttachmentTransferState {
+  state: 'running' | 'done' | 'failed'
+  /** Encrypted bytes, so `done / total` is the only honest fraction - not `done / size`. */
+  done: number
+  /** Zero until the server says how big the file is, which is what "indeterminate" means here. */
+  total: number
+  result?: number
+}
+
+/** Identifies a transfer, since one attachment can have a download and a save at once. */
+export function transferKey(
+  transfer: AttachmentTransfer,
+  messageId: number,
+  index: number,
+): string {
+  return `${transfer}:${messageId}:${index}`
+}
+
 export interface SessionState {
   hydrated: boolean
   account: AccountInfo | null
@@ -41,6 +66,14 @@ export interface SessionState {
   requests: Conversation[]
 
   histories: Record<ConversationId, MessageWindow>
+
+  /**
+   * Live transfers, keyed by `transferKey`, alongside the conversation each belongs to so that
+   * dropping a window drops its entries with it. Nothing draws a transfer for a conversation
+   * whose history is gone, and an auto-downloading conversation would otherwise grow this for
+   * the life of the session.
+   */
+  transfers: Record<string, AttachmentTransferState & { conversationId: ConversationId }>
 }
 
 export const emptyState: SessionState = {
@@ -49,4 +82,5 @@ export const emptyState: SessionState = {
   conversations: [],
   requests: [],
   histories: {},
+  transfers: {},
 }

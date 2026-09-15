@@ -1,3 +1,5 @@
+import type { Attachment } from '@session/bridge-types'
+
 import type { SessionClient } from '../types'
 
 import { FakeSessionClient } from './FakeSessionClient'
@@ -46,6 +48,31 @@ export const FIXTURE_NAMES = [
 
 export type FixtureName = (typeof FIXTURE_NAMES)[number]
 
+/**
+ * One picture and one file, which is what makes the two halves of the attachment row visible:
+ * a message whose attachments are all images is gallery-viewable and one that mixes them is not.
+ */
+const SEEDED_ATTACHMENTS: Attachment[] = [
+  {
+    index: 0,
+    contentType: 'image/jpeg',
+    filename: 'harbour.jpg',
+    size: 2_411_724,
+    voiceMessage: false,
+    width: 1600,
+    height: 1200,
+    uploaded: true,
+  },
+  {
+    index: 1,
+    contentType: 'application/pdf',
+    filename: 'itinerary.pdf',
+    size: 184_320,
+    voiceMessage: false,
+    uploaded: true,
+  },
+]
+
 export interface FakeSetup {
   world: FakeWorld
   clients: Record<string, SessionClient>
@@ -59,7 +86,7 @@ export interface FakeSetup {
  */
 export function friends(
   names: readonly [FixtureName, FixtureName] = ['Alice', 'Bob'],
-  options: { history?: number } = {},
+  options: { history?: number; attachments?: boolean } = {},
 ): FakeSetup {
   resetFakeIds()
   const world = new FakeWorld()
@@ -75,6 +102,13 @@ export function friends(
     const sender = i % 2 === 0 ? first : second
     const recipient = sender === first ? second : first
     sender.send(recipient.sessionId, `Message ${i + 1}`)
+    world.settle()
+  }
+
+  // Delivered rather than sent: sending an attachment is not in the protocol, so the only way one
+  // exists is arriving. Nothing is fetched for it - the conversation has not been asked yet.
+  if (options.attachments ?? true) {
+    first.deliverFrom(second, 'Here are the photos', world.now(), SEEDED_ATTACHMENTS)
     world.settle()
   }
 

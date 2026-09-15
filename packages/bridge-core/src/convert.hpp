@@ -1,5 +1,6 @@
 #pragma once
 
+#include <session/client/attachment.hpp>
 #include <session/client/conversation.hpp>
 #include <session/client/message.hpp>
 
@@ -17,6 +18,7 @@ namespace session_bridge {
 ///
 /// Spelled out rather than reached through an enclosing namespace: this namespace is flat, so
 /// nothing of libsession's is in scope unless a file says so.
+Attachment to_bridge(::session::client::Attachment&& from);
 Message to_bridge(::session::client::Message&& from);
 Conversation to_bridge(::session::client::AnyConversation&& from);
 
