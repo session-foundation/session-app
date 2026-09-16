@@ -109,6 +109,15 @@ export interface Attachment {
    */
   uploaded: boolean
   /**
+   * A fetch has failed in a way that will not come out differently: the file server does not hold
+   * it, or the bytes arrived and were not what they claimed. Offering to download it again is
+   * offering the same failure.
+   *
+   * False means only that nothing has proved otherwise - an attachment nobody has tried to fetch
+   * looks the same as one that would succeed.
+   */
+  unavailable: boolean
+  /**
    * When the recipient last saved it - us on an incoming attachment, the other party on one we
    * sent. Unset means *not known to have been saved*, which is not the same as not saved: it
    * depends on the other end volunteering a notification.

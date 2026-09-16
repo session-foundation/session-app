@@ -288,6 +288,7 @@ struct JSIConverter<::session_bridge::Attachment> final {
                 ::session_bridge::optional_from_jsi<double>(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "width"))),
                 ::session_bridge::optional_from_jsi<double>(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "height"))),
                 JSIConverter<bool>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "uploaded"))),
+                JSIConverter<bool>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "unavailable"))),
                 ::session_bridge::optional_from_jsi<double>(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "savedAt"))));
     }
     static inline jsi::Value toJSI(jsi::Runtime& runtime, const ::session_bridge::Attachment& arg) {
@@ -307,6 +308,7 @@ struct JSIConverter<::session_bridge::Attachment> final {
         if (arg.height)
             obj.setProperty(runtime, PropNameIDCache::get(runtime, "height"), JSIConverter<double>::toJSI(runtime, *arg.height));
         obj.setProperty(runtime, PropNameIDCache::get(runtime, "uploaded"), JSIConverter<bool>::toJSI(runtime, arg.uploaded));
+        obj.setProperty(runtime, PropNameIDCache::get(runtime, "unavailable"), JSIConverter<bool>::toJSI(runtime, arg.unavailable));
         if (arg.saved_at)
             obj.setProperty(runtime, PropNameIDCache::get(runtime, "savedAt"), JSIConverter<double>::toJSI(runtime, *arg.saved_at));
         return obj;

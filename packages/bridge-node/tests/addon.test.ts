@@ -275,12 +275,14 @@ describeEcho('the generated converters', () => {
     width: 1600,
     height: 1200,
     uploaded: true,
+    unavailable: true,
     savedAt: 1_700_000_200_000,
   }
   const bareAttachment: Attachment = {
     index: 1,
     voiceMessage: false,
     uploaded: false,
+    unavailable: false,
   }
   const fullStatus: AttachmentStatus = {
     messageId: 42,

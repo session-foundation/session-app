@@ -28,6 +28,12 @@ export function AttachmentRow({
 }) {
   // libsession's rule for what can be shown as a picture, not one re-derived from content types
   // here - it owns the definition and a gallery elsewhere would answer differently.
+  // Nothing to draw and nothing to offer: the file server does not have this, so a picture would
+  // never load and a download affordance would only fail.
+  if (attachment.unavailable) {
+    return <UnavailableAttachment />
+  }
+
   const uri = message.galleryViewable ? requirePorts().media.urlFor(message.id, attachment.index) : null
   if (uri !== null) {
     return <MediaAttachment attachment={attachment} uri={uri} />
@@ -55,6 +61,21 @@ function MediaAttachment({ attachment, uri }: { attachment: Attachment; uri: str
       borderRadius={MEDIA_RADIUS}
       testID={ELEMENT.conversation.attachmentImage}
     />
+  )
+}
+
+function UnavailableAttachment() {
+  return (
+    <YStack
+      paddingVertical="$0.5"
+      borderTopWidth={1}
+      borderTopColor="$bordersColor"
+      testID={ELEMENT.conversation.attachment}
+    >
+      <Text size="$2" opacity={0.7} testID={ELEMENT.conversation.attachmentState}>
+        {tr('attachmentsExpired')}
+      </Text>
+    </YStack>
   )
 }
 

@@ -81,6 +81,7 @@ Attachment to_bridge(::session::client::Attachment&& from) {
             number(from.width),
             number(from.height),
             from.uploaded,
+            from.unavailable,
             from.saved_at ? std::optional<double>{epoch_ms(*from.saved_at)} : std::nullopt);
 }
 

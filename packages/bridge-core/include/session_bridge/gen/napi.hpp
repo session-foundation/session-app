@@ -323,6 +323,7 @@ struct Codec<::session_bridge::Attachment> {
         if (value.height)
             obj.Set("height", Codec<double>::to(env, *value.height));
         obj.Set("uploaded", Codec<bool>::to(env, value.uploaded));
+        obj.Set("unavailable", Codec<bool>::to(env, value.unavailable));
         if (value.saved_at)
             obj.Set("savedAt", Codec<double>::to(env, *value.saved_at));
         return obj;
@@ -339,6 +340,7 @@ struct Codec<::session_bridge::Attachment> {
                 optional<double>(obj.Get("width"), "Attachment.width"),
                 optional<double>(obj.Get("height"), "Attachment.height"),
                 Codec<bool>::from(obj.Get("uploaded"), "Attachment.uploaded"),
+                Codec<bool>::from(obj.Get("unavailable"), "Attachment.unavailable"),
                 optional<double>(obj.Get("savedAt"), "Attachment.savedAt"));
     }
 };

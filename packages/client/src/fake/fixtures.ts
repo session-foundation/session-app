@@ -64,6 +64,7 @@ const SEEDED_PICTURES: Attachment[] = [
     width: 1600,
     height: 1200,
     uploaded: true,
+    unavailable: false,
   },
   {
     index: 1,
@@ -74,6 +75,7 @@ const SEEDED_PICTURES: Attachment[] = [
     width: 1200,
     height: 1600,
     uploaded: true,
+    unavailable: false,
   },
 ]
 
@@ -91,6 +93,7 @@ const SEEDED_FILES: Attachment[] = [
     width: 900,
     height: 1200,
     uploaded: true,
+    unavailable: false,
   },
   {
     index: 1,
@@ -99,6 +102,7 @@ const SEEDED_FILES: Attachment[] = [
     size: 184_320,
     voiceMessage: false,
     uploaded: true,
+    unavailable: false,
   },
 ]
 

@@ -204,13 +204,20 @@ struct Attachment {
     /// one. Deliberately not "the bytes are here" - libsession records no local path, because the
     /// application chose it and a stored copy would go stale the moment the file moved.
     bool uploaded;
+    /// A fetch has failed in a way that will not come out differently: the file server does not hold
+    /// it, or the bytes arrived and were not what they claimed. Offering to download it again is
+    /// offering the same failure.
+    ///
+    /// False means only that nothing has proved otherwise - an attachment nobody has tried to fetch
+    /// looks the same as one that would succeed.
+    bool unavailable;
     /// When the recipient last saved it - us on an incoming attachment, the other party on one we
     /// sent. Unset means *not known to have been saved*, which is not the same as not saved: it
     /// depends on the other end volunteering a notification.
     std::optional<double> saved_at;
 
-    Attachment(double index_, std::optional<std::string> content_type_, std::optional<std::string> filename_, std::optional<std::string> caption_, std::optional<double> size_, bool voice_message_, std::optional<double> width_, std::optional<double> height_, bool uploaded_, std::optional<double> saved_at_) :
-            index{std::move(index_)}, content_type{std::move(content_type_)}, filename{std::move(filename_)}, caption{std::move(caption_)}, size{std::move(size_)}, voice_message{std::move(voice_message_)}, width{std::move(width_)}, height{std::move(height_)}, uploaded{std::move(uploaded_)}, saved_at{std::move(saved_at_)} {}
+    Attachment(double index_, std::optional<std::string> content_type_, std::optional<std::string> filename_, std::optional<std::string> caption_, std::optional<double> size_, bool voice_message_, std::optional<double> width_, std::optional<double> height_, bool uploaded_, bool unavailable_, std::optional<double> saved_at_) :
+            index{std::move(index_)}, content_type{std::move(content_type_)}, filename{std::move(filename_)}, caption{std::move(caption_)}, size{std::move(size_)}, voice_message{std::move(voice_message_)}, width{std::move(width_)}, height{std::move(height_)}, uploaded{std::move(uploaded_)}, unavailable{std::move(unavailable_)}, saved_at{std::move(saved_at_)} {}
 };
 
 /// The message a reply points at, resolved one level deep only: a reply to a reply shows its own
