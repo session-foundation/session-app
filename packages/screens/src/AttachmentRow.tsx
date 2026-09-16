@@ -26,14 +26,20 @@ export function AttachmentRow({
   /** The conversation has never been asked what to fetch unprompted. Asked once, on first tap. */
   onFirstDownload?: () => void
 }) {
-  // libsession's rule for what can be shown as a picture, not one re-derived from content types
-  // here - it owns the definition and a gallery elsewhere would answer differently.
+  const fetched = useAttachmentTransfer('download', message.id, attachment.index)
+
   // Nothing to draw and nothing to offer: the file server does not have this, so a picture would
   // never load and a download affordance would only fail.
-  if (attachment.unavailable) {
+  //
+  // Unless we already have it. The flag says the server will not hand it out again, which does
+  // not unsay a copy that is already in the cache - drawing "expired" over bytes we hold would
+  // refuse to show a file for the one reason that does not apply to it.
+  if (attachment.unavailable && fetched?.state !== 'done') {
     return <UnavailableAttachment />
   }
 
+  // libsession's rule for what can be shown as a picture, not one re-derived from content types
+  // here - it owns the definition and a gallery elsewhere would answer differently.
   const uri = message.galleryViewable ? requirePorts().media.urlFor(message.id, attachment.index) : null
   if (uri !== null) {
     return <MediaAttachment attachment={attachment} uri={uri} />
