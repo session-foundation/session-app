@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { YStack } from 'tamagui'
 
 import {
@@ -34,6 +35,12 @@ export interface AttachmentTileProps {
    * basic-types.
    */
   overflowLabel?: string
+  /**
+   * Addresses **the picture**, not the tile.
+   *
+   * The element a test asks about is the one holding the bytes: whether an attachment arrived is a
+   * question about the image, and a probe pointed at the tile finds the placeholder under it.
+   */
   testID?: string
 }
 
@@ -58,7 +65,17 @@ export function AttachmentTile({
   testID,
 }: AttachmentTileProps) {
   const radius = tileRadius(side)
-  const here = uri !== undefined && uri !== null
+  /**
+   * Whether this tile's own picture has arrived.
+   *
+   * From the image rather than from a transfer, because that is what a url is: asking for one is
+   * what starts the fetch, and the load is the only honest report that the bytes are on screen.
+   * Each tile therefore resolves on its own - the album fills in one attachment at a time, which
+   * is the per-item signal, for no chrome at all.
+   */
+  const [loaded, setLoaded] = useState(false)
+  const drawable = uri !== undefined && uri !== null
+  const here = drawable && loaded
 
   return (
     <YStack
@@ -70,16 +87,36 @@ export function AttachmentTile({
       backgroundColor="$backgroundTertiary"
       // On the tile, which is what owns the radius. See TILE_HAIRLINE_WIDTH.
       {...(here ? {} : { borderWidth: TILE_HAIRLINE_WIDTH, borderColor: '$bordersColor' })}
-      testID={testID}
     >
-      {here ? (
-        <Image uri={uri} width={side} height={side} borderRadius={radius} />
-      ) : (
-        <YStack flex={1} alignItems="center" justifyContent="center">
-          <Icon
-            name={kind === 'video' ? 'video' : 'image'}
-            size={side >= 90 ? 'lg' : 'md'}
-            color="$textSecondary"
+      {/* Underneath, always: the picture lands on top of it rather than replacing it, so nothing
+          reflows and there is no frame where the tile is empty. */}
+      <YStack
+        position="absolute"
+        top={0}
+        bottom={0}
+        left={0}
+        right={0}
+        alignItems="center"
+        justifyContent="center"
+      >
+        <Icon
+          name={kind === 'video' ? 'video' : 'image'}
+          size={side >= 90 ? 'lg' : 'md'}
+          color="$textSecondary"
+        />
+      </YStack>
+
+      {!drawable ? null : (
+        <YStack opacity={loaded ? 1 : 0}>
+          <Image
+            uri={uri}
+            width={side}
+            height={side}
+            borderRadius={radius}
+            onLoad={() => {
+              setLoaded(true)
+            }}
+            {...(testID === undefined ? {} : { testID })}
           />
         </YStack>
       )}

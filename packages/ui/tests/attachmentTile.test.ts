@@ -52,6 +52,19 @@ describe('what a tile draws', () => {
     expect(component).toContain("{here && kind === 'video' ?")
   })
 
+  it('resolves on its own picture loading, not on anything it is told', () => {
+    // Each tile arriving by itself is the per-item signal, and it costs nothing: a url is the
+    // request, so the load is the transfer finishing. A tile waiting to be told would need the
+    // set's state threaded into every one of them to say the same thing later.
+    expect(component).toContain('onLoad')
+    expect(component).toContain('const here = drawable && loaded')
+  })
+
+  it('keeps the placeholder underneath rather than swapping it out', () => {
+    // Swapping leaves a frame where the tile holds nothing, which reads as a picture that failed.
+    expect(component).toContain('opacity={loaded ? 1 : 0}')
+  })
+
   it('takes the overflow count already worded', () => {
     // `@session/ui` imports no sibling but theme-tokens, test-ids and basic-types, so `andMore`
     // is out of reach and a number here would be a second place the plural rule lives.

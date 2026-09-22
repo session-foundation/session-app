@@ -128,7 +128,14 @@ export class DesktopApp implements ISessionApp, IPerformanceProbe {
 
   async imageLoaded(id: ElementId, options?: { timeoutMs?: number }): Promise<boolean> {
     const element = this.locator(id).first()
-    await element.waitFor({ state: 'attached', timeout: options?.timeoutMs ?? 10_000 })
+    // No element is an answer, not an error. The id is on the picture rather than on the tile
+    // from here on, so a tile that was never given a url has nothing carrying it - and "is the
+    // picture here" is false in exactly that case.
+    try {
+      await element.waitFor({ state: 'attached', timeout: options?.timeoutMs ?? 10_000 })
+    } catch {
+      return false
+    }
 
     // react-native-web draws an Image as a div with a background-image rather than an <img>, so
     // there is no naturalWidth to read. Loading the same URL again answers the question and is

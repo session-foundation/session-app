@@ -13,6 +13,8 @@ export interface ImageProps {
    */
   fit?: 'cover' | 'contain'
   borderRadius?: number
+  /** Fires when the bytes are decoded and on screen, which is the only honest "it is here". */
+  onLoad?: () => void
   testID?: string
 }
 
@@ -23,7 +25,15 @@ export interface ImageProps {
  * an attachment carries the dimensions the sender supplied, and laying the box out from them is
  * what stops a transcript jumping as each picture lands.
  */
-export function Image({ uri, width, height, fit = 'cover', borderRadius, testID }: ImageProps) {
+export function Image({
+  uri,
+  width,
+  height,
+  fit = 'cover',
+  borderRadius,
+  onLoad,
+  testID,
+}: ImageProps) {
   // react-native's own Image rather than tamagui's: react-native-web turns `source` into an
   // `<img src>`, and tamagui's passes the object straight through as a DOM attribute, which
   // renders an image element with nothing to load. `List` reaches for react-native the same way.
@@ -32,6 +42,7 @@ export function Image({ uri, width, height, fit = 'cover', borderRadius, testID 
       source={{ uri }}
       resizeMode={fit}
       style={{ width, height, ...(borderRadius === undefined ? {} : { borderRadius }) }}
+      {...(onLoad === undefined ? {} : { onLoad })}
       testID={testID}
     />
   )
