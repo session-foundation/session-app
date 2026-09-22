@@ -109,13 +109,14 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
         </Button>
       </XStack>
 
-      {prompting && conversation !== undefined ? (
+      {conversation === undefined ? null : (
         <AutoDownloadPrompt
+          open={prompting}
           conversationId={conversationId}
           conversationName={title}
           onAnswered={() => setPrompting(false)}
         />
-      ) : null}
+      )}
     </Screen>
   )
 }

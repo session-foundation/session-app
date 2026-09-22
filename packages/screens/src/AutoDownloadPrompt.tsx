@@ -1,7 +1,7 @@
 import { tr } from '@session/localization'
 import { useSessionActions } from '@session/state'
 import { ELEMENT } from '@session/test-ids'
-import { Button, Text, XStack, YStack } from '@session/ui'
+import { Button, Modal } from '@session/ui'
 
 import { LocalizedText } from './LocalizedText'
 
@@ -11,14 +11,22 @@ import { LocalizedText } from './LocalizedText'
  * Both answers are recorded, `no` included: calling the setter is what marks the question as
  * asked, and a client that stored "no" as "not asked" would put this on screen for ever.
  *
- * An overlay inside the screen rather than a portalled dialog, so it needs no portal host and
- * behaves the same on a phone and in a desktop pane.
+ * **A dialog rather than an overlay inside the screen.** Drawn as an absolutely positioned cover it
+ * resolved its offsets against whichever ancestor happened to be a containing block -- every
+ * react-native view is one, so it was right on a phone, and on the web a stack is static unless it
+ * says otherwise, so it escaped to the page in the desktop app. `Modal` puts up its own surface and
+ * there is nothing left to resolve against.
+ *
+ * No cross, and not dismissible by a tap outside: this asks a question, and a third unlabelled
+ * answer beside Yes and No is not one of the choices.
  */
 export function AutoDownloadPrompt({
+  open,
   conversationId,
   conversationName,
   onAnswered,
 }: {
+  open: boolean
   conversationId: string
   conversationName: string
   onAnswered: () => void
@@ -31,54 +39,50 @@ export function AutoDownloadPrompt({
   }
 
   return (
-    <YStack
-      position="absolute"
-      top={0}
-      left={0}
-      right={0}
-      bottom={0}
-      padding="$md"
-      justifyContent="center"
-      alignItems="center"
-      backgroundColor="$backgroundPrimary"
-      opacity={0.98}
+    <Modal
+      open={open}
+      // Unreachable while `showClose` is false, which turns dismissal off with it - but a dialog
+      // closed some other way has still been answered, and no is the answer that changes least.
+      onClose={() => {
+        answer('none')
+      }}
+      title={tr('attachmentsAutoDownloadModalTitle')}
+      closeLabel={tr('no')}
+      showClose={false}
       testID={ELEMENT.conversation.autoDownloadPrompt}
-    >
-      <YStack
-        gap="$sm"
-        padding="$md"
-        maxWidth={400}
-        borderRadius="$lg"
-        borderWidth={1}
-        borderColor="$bordersColor"
-        backgroundColor="$backgroundSecondary"
-      >
-        <Text size="$title" weight="semibold">
-          {tr('attachmentsAutoDownloadModalTitle')}
-        </Text>
-        <LocalizedText
-          text={tr('attachmentsAutoDownloadModalDescription', {
-            conversation_name: conversationName,
-          })}
-        />
-        <XStack gap="$sm" justifyContent="flex-end">
+      closeTestID={ELEMENT.conversation.autoDownloadNo}
+      actions={
+        <>
           <Button
-            variant="outline"
-            size="md"
-            testID={ELEMENT.conversation.autoDownloadNo}
-            onPress={() => answer('none')}
-          >
-            {tr('no')}
-          </Button>
-          <Button
-            size="md"
+            variant="ghost"
+            fill
+            borderRadius="$none"
             testID={ELEMENT.conversation.autoDownloadYes}
-            onPress={() => answer('all')}
+            onPress={() => {
+              answer('all')
+            }}
           >
             {tr('yes')}
           </Button>
-        </XStack>
-      </YStack>
-    </YStack>
+          <Button
+            variant="ghost"
+            fill
+            borderRadius="$none"
+            testID={ELEMENT.conversation.autoDownloadNo}
+            onPress={() => {
+              answer('none')
+            }}
+          >
+            {tr('no')}
+          </Button>
+        </>
+      }
+    >
+      <LocalizedText
+        text={tr('attachmentsAutoDownloadModalDescription', {
+          conversation_name: conversationName,
+        })}
+      />
+    </Modal>
   )
 }

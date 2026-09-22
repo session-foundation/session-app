@@ -35,7 +35,14 @@ sessionTest({
     // answer - `no` included - is what records that the question was put.
     await alice.waitForVisible(ELEMENT.conversation.autoDownloadPrompt)
     await alice.tap(ELEMENT.conversation.autoDownloadNo)
-    expect(await alice.isVisible(ELEMENT.conversation.autoDownloadPrompt)).toBe(false)
+    // Polled rather than read straight after the tap: a dialog fades where the overlay it
+    // replaced simply stopped being rendered, so the synchronous read was only ever passing
+    // because something else on screen was slow enough to cover the animation.
+    await expect
+      .poll(async () => alice.isVisible(ELEMENT.conversation.autoDownloadPrompt), {
+        timeout: 5_000,
+      })
+      .toBe(false)
 
     // Downloaded is the row offering to save: nothing says so in words, because there is no
     // catalogue key that does.
