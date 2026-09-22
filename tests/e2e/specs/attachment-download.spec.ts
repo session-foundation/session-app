@@ -22,9 +22,13 @@ sessionTest({
     await alice.tap(ELEMENT.conversationList.row(0))
     await alice.waitForVisible(ELEMENT.conversation.screen)
 
-    // The pictures fetch themselves as they draw, through the media scheme the main process
-    // serves - no tap, and no prompt, because nobody asked for them by hand.
-    expect(await alice.imageLoaded(ELEMENT.conversation.attachmentImage)).toBe(true)
+    // Nothing fetches itself. Resolving a media url *is* a download - the url is the request -
+    // so a tile handed one has spent somebody's data before anyone was asked, and unset means
+    // nobody has been. A short wait rather than the default: this is asserting that something
+    // never happens, so the only cost of the timeout is how long the suite sits here.
+    expect(
+      await alice.imageLoaded(ELEMENT.conversation.attachmentImage, { timeoutMs: 2_000 }),
+    ).toBe(false)
 
     const names = await alice.readAllText(ELEMENT.conversation.attachmentName)
     expect(names).toContain('itinerary.pdf')

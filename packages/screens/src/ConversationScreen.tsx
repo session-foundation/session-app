@@ -1,4 +1,4 @@
-import type { Message } from '@session/client'
+import type { AutoDownload, Message } from '@session/client'
 import { useConversation, useMessages, useSessionActions } from '@session/state'
 import { tr } from '@session/localization'
 import { ELEMENT } from '@session/test-ids'
@@ -6,6 +6,7 @@ import { Button, Input, List, Screen, Separator, Text, XStack, YStack } from '@s
 import { useState } from 'react'
 
 import { AttachmentRow } from './AttachmentRow'
+import { MessageAlbum } from './MessageAlbum'
 import { MessageMediaViewer } from './MessageMediaViewer'
 import { viewableAttachments } from './viewableAttachments'
 import { AutoDownloadPrompt } from './AutoDownloadPrompt'
@@ -76,6 +77,7 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
                 message={message}
                 index={index}
                 onFirstDownload={unasked ? () => setPrompting(true) : undefined}
+                autoDownload={conversation?.autoDownload}
               />
             </YStack>
           )}
@@ -162,10 +164,13 @@ function MessageRow({
   message,
   index,
   onFirstDownload,
+  autoDownload,
 }: {
   message: Message
   index: number
   onFirstDownload?: (() => void) | undefined
+  /** What this conversation fetches unasked. Undefined means nobody has been asked. */
+  autoDownload?: AutoDownload | undefined
 }) {
   const actions = useSessionActions()
   // Per message rather than per screen: the viewer shows one message's attachments, so the index
@@ -195,20 +200,23 @@ function MessageRow({
           {message.body}
         </Text>
       )}
-      {message.attachments.map((attachment) => (
-        <AttachmentRow
-          key={attachment.index}
+      {viewable.length === 0 ? null : (
+        <MessageAlbum
           message={message}
-          attachment={attachment}
-          {...(onFirstDownload === undefined ? {} : { onFirstDownload })}
-          onOpen={() => {
-            // The position in the viewer, not `attachment.index` - a document between two
-            // pictures makes those different numbers and the viewer would open on the wrong one.
-            const at = viewable.findIndex((a) => a.index === attachment.index)
-            if (at >= 0) setViewing(at)
-          }}
+          onOpen={setViewing}
+          autoDownload={autoDownload}
         />
-      ))}
+      )}
+      {message.attachments
+        .filter((attachment) => !viewable.includes(attachment))
+        .map((attachment) => (
+          <AttachmentRow
+            key={attachment.index}
+            message={message}
+            attachment={attachment}
+            {...(onFirstDownload === undefined ? {} : { onFirstDownload })}
+          />
+        ))}
       {label === undefined ? null : (
         <XStack alignItems="center" gap="$xs">
           {/* On the fill, not on the page: a label only ever appears on an outgoing message, so a
