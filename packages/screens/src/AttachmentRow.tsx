@@ -20,11 +20,14 @@ export function AttachmentRow({
   message,
   attachment,
   onFirstDownload,
+  onOpen,
 }: {
   message: Message
   attachment: Attachment
   /** The conversation has never been asked what to fetch unprompted. Asked once, on first tap. */
   onFirstDownload?: () => void
+  /** Opens the viewer at this attachment. Absent where nothing is showing one. */
+  onOpen?: () => void
 }) {
   const fetched = useAttachmentTransfer('download', message.id, attachment.index)
 
@@ -42,7 +45,13 @@ export function AttachmentRow({
   // here - it owns the definition and a gallery elsewhere would answer differently.
   const uri = message.galleryViewable ? requirePorts().media.urlFor(message.id, attachment.index) : null
   if (uri !== null) {
-    return <MediaAttachment attachment={attachment} uri={uri} />
+    return (
+      <MediaAttachment
+        attachment={attachment}
+        uri={uri}
+        {...(onOpen === undefined ? {} : { onOpen })}
+      />
+    )
   }
   return <FileAttachment message={message} attachment={attachment} onFirstDownload={onFirstDownload} />
 }
@@ -55,11 +64,19 @@ export function AttachmentRow({
  * starts one. The box is sized from the dimensions the sender supplied so the transcript does
  * not jump when the bytes land.
  */
-function MediaAttachment({ attachment, uri }: { attachment: Attachment; uri: string }) {
+function MediaAttachment({
+  attachment,
+  uri,
+  onOpen,
+}: {
+  attachment: Attachment
+  uri: string
+  onOpen?: (() => void) | undefined
+}) {
   const width = Math.min(attachment.width ?? DEFAULT_MEDIA_SIZE, DEFAULT_MEDIA_SIZE)
   const ratio = attachment.width && attachment.height ? attachment.height / attachment.width : 1
 
-  return (
+  const drawn = (
     <Image
       uri={uri}
       width={width}
@@ -67,6 +84,16 @@ function MediaAttachment({ attachment, uri }: { attachment: Attachment; uri: str
       borderRadius={MEDIA_RADIUS}
       testID={ELEMENT.conversation.attachmentImage}
     />
+  )
+
+  // Wrapped rather than given an `onPress` of its own: `Image` is react-native's, and a press on
+  // it would be a second way of doing what every other tappable thing here does with a stack.
+  return onOpen === undefined ? (
+    drawn
+  ) : (
+    <YStack accessibilityRole="button" onPress={onOpen}>
+      {drawn}
+    </YStack>
   )
 }
 

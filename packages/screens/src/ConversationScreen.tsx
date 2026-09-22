@@ -6,6 +6,8 @@ import { Button, Input, List, Screen, Separator, Text, XStack, YStack } from '@s
 import { useState } from 'react'
 
 import { AttachmentRow } from './AttachmentRow'
+import { MessageMediaViewer } from './MessageMediaViewer'
+import { viewableAttachments } from './viewableAttachments'
 import { AutoDownloadPrompt } from './AutoDownloadPrompt'
 import { BackButton } from './BackButton'
 import { conversationTitle } from './conversationTitle'
@@ -166,6 +168,10 @@ function MessageRow({
   onFirstDownload?: (() => void) | undefined
 }) {
   const actions = useSessionActions()
+  // Per message rather than per screen: the viewer shows one message's attachments, so the index
+  // it is open at belongs to that message and closing one cannot leave another open.
+  const [viewing, setViewing] = useState<number | null>(null)
+  const viewable = viewableAttachments(message)
   const label = message.outgoing ? stateLabel(message.sendState) : undefined
   const retryable = message.outgoing && RETRYABLE.includes(message.sendState)
 
@@ -195,6 +201,12 @@ function MessageRow({
           message={message}
           attachment={attachment}
           {...(onFirstDownload === undefined ? {} : { onFirstDownload })}
+          onOpen={() => {
+            // The position in the viewer, not `attachment.index` - a document between two
+            // pictures makes those different numbers and the viewer would open on the wrong one.
+            const at = viewable.findIndex((a) => a.index === attachment.index)
+            if (at >= 0) setViewing(at)
+          }}
         />
       ))}
       {label === undefined ? null : (
@@ -227,6 +239,17 @@ function MessageRow({
             </Text>
           ) : null}
         </XStack>
+      )}
+
+      {viewable.length === 0 ? null : (
+        <MessageMediaViewer
+          message={message}
+          index={viewing}
+          onIndex={setViewing}
+          onClose={() => {
+            setViewing(null)
+          }}
+        />
       )}
     </YStack>
   )

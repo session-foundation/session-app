@@ -5,6 +5,13 @@ export interface ImageProps {
   uri: string
   width: number
   height: number
+  /**
+   * How the picture meets the box it was given.
+   *
+   * `cover` fills it and crops, which is what a square tile of an arbitrary photograph needs.
+   * `contain` fits the whole picture inside, which is what showing somebody their picture needs.
+   */
+  fit?: 'cover' | 'contain'
   borderRadius?: number
   testID?: string
 }
@@ -16,14 +23,14 @@ export interface ImageProps {
  * an attachment carries the dimensions the sender supplied, and laying the box out from them is
  * what stops a transcript jumping as each picture lands.
  */
-export function Image({ uri, width, height, borderRadius, testID }: ImageProps) {
+export function Image({ uri, width, height, fit = 'cover', borderRadius, testID }: ImageProps) {
   // react-native's own Image rather than tamagui's: react-native-web turns `source` into an
   // `<img src>`, and tamagui's passes the object straight through as a DOM attribute, which
   // renders an image element with nothing to load. `List` reaches for react-native the same way.
   return (
     <RNImage
       source={{ uri }}
-      resizeMode="cover"
+      resizeMode={fit}
       style={{ width, height, ...(borderRadius === undefined ? {} : { borderRadius }) }}
       testID={testID}
     />
