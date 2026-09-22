@@ -51,6 +51,10 @@ function hexToBytes(hex: string): Uint8Array {
  * screen depends on it reaching the OS.
  */
 const ports = memoryPorts({
+  // No resolver yet: React Native's image loaders take a native plug-in per platform - an
+  // RCTImageURLLoader on iOS, a Fresco fetcher on Android - and neither is written. Saying so
+  // draws the file form, which works, rather than an image that never loads.
+  media: { urlFor: () => null },
   // The same variable and the same parser store.ts gives the transport, so the overlay cannot
   // name a network libsession never attached to. EXPO_PUBLIC_ for the reason store.ts gives.
   network: {

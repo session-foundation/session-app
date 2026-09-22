@@ -5,6 +5,8 @@ import { ELEMENT } from '@session/test-ids'
 import { Button, Input, List, Screen, Separator, Text, XStack, YStack } from '@session/ui'
 import { useState } from 'react'
 
+import { AttachmentRow } from './AttachmentRow'
+import { AutoDownloadPrompt } from './AutoDownloadPrompt'
 import { BackButton } from './BackButton'
 import { conversationTitle } from './conversationTitle'
 
@@ -20,6 +22,10 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
   const { messages, ready } = useMessages(conversationId)
   const actions = useSessionActions()
   const [draft, setDraft] = useState('')
+  // Unset means nobody has been asked what this conversation should fetch unprompted, which is
+  // not the same as having been asked and said no. Asked once, on the first attachment tapped.
+  const [prompting, setPrompting] = useState(false)
+  const unasked = conversation !== undefined && conversation.autoDownload === undefined
 
   function send(): void {
     const body = draft.trim()
@@ -64,7 +70,11 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
           keyExtractor={(message) => String(message.id)}
           renderItem={(message, index) => (
             <YStack paddingHorizontal="$md" paddingBottom="$sm">
-              <MessageRow message={message} index={index} />
+              <MessageRow
+                message={message}
+                index={index}
+                onFirstDownload={unasked ? () => setPrompting(true) : undefined}
+              />
             </YStack>
           )}
         />
@@ -98,6 +108,14 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
           {tr('send')}
         </Button>
       </XStack>
+
+      {prompting && conversation !== undefined ? (
+        <AutoDownloadPrompt
+          conversationId={conversationId}
+          conversationName={title}
+          onAnswered={() => setPrompting(false)}
+        />
+      ) : null}
     </Screen>
   )
 }
@@ -137,7 +155,15 @@ function stateLabel(state: Message['sendState']): string | undefined {
  */
 const RETRYABLE: readonly Message['sendState'][] = ['failed', 'interrupted']
 
-function MessageRow({ message, index }: { message: Message; index: number }) {
+function MessageRow({
+  message,
+  index,
+  onFirstDownload,
+}: {
+  message: Message
+  index: number
+  onFirstDownload?: (() => void) | undefined
+}) {
   const actions = useSessionActions()
   const label = message.outgoing ? stateLabel(message.sendState) : undefined
   const retryable = message.outgoing && RETRYABLE.includes(message.sendState)
@@ -153,13 +179,23 @@ function MessageRow({ message, index }: { message: Message; index: number }) {
       gap="$2xs"
       testID={ELEMENT.conversation.messageRow(index)}
     >
-      <Text
-        size="$body"
-        color={message.outgoing ? '$onAccent' : '$messageBubbleIncomingText'}
-        testID={ELEMENT.conversation.messageBody}
-      >
-        {message.body}
-      </Text>
+      {message.body.length === 0 ? null : (
+        <Text
+          size="$body"
+          color={message.outgoing ? '$onAccent' : '$messageBubbleIncomingText'}
+          testID={ELEMENT.conversation.messageBody}
+        >
+          {message.body}
+        </Text>
+      )}
+      {message.attachments.map((attachment) => (
+        <AttachmentRow
+          key={attachment.index}
+          message={message}
+          attachment={attachment}
+          {...(onFirstDownload === undefined ? {} : { onFirstDownload })}
+        />
+      ))}
       {label === undefined ? null : (
         <XStack alignItems="center" gap="$xs">
           {/* On the fill, not on the page: a label only ever appears on an outgoing message, so a

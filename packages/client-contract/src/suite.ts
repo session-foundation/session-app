@@ -28,6 +28,20 @@ export interface ContractHarness {
     bobId: string
     settle: () => Promise<void>
   }>
+  /**
+   * A client holding one incoming message with one attachment nobody has fetched.
+   *
+   * Its own entry rather than a flag on `friends`, because an implementation that cannot produce
+   * an incoming attachment cannot produce one for any scenario, and skipping the scenarios is
+   * then the honest answer rather than a fixture that quietly has none.
+   */
+  withAttachment(): Promise<{
+    client: SessionClient
+    conversationId: string
+    messageId: number
+    index: number
+    settle: () => Promise<void>
+  }>
   /** Stops and restarts a client against the same data. */
   restart(client: SessionClient): Promise<SessionClient>
   /**
@@ -282,7 +296,7 @@ export function runSessionClientContract(
       await alice.sendMessage((await bob.getAccountInfo()).sessionId ?? '', { body: 'ping' })
       await settle()
 
-      const messages = await bob.getMessages(aliceId)
+      const { messages } = await bob.getMessages(aliceId)
       expect(messages.map((m) => m.body)).toContain('ping')
     })
 
@@ -332,12 +346,12 @@ export function runSessionClientContract(
         await settle()
       }
 
-      const newest = await alice.getMessages(bobId, { limit: 2 })
+      const { messages: newest } = await alice.getMessages(bobId, { limit: 2 })
       expect(newest.length).toBe(2)
 
       const oldest = newest[0]
       if (!oldest) throw new Error('unreachable')
-      const older = await alice.getMessages(bobId, {
+      const { messages: older } = await alice.getMessages(bobId, {
         limit: 2,
         before: { timestamp: oldest.timestamp, id: oldest.id },
       })
@@ -351,7 +365,7 @@ export function runSessionClientContract(
       await alice.sendMessage(bobId, { body: 'in flight' })
 
       const restarted = await harness.restart(alice)
-      const messages = await restarted.getMessages(bobId)
+      const { messages } = await restarted.getMessages(bobId)
       const inFlight = messages.find((m) => m.body === 'in flight')
 
       expect(inFlight).toBeDefined()
@@ -366,7 +380,7 @@ export function runSessionClientContract(
       await settle()
 
       const seen = collect(alice)
-      await alice.deleteMessage((await alice.getMessages(bobId))[0]?.id ?? 0, 'here')
+      await alice.deleteMessage((await alice.getMessages(bobId)).messages[0]?.id ?? 0, 'here')
       expect(seen.events.some((e) => e.type === 'conversation-removed')).toBe(false)
       seen.stop()
     })
@@ -376,16 +390,16 @@ export function runSessionClientContract(
       await alice.sendMessage(bobId, { body: 'hello' })
       await settle()
 
-      const before = await alice.getMessages(bobId)
+      const { messages: before } = await alice.getMessages(bobId)
       const target = before[0]
       if (!target) throw new Error('unreachable')
       await alice.deleteMessage(target.id, 'here')
       await settle()
 
-      const visible = await alice.getMessages(bobId)
+      const { messages: visible } = await alice.getMessages(bobId)
       expect(visible.some((m) => m.id === target.id)).toBe(false)
 
-      const withDeleted = await alice.getMessages(bobId, { includeDeleted: true })
+      const { messages: withDeleted } = await alice.getMessages(bobId, { includeDeleted: true })
       const deleted = withDeleted.find((m) => m.id === target.id)
       expect(deleted?.deleted).toBe('here')
     })
@@ -501,6 +515,123 @@ export function runSessionClientContract(
       // Refused whole: a network half applied is one nobody asked for, and the next call that
       // brings an account into being would be the one to throw on it.
       expect((await alice.getAccountInfo()).networkAttached).toBe(before)
+    })
+
+    it('reports a download from nothing to a result', async () => {
+      const { client, conversationId, messageId, index, settle } = await harness.withAttachment()
+      const seen = collect(client)
+
+      // Started, then settled, then awaited: a transfer runs on whatever drives the
+      // implementation forward, and awaiting it before settling would wait on a clock that only
+      // this test advances.
+      const running = client.downloadAttachment(messageId, index)
+      await settle()
+      await running
+
+      const reports = seen.events.filter(
+        (e) =>
+          e.type === 'attachment-progress' &&
+          e.transfer === 'download' &&
+          e.messageId === messageId &&
+          e.index === index,
+      )
+      expect(reports.length).toBeGreaterThan(1)
+
+      const first = reports[0]
+      if (first?.type !== 'attachment-progress') throw new Error('unreachable')
+      // Nothing has been asked of a server yet, so there is no size to report and no fraction
+      // to draw: the first report only means that something started.
+      expect(first.done).toBe(0)
+      expect(first.total).toBe(0)
+      expect(first.result).toBeUndefined()
+      expect(first.conversationId).toBe(conversationId)
+
+      const terminal = reports.filter(
+        (e) => e.type === 'attachment-progress' && e.result !== undefined,
+      )
+      // Exactly one, and it is the last: a caller that treats every report as possibly-final
+      // would finish the transfer early, and one that waits for done === total would never.
+      expect(terminal.length).toBe(1)
+      expect(terminal[0]).toBe(reports[reports.length - 1])
+      const last = terminal[0]
+      if (last?.type !== 'attachment-progress') throw new Error('unreachable')
+      expect(last.result).toBe(0)
+
+      seen.stop()
+    })
+
+    it('answers a download of what is already here without reporting again', async () => {
+      const { client, messageId, index, settle } = await harness.withAttachment()
+      const first = client.downloadAttachment(messageId, index)
+      await settle()
+      await first
+
+      const seen = collect(client)
+      const again = client.downloadAttachment(messageId, index)
+      await settle()
+      await again
+
+      // A cache hit reports nothing at all, which is why an indicator cannot be driven by
+      // reports arriving: it would sit there for ever on the one case that is instant.
+      expect(
+        seen.events.filter((e) => e.type === 'attachment-progress').length,
+      ).toBe(0)
+      seen.stop()
+    })
+
+    it('reports a save as its own transfer', async () => {
+      const { client, messageId, index, settle } = await harness.withAttachment()
+      const seen = collect(client)
+
+      const saving = client.saveAttachment(messageId, index, '/tmp/contract-save.bin')
+      await settle()
+      await saving
+
+      const saves = seen.events.filter(
+        (e) => e.type === 'attachment-progress' && e.transfer === 'save',
+      )
+      // libsession joins downloads with each other and never joins a save, so the two are
+      // distinguishable even for the same file - which is the only thing that keeps a single
+      // progress indicator from reading two transfers as one.
+      expect(saves.length).toBeGreaterThan(0)
+      seen.stop()
+    })
+
+    it('answers a page with what its attachments are doing', async () => {
+      const { client, conversationId, messageId, index, settle } = await harness.withAttachment()
+
+      const before = await client.getMessages(conversationId)
+      const idle = before.transfers.find((t) => t.messageId === messageId && t.index === index)
+      // Reported even though nothing is happening to it: "nobody is fetching this" is what a row
+      // offering to fetch it needs to hear, and is not the same as having nothing to fetch.
+      expect(idle).toBeDefined()
+      expect(idle?.cached).toBe(false)
+      expect(idle?.transferring).toBe(false)
+
+      const running = client.downloadAttachment(messageId, index)
+      await settle()
+      await running
+
+      // The reason this exists: a screen that was not listening has no other way back to the
+      // truth, and asking for the bytes to find out would be a download rather than a question.
+      const after = await client.getMessages(conversationId)
+      const cached = after.transfers.find((t) => t.messageId === messageId && t.index === index)
+      expect(cached?.cached).toBe(true)
+      expect(cached?.transferring).toBe(false)
+    })
+
+    it('remembers being told to download nothing, which is not the same as never asking', async () => {
+      const { client, conversationId } = await harness.withAttachment()
+
+      const before = await client.getConversation(conversationId)
+      expect(before.autoDownload).toBeUndefined()
+
+      await client.setAutoDownload(conversationId, 'none')
+
+      // The distinction the prompt depends on: unset means nobody has been asked, so a client
+      // that stored `none` as "unset" would ask again for ever.
+      const after = await client.getConversation(conversationId)
+      expect(after.autoDownload).toBe('none')
     })
 
     it('rejects everything still waiting when it closes', async () => {

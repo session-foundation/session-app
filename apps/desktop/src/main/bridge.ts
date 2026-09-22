@@ -14,6 +14,8 @@ import {
 } from '@session/basic-types'
 import type { BridgeTransport } from '@session/client'
 
+import type { MediaSource } from './media'
+
 const { app, safeStorage } = electron
 
 /**
@@ -81,7 +83,7 @@ function developerSetting(name: string): string | undefined {
  *
  * Everything above this file sees frames either way.
  */
-export async function createBridge(): Promise<BridgeTransport> {
+export async function createBridge(): Promise<BridgeTransport & MediaSource> {
   loadDotEnv()
 
   if (developerSetting('EXPO_PUBLIC_SESSION_FAKE') === '1') {

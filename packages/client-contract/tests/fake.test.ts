@@ -61,6 +61,23 @@ const harness: ContractHarness = {
     return { client, phrase: await client.getSeedMnemonic() }
   },
 
+  withAttachment() {
+    const { world, clients } = friends(['Alice', 'Bob'])
+    const alice = clients['Alice']
+    if (!alice) throw new Error('fixture did not produce a client')
+    const conversationId = world.account('Bob').sessionId
+    const account = world.account('Alice')
+    const withOne = account.messages(conversationId).find((m) => m.attachments.length > 0)
+    if (!withOne) throw new Error('fixture did not seed an attachment')
+    return Promise.resolve({
+      client: alice,
+      conversationId,
+      messageId: withOne.id,
+      index: 0,
+      settle: settleWith(world),
+    })
+  },
+
   restart(client: SessionClient) {
     if (!(client instanceof FakeSessionClient)) {
       throw new Error('the fake harness can only restart a fake client')

@@ -49,7 +49,9 @@ export function contentSecurityPolicy({ dev }: { dev: boolean }): string {
     "default-src 'none'",
     `script-src 'self'${dev ? " 'unsafe-inline'" : ''}`,
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob:",
+    // session-media: is the one door to an attachment's bytes - see main/media.ts. Named here
+    // and nowhere else, so nothing but an image can reach it.
+    "img-src 'self' data: blob: session-media:",
     // Attachments are played from a blob the renderer built, and `default-src 'none'` would
     // otherwise refuse them: media has no fallback of its own.
     "media-src 'self' blob:",

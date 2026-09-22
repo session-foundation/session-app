@@ -10,6 +10,7 @@ const { app, BrowserWindow, MessageChannelMain, ipcMain, session, shell } = elec
 import type { Request } from '@session/client'
 
 import { createBridge } from './bridge'
+import { registerMediaScheme, serveMedia } from './media'
 import {
   applyContentProtection,
   denyAllPermissions,
@@ -34,6 +35,9 @@ app.setName('session-app')
 
 const here = fileURLToPath(new URL('.', import.meta.url))
 
+// Before whenReady, which is the only point Electron accepts a privileged scheme.
+registerMediaScheme()
+
 /**
  * The bridge, which outlives any particular window.
  *
@@ -51,7 +55,12 @@ const here = fileURLToPath(new URL('.', import.meta.url))
 let bridge: Awaited<ReturnType<typeof createBridge>> | null = null
 
 async function requireBridge(): Promise<NonNullable<typeof bridge>> {
-  bridge ??= await createBridge()
+  if (bridge === null) {
+    bridge = await createBridge()
+    // With the bridge rather than with a window: `protocol.handle` installs one handler for the
+    // whole session, and the scheme has to outlive a window for the same reason the bridge does.
+    serveMedia(bridge)
+  }
   return bridge
 }
 

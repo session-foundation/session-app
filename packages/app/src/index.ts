@@ -14,6 +14,7 @@ export type {
   FilesPort,
   FlagsPort,
   LinkingPort,
+  MediaPort,
   MediaProbePort,
   NotificationsPort,
   PickedFile,

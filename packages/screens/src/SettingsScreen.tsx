@@ -6,6 +6,7 @@ import { Button, Modal, Screen, Separator, Text, XStack, YStack } from '@session
 
 import { requirePorts } from '@session/app'
 
+import { AttachmentCacheSection } from './AttachmentCacheSection'
 import { BackButton } from './BackButton'
 import { LocalizedText } from './LocalizedText'
 
@@ -95,6 +96,8 @@ export function SettingsScreen() {
       </YStack>
 
       <Separator borderColor="$bordersColor" />
+
+      <AttachmentCacheSection />
 
       {/* **The short version, on purpose.** The legacy client's clear offers a choice between this
           device and the network as well, and reports each step as it goes. This deletes everything

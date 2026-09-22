@@ -130,7 +130,7 @@ function carrier(a: Peer, b: Peer): () => Promise<void> {
     } catch {
       return // No conversation yet, so nothing has been written into it.
     }
-    for (const message of messages) {
+    for (const message of messages.messages) {
       const key = `${from.sessionId}:${String(message.id)}`
       if (!message.outgoing || delivered.has(key)) continue
       delivered.add(key)
@@ -166,6 +166,9 @@ function builtForTesting(): boolean {
 }
 
 const describeAddon = existsSync(addon) && builtForTesting() ? describe : describe.skip
+
+const OFFLINE_ATTACHMENTS =
+  'needs an incoming attachment and a file server to fetch it from; the harness forges bodies only'
 
 describeAddon('addon', () => {
   let root: string
@@ -238,6 +241,15 @@ describeAddon('addon', () => {
       return { client, phrase }
     },
 
+    withAttachment() {
+      // deliverTestMessage forges a body-only DM, which is the whole of what the harness can
+      // put into a database with no network: there is no attachment to fetch, and no file
+      // server to fetch it from. The scenarios that need one are skipped below.
+      return Promise.reject(
+        new Error('the offline addon harness cannot produce an incoming attachment'),
+      )
+    },
+
     async restart(client: SessionClient) {
       const peer = peers.get(client)
       if (!peer) throw new Error('restart was given a client this harness did not open')
@@ -258,6 +270,12 @@ describeAddon('addon', () => {
       unsupported: {
         'moves an approved request between the two lists':
           'approveConversation has no libsession counterpart; see docs/STATUS.md',
+        'reports a download from nothing to a result': OFFLINE_ATTACHMENTS,
+        'answers a download of what is already here without reporting again': OFFLINE_ATTACHMENTS,
+        'reports a save as its own transfer': OFFLINE_ATTACHMENTS,
+        'answers a page with what its attachments are doing': OFFLINE_ATTACHMENTS,
+        'remembers being told to download nothing, which is not the same as never asking':
+          OFFLINE_ATTACHMENTS,
       },
     },
   )

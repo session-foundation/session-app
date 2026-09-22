@@ -5,6 +5,7 @@ export type { SessionActions, SessionStore } from './store'
 export {
   SessionStoreProvider,
   useAccount,
+  useAttachmentTransfer,
   useConversation,
   useConversations,
   useHydrated,
@@ -14,5 +15,5 @@ export {
   useStartupError,
   useUnreadRequestCount,
 } from './hooks'
-export { emptyState } from './types'
-export type { MessageWindow, SessionState } from './types'
+export { emptyState, transferKey } from './types'
+export type { AttachmentTransferState, MessageWindow, SessionState } from './types'

@@ -52,7 +52,7 @@ describeAddon('the page-size ceiling', () => {
       for (let i = 0; i < 32_767; i++) await client.sendMessage(id, { body: 'x' })
 
       const under = await client.getMessages(id, { limit: 32_766 })
-      expect(under).toHaveLength(32_766)
+      expect(under.messages).toHaveLength(32_766)
 
       await expect(client.getMessages(id, { limit: 32_767 })).rejects.toThrow(
         /too many SQL variables/,

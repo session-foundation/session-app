@@ -23,6 +23,14 @@ export interface ISessionApp {
   readText(id: ElementId): Promise<string>
   /** Every occurrence, in the order they appear - a transcript, a conversation list. */
   readAllText(id: ElementId): Promise<string[]>
+  /**
+   * Whether the picture at `id` actually has its bytes, not merely an element on screen.
+   *
+   * Its own member because the two are genuinely different here: an attachment draws its box
+   * from the dimensions the sender supplied, so a picture whose bytes never arrived is present,
+   * laid out and the right shape - `isVisible` cannot tell it from one that loaded.
+   */
+  imageLoaded(id: ElementId, options?: { timeoutMs?: number }): Promise<boolean>
   screenshot(name: string): Promise<void>
   close(): Promise<void>
 }

@@ -3,6 +3,8 @@ import { isHex64, isIpv4, isPort } from '@session/basic-types'
 import { BridgeClosedError, SessionClientError } from '../errors'
 import type {
   AccountInfo,
+  AttachmentStatus,
+  AutoDownload,
   Conversation,
   ConversationId,
   Deletion,
@@ -301,7 +303,7 @@ export class FakeSessionClient implements SessionClient {
       before?: { timestamp: number; id: number }
       includeDeleted?: boolean
     },
-  ): Promise<Message[]> {
+  ): Promise<{ messages: Message[]; transfers: AttachmentStatus[] }> {
     this.assertOpen()
     // A limit is a page size, not a sentinel: there is no value meaning "all of it", because
     // history grows without bound.
@@ -324,7 +326,50 @@ export class FakeSessionClient implements SessionClient {
       : all
     const limit = options?.limit ?? 50
     // Newest-first paging, returned oldest-first so a transcript can render it directly.
-    return Promise.resolve(older.slice(Math.max(0, older.length - limit)))
+    const messages = older.slice(Math.max(0, older.length - limit))
+    return Promise.resolve({ messages, transfers: this.account.transfersFor(messages) })
+  }
+
+  downloadAttachment(messageId: number, index: number): Promise<void> {
+    this.assertOpen()
+    if (!this.account.locate(messageId, index)) {
+      return Promise.reject(new SessionClientError(`No attachment ${messageId}:${index}`))
+    }
+    return this.account.downloadAttachment(messageId, index)
+  }
+
+  saveAttachment(messageId: number, index: number, destination: string): Promise<string> {
+    this.assertOpen()
+    if (!this.account.locate(messageId, index)) {
+      return Promise.reject(new SessionClientError(`No attachment ${messageId}:${index}`))
+    }
+    return this.account.saveAttachment(messageId, index, destination)
+  }
+
+  setAutoDownload(id: ConversationId, mode: AutoDownload): Promise<void> {
+    this.assertOpen()
+    this.account.setAutoDownload(id, mode)
+    return Promise.resolve()
+  }
+
+  getCacheDir(): Promise<string> {
+    this.assertOpen()
+    // The fake writes nothing to disk, and says so rather than naming a directory that is not
+    // there: a screen offering to reveal one has to handle the empty case anyway.
+    return Promise.resolve('')
+  }
+
+  getAttachmentCacheLimit(): Promise<number | undefined> {
+    this.assertOpen()
+    return Promise.resolve(this.account.attachmentCacheLimit())
+  }
+
+  setAttachmentCacheLimit(bytes?: number): Promise<void> {
+    this.assertOpen()
+    // Remembered but not enforced: the fake caches in memory and never evicts, so a limit has
+    // nothing to bound. It is kept so a screen that reads one back sees what it wrote.
+    this.account.setAttachmentCacheLimit(bytes)
+    return Promise.resolve()
   }
 
   sendMessage(id: ConversationId, message: OutgoingMessage): Promise<number> {

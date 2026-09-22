@@ -18,6 +18,9 @@ import { describe, expect, it } from 'vitest'
  * What counts as fine is anything that is not a literal: `{tr('x')}` obviously, but also
  * `{account.name}` or `{count}`, because a value is not copy. The check is deliberately about
  * where the *words* come from, not about spelling `tr` at the call site.
+ *
+ * `src/pendingCopy.ts` is the one exception, and the second test here is what keeps it one: it
+ * holds English the catalogue has no key for, and growing it means editing that list.
  */
 
 /** Props whose string value is rendered, or read out, rather than used as a value. */
@@ -95,5 +98,19 @@ describe('screen copy', () => {
       'Hardcoded copy. Use tr() with a key from @session/localization; if no key fits, that is a ' +
         'question for the translation pipeline rather than a string to invent here.',
     ).toEqual([])
+  })
+
+  it('keeps the copy with no key yet to a list somebody has to edit', () => {
+    // Living in a .ts file is what puts these out of the parser's reach above, so nothing else
+    // stops a fourth one appearing. This is that stop: the set is spelled out, and adding to it
+    // is a deliberate edit here rather than a string that slid in beside an existing one.
+    const source = readFileSync(join(dir, 'pendingCopy.ts'), 'utf8')
+    const keys = [...source.matchAll(/^ {2}(\w+):/gm)].map((match) => match[1])
+
+    expect(
+      keys,
+      'English with no catalogue key. Each of these ships untranslated until the key lands, so ' +
+        'the list is meant to shrink: promote one via session-localization rather than adding.',
+    ).toEqual(['attachmentCache', 'attachmentCacheReveal', 'attachmentCacheNoLimit'])
   })
 })

@@ -112,10 +112,12 @@ Two commands in the protocol have no libsession counterpart and answer with an e
 something that half works. `approveConversation`: approval is not a flag anyone sets, it is
 recorded by messages flowing, so writing to someone is what approves them. `pollOnce`: Core owns
 its poll ticker and exposes no one-shot entry point. Both are open questions in `STATUS.md`.
-Attachments do not cross the bridge at all: not the bytes, not the metadata on a message, not
-the transfer progress, not the per-conversation auto-download setting. Reading a cache file
-libsession wrote means decrypting it, which is a design of its own - see `STATUS.md` - and the
-rest was protocol surface for a feature no screen offers yet.
+Attachment metadata, transfer progress and the per-conversation auto-download setting cross;
+bytes do not. They leave by a second channel instead: `session-media://attachment/<id>/<index>`,
+resolved natively by each platform straight out of `ClientBridge::fetch_media`, so a picture never
+passes through JavaScript and never rides this stream. `downloadAttachment` is how a caller asks
+whether the bytes are here: libsession records nothing about a transfer, so the one call reads the
+cache, joins a fetch already running, or starts one.
 
 ## The fake, and why it is not a stub
 
@@ -517,3 +519,71 @@ Append one paragraph per decision. Undocumented decisions are what rot.
   A devnet with nothing configured attaches **nothing**, never mainnet: real traffic on a build
   whose owner believes it is a sandbox is the failure worth preventing, and an overlay stamping
   `devnet` over it would confirm the belief rather than contradict it.
+
+- **2026-09-15 - Every attachment transfer is broadcast, not routed.** The protocol used to tag a
+  report with the request id of the command that asked for it, so the facade could hand it to that
+  command's callback. A download outlives the tap that started it and is drawn by a row that may
+  not have existed when it began, so the report goes on the stream like any other event and lands
+  in the store. `SessionEvent` stays one union and the facade keeps its plain fan-out. It is the
+  one arm that is not whole state, because libsession stores none for a transfer in flight.
+
+- **2026-09-15 - `Conversation.autoDownload` is optional, and unset is not `none`.** Unset means
+  nobody has been asked what this conversation should fetch unprompted; `none` means they were
+  asked and declined. Only the first should prompt, and calling the setter - with either answer -
+  is what records that the question was put. The protobuf bridge collapsed the two and was wrong.
+
+- **2026-09-15 - Nothing records whether an attachment is downloaded, and nothing should.**
+  `Attachment` carries `uploaded` and `saved_at` and no local path, so after a restart there is no
+  flag saying the bytes are cached. Asking for them is the answer, and it is better than a flag:
+  a flag goes stale on an eviction or a pruned cache directory and this cannot. session-cli, on
+  the same branch, draws a whole gallery this way - every tile calls `attachment_data` as it
+  mounts. The cost is that a row offers "download" for a file already here and the tap is instant.
+
+- **2026-09-15 - Media bytes leave by a scheme, not by the frame stream.** The argument that put
+  responses on the event stream is about state an event could contradict; a decrypted attachment is
+  not state, nothing can contradict it, and a multi-megabyte payload on a FIFO stalls every state
+  frame behind it. So `ClientBridge::fetch_media` answers its own caller, and what reaches a
+  renderer is a URL its platform resolves: `protocol.handle` on Electron, and an image loader per
+  platform on mobile - an `RCTImageURLLoader` on iOS, a Fresco fetcher on Android - both reaching
+  the bridge through `ClientBridge::current()`, because the operating system calls those and has
+  nothing to hand them. Progress still goes to the sink, so a picture loading draws the same bar a
+  tap does. It also means the codegen subset never has to grow a bytes primitive.
+
+  Two things this cost, both found by running it. A standard scheme gets the special-scheme host
+  parser, so `session-media://5/0` canonicalises to the host `0.0.0.5` - hence the fixed
+  `attachment` authority with both ids in the path. And tamagui's `Image` passes `source` through
+  as a DOM attribute, producing an `<img>` with nothing to load; `@session/ui`'s wraps
+  react-native's instead, which react-native-web turns into something that fetches.
+
+  `MediaPort.urlFor` returns null where a platform has no resolver yet, and the attachment row
+  draws its file form instead. Mobile returns null today: saying so beats rendering an image that
+  never loads.
+
+- **2026-09-16 - A history window does not outlive the screen showing it.** It used to: once loaded,
+  `histories[id]` stayed for the session, so every conversation ever opened kept its page and its
+  transfers. `useMessages` now drops it when it stops showing that id - keyed on the id rather than
+  on unmounting, because a wide layout keeps the detail pane mounted and only swaps the prop.
+
+  That makes the store a view of what is on screen, which in turn makes it safe to discard progress
+  reports for conversations nobody is looking at. The cost is that returning to a conversation
+  reloads it: paging depth and scroll position are lost, which wants solving on its own and is in
+  `STATUS.md`.
+
+- **2026-09-16 - A page of messages arrives with what its attachments are doing.**
+  `attachment_transfers` answers *nothing doing / running at N of M / already cached* without
+  starting anything, and `messageList` carries the answer beside the messages.
+
+  It exists because nothing about a transfer is stored, so a screen that was not listening - the
+  conversation was not open, the renderer reloaded, the process restarted - has no other way back
+  to the truth, and asking for the bytes to find out would be a download rather than a question.
+  It travels with the page rather than being asked for per row so that a row never draws a state it
+  is about to correct, and because the shim only ever uses the handler form: thirty async calls
+  would need a fan-in it has no pattern for, one batch is one handler.
+
+  Deliberately not fields on `Attachment`. That is libsession's account of the message; this is
+  what this device is doing about it, it changes far more often, and it is also what
+  `attachment-progress` reports - so putting it there would give one field two writers that
+  disagree the moment a transfer ticks. One writer for the first picture, one for the updates.
+
+  It also answers "is this downloaded?", which supersedes the earlier decision not to record that:
+  a cached file can offer Save rather than pretending it needs fetching.

@@ -22,6 +22,23 @@ interface LongTask {
   duration: number
 }
 
+/** What `imageLoaded`'s page-side body touches, and nothing more. */
+interface MediaElement {
+  getAttribute: (name: string) => string | null
+  style?: { backgroundImage?: string }
+  querySelector: (selector: string) => { style?: { backgroundImage?: string } } | null
+}
+
+interface MediaGlobals {
+  Image: new () => {
+    naturalWidth: number
+    src: string
+    onload: (() => void) | null
+    onerror: (() => void) | null
+  }
+  setTimeout: (callback: () => void, ms: number) => unknown
+}
+
 interface PageGlobals {
   __longTasks?: LongTask[]
   PerformanceObserver: new (
@@ -107,6 +124,36 @@ export class DesktopApp implements ISessionApp, IPerformanceProbe {
 
   async readAllText(id: ElementId): Promise<string[]> {
     return this.locator(id).allTextContents()
+  }
+
+  async imageLoaded(id: ElementId, options?: { timeoutMs?: number }): Promise<boolean> {
+    const element = this.locator(id).first()
+    await element.waitFor({ state: 'attached', timeout: options?.timeoutMs ?? 10_000 })
+
+    // react-native-web draws an Image as a div with a background-image rather than an <img>, so
+    // there is no naturalWidth to read. Loading the same URL again answers the question and is
+    // free: whatever the element fetched is in the renderer's cache by then.
+    return element.evaluate(
+      (node: unknown, timeoutMs: number) =>
+        new Promise<boolean>((resolve) => {
+          const el = node as MediaElement
+          const g = globalThis as unknown as MediaGlobals
+          const own = el.style?.backgroundImage ?? ''
+          const nested = el.querySelector('div')?.style?.backgroundImage ?? ''
+          const source =
+            el.getAttribute('src') ?? /url\("?([^")]+)"?\)/.exec(own || nested)?.[1] ?? null
+          if (source === null) {
+            resolve(false)
+            return
+          }
+          const probe = new g.Image()
+          probe.onload = () => resolve(probe.naturalWidth > 0)
+          probe.onerror = () => resolve(false)
+          probe.src = source
+          g.setTimeout(() => resolve(false), timeoutMs)
+        }),
+      options?.timeoutMs ?? 10_000,
+    )
   }
 
   async screenshot(name: string): Promise<void> {

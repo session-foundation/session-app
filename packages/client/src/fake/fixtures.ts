@@ -1,3 +1,5 @@
+import type { Attachment } from '@session/bridge-types'
+
 import type { SessionClient } from '../types'
 
 import { FakeSessionClient } from './FakeSessionClient'
@@ -46,6 +48,64 @@ export const FIXTURE_NAMES = [
 
 export type FixtureName = (typeof FIXTURE_NAMES)[number]
 
+/**
+ * Pictures only, so the message is gallery-viewable and draws as pictures.
+ *
+ * Dimensions are the sender's and are what the placeholder is laid out from, so they are set:
+ * without them a transcript jumps as each one lands.
+ */
+const SEEDED_PICTURES: Attachment[] = [
+  {
+    index: 0,
+    contentType: 'image/jpeg',
+    filename: 'harbour.jpg',
+    size: 2_411_724,
+    voiceMessage: false,
+    width: 1600,
+    height: 1200,
+    uploaded: true,
+    unavailable: false,
+  },
+  {
+    index: 1,
+    contentType: 'image/png',
+    filename: 'ferry.png',
+    size: 812_004,
+    voiceMessage: false,
+    width: 1200,
+    height: 1600,
+    uploaded: true,
+    unavailable: false,
+  },
+]
+
+/**
+ * One picture and one file, which libsession's rule makes *not* gallery-viewable: a message is
+ * only shown as pictures when every attachment is one. This is what draws the file form.
+ */
+const SEEDED_FILES: Attachment[] = [
+  {
+    index: 0,
+    contentType: 'image/jpeg',
+    filename: 'receipt.jpg',
+    size: 96_500,
+    voiceMessage: false,
+    width: 900,
+    height: 1200,
+    uploaded: true,
+    unavailable: false,
+  },
+  {
+    index: 1,
+    contentType: 'application/pdf',
+    filename: 'itinerary.pdf',
+    size: 184_320,
+    voiceMessage: false,
+    uploaded: true,
+    unavailable: false,
+  },
+]
+
 export interface FakeSetup {
   world: FakeWorld
   clients: Record<string, SessionClient>
@@ -75,7 +135,7 @@ export function newcomer(name: FixtureName = 'Alice'): FakeSetup {
  */
 export function friends(
   names: readonly [FixtureName, FixtureName] = ['Alice', 'Bob'],
-  options: { history?: number } = {},
+  options: { history?: number; attachments?: boolean } = {},
 ): FakeSetup {
   resetFakeIds()
   const world = new FakeWorld()
@@ -91,6 +151,17 @@ export function friends(
     const sender = i % 2 === 0 ? first : second
     const recipient = sender === first ? second : first
     sender.send(recipient.sessionId, `Message ${i + 1}`)
+    world.settle()
+  }
+
+  // Delivered rather than sent: sending an attachment is not in the protocol, so the only way one
+  // exists is arriving. Nothing is fetched for either - the conversation has not been asked yet.
+  // Two messages, because the two halves of the attachment row are chosen by libsession's
+  // gallery rule and a fixture with only one of them leaves the other undrawn.
+  if (options.attachments ?? true) {
+    first.deliverFrom(second, 'Here are the photos', world.now(), SEEDED_PICTURES)
+    world.settle()
+    first.deliverFrom(second, 'And the paperwork', world.now(), SEEDED_FILES)
     world.settle()
   }
 

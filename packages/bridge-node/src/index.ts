@@ -23,7 +23,26 @@ export interface NodeBridgeOptions extends Omit<SessionBridgeOptions, 'rawKeyHex
 
 interface NativeBridge {
   call(request: Request): void
+  fetchMedia(messageId: number, index: number): Promise<{ contentType: string; bytes: Buffer }>
   close(): void
+}
+
+/** An attachment's bytes, decrypted, for whatever draws them. */
+export interface Media {
+  contentType: string
+  bytes: Buffer
+}
+
+/**
+ * The transport, plus the one thing that does not go over it.
+ *
+ * Media is a second channel on purpose: the frame stream carries state, and its ordering is what
+ * makes a display bindable, so a multi-megabyte file on it would stall every state frame behind a
+ * payload nothing can contradict. Progress still arrives as events, so a picture loading draws
+ * the same bar a tap does.
+ */
+export interface NodeBridgeTransport extends BridgeTransport {
+  fetchMedia(messageId: number, index: number): Promise<Media>
 }
 
 interface Addon {
@@ -53,7 +72,7 @@ function loadAddon(explicitPath: string | undefined): Addon {
  * directory, and the shutdown that has to close the database. The renderer never sees this, only
  * the frames it produces.
  */
-export function createNodeBridgeTransport(options: NodeBridgeOptions): BridgeTransport {
+export function createNodeBridgeTransport(options: NodeBridgeOptions): NodeBridgeTransport {
   const { addonPath, ...init } = options
   const { SessionBridge } = loadAddon(addonPath)
 
@@ -86,6 +105,11 @@ export function createNodeBridgeTransport(options: NodeBridgeOptions): BridgeTra
         if (typeof id !== 'number') return
         deliver({ type: 'response', response: { id, error: message } })
       }
+    },
+
+    fetchMedia(messageId: number, index: number): Promise<Media> {
+      if (closed) return Promise.reject(new Error('the bridge is closed'))
+      return bridge.fetchMedia(messageId, index)
     },
 
     setSink(onFrame: (frame: Frame) => void): void {

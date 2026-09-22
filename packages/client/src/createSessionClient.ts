@@ -1,6 +1,8 @@
 import { utf8Encode } from '@session/basic-types'
 import type {
   AccountInfo,
+  AttachmentStatus,
+  AutoDownload,
   Command,
   Conversation,
   ConversationId,
@@ -231,7 +233,10 @@ export function createSessionClient(transport: BridgeTransport): SessionClient {
       await call({ type: 'deleteConversation', conversationId: id, keepMessages })
     },
 
-    async getMessages(id, options): Promise<Message[]> {
+    async getMessages(
+      id,
+      options,
+    ): Promise<{ messages: Message[]; transfers: AttachmentStatus[] }> {
       const before = options?.before
       const response = await call({
         type: 'getMessages',
@@ -240,7 +245,8 @@ export function createSessionClient(transport: BridgeTransport): SessionClient {
         includeDeleted: options?.includeDeleted ?? false,
         ...(before === undefined ? {} : { before }),
       })
-      return expect(response, 'messageList').messages
+      const page = expect(response, 'messageList')
+      return { messages: page.messages, transfers: page.transfers }
     },
 
     async sendMessage(id, message: OutgoingMessage): Promise<number> {
@@ -260,6 +266,40 @@ export function createSessionClient(transport: BridgeTransport): SessionClient {
 
     async deleteMessage(messageId, scope: Deletion): Promise<void> {
       await call({ type: 'deleteMessage', messageId, scope })
+    },
+
+    async downloadAttachment(messageId, index): Promise<void> {
+      await call({ type: 'downloadAttachment', messageId, index })
+    },
+
+    async saveAttachment(messageId, index, destination, options): Promise<string> {
+      const response = await call({
+        type: 'saveAttachment',
+        messageId,
+        index,
+        destination,
+        notifySender: options?.notifySender ?? true,
+        replace: options?.replace ?? false,
+      })
+      return expect(response, 'path').path
+    },
+
+    async setAutoDownload(id, mode: AutoDownload): Promise<void> {
+      await call({ type: 'setAutoDownload', conversationId: id, mode })
+    },
+
+    async getCacheDir(): Promise<string> {
+      const response = await call({ type: 'getCacheDir' })
+      return expect(response, 'path').path
+    },
+
+    async getAttachmentCacheLimit(): Promise<number | undefined> {
+      const response = await call({ type: 'getAttachmentCacheLimit' })
+      return expect(response, 'byteCount').bytes
+    },
+
+    async setAttachmentCacheLimit(bytes): Promise<void> {
+      await call({ type: 'setAttachmentCacheLimit', ...(bytes === undefined ? {} : { bytes }) })
     },
 
     async getPref(key): Promise<string | undefined> {
