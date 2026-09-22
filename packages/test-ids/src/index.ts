@@ -40,6 +40,8 @@ export const ELEMENT = {
     attachmentProgress: 'message-attachment-progress',
     attachmentDownload: 'message-attachment-download',
     attachmentSave: 'message-attachment-save',
+    attachmentFooter: 'message-attachment-footer',
+    attachmentAction: 'message-attachment-action',
     mediaViewer: 'media-viewer',
     mediaViewerClose: 'media-viewer-close',
     mediaViewerPrevious: 'media-viewer-previous',

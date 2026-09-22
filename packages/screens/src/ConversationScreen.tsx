@@ -5,8 +5,7 @@ import { ELEMENT } from '@session/test-ids'
 import { Button, Input, List, Screen, Separator, Text, XStack, YStack } from '@session/ui'
 import { useState } from 'react'
 
-import { AttachmentRow } from './AttachmentRow'
-import { MessageAlbum } from './MessageAlbum'
+import { MessageAttachments } from './MessageAttachments'
 import { MessageMediaViewer } from './MessageMediaViewer'
 import { viewableAttachments } from './viewableAttachments'
 import { AutoDownloadPrompt } from './AutoDownloadPrompt'
@@ -200,23 +199,14 @@ function MessageRow({
           {message.body}
         </Text>
       )}
-      {viewable.length === 0 ? null : (
-        <MessageAlbum
+      {message.attachments.length === 0 ? null : (
+        <MessageAttachments
           message={message}
           onOpen={setViewing}
+          {...(onFirstDownload === undefined ? {} : { onFirstDownload })}
           autoDownload={autoDownload}
         />
       )}
-      {message.attachments
-        .filter((attachment) => !viewable.includes(attachment))
-        .map((attachment) => (
-          <AttachmentRow
-            key={attachment.index}
-            message={message}
-            attachment={attachment}
-            {...(onFirstDownload === undefined ? {} : { onFirstDownload })}
-          />
-        ))}
       {label === undefined ? null : (
         <XStack alignItems="center" gap="$xs">
           {/* On the fill, not on the page: a label only ever appears on an outgoing message, so a

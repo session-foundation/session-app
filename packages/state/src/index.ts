@@ -6,6 +6,7 @@ export {
   SessionStoreProvider,
   useAccount,
   useAttachmentTransfer,
+  useAttachmentTransfers,
   useConversation,
   useConversations,
   useHydrated,

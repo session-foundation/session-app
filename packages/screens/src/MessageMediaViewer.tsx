@@ -5,6 +5,7 @@ import { useSessionActions } from '@session/state'
 import { ELEMENT } from '@session/test-ids'
 import { MediaViewer, type MediaViewerItem } from '@session/ui'
 
+import { saveOne } from './saveAttachment'
 import { viewableAttachments } from './viewableAttachments'
 
 /**
@@ -47,7 +48,7 @@ export function MessageMediaViewer({
       onIndex={onIndex}
       onClose={onClose}
       onExport={() => {
-        if (attachment !== undefined) void save(message, attachment.index, actions)
+        if (attachment !== undefined) void saveOne(message, attachment.index, actions)
       }}
       // Nothing behind it yet: the row's own menu is where these live, and a second copy of it
       // belongs with that work rather than ahead of it.
@@ -65,23 +66,4 @@ export function MessageMediaViewer({
       closeTestID={ELEMENT.conversation.mediaViewerClose}
     />
   )
-}
-
-/**
- * Writes one attachment out to a folder somebody chose.
- *
- * Per attachment rather than per message: a viewer is always looking at exactly one, so there is
- * no set here to be ambiguous about.
- */
-async function save(
-  message: Message,
-  index: number,
-  actions: ReturnType<typeof useSessionActions>,
-): Promise<void> {
-  const attachment = message.attachments[index]
-  const suggested = attachment?.filename ?? `attachment-${String(index + 1)}`
-  const destination = await requirePorts().files.chooseSaveLocation(suggested)
-  if (destination === null) return
-  const saved = await actions.saveAttachment(message.id, index, destination)
-  await requirePorts().files.revealInFolder(saved)
 }

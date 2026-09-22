@@ -17,7 +17,7 @@ import {
 import { useStore } from 'zustand'
 
 import type { SessionActions, SessionStore } from './store'
-import type { AttachmentTransferState, MessageWindow } from './types'
+import type { AttachmentTransferState, MessageWindow, SessionState } from './types'
 import { transferKey } from './types'
 
 const StoreContext = createContext<SessionStore | null>(null)
@@ -159,6 +159,21 @@ export function useAttachmentTransfer(
 ): AttachmentTransferState | undefined {
   const store = useSessionStore()
   return useStore(store, (state) => state.transfers[transferKey(transfer, messageId, index)])
+}
+
+/**
+ * Every live transfer, keyed by `transferKey`.
+ *
+ * For a caller folding a whole message's attachments into one answer. It reads the record once
+ * rather than calling `useAttachmentTransfer` per attachment, which would be a hook in a loop -
+ * fine while a message's attachment list cannot change, and a rule nobody should have to check.
+ *
+ * The record's identity is stable between updates, so this re-renders when a transfer moves and
+ * not otherwise.
+ */
+export function useAttachmentTransfers(): SessionState['transfers'] {
+  const store = useSessionStore()
+  return useStore(store, (state) => state.transfers)
 }
 
 /** Unread requests, which is not the same as the number of requests. */

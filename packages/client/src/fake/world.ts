@@ -67,6 +67,27 @@ function encryptedSize(size: number): number {
 /** How many reports a transfer makes between starting and finishing. */
 const TRANSFER_STEPS = 4
 
+/**
+ * How many of the world's ticks a megabyte takes to move.
+ *
+ * A notional rate, so that a big file takes longer than a small one. Without it every transfer
+ * ran for the same four ticks whatever its size, and a message's pictures all landed together -
+ * which looks like a batch completing rather than files arriving, and hides every display that
+ * is supposed to fill in one item at a time.
+ *
+ * Deliberately not a real bandwidth. What matters is that the durations differ in proportion to
+ * the sizes, because that is the thing a display is laid out against.
+ */
+const TICKS_PER_MEGABYTE = 20
+
+/** The smallest a transfer can be, so a tiny file still reports a beginning and an end. */
+const MIN_TRANSFER_TICKS = 2
+
+/** How long this many encrypted bytes take, in the world's ticks. */
+function transferTicks(bytes: number): number {
+  return Math.max(Math.round((bytes / 1_000_000) * TICKS_PER_MEGABYTE), MIN_TRANSFER_TICKS)
+}
+
 /** libsession's rule: has attachments, and every one of them is an image. */
 function galleryViewable(attachments: Attachment[]): boolean {
   return (
@@ -603,11 +624,16 @@ export class FakeAccount {
       return Promise.resolve()
     }
 
+    // Spread over a span that follows the size, with the same number of reports either way: the
+    // bar moves in the same increments on any file, and a bigger one takes longer to get there.
+    const span = transferTicks(total)
     return new Promise<void>((resolve, reject) => {
       for (let step = 1; step < TRANSFER_STEPS; step += 1) {
-        world.schedule(step, () => report(Math.round((total * step) / TRANSFER_STEPS)))
+        world.schedule((span * step) / TRANSFER_STEPS, () =>
+          report(Math.round((total * step) / TRANSFER_STEPS)),
+        )
       }
-      world.schedule(TRANSFER_STEPS, () => {
+      world.schedule(span, () => {
         if (generation !== this.generation) {
           reject(new Error('the transfer did not survive the restart'))
           return
