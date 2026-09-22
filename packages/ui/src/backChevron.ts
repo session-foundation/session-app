@@ -13,3 +13,13 @@ import type { IconName } from './Icon.types'
 export function backChevron(): IconName {
   return isLayoutRtl() ? 'chevronRight' : 'chevronLeft'
 }
+
+/**
+ * Which way a control pointing onward points: into the row, the sheet or the next step.
+ *
+ * The other half of the same question, and here for the same reason. Derived from `backChevron`
+ * rather than written out, so the pair cannot end up agreeing about only one direction.
+ */
+export function forwardChevron(): IconName {
+  return backChevron() === 'chevronLeft' ? 'chevronRight' : 'chevronLeft'
+}

@@ -106,6 +106,29 @@ const SEEDED_FILES: Attachment[] = [
   },
 ]
 
+/**
+ * More attachments than a message draws in the transcript.
+ *
+ * Thirteen, so the eighth row is followed by "Show All" and the sheet has five to add. A mixed
+ * set, because the rule that sends a message to the list is one plain file - and the case worth
+ * having a fixture for is the one no composer can produce.
+ */
+const SEEDED_MANY: Attachment[] = Array.from({ length: 13 }, (_, at) => ({
+  index: at,
+  ...(at === 12
+    ? { contentType: 'application/pdf', filename: 'contact-sheet.pdf' }
+    : {
+        contentType: 'image/jpeg',
+        filename: `roll-${String(at + 1).padStart(2, '0')}.jpg`,
+        width: 1200,
+        height: 900,
+      }),
+  size: 120_000 + at * 4_000,
+  voiceMessage: false,
+  uploaded: true,
+  unavailable: false,
+}))
+
 export interface FakeSetup {
   world: FakeWorld
   clients: Record<string, SessionClient>
@@ -156,12 +179,15 @@ export function friends(
 
   // Delivered rather than sent: sending an attachment is not in the protocol, so the only way one
   // exists is arriving. Nothing is fetched for either - the conversation has not been asked yet.
-  // Two messages, because the two halves of the attachment row are chosen by libsession's
-  // gallery rule and a fixture with only one of them leaves the other undrawn.
+  // Three messages: an album, a mixed set the list draws, and one longer than the transcript
+  // will hold. Each shape is chosen from the set rather than set by a flag, so a fixture missing
+  // one leaves that shape undrawn.
   if (options.attachments ?? true) {
     first.deliverFrom(second, 'Here are the photos', world.now(), SEEDED_PICTURES)
     world.settle()
     first.deliverFrom(second, 'And the paperwork', world.now(), SEEDED_FILES)
+    world.settle()
+    first.deliverFrom(second, 'The whole roll', world.now(), SEEDED_MANY)
     world.settle()
   }
 

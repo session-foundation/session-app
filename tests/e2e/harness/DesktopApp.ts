@@ -168,7 +168,12 @@ export class DesktopApp implements ISessionApp, IPerformanceProbe {
   }
 
   async screenshot(name: string): Promise<void> {
-    await this.page.screenshot({ path: join(repoRoot, 'test-results', `${name}.png`) })
+    // Animations frozen at their end state, so an artifact taken the moment a surface opens is
+    // the surface rather than a frame of it fading in - which is a picture that reads as a bug.
+    await this.page.screenshot({
+      path: join(repoRoot, 'test-results', `${name}.png`),
+      animations: 'disabled',
+    })
   }
 
   // -- IPerformanceProbe ------------------------------------------------------------------

@@ -1,9 +1,12 @@
 import type { Attachment, AutoDownload, Message } from '@session/client'
+import { tr } from '@session/localization'
 import { transferKey, useAttachmentTransfers, useSessionActions } from '@session/state'
-import { YStack } from '@session/ui'
+import { ELEMENT } from '@session/test-ids'
+import { Sheet, YStack } from '@session/ui'
+import { useState } from 'react'
 
 import { AttachmentFooter } from './AttachmentFooter'
-import { AttachmentList } from './AttachmentList'
+import { AttachmentList, LIST_MAX_ROWS } from './AttachmentList'
 import { AttachmentPill } from './AttachmentPill'
 import { summarise, type AttachmentSet } from './attachmentSet'
 import { attachmentView, canChooseView, type AttachmentView } from './attachmentView'
@@ -36,6 +39,10 @@ export function MessageAttachments({
   const actions = useSessionActions()
   const set = useAttachmentSet(message)
   const view = attachmentView(message, chosenView)
+  const [showingAll, setShowingAll] = useState(false)
+  // A fact about the set rather than about what is open, so the sheet stays mounted while it
+  // animates shut. Mounting one under every message in the transcript would be the alternative.
+  const overflows = view === 'list' && message.attachments.length > LIST_MAX_ROWS
 
   function act(): void {
     if (set.state === 'ready') {
@@ -70,6 +77,13 @@ export function MessageAttachments({
           onOpen={onOpen}
           onFirstDownload={onFirstDownload}
           autoDownload={autoDownload}
+          {...(overflows
+            ? {
+                onShowAll: () => {
+                  setShowingAll(true)
+                },
+              }
+            : {})}
         />
       )}
       <AttachmentFooter
@@ -79,6 +93,25 @@ export function MessageAttachments({
           ? {}
           : { view, onView: onChooseView })}
       />
+
+      {/* The same rows and the same footer, on a surface that can be as tall as it needs to be.
+          No toggle in here: the sheet is the list, and a control offering to make it a gallery
+          would be offering to empty the thing the reader just opened. */}
+      {!overflows ? null : (
+        <Sheet
+          open={showingAll}
+          onClose={() => {
+            setShowingAll(false)
+          }}
+          title={tr('attachments')}
+          closeLabel={tr('close')}
+          footer={<AttachmentFooter set={set} onAction={act} />}
+          testID={ELEMENT.conversation.attachmentSheet}
+          closeTestID={ELEMENT.conversation.attachmentSheetClose}
+        >
+          <AttachmentList message={message} onOpen={onOpen} onFirstDownload={onFirstDownload} />
+        </Sheet>
+      )}
     </YStack>
   )
 }
@@ -91,7 +124,8 @@ export function MessageAttachments({
  */
 function useAttachmentSet(message: Message): AttachmentSet {
   const transfers = useAttachmentTransfers()
-  return summarise(message, (attachment: Attachment) =>
-    transfers[transferKey('download', message.id, attachment.index)],
+  return summarise(
+    message,
+    (attachment: Attachment) => transfers[transferKey('download', message.id, attachment.index)],
   )
 }
