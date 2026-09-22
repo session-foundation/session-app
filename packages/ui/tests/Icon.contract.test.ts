@@ -28,6 +28,13 @@ const names = [
 /** The `name: Glyph` pairs of the map in `Icon.tsx`. */
 const mapped = [...component.matchAll(/^ {2}(\w+): (\w+),$/gm)].map((m) => m[1])
 
+/** The names in the `MIRRORED_IN_RTL` set. */
+const mirrored = [
+  ...(/const MIRRORED_IN_RTL[^=]*= new Set\(\[([^\]]*)\]\)/.exec(component)?.[1] ?? '').matchAll(
+    /'([^']+)'/g,
+  ),
+].map((m) => m[1])
+
 /** Everything imported from the icon set, as written. */
 const specifiers = [...component.matchAll(/from '(@tamagui\/lucide-icons-2[^']*)'/g)].map(
   (m) => m[1],
@@ -49,5 +56,20 @@ describe('Icon', () => {
       expect(specifier, 'a barrel import costs Metro every icon lucide ships').toMatch(
         /^@tamagui\/lucide-icons-2\/icons\/[A-Za-z0-9]+$/,
       )
+  })
+
+  it('mirrors only names it has a glyph for', () => {
+    // A typo here is otherwise silent: the set is keyed by the union, so a name that is not in it
+    // does not compile - but one that *is* in the union and was renamed later would simply stop
+    // mirroring, with nothing to notice.
+    expect(mirrored.length).toBeGreaterThan(0)
+    for (const name of mirrored) expect(names).toContain(name)
+  })
+
+  it('never mirrors a glyph that has a mirrored twin of its own', () => {
+    // The pairs are chosen between by the caller, from `isLayoutRtl()`. Flipping one of them here
+    // would give a caller that picked correctly a glyph pointing back the way it came.
+    for (const pair of ['chevronLeft', 'chevronRight', 'skipBack', 'skipForward'])
+      expect(mirrored).not.toContain(pair)
   })
 })

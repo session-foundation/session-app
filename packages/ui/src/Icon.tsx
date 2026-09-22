@@ -3,16 +3,38 @@ import { ChevronDown } from '@tamagui/lucide-icons-2/icons/ChevronDown'
 import { ChevronLeft } from '@tamagui/lucide-icons-2/icons/ChevronLeft'
 import { ChevronRight } from '@tamagui/lucide-icons-2/icons/ChevronRight'
 import { CircleHelp } from '@tamagui/lucide-icons-2/icons/CircleHelp'
+import { Clock } from '@tamagui/lucide-icons-2/icons/Clock'
+import { Download } from '@tamagui/lucide-icons-2/icons/Download'
+import { Ellipsis } from '@tamagui/lucide-icons-2/icons/Ellipsis'
 import { ExternalLink } from '@tamagui/lucide-icons-2/icons/ExternalLink'
 import { Eye } from '@tamagui/lucide-icons-2/icons/Eye'
 import { EyeOff } from '@tamagui/lucide-icons-2/icons/EyeOff'
+import { File } from '@tamagui/lucide-icons-2/icons/File'
+import { FileArchive } from '@tamagui/lucide-icons-2/icons/FileArchive'
+import { FileAudio } from '@tamagui/lucide-icons-2/icons/FileAudio'
+import { FileCode } from '@tamagui/lucide-icons-2/icons/FileCode'
+import { FileImage } from '@tamagui/lucide-icons-2/icons/FileImage'
+import { FileSpreadsheet } from '@tamagui/lucide-icons-2/icons/FileSpreadsheet'
+import { FileText } from '@tamagui/lucide-icons-2/icons/FileText'
+import { FileVideo } from '@tamagui/lucide-icons-2/icons/FileVideo'
+import { FolderOpen } from '@tamagui/lucide-icons-2/icons/FolderOpen'
+import { HardDriveDownload } from '@tamagui/lucide-icons-2/icons/HardDriveDownload'
+import { Image } from '@tamagui/lucide-icons-2/icons/Image'
+import { LayoutGrid } from '@tamagui/lucide-icons-2/icons/LayoutGrid'
 import { Link } from '@tamagui/lucide-icons-2/icons/Link'
+import { List } from '@tamagui/lucide-icons-2/icons/List'
+import { Play } from '@tamagui/lucide-icons-2/icons/Play'
 import { Plus } from '@tamagui/lucide-icons-2/icons/Plus'
+import { RotateCw } from '@tamagui/lucide-icons-2/icons/RotateCw'
 import { Search } from '@tamagui/lucide-icons-2/icons/Search'
 import { Settings } from '@tamagui/lucide-icons-2/icons/Settings'
+import { Share2 } from '@tamagui/lucide-icons-2/icons/Share2'
+import { TriangleAlert } from '@tamagui/lucide-icons-2/icons/TriangleAlert'
+import { Video } from '@tamagui/lucide-icons-2/icons/Video'
 import { X } from '@tamagui/lucide-icons-2/icons/X'
 
 import type { IconName, IconProps, IconSize } from './Icon.types'
+import { isLayoutRtl } from './layoutDirection'
 
 /**
  * The glyph behind each name.
@@ -31,15 +53,55 @@ const GLYPHS = {
   chevronLeft: ChevronLeft,
   chevronRight: ChevronRight,
   circleHelp: CircleHelp,
+  clock: Clock,
+  download: Download,
+  ellipsis: Ellipsis,
   externalLink: ExternalLink,
   eye: Eye,
   eyeOff: EyeOff,
+  file: File,
+  fileArchive: FileArchive,
+  fileAudio: FileAudio,
+  fileCode: FileCode,
+  fileImage: FileImage,
+  fileSpreadsheet: FileSpreadsheet,
+  fileText: FileText,
+  fileVideo: FileVideo,
+  folderOpen: FolderOpen,
+  hardDriveDownload: HardDriveDownload,
+  image: Image,
+  layoutGrid: LayoutGrid,
   link: Link,
+  list: List,
+  play: Play,
   plus: Plus,
+  rotateCw: RotateCw,
   search: Search,
   settings: Settings,
+  share2: Share2,
+  triangleAlert: TriangleAlert,
+  video: Video,
   x: X,
 } satisfies Record<IconName, typeof Plus>
+
+/**
+ * Glyphs that depict reading order, and so follow it.
+ *
+ * The test is what the direction *refers to*, which splits three ways. Reading order mirrors: a
+ * list is a picture of text, bullets on the leading edge, so in a mirrored layout the bullets
+ * belong on the other side. A media timeline does not: `play` points along the recording, and the
+ * platforms' own players keep it pointing the same way in every locale, so mirroring it would make
+ * this the only app on the device that disagrees. A picture of an object never does - a folded
+ * page corner is a convention, not a direction.
+ *
+ * Here rather than at the call sites, because `IconName` is closed: one set keyed by it settles
+ * each glyph once instead of a judgement repeated wherever one is drawn.
+ *
+ * **A swap is not a mirror.** `chevronLeft`/`chevronRight` are two real glyphs with their own
+ * optical weight, and flipping one gives a worse result than drawing the other - so a caller that
+ * needs the pair chooses between them with `isLayoutRtl()` and they are deliberately absent here.
+ */
+const MIRRORED_IN_RTL: ReadonlySet<IconName> = new Set(['list', 'video'])
 
 /**
  * One icon, drawn from the set the app has agreed on.
@@ -52,7 +114,16 @@ const GLYPHS = {
 export function Icon({ name, size, ...rest }: IconProps) {
   const Glyph = GLYPHS[name]
   const resolved = typeof size === 'string' ? ICON_SIZES[size] : size
-  return <Glyph {...rest} {...(resolved === undefined ? {} : { size: resolved })} />
+  // lucide ships no mirrored variants, so the flip is ours to apply. `scaleX` rather than a
+  // `transform`, which is an array on native and a string on the web; tamagui takes this on both.
+  const mirrored = MIRRORED_IN_RTL.has(name) && isLayoutRtl()
+  return (
+    <Glyph
+      {...rest}
+      {...(resolved === undefined ? {} : { size: resolved })}
+      {...(mirrored ? { scaleX: -1 } : {})}
+    />
+  )
 }
 
 /**
