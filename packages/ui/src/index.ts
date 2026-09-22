@@ -94,3 +94,14 @@ export { AttachmentAlbum } from './AttachmentAlbum'
 export type { AlbumItem, AttachmentAlbumProps } from './AttachmentAlbum'
 export { ALBUM_MAX_TILES, ALBUM_SEAM, albumLayout, lastCell } from './albumLayout'
 export type { AlbumCell, AlbumLayout } from './albumLayout'
+export { FileRow } from './FileRow'
+export type { FileRowProps, FileRowTestIDs } from './FileRow'
+export {
+  FILE_GLYPH_SIDE,
+  FILE_LEAD_WIDTH,
+  FILE_ROW_CONTROL,
+  FILE_ROW_GAP,
+  fileRowControl,
+} from './fileRow'
+export type { FileRowState } from './fileRow'
+export { fileFormat, fileGlyph, splitFilename } from './attachmentFile'

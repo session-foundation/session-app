@@ -3,10 +3,11 @@ import type { Attachment, Message } from '@session/client'
 import { tr } from '@session/localization'
 import { useAttachmentTransfer, useSessionActions } from '@session/state'
 import { ELEMENT } from '@session/test-ids'
-import { Image, Progress, Text, XStack, YStack } from '@session/ui'
+import { FileRow, type FileRowState, Image, YStack } from '@session/ui'
 import { useState } from 'react'
 
 import { formatBytes } from './formatBytes'
+import { saveOne } from './saveAttachment'
 
 /**
  * One attachment on one message.
@@ -31,19 +32,17 @@ export function AttachmentRow({
 }) {
   const fetched = useAttachmentTransfer('download', message.id, attachment.index)
 
-  // Nothing to draw and nothing to offer: the file server does not have this, so a picture would
-  // never load and a download affordance would only fail.
-  //
-  // Unless we already have it. The flag says the server will not hand it out again, which does
-  // not unsay a copy that is already in the cache - drawing "expired" over bytes we hold would
-  // refuse to show a file for the one reason that does not apply to it.
-  if (attachment.unavailable && fetched?.state !== 'done') {
-    return <UnavailableAttachment />
-  }
+  // `unavailable` says the file server will not hand this out again, which does not unsay a copy
+  // already in the cache - drawing "expired" over bytes we hold would refuse to show a file for
+  // the one reason that does not apply to it.
+  const expired = attachment.unavailable && fetched?.state !== 'done'
 
   // libsession's rule for what can be shown as a picture, not one re-derived from content types
   // here - it owns the definition and a gallery elsewhere would answer differently.
-  const uri = message.galleryViewable ? requirePorts().media.urlFor(message.id, attachment.index) : null
+  const uri =
+    message.galleryViewable && !expired
+      ? requirePorts().media.urlFor(message.id, attachment.index)
+      : null
   if (uri !== null) {
     return (
       <MediaAttachment
@@ -53,7 +52,14 @@ export function AttachmentRow({
       />
     )
   }
-  return <FileAttachment message={message} attachment={attachment} onFirstDownload={onFirstDownload} />
+  return (
+    <FileAttachment
+      message={message}
+      attachment={attachment}
+      expired={expired}
+      onFirstDownload={onFirstDownload}
+    />
+  )
 }
 
 /**
@@ -97,32 +103,29 @@ function MediaAttachment({
   )
 }
 
-function UnavailableAttachment() {
-  return (
-    <YStack
-      paddingVertical="$3xs"
-      borderTopWidth={1}
-      borderTopColor="$bordersColor"
-      testID={ELEMENT.conversation.attachment}
-    >
-      <Text size="$caption" opacity={0.7} testID={ELEMENT.conversation.attachmentState}>
-        {tr('attachmentsExpired')}
-      </Text>
-    </YStack>
-  )
-}
-
 /** As wide as a bubble is allowed to be, so a picture never sets the bubble's width. */
 const DEFAULT_MEDIA_SIZE = 240
 const MEDIA_RADIUS = 10
 
+/**
+ * A file, as a row.
+ *
+ * Everything drawn is `FileRow`'s; everything said is this side of the boundary, because the
+ * wording is the catalogue's and the transfers are the store's, and `@session/ui` can reach
+ * neither. What is left here is the mapping between them.
+ *
+ * Expired attachments come through here too, whatever their type: there is nothing to draw as a
+ * picture, and the row is the shape that can carry a reason.
+ */
 function FileAttachment({
   message,
   attachment,
+  expired,
   onFirstDownload,
 }: {
   message: Message
   attachment: Attachment
+  expired: boolean
   onFirstDownload?: (() => void) | undefined
 }) {
   const actions = useSessionActions()
@@ -130,91 +133,75 @@ function FileAttachment({
   const save = useAttachmentTransfer('save', message.id, attachment.index)
   const [error, setError] = useState(false)
 
-  const running = download?.state === 'running'
-  const failed = download?.state === 'failed' || error
-  const ready = download?.state === 'done'
-
-  // Absent while the server has not said how big the file is, which is what the first report of
-  // every transfer means. An indeterminate bar rather than a full one or an empty one.
-  const fraction = download && download.total > 0 ? download.done / download.total : undefined
+  const state: FileRowState = expired
+    ? 'unavailable'
+    : download?.state === 'running'
+      ? 'fetching'
+      : download?.state === 'failed' || error
+        ? 'failed'
+        : download?.state === 'done'
+          ? 'ready'
+          : 'idle'
 
   function start(): void {
     setError(false)
     onFirstDownload?.()
-    void actions.downloadAttachment(message.id, attachment.index).catch(() => setError(true))
+    void actions.downloadAttachment(message.id, attachment.index).catch(() => {
+      setError(true)
+    })
   }
 
-  async function saveToDisk(): Promise<void> {
-    const suggested = attachment.filename ?? `attachment-${String(attachment.index + 1)}`
-    const destination = await requirePorts().files.chooseSaveLocation(suggested)
-    if (destination === null) return
-    const saved = await actions.saveAttachment(message.id, attachment.index, destination)
-    await requirePorts().files.revealInFolder(saved)
-  }
-
-  const label = attachment.filename ?? tr('attachment')
-  const size = attachment.size === undefined ? undefined : formatBytes(attachment.size)
+  const act = state === 'ready' ? () => void saveOne(message, attachment.index, actions) : start
 
   return (
-    <YStack
-      gap="$3xs"
-      paddingVertical="$3xs"
-      borderTopWidth={1}
-      borderTopColor="$bordersColor"
-      testID={ELEMENT.conversation.attachment}
-    >
-      <XStack alignItems="center" gap="$xs" justifyContent="space-between">
-        <Text size="$label" numberOfLines={1} testID={ELEMENT.conversation.attachmentName}>
-          {label}
-        </Text>
-        {size === undefined ? null : (
-          <Text size="$caption" opacity={0.7}>
-            {size}
-          </Text>
-        )}
-      </XStack>
-
-      <XStack alignItems="center" gap="$xs">
-        <Text size="$caption" opacity={0.7} testID={ELEMENT.conversation.attachmentState}>
-          {running
-            ? tr('downloading')
-            : failed
-              ? tr('failedToDownload')
-              : save?.state === 'running'
-                ? tr('saving')
-                : ''}
-        </Text>
-        {ready ? (
-          <Text
-            size="$caption"
-            weight="semibold"
-            textDecorationLine="underline"
-            testID={ELEMENT.conversation.attachmentSave}
-            onPress={() => void saveToDisk()}
-          >
-            {tr('save')}
-          </Text>
-        ) : running ? null : (
-          <Text
-            size="$caption"
-            weight="semibold"
-            textDecorationLine="underline"
-            testID={ELEMENT.conversation.attachmentDownload}
-            onPress={start}
-          >
-            {failed ? tr('retry') : tr('download')}
-          </Text>
-        )}
-      </XStack>
-
-      {running ? (
-        <Progress
-          {...(fraction === undefined ? {} : { value: fraction })}
-          color="$messageBubbleIncomingText"
-          trackColor="$backgroundTertiary"
-          testID={ELEMENT.conversation.attachmentProgress}
-        />
-      ) : null}
-    </YStack>
+    <FileRow
+      filename={attachment.filename ?? tr('attachment')}
+      {...(attachment.contentType === undefined ? {} : { contentType: attachment.contentType })}
+      caption={caption(attachment, state, download, save?.state === 'running')}
+      state={state}
+      // Absent while the server has not said how big the file is, which is what the first report
+      // of every transfer means: an empty ring rather than a full one.
+      {...(download && download.total > 0 ? { progress: download.done / download.total } : {})}
+      {...(state === 'unavailable' || state === 'fetching'
+        ? {}
+        : { actionLabel: actionLabel(state), onAction: act })}
+      testIDs={{
+        row: ELEMENT.conversation.attachment,
+        name: ELEMENT.conversation.attachmentName,
+        caption: ELEMENT.conversation.attachmentState,
+        // The id names what the control currently means rather than where it sits, which is the
+        // only thing a test can ask about now that the two verbs share one button.
+        action:
+          state === 'ready'
+            ? ELEMENT.conversation.attachmentSave
+            : ELEMENT.conversation.attachmentDownload,
+      }}
+    />
   )
+}
+
+type Transfer = ReturnType<typeof useAttachmentTransfer>
+
+function caption(
+  attachment: Attachment,
+  state: FileRowState,
+  download: Transfer,
+  saving: boolean,
+): string {
+  if (state === 'unavailable') return tr('attachmentsExpired')
+  if (state === 'failed') return tr('failedToDownload')
+  if (state === 'fetching') {
+    // Indeterminate until the server says how big it is, which is what a total of 0 means.
+    if (download === undefined || download.total === 0) return tr('downloading')
+    return `${formatBytes(download.done)} / ${formatBytes(download.total)}`
+  }
+  if (saving) return tr('saving')
+  return attachment.size === undefined ? '' : formatBytes(attachment.size)
+}
+
+/** What a screen reader announces the one control as. The glyph is what everyone else reads. */
+function actionLabel(state: FileRowState): string {
+  if (state === 'failed') return tr('retry')
+  // `save` until the catalogue has a key for exporting; the two verbs are their own piece of work.
+  return state === 'ready' ? tr('save') : tr('download')
 }
