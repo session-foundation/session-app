@@ -5,6 +5,7 @@ import { ELEMENT } from '@session/test-ids'
 import { Button, Input, List, Screen, Separator, Text, XStack, YStack } from '@session/ui'
 import { useState } from 'react'
 
+import type { AttachmentView } from './attachmentView'
 import { MessageAttachments } from './MessageAttachments'
 import { MessageMediaViewer } from './MessageMediaViewer'
 import { viewableAttachments } from './viewableAttachments'
@@ -28,6 +29,15 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
   // not the same as having been asked and said no. Asked once, on the first attachment tapped.
   const [prompting, setPrompting] = useState(false)
   const unasked = conversation !== undefined && conversation.autoDownload === undefined
+  /**
+   * Which shape each message's attachments were last asked for, keyed by message.
+   *
+   * Here rather than in the message row, because the transcript is a windowed list: a row
+   * scrolled far enough away is unmounted, and state held inside one is a choice that undoes
+   * itself the moment somebody scrolls down and back. Dropped on leaving the conversation, which
+   * is the right scope - it is a way of reading one message, not a setting.
+   */
+  const [views, setViews] = useState<Record<string, AttachmentView>>({})
 
   function send(): void {
     const body = draft.trim()
@@ -77,6 +87,10 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
                 index={index}
                 onFirstDownload={unasked ? () => setPrompting(true) : undefined}
                 autoDownload={conversation?.autoDownload}
+                chosenView={views[String(message.id)]}
+                onChooseView={(view) => {
+                  setViews((all) => ({ ...all, [String(message.id)]: view }))
+                }}
               />
             </YStack>
           )}
@@ -164,12 +178,16 @@ function MessageRow({
   index,
   onFirstDownload,
   autoDownload,
+  chosenView,
+  onChooseView,
 }: {
   message: Message
   index: number
   onFirstDownload?: (() => void) | undefined
   /** What this conversation fetches unasked. Undefined means nobody has been asked. */
   autoDownload?: AutoDownload | undefined
+  chosenView?: AttachmentView | undefined
+  onChooseView: (view: AttachmentView) => void
 }) {
   const actions = useSessionActions()
   // Per message rather than per screen: the viewer shows one message's attachments, so the index
@@ -205,6 +223,8 @@ function MessageRow({
           onOpen={setViewing}
           {...(onFirstDownload === undefined ? {} : { onFirstDownload })}
           autoDownload={autoDownload}
+          chosenView={chosenView}
+          onChooseView={onChooseView}
         />
       )}
       {label === undefined ? null : (

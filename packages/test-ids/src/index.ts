@@ -43,6 +43,8 @@ export const ELEMENT = {
     attachmentPill: 'message-attachment-pill',
     attachmentFooter: 'message-attachment-footer',
     attachmentAction: 'message-attachment-action',
+    attachmentViewGallery: 'message-attachment-view-gallery',
+    attachmentViewList: 'message-attachment-view-list',
     mediaViewer: 'media-viewer',
     mediaViewerClose: 'media-viewer-close',
     mediaViewerPrevious: 'media-viewer-previous',

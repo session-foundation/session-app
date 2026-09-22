@@ -6,7 +6,7 @@ import { AttachmentFooter } from './AttachmentFooter'
 import { AttachmentList } from './AttachmentList'
 import { AttachmentPill } from './AttachmentPill'
 import { summarise, type AttachmentSet } from './attachmentSet'
-import { attachmentView } from './attachmentView'
+import { attachmentView, canChooseView, type AttachmentView } from './attachmentView'
 import { MessageAlbum } from './MessageAlbum'
 import { saveOne } from './saveAttachment'
 
@@ -21,16 +21,21 @@ export function MessageAttachments({
   onOpen,
   onFirstDownload,
   autoDownload,
+  chosenView,
+  onChooseView,
 }: {
   message: Message
   onOpen: (at: number) => void
   onFirstDownload?: (() => void) | undefined
   /** What this conversation fetches unasked. Undefined means nobody has been asked. */
   autoDownload?: AutoDownload | undefined
+  /** What the reader asked for, where they have asked. Held by the screen, not by this row. */
+  chosenView?: AttachmentView | undefined
+  onChooseView?: ((view: AttachmentView) => void) | undefined
 }) {
   const actions = useSessionActions()
   const set = useAttachmentSet(message)
-  const view = attachmentView(message)
+  const view = attachmentView(message, chosenView)
 
   function act(): void {
     if (set.state === 'ready') {
@@ -67,7 +72,13 @@ export function MessageAttachments({
           autoDownload={autoDownload}
         />
       )}
-      <AttachmentFooter set={set} onAction={act} />
+      <AttachmentFooter
+        set={set}
+        onAction={act}
+        {...(onChooseView === undefined || !canChooseView(message)
+          ? {}
+          : { view, onView: onChooseView })}
+      />
     </YStack>
   )
 }

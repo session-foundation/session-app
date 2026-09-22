@@ -102,8 +102,8 @@ describe('screen copy', () => {
 
   it('keeps the copy with no key yet to a list somebody has to edit', () => {
     // Living in a .ts file is what puts these out of the parser's reach above, so nothing else
-    // stops a fourth one appearing. This is that stop: the set is spelled out, and adding to it
-    // is a deliberate edit here rather than a string that slid in beside an existing one.
+    // stops another appearing. This is that stop: the set is spelled out, and adding to it is a
+    // deliberate edit here rather than a string that slid in beside an existing one.
     const source = readFileSync(join(dir, 'pendingCopy.ts'), 'utf8')
     const keys = [...source.matchAll(/^ {2}(\w+):/gm)].map((match) => match[1])
 
@@ -116,6 +116,8 @@ describe('screen copy', () => {
       'attachmentCacheReveal',
       'attachmentCacheNoLimit',
       'attachmentCount',
+      'attachmentViewGallery',
+      'attachmentViewList',
     ])
   })
 })

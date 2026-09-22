@@ -23,6 +23,8 @@ export interface ISessionApp {
   readText(id: ElementId): Promise<string>
   /** Every occurrence, in the order they appear - a transcript, a conversation list. */
   readAllText(id: ElementId): Promise<string[]>
+  /** How many carry this id. A control that must appear on some rows and not others. */
+  count(id: ElementId): Promise<number>
   /**
    * Whether the picture at `id` actually has its bytes, not merely an element on screen.
    *

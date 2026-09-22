@@ -126,6 +126,10 @@ export class DesktopApp implements ISessionApp, IPerformanceProbe {
     return this.locator(id).allTextContents()
   }
 
+  async count(id: ElementId): Promise<number> {
+    return this.locator(id).count()
+  }
+
   async imageLoaded(id: ElementId, options?: { timeoutMs?: number }): Promise<boolean> {
     const element = this.locator(id).first()
     // No element is an answer, not an error. The id is on the picture rather than on the tile

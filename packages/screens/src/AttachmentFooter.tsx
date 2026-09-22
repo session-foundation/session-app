@@ -1,9 +1,11 @@
 import { tr } from '@session/localization'
 import { ELEMENT } from '@session/test-ids'
-import { Text, XStack } from '@session/ui'
+import { Icon, MIN_HIT_TARGET, PressArea, Text, XStack, YStack } from '@session/ui'
 
 import type { AttachmentSet } from './attachmentSet'
+import type { AttachmentView } from './attachmentView'
 import { formatBytes } from './formatBytes'
+import { PENDING_COPY } from './pendingCopy'
 
 /**
  * The one line a message's attachments get, whatever they are doing.
@@ -18,9 +20,14 @@ import { formatBytes } from './formatBytes'
 export function AttachmentFooter({
   set,
   onAction,
+  view,
+  onView,
 }: {
   set: AttachmentSet
   onAction: () => void
+  /** The shape being drawn. Absent where the reader has no choice about it. */
+  view?: AttachmentView
+  onView?: (view: AttachmentView) => void
 }) {
   const action = verb(set)
   return (
@@ -30,6 +37,9 @@ export function AttachmentFooter({
       gap="$xs"
       testID={ELEMENT.conversation.attachmentFooter}
     >
+      {view === undefined || onView === undefined ? null : (
+        <ViewToggle view={view} onView={onView} />
+      )}
       <Text
         size="$caption"
         color="$textSecondary"
@@ -61,6 +71,94 @@ export function AttachmentFooter({
  * change between states, and a line of copy that wraps in one locale would change it.
  */
 const FOOTER_HEIGHT = 30
+
+/** Each half of the toggle, drawn small enough to sit in the footer without setting its height. */
+const SEGMENT_HEIGHT = 22
+const SEGMENT_WIDTH = 28
+
+/**
+ * Gallery or list, for a set that can be drawn either way.
+ *
+ * **Not a failure fallback.** Five photographs read perfectly well as five rows - with a name, a
+ * size and a control each - and that is a reasonable thing to want without anything having gone
+ * wrong. Where the set has a plain file in it there is no choice to offer, and the footer draws
+ * nothing here rather than a control with one working half.
+ */
+function ViewToggle({
+  view,
+  onView,
+}: {
+  view: AttachmentView
+  onView: (view: AttachmentView) => void
+}) {
+  return (
+    <XStack
+      backgroundColor="$backgroundTertiary"
+      borderRadius="$sm"
+      padding={SEGMENT_PADDING}
+      gap={SEGMENT_PADDING}
+    >
+      <Segment
+        icon="layoutGrid"
+        label={PENDING_COPY.attachmentViewGallery}
+        selected={view === 'gallery'}
+        onPress={() => {
+          onView('gallery')
+        }}
+        testID={ELEMENT.conversation.attachmentViewGallery}
+      />
+      <Segment
+        icon="list"
+        label={PENDING_COPY.attachmentViewList}
+        selected={view === 'list'}
+        onPress={() => {
+          onView('list')
+        }}
+        testID={ELEMENT.conversation.attachmentViewList}
+      />
+    </XStack>
+  )
+}
+
+const SEGMENT_PADDING = 2
+
+function Segment({
+  icon,
+  label,
+  selected,
+  onPress,
+  testID,
+}: {
+  icon: 'layoutGrid' | 'list'
+  label: string
+  selected: boolean
+  onPress: () => void
+  testID: string
+}) {
+  return (
+    <PressArea
+      onPress={onPress}
+      accessibilityLabel={label}
+      // The drawn control is deliberately smaller than a thumb needs, because it sits inside a
+      // line of caption text. The slop is what makes it hittable without making it loud.
+      hitSlop={(MIN_HIT_TARGET - SEGMENT_HEIGHT) / 2}
+      testID={testID}
+    >
+      {() => (
+        <YStack
+          width={SEGMENT_WIDTH}
+          height={SEGMENT_HEIGHT}
+          borderRadius="$sm"
+          alignItems="center"
+          justifyContent="center"
+          backgroundColor={selected ? '$backgroundPrimary' : 'transparent'}
+        >
+          <Icon name={icon} size="xs" color={selected ? '$textPrimary' : '$textSecondary'} />
+        </YStack>
+      )}
+    </PressArea>
+  )
+}
 
 function caption(set: AttachmentSet): string {
   if (set.state === 'fetching') {

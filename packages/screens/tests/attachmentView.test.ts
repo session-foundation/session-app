@@ -1,7 +1,7 @@
 import type { Attachment, Message } from '@session/client'
 import { describe, expect, it } from 'vitest'
 
-import { attachmentView } from '#src/attachmentView'
+import { attachmentView, canChooseView } from '#src/attachmentView'
 
 function attachment(index: number, contentType?: string): Attachment {
   return {
@@ -49,5 +49,35 @@ describe('which shape a message takes', () => {
     // photographs and one video to the list - a set the album draws perfectly well.
     const set = message([attachment(0, 'image/jpeg'), attachment(1, 'video/mp4')], false)
     expect(attachmentView(set)).toBe('gallery')
+  })
+})
+
+describe('when the reader gets to choose', () => {
+  const photos = message([attachment(0, 'image/jpeg'), attachment(1, 'image/png')])
+  const mixed = message([attachment(0, 'image/jpeg'), attachment(1, 'application/pdf')])
+
+  it('offers the choice on a set a gallery could hold', () => {
+    expect(canChooseView(photos)).toBe(true)
+  })
+
+  it('offers none where a plain file has settled it', () => {
+    // A plain file makes the gallery impossible, not unwanted - so there is nothing to choose
+    // between, and a toggle with one working half is worse than no toggle.
+    expect(canChooseView(mixed)).toBe(false)
+  })
+
+  it('draws what was asked for', () => {
+    expect(attachmentView(photos, 'list')).toBe('list')
+    expect(attachmentView(photos, 'gallery')).toBe('gallery')
+  })
+
+  it('keeps the gallery where nothing was asked for', () => {
+    expect(attachmentView(photos)).toBe('gallery')
+  })
+
+  it('ignores a choice on a set that has none', () => {
+    // The choice is held per message and outlives what is on screen, so a set that has since
+    // stopped being drawable as a gallery must not be handed one it cannot draw.
+    expect(attachmentView(mixed, 'gallery')).toBe('list')
   })
 })

@@ -3,8 +3,8 @@
  *
  * Every other word a person reads comes from `@session/localization`, and
  * `tests/copy.contract.test.ts` enforces that across every screen. These do not: the attachment
- * cache section and the set's own count need them and the Crowdin set has nothing that fits, so
- * they ship as English in every locale until the keys land.
+ * cache section, the set's own count and the gallery/list toggle need them and the Crowdin set
+ * has nothing that fits, so they ship as English in every locale until the keys land.
  *
  * Each name is the token it is destined for, so promoting one is a swap:
  * `PENDING_COPY.attachmentCache` becomes `tr('attachmentCache')` and the entry goes. Adding to
@@ -24,4 +24,6 @@ export const PENDING_COPY = {
    */
   attachmentCount: (count: number): string =>
     count === 1 ? '1 attachment' : `${String(count)} attachments`,
+  attachmentViewGallery: 'Gallery',
+  attachmentViewList: 'List',
 } as const
