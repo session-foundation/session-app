@@ -53,12 +53,17 @@ export type FixtureName = (typeof FIXTURE_NAMES)[number]
  *
  * Dimensions are the sender's and are what the placeholder is laid out from, so they are set:
  * without them a transcript jumps as each one lands.
+ *
+ * The blurhashes are real and their averages are chosen; their gradients are filler, which the
+ * decoder never reads. No 1.x client sends one at all, so this fixture is the only way to see the
+ * coloured placeholder before something learns to encode them.
  */
 const SEEDED_PICTURES: Attachment[] = [
   {
     index: 0,
     contentType: 'image/jpeg',
     filename: 'harbour.jpg',
+    blurhash: 'LK9[P[fQfQfQfQfQfQfQfQfQfQfQ',
     size: 2_411_724,
     voiceMessage: false,
     width: 1600,
@@ -72,6 +77,7 @@ const SEEDED_PICTURES: Attachment[] = [
     index: 1,
     contentType: 'image/png',
     filename: 'ferry.png',
+    blurhash: 'LKNv#efQfQfQfQfQfQfQfQfQfQfQ',
     size: 812_004,
     voiceMessage: false,
     width: 1200,
@@ -92,6 +98,7 @@ const SEEDED_FILES: Attachment[] = [
     index: 0,
     contentType: 'image/jpeg',
     filename: 'receipt.jpg',
+    blurhash: 'LKF=mzfQfQfQfQfQfQfQfQfQfQfQ',
     size: 96_500,
     voiceMessage: false,
     width: 900,
@@ -128,6 +135,7 @@ const SEEDED_MANY: Attachment[] = Array.from({ length: 13 }, (_, at) => ({
     : {
         contentType: 'image/jpeg',
         filename: `roll-${String(at + 1).padStart(2, '0')}.jpg`,
+        blurhash: 'LKAnV+fQfQfQfQfQfQfQfQfQfQfQ',
         width: 1200,
         height: 900,
       }),

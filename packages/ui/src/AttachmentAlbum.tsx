@@ -8,6 +8,8 @@ export interface AlbumItem {
   /** Where the bytes are, once they are here. Null where this platform has no resolver. */
   uri?: string | null
   kind: 'image' | 'video'
+  /** The sender's BlurHash, where they sent one. Checked in `blurhashColor`, not here. */
+  blurhash?: string
   duration?: string
   testID?: string
 }
@@ -64,6 +66,7 @@ export function AttachmentAlbum({
           side={cell.side}
           kind={item.kind}
           {...(item.uri === undefined ? {} : { uri: item.uri })}
+          {...(item.blurhash === undefined ? {} : { blurhash: item.blurhash })}
           {...(item.duration === undefined ? {} : { duration: item.duration })}
           {...(carriesOverflow ? { overflowLabel: overflowLabel(layout.overflow) } : {})}
           {...(item.testID === undefined ? {} : { testID: item.testID })}

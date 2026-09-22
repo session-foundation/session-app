@@ -46,6 +46,7 @@ export function MessageAlbum({
       ? { uri: requirePorts().media.urlFor(message.id, attachment.index) }
       : {}),
     kind: attachment.contentType?.startsWith('video/') === true ? 'video' : 'image',
+    ...(attachment.blurhash === undefined ? {} : { blurhash: attachment.blurhash }),
     testID: ELEMENT.conversation.attachmentImage,
   }))
 

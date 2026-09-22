@@ -108,3 +108,4 @@ export {
 } from './fileRow'
 export type { FileRowState } from './fileRow'
 export { fileFormat, fileGlyph, splitFilename } from './attachmentFile'
+export { blurhashColor } from './blurhash'

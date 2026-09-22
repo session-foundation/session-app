@@ -1,12 +1,8 @@
 import { useState } from 'react'
 import { YStack } from 'tamagui'
 
-import {
-  TILE_BADGE_INSET,
-  TILE_HAIRLINE_WIDTH,
-  TILE_SCRIM,
-  tileRadius,
-} from './attachmentTile'
+import { TILE_BADGE_INSET, TILE_HAIRLINE_WIDTH, TILE_SCRIM, tileRadius } from './attachmentTile'
+import { blurhashColor } from './blurhash'
 import { Icon } from './Icon'
 import { Image } from './Image'
 import { logical } from './logicalEdges'
@@ -25,6 +21,13 @@ export interface AttachmentTileProps {
   uri?: string | null
   /** What is coming, which is all `contentType` can honestly say before any byte arrives. */
   kind: 'image' | 'video'
+  /**
+   * The sender's BlurHash, where they sent one.
+   *
+   * Unchecked here and checked in `blurhashColor`: it is a remote peer's string, and nothing
+   * between the wire and this prop looks inside it.
+   */
+  blurhash?: string
   /** mm:ss, drawn on a video that can be played. */
   duration?: string
   /**
@@ -60,6 +63,7 @@ export function AttachmentTile({
   side,
   uri,
   kind,
+  blurhash,
   duration,
   overflowLabel,
   testID,
@@ -76,6 +80,8 @@ export function AttachmentTile({
   const [loaded, setLoaded] = useState(false)
   const drawable = uri !== undefined && uri !== null
   const here = drawable && loaded
+  /** The picture's own colour, where the sender sent one. Null is the ordinary case: see below. */
+  const average = blurhash === undefined ? null : blurhashColor(blurhash)
 
   return (
     <YStack
@@ -84,27 +90,37 @@ export function AttachmentTile({
       height={side}
       borderRadius={radius}
       overflow="hidden"
-      backgroundColor="$backgroundTertiary"
-      // On the tile, which is what owns the radius. See TILE_HAIRLINE_WIDTH.
-      {...(here ? {} : { borderWidth: TILE_HAIRLINE_WIDTH, borderColor: '$bordersColor' })}
+      backgroundColor={average ?? '$backgroundTertiary'}
+      // Only round the flat surface, which needs an edge to be seen against the page. A tile
+      // wearing the picture's own colour already has one.
+      {...(here || average !== null
+        ? {}
+        : { borderWidth: TILE_HAIRLINE_WIDTH, borderColor: '$bordersColor' })}
     >
       {/* Underneath, always: the picture lands on top of it rather than replacing it, so nothing
-          reflows and there is no frame where the tile is empty. */}
-      <YStack
-        position="absolute"
-        top={0}
-        bottom={0}
-        left={0}
-        right={0}
-        alignItems="center"
-        justifyContent="center"
-      >
-        <Icon
-          name={kind === 'video' ? 'video' : 'image'}
-          size={side >= 90 ? 'lg' : 'md'}
-          color="$textSecondary"
-        />
-      </YStack>
+          reflows and there is no frame where the tile is empty.
+
+          The glyph is what a tile says when it has nothing else to say, so a tile wearing the
+          picture's own colour draws none - a symbol over it would be saying "a picture" on top of
+          something that already looks like one. Which is the rare case: no 1.x client sends a
+          hash, so for every message that exists today this is the glyph. */}
+      {average !== null ? null : (
+        <YStack
+          position="absolute"
+          top={0}
+          bottom={0}
+          left={0}
+          right={0}
+          alignItems="center"
+          justifyContent="center"
+        >
+          <Icon
+            name={kind === 'video' ? 'video' : 'image'}
+            size={side >= 90 ? 'lg' : 'md'}
+            color="$textSecondary"
+          />
+        </YStack>
+      )}
 
       {!drawable ? null : (
         <YStack opacity={loaded ? 1 : 0}>

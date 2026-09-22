@@ -72,3 +72,26 @@ describe('what a tile draws', () => {
     expect(component).not.toMatch(/\+\s*\{\s*overflow/)
   })
 })
+
+describe('a tile with the sender’s colour', () => {
+  it('wears it instead of the flat surface', () => {
+    expect(component).toContain("backgroundColor={average ?? '$backgroundTertiary'}")
+  })
+
+  it('draws no glyph over it', () => {
+    // The glyph is what a tile says when it has nothing else to say. A symbol over the picture's
+    // own colour would be saying "a picture" on top of something that already looks like one.
+    expect(component).toMatch(/average !== null \? null : \(/)
+  })
+
+  it('drops the hairline too', () => {
+    // The ring is there so a near-empty box has an edge against the page. A coloured tile has one.
+    expect(component).toContain('here || average !== null')
+  })
+
+  it('never looks inside the hash itself', () => {
+    // It is a remote peer's string and nothing between the wire and this prop checks it, so the
+    // one place that does is the one place that can refuse it.
+    expect(component).toContain('blurhashColor(blurhash)')
+  })
+})

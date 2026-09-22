@@ -66,6 +66,7 @@ export function AttachmentRow({
             ? { uri: requirePorts().media.urlFor(message.id, attachment.index) }
             : {}),
           kind: attachment.contentType?.startsWith('video/') === true ? 'video' : 'image',
+          ...(attachment.blurhash === undefined ? {} : { blurhash: attachment.blurhash }),
         }
 
   function start(): void {

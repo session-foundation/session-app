@@ -30,6 +30,8 @@ export interface FileRowThumbnail {
   /** Where the bytes are, once they are here. Null where the platform has no resolver. */
   uri?: string | null
   kind: 'image' | 'video'
+  /** The sender's BlurHash, where they sent one. Checked in `blurhashColor`, not here. */
+  blurhash?: string
 }
 
 export interface FileRowProps {
@@ -106,6 +108,7 @@ export function FileRow({
         side={FILE_GLYPH_SIDE}
         kind={thumbnail.kind}
         {...(thumbnail.uri === undefined ? {} : { uri: thumbnail.uri })}
+        {...(thumbnail.blurhash === undefined ? {} : { blurhash: thumbnail.blurhash })}
         {...(testIDs?.thumbnail === undefined ? {} : { testID: testIDs.thumbnail })}
       />
     )
