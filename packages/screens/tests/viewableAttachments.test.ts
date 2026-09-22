@@ -1,7 +1,7 @@
 import type { Attachment, Message } from '@session/client'
 import { describe, expect, it } from 'vitest'
 
-import { isViewable, viewableAttachments } from '#src/viewableAttachments'
+import { isViewable, viewableAttachments, viewerIndices } from '#src/viewableAttachments'
 
 function attachment(index: number, contentType?: string): Attachment {
   return {
@@ -49,5 +49,28 @@ describe('which attachments a viewer can show', () => {
     const viewable = viewableAttachments(set)
     expect(viewable.map((a) => a.index)).toEqual([0, 2])
     expect(viewable[1]?.index).toBe(2)
+  })
+})
+
+describe('where an attachment sits in the viewer', () => {
+  it('numbers the viewable ones from zero, skipping what the viewer cannot show', () => {
+    // The row for the picture at message index 2 has to open the viewer at 1, not at 2. Off by
+    // one here opens somebody else's photograph, and by more for every row after the document.
+    const set = message([
+      attachment(0, 'image/jpeg'),
+      attachment(1, 'application/pdf'),
+      attachment(2, 'image/png'),
+      attachment(3, 'video/mp4'),
+    ])
+    expect([...viewerIndices(set)]).toEqual([
+      [0, 0],
+      [2, 1],
+      [3, 2],
+    ])
+  })
+
+  it('has nothing for an attachment the viewer cannot show', () => {
+    const set = message([attachment(0, 'application/pdf')])
+    expect(viewerIndices(set).get(0)).toBeUndefined()
   })
 })

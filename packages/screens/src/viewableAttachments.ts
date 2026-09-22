@@ -22,3 +22,14 @@ export function isViewable(attachment: Attachment): boolean {
   if (type === undefined) return false
   return type.startsWith('image/') || type.startsWith('video/')
 }
+
+/**
+ * Where each attachment sits in the viewer, keyed by where it sits in the message.
+ *
+ * Absent for anything the viewer cannot show. The two numbers stop agreeing the moment a document
+ * sits between two pictures, so a row that passed its message index would open somebody else's
+ * photograph - and on a set of four that is off by one for every row after the document.
+ */
+export function viewerIndices(message: Message): ReadonlyMap<number, number> {
+  return new Map(viewableAttachments(message).map((attachment, at) => [attachment.index, at]))
+}

@@ -95,7 +95,7 @@ export type { AlbumItem, AttachmentAlbumProps } from './AttachmentAlbum'
 export { ALBUM_MAX_TILES, ALBUM_SEAM, albumLayout, lastCell } from './albumLayout'
 export type { AlbumCell, AlbumLayout } from './albumLayout'
 export { FileRow } from './FileRow'
-export type { FileRowProps, FileRowTestIDs } from './FileRow'
+export type { FileRowProps, FileRowTestIDs, FileRowThumbnail } from './FileRow'
 export {
   FILE_GLYPH_SIDE,
   FILE_LEAD_WIDTH,

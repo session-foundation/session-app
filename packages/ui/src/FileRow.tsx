@@ -1,5 +1,6 @@
 import { XStack, YStack } from 'tamagui'
 
+import { AttachmentTile } from './AttachmentTile'
 import { fileFormat, fileGlyph, splitFilename } from './attachmentFile'
 import {
   FILE_GLYPH_SIDE,
@@ -20,12 +21,30 @@ export interface FileRowTestIDs {
   name?: string
   caption?: string
   action?: string
+  /** Addresses the picture inside the thumbnail, so a test can ask whether it arrived. */
+  thumbnail?: string
+}
+
+/** What the lead square shows when the row is for something with a picture behind it. */
+export interface FileRowThumbnail {
+  /** Where the bytes are, once they are here. Null where the platform has no resolver. */
+  uri?: string | null
+  kind: 'image' | 'video'
 }
 
 export interface FileRowProps {
   filename: string
   /** The sender's declared type. Absent on plenty of attachments, which the glyph copes with. */
   contentType?: string
+  /**
+   * The picture this row stands for, where it has one.
+   *
+   * The same tile the album draws, at the smaller radius step: a list of pictures and a list of
+   * documents are the same list, and the leading square is the one thing that differs.
+   */
+  thumbnail?: FileRowThumbnail
+  /** Opens what the lead square shows. Absent where there is nothing to open. */
+  onOpen?: () => void
   /**
    * The one line under the name, already worded.
    *
@@ -57,6 +76,8 @@ export interface FileRowProps {
 export function FileRow({
   filename,
   contentType,
+  thumbnail,
+  onOpen,
   caption,
   state,
   progress,
@@ -68,22 +89,40 @@ export function FileRow({
   const format = fileFormat(filename)
   const tone = state === 'failed' ? 'danger' : 'primary'
 
+  const lead =
+    thumbnail === undefined ? (
+      <YStack
+        width={FILE_GLYPH_SIDE}
+        height={FILE_GLYPH_SIDE}
+        borderRadius={tileRadius(FILE_GLYPH_SIDE)}
+        alignItems="center"
+        justifyContent="center"
+        backgroundColor="$backgroundTertiary"
+      >
+        <Icon name={fileGlyph(filename, contentType)} size="sm" color="$textPrimary" />
+      </YStack>
+    ) : (
+      <AttachmentTile
+        side={FILE_GLYPH_SIDE}
+        kind={thumbnail.kind}
+        {...(thumbnail.uri === undefined ? {} : { uri: thumbnail.uri })}
+        {...(testIDs?.thumbnail === undefined ? {} : { testID: testIDs.thumbnail })}
+      />
+    )
+
   return (
     <XStack alignItems="center" gap={FILE_ROW_GAP} paddingVertical="$xs" testID={testIDs?.row}>
       <YStack width={FILE_LEAD_WIDTH} alignItems="center" gap="$3xs">
-        <YStack
-          width={FILE_GLYPH_SIDE}
-          height={FILE_GLYPH_SIDE}
-          borderRadius={tileRadius(FILE_GLYPH_SIDE)}
-          alignItems="center"
-          justifyContent="center"
-          backgroundColor="$backgroundTertiary"
-        >
-          <Icon name={fileGlyph(filename, contentType)} size="sm" color="$textPrimary" />
-        </YStack>
-        {/* Under the glyph rather than in the caption line, where it was competing with the size
+        {onOpen === undefined ? (
+          lead
+        ) : (
+          <PressArea onPress={onOpen} accessibilityLabel={filename}>
+            {() => lead}
+          </PressArea>
+        )}
+        {/* Under the lead rather than in the caption line, where it was competing with the size
             for the same run of small grey text. It also gives every row the same two-line lead, so
-            the rows align down the message. */}
+            the rows align down the message - and on a thumbnail it is what says "video". */}
         {format === '' ? null : (
           <Text size="$caption" tone="secondary" weight="semibold" numberOfLines={1}>
             {format}

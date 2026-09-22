@@ -3,17 +3,17 @@ import { transferKey, useAttachmentTransfers, useSessionActions } from '@session
 import { YStack } from '@session/ui'
 
 import { AttachmentFooter } from './AttachmentFooter'
+import { AttachmentList } from './AttachmentList'
 import { AttachmentPill } from './AttachmentPill'
-import { AttachmentRow } from './AttachmentRow'
 import { summarise, type AttachmentSet } from './attachmentSet'
+import { attachmentView } from './attachmentView'
 import { MessageAlbum } from './MessageAlbum'
 import { saveOne } from './saveAttachment'
-import { viewableAttachments } from './viewableAttachments'
 
 /**
- * Everything one message's attachments draw: the album, the rows, and the one footer under both.
+ * Everything one message's attachments draw: the album or the list, and the one footer under both.
  *
- * The footer is the set's, not the album's - its count is every attachment, including the ones
+ * The footer is the set's, not either shape's - its count is every attachment, including the ones
  * behind "+N" that no tile shows.
  */
 export function MessageAttachments({
@@ -30,8 +30,7 @@ export function MessageAttachments({
 }) {
   const actions = useSessionActions()
   const set = useAttachmentSet(message)
-  const viewable = viewableAttachments(message)
-  const files = message.attachments.filter((attachment) => !viewable.includes(attachment))
+  const view = attachmentView(message)
 
   function act(): void {
     if (set.state === 'ready') {
@@ -47,25 +46,28 @@ export function MessageAttachments({
     }
   }
 
+  // Once rather than per shape: a message with nothing attached would otherwise draw an empty
+  // album, because "every attachment can be shown" is true of no attachments at all.
+  if (message.attachments.length === 0) return null
+
   return (
     <YStack gap="$3xs">
-      {viewable.length === 0 ? null : (
+      {view === 'gallery' ? (
         <MessageAlbum
           message={message}
           onOpen={onOpen}
           control={<AttachmentPill set={set} />}
           autoDownload={autoDownload}
         />
-      )}
-      {files.map((attachment) => (
-        <AttachmentRow
-          key={attachment.index}
+      ) : (
+        <AttachmentList
           message={message}
-          attachment={attachment}
-          {...(onFirstDownload === undefined ? {} : { onFirstDownload })}
+          onOpen={onOpen}
+          onFirstDownload={onFirstDownload}
+          autoDownload={autoDownload}
         />
-      ))}
-      {message.attachments.length === 0 ? null : <AttachmentFooter set={set} onAction={act} />}
+      )}
+      <AttachmentFooter set={set} onAction={act} />
     </YStack>
   )
 }

@@ -147,32 +147,42 @@ export function AttachmentTile({
   )
 }
 
+/**
+ * Below this a play mark stops marking the picture and starts covering it.
+ *
+ * At the list's 40, the small mark is three quarters of the tile. Nothing replaces it there: the
+ * row's format label already reads MP4, which is the same fact in the space it fits in.
+ */
+const PLAY_MARK_MIN_SIDE = 56
+
 /** The play mark and the length, which are only true once the file can be played. */
 function VideoAffordances({ side, duration }: { side: number; duration?: string }) {
   const small = side < 90
   return (
     <>
-      <YStack
-        position="absolute"
-        top={0}
-        bottom={0}
-        left={0}
-        right={0}
-        alignItems="center"
-        justifyContent="center"
-        pointerEvents="none"
-      >
+      {side < PLAY_MARK_MIN_SIDE ? null : (
         <YStack
-          width={small ? 30 : 40}
-          height={small ? 30 : 40}
-          borderRadius="$full"
+          position="absolute"
+          top={0}
+          bottom={0}
+          left={0}
+          right={0}
           alignItems="center"
           justifyContent="center"
-          backgroundColor={TILE_SCRIM}
+          pointerEvents="none"
         >
-          <Icon name="play" size={small ? 'sm' : 'md'} color="$textPrimary" />
+          <YStack
+            width={small ? 30 : 40}
+            height={small ? 30 : 40}
+            borderRadius="$full"
+            alignItems="center"
+            justifyContent="center"
+            backgroundColor={TILE_SCRIM}
+          >
+            <Icon name="play" size={small ? 'sm' : 'md'} color="$textPrimary" />
+          </YStack>
         </YStack>
-      </YStack>
+      )}
       {duration === undefined ? null : (
         // At every size, not only the large tile: it fits on a 70 px quarter and it is the one
         // fact somebody wants before tapping.
