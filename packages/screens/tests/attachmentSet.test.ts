@@ -11,7 +11,9 @@ function attachment(index: number, size?: number): Attachment {
     ...(size === undefined ? {} : { size }),
     voiceMessage: false,
     uploaded: true,
-    unavailable: false,
+    availability: 'absent',
+    fetchDone: 0,
+    fetchTotal: 0,
   }
 }
 

@@ -1,7 +1,6 @@
 import { utf8Encode } from '@session/basic-types'
 import type {
   AccountInfo,
-  AttachmentStatus,
   AutoDownload,
   Command,
   Conversation,
@@ -233,10 +232,7 @@ export function createSessionClient(transport: BridgeTransport): SessionClient {
       await call({ type: 'deleteConversation', conversationId: id, keepMessages })
     },
 
-    async getMessages(
-      id,
-      options,
-    ): Promise<{ messages: Message[]; transfers: AttachmentStatus[] }> {
+    async getMessages(id, options): Promise<{ messages: Message[] }> {
       const before = options?.before
       const response = await call({
         type: 'getMessages',
@@ -246,7 +242,7 @@ export function createSessionClient(transport: BridgeTransport): SessionClient {
         ...(before === undefined ? {} : { before }),
       })
       const page = expect(response, 'messageList')
-      return { messages: page.messages, transfers: page.transfers }
+      return { messages: page.messages }
     },
 
     async sendMessage(id, message: OutgoingMessage): Promise<number> {

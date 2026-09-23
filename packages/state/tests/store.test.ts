@@ -3,7 +3,6 @@ import { SessionClientError, type SessionClient } from '@session/client'
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import { createSessionStore, type SessionStore } from '#src/store'
-import { transferKey } from '#src/types'
 
 /**
  * The store's own behaviour, as opposed to the projection's.
@@ -95,19 +94,23 @@ describe('the store', () => {
 
   it('learns what a pages attachments are doing without waiting for a report', async () => {
     const { store, world, bob } = fixture
-    const running = store.actions.loadHistory(bob)
-    world.settle()
-    await running
+    const load = async () => {
+      const running = store.actions.loadHistory(bob)
+      world.settle()
+      await running
+    }
+    const attachment = (id: number) =>
+      store.getState().histories[bob]?.messages.find((m) => m.id === id)?.attachments[0]
 
-    const withOne = store
-      .getState()
-      .histories[bob]?.messages.find((m) => m.attachments.length > 0)
+    await load()
+    const withOne = store.getState().histories[bob]?.messages.find((m) => m.attachments.length > 0)
     expect(withOne).toBeDefined()
     if (!withOne) return
 
-    // Nothing has been fetched, so there is nothing to record: an entry here would claim to know
-    // something the row learns better from its absence.
-    expect(store.getState().transfers[transferKey('download', withOne.id, 0)]).toBeUndefined()
+    // Nothing has been fetched, so the next call would start a download. Said by the attachment
+    // rather than by a transfers entry: there is no transfer, and `absent` is not the absence of
+    // an answer.
+    expect(attachment(withOne.id)?.availability).toBe('absent')
 
     const downloading = store.actions.downloadAttachment(withOne.id, 0)
     world.settle()
@@ -116,11 +119,9 @@ describe('the store', () => {
     // Reloaded from nothing, the way a screen coming back to a conversation does. The page says
     // the file is here, which no event would ever announce.
     store.actions.forgetHistory(bob)
-    const again = store.actions.loadHistory(bob)
-    world.settle()
-    await again
+    await load()
 
-    expect(store.getState().transfers[transferKey('download', withOne.id, 0)]?.state).toBe('done')
+    expect(attachment(withOne.id)?.availability).toBe('cached')
   })
 
   it('drops a conversations window and its transfers when a screen stops showing it', async () => {
@@ -129,9 +130,7 @@ describe('the store', () => {
     world.settle()
     await running
 
-    const withOne = store
-      .getState()
-      .histories[bob]?.messages.find((m) => m.attachments.length > 0)
+    const withOne = store.getState().histories[bob]?.messages.find((m) => m.attachments.length > 0)
     if (!withOne) throw new Error('fixture did not seed an attachment')
 
     const downloading = store.actions.downloadAttachment(withOne.id, 0)

@@ -180,7 +180,7 @@ const handlers: { [K in Command['type']]: Handler<K> } = {
       includeDeleted: cmd.includeDeleted,
       ...(cmd.before === undefined ? {} : { before: cmd.before }),
     })
-    return { type: 'messageList', messages: page.messages, transfers: page.transfers }
+    return { type: 'messageList', messages: page.messages }
   },
   sendMessage: async (client, cmd) => ({
     type: 'messageId',

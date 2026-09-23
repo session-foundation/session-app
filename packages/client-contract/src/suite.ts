@@ -9,7 +9,7 @@
  * Written as a function of a harness so it can be handed either implementation.
  */
 
-import type { Conversation, SessionClient, SessionEvent } from '@session/client'
+import type { Conversation, Message, SessionClient, SessionEvent } from '@session/client'
 
 export interface ContractHarness {
   /** Two clients that already know each other, with no history. */
@@ -85,6 +85,20 @@ function collect(client: SessionClient): { events: SessionEvent[]; stop: () => v
   const events: SessionEvent[] = []
   const stop = client.onEvent((event) => events.push(event))
   return { events, stop }
+}
+
+/**
+ * Every message that arrived or changed, flattened out of the batches that carried it.
+ *
+ * How many batches a delivery is split into is the implementation's business - libsession
+ * coalesces and the fake does not - so a scenario asserts on the messages rather than on the
+ * shape of the stream that brought them.
+ */
+function messagesOf(
+  events: SessionEvent[],
+  type: 'messages-added' | 'messages-updated',
+): Message[] {
+  return events.flatMap((e) => (e.type === type ? e.messages : []))
 }
 
 export interface ContractOptions {
@@ -236,12 +250,10 @@ export function runSessionClientContract(
 
       // The row exists the moment the call resolves - which is why the app needs no
       // optimistic copy of its own to reconcile later.
-      const added = seen.events.find((e) => e.type === 'message-added')
+      const added = messagesOf(seen.events, 'messages-added').find((m) => m.id === messageId)
       expect(added).toBeDefined()
-      if (added?.type !== 'message-added') throw new Error('unreachable')
-      expect(added.message.id).toBe(messageId)
-      expect(added.message.outgoing).toBe(true)
-      expect(['pending', 'sending']).toContain(added.message.sendState)
+      expect(added?.outgoing).toBe(true)
+      expect(['pending', 'sending']).toContain(added?.sendState)
       seen.stop()
     })
 
@@ -252,19 +264,14 @@ export function runSessionClientContract(
       const messageId = await alice.sendMessage(bobId, { body: 'hello' })
       await settle()
 
-      const updates = seen.events.filter(
-        (e) => e.type === 'message-updated' && e.message.id === messageId,
-      )
+      const updates = messagesOf(seen.events, 'messages-updated').filter((m) => m.id === messageId)
       const last = updates[updates.length - 1]
-      if (last?.type !== 'message-updated') throw new Error('unreachable')
 
       // The copy deposited in our own swarm is a separate send, so it gets its own state and
       // reaches a terminal one of its own. Not asserted to match sendState: the whole reason it
       // is a second field is that the two can disagree.
-      expect(last.message.syncState).toBeDefined()
-      expect(['pending', 'sending', 'sent', 'failed', 'interrupted']).toContain(
-        last.message.syncState,
-      )
+      expect(last?.syncState).toBeDefined()
+      expect(['pending', 'sending', 'sent', 'failed', 'interrupted']).toContain(last?.syncState)
       seen.stop()
     })
 
@@ -275,18 +282,15 @@ export function runSessionClientContract(
       const messageId = await alice.sendMessage(bobId, { body: 'hello' })
       await settle()
 
-      const updates = seen.events.filter(
-        (e) => e.type === 'message-updated' && e.message.id === messageId,
-      )
+      const updates = messagesOf(seen.events, 'messages-updated').filter((m) => m.id === messageId)
       expect(updates.length).toBeGreaterThan(0)
       const last = updates[updates.length - 1]
-      if (last?.type !== 'message-updated') throw new Error('unreachable')
       // A terminal state, not a particular one: offline - which is what the addon runs as,
       // with no swarm to reach - the send terminates in `failed`, and that is the same
       // contract. What this scenario is about is that it arrived as an update.
-      expect(['sent', 'failed']).toContain(last.message.sendState)
+      expect(['sent', 'failed']).toContain(last?.sendState)
 
-      const added = seen.events.filter((e) => e.type === 'message-added')
+      const added = messagesOf(seen.events, 'messages-added').filter((m) => m.id === messageId)
       expect(added.length).toBe(1)
       seen.stop()
     })
@@ -518,7 +522,7 @@ export function runSessionClientContract(
     })
 
     it('reports a download from nothing to a result', async () => {
-      const { client, conversationId, messageId, index, settle } = await harness.withAttachment()
+      const { client, messageId, index, settle } = await harness.withAttachment()
       const seen = collect(client)
 
       // Started, then settled, then awaited: a transfer runs on whatever drives the
@@ -544,7 +548,6 @@ export function runSessionClientContract(
       expect(first.done).toBe(0)
       expect(first.total).toBe(0)
       expect(first.result).toBeUndefined()
-      expect(first.conversationId).toBe(conversationId)
 
       const terminal = reports.filter(
         (e) => e.type === 'attachment-progress' && e.result !== undefined,
@@ -573,9 +576,7 @@ export function runSessionClientContract(
 
       // A cache hit reports nothing at all, which is why an indicator cannot be driven by
       // reports arriving: it would sit there for ever on the one case that is instant.
-      expect(
-        seen.events.filter((e) => e.type === 'attachment-progress').length,
-      ).toBe(0)
+      expect(seen.events.filter((e) => e.type === 'attachment-progress').length).toBe(0)
       seen.stop()
     })
 
@@ -600,13 +601,16 @@ export function runSessionClientContract(
     it('answers a page with what its attachments are doing', async () => {
       const { client, conversationId, messageId, index, settle } = await harness.withAttachment()
 
-      const before = await client.getMessages(conversationId)
-      const idle = before.transfers.find((t) => t.messageId === messageId && t.index === index)
-      // Reported even though nothing is happening to it: "nobody is fetching this" is what a row
-      // offering to fetch it needs to hear, and is not the same as having nothing to fetch.
+      const at = (page: { messages: Message[] }) =>
+        page.messages.find((m) => m.id === messageId)?.attachments.find((a) => a.index === index)
+
+      const idle = at(await client.getMessages(conversationId))
+      // Carried on the attachment rather than beside the page: "nobody is fetching this" is what
+      // a row offering to fetch it needs to hear, and it is not the same as having nothing to
+      // fetch. `absent` says the next call would start a download.
       expect(idle).toBeDefined()
-      expect(idle?.cached).toBe(false)
-      expect(idle?.transferring).toBe(false)
+      expect(idle?.availability).toBe('absent')
+      expect(idle?.fetchDone).toBe(0)
 
       const running = client.downloadAttachment(messageId, index)
       await settle()
@@ -614,10 +618,8 @@ export function runSessionClientContract(
 
       // The reason this exists: a screen that was not listening has no other way back to the
       // truth, and asking for the bytes to find out would be a download rather than a question.
-      const after = await client.getMessages(conversationId)
-      const cached = after.transfers.find((t) => t.messageId === messageId && t.index === index)
-      expect(cached?.cached).toBe(true)
-      expect(cached?.transferring).toBe(false)
+      const cached = at(await client.getMessages(conversationId))
+      expect(cached?.availability).toBe('cached')
     })
 
     it('remembers being told to download nothing, which is not the same as never asking', async () => {

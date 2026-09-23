@@ -68,6 +68,15 @@ namespace {
         return AutoDownload::none;
     }
 
+    AttachmentAvailability availability(client::AttachmentAvailability a) {
+        switch (a) {
+            case client::AttachmentAvailability::cached: return AttachmentAvailability::cached;
+            case client::AttachmentAvailability::fetching: return AttachmentAvailability::fetching;
+            case client::AttachmentAvailability::absent: return AttachmentAvailability::absent;
+        }
+        return AttachmentAvailability::absent;
+    }
+
 }  // namespace
 
 Attachment to_bridge(::session::client::Attachment&& from) {
@@ -75,24 +84,21 @@ Attachment to_bridge(::session::client::Attachment&& from) {
             static_cast<double>(from.index),
             std::move(from.content_type),
             std::move(from.filename),
-            std::move(from.caption),
             number(from.size),
             from.voice_message,
             number(from.width),
             number(from.height),
+            std::move(from.blurhash),
             from.uploaded,
-            from.unavailable,
+            // The code the failure carried rather than a flag: 404 is the sender's to repair and
+            // an unreadable file is not, and they are different things to tell somebody.
+            from.unavailable ? std::optional<double>{static_cast<double>(
+                                       static_cast<int>(*from.unavailable))}
+                             : std::nullopt,
+            availability(from.availability),
+            static_cast<double>(from.fetch_done),
+            static_cast<double>(from.fetch_total),
             from.saved_at ? std::optional<double>{epoch_ms(*from.saved_at)} : std::nullopt);
-}
-
-AttachmentStatus to_bridge(const ::session::client::AttachmentStatus& from) {
-    return AttachmentStatus(
-            static_cast<double>(from.message_id),
-            static_cast<double>(from.index),
-            from.cached,
-            from.transferring,
-            static_cast<double>(from.done),
-            static_cast<double>(from.total));
 }
 
 Message to_bridge(::session::client::Message&& from) {
@@ -139,6 +145,14 @@ Message to_bridge(::session::client::Message&& from) {
             from.gallery_viewable,
             std::move(reply),
             deleted);
+}
+
+std::vector<Message> to_bridge(std::vector<::session::client::Message>&& from) {
+    std::vector<Message> out;
+    out.reserve(from.size());
+    for (auto& m : from)
+        out.push_back(to_bridge(std::move(m)));
+    return out;
 }
 
 Conversation to_bridge(::session::client::AnyConversation&& from) {

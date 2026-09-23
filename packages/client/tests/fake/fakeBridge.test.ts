@@ -45,17 +45,18 @@ describe('the bridge protocol, end to end', () => {
     const messageId = await client.sendMessage(bobId, { body: 'hello' })
     expect(messageId).toBeGreaterThan(0)
 
-    const added = events.find((e) => e.type === 'message-added')
-    expect(added?.type).toBe('message-added')
-    if (added?.type !== 'message-added') throw new Error('unreachable')
-    expect(added.message.body).toBe('hello')
+    const added = events.find((e) => e.type === 'messages-added')
+    if (added?.type !== 'messages-added') throw new Error('unreachable')
+    expect(added.messages.map((m) => m.body)).toEqual(['hello'])
 
     world.settle()
 
-    const updates = events.filter((e) => e.type === 'message-updated')
-    const last = updates[updates.length - 1]
-    if (last?.type !== 'message-updated') throw new Error('unreachable')
-    expect(last.message.sendState).toBe('sent')
+    // Flattened rather than read off the last batch: a batch may carry several, and which batch
+    // the final state lands in is the bridge's business rather than this test's.
+    const updated = events
+      .filter((e) => e.type === 'messages-updated')
+      .flatMap((e) => (e.type === 'messages-updated' ? e.messages : []))
+    expect(updated[updated.length - 1]?.sendState).toBe('sent')
   })
 
   it('turns a failure into a rejected promise with the message intact', async () => {

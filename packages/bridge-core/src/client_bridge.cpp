@@ -297,24 +297,31 @@ struct ClientBridge::Impl {
                             impl->event(RequestListReplacedSessionEvent{
                                     Impl::conversations(std::move(convos))});
                         },
-                .message_added =
-                        [impl](const client::ConversationId& id, client::Message m) {
-                            impl->event(
-                                    MessageAddedSessionEvent{id.to_string(), to_bridge(std::move(m))});
+                // A batch, and it may span conversations: one file is one file, so fetching or
+                // evicting it changes every message showing it. Each Message carries its own
+                // conversation, which is why neither of these is told one.
+                .messages_added =
+                        [impl](std::vector<client::Message>&& ms) {
+                            impl->event(MessagesAddedSessionEvent{to_bridge(std::move(ms))});
                         },
-                .message_updated =
-                        [impl](const client::ConversationId& id, client::Message m) {
-                            impl->event(
-                                    MessageUpdatedSessionEvent{id.to_string(), to_bridge(std::move(m))});
+                .messages_updated =
+                        [impl](std::vector<client::Message>&& ms) {
+                            impl->event(MessagesUpdatedSessionEvent{to_bridge(std::move(ms))});
                         },
                 .history_replaced =
                         [impl](const client::ConversationId& id) {
                             impl->event(HistoryReplacedSessionEvent{id.to_string()});
                         },
                 .attachment_progress =
-                        [impl](const client::AttachmentProgress& p) {
+                        [impl](const client::ConversationId&,
+                               const client::AttachmentProgress& p) {
                             // Background fetches only: a transfer a command started reports through
                             // the handler that command passed, and both land on the same stream.
+                            //
+                            // The conversation is dropped rather than forwarded: a command-started
+                            // transfer carries only a message and an index, so a frame with this
+                            // field would have it on the background reports and not on the ones
+                            // every tap produces. A message id names the message either way.
                             impl->attachment_progress(AttachmentTransfer::download, p);
                         },
                 // display_picture_progress is deliberately left unset: no screen draws a display
@@ -563,7 +570,6 @@ struct ClientBridge::Impl {
             AttachmentTransfer transfer, const client::AttachmentProgress& p) {
         event(AttachmentProgressSessionEvent{
                 transfer,
-                p.conversation_id.to_string(),
                 static_cast<double>(p.message_id),
                 static_cast<double>(p.index),
                 static_cast<double>(p.done),
@@ -903,12 +909,6 @@ struct ClientBridge::Impl {
                         before,
                         cmd.include_deleted,
                         on(id, [this, id](std::vector<client::Message> messages) {
-                            std::vector<int64_t> ids;
-                            ids.reserve(messages.size());
-                            for (const auto& m : messages)
-                                if (!m.attachments.empty())
-                                    ids.push_back(m.id);
-
                             std::vector<Message> out;
                             out.reserve(messages.size());
                             // libsession answers newest first, because that is the direction
@@ -917,31 +917,9 @@ struct ClientBridge::Impl {
                             // than every caller remembering to.
                             for (auto& m : std::views::reverse(messages))
                                 out.push_back(to_bridge(std::move(m)));
-
-                            // Asked for with the page rather than left to the screen: a transfer
-                            // has no stored state, so a window that arrived without this would
-                            // draw every attachment as untouched and then correct itself.
-                            if (ids.empty()) {
-                                respond(id, MessageListResult{std::move(out), {}});
-                                return;
-                            }
-                            // Held by shared_ptr so the answer can be moved out of it: `on`
-                            // captures its handler by value and calls it as const.
-                            auto page = std::make_shared<std::vector<Message>>(std::move(out));
-                            client->attachment_transfers(
-                                    std::move(ids),
-                                    on(id,
-                                       [this, id, page](
-                                               std::vector<client::AttachmentStatus> statuses) {
-                                           std::vector<AttachmentStatus> transfers;
-                                           transfers.reserve(statuses.size());
-                                           for (const auto& st : statuses)
-                                               transfers.push_back(to_bridge(st));
-                                           respond(id,
-                                                   MessageListResult{
-                                                           std::move(*page),
-                                                           std::move(transfers)});
-                                       }));
+                            // No second query for what the attachments are doing: availability
+                            // rides on each attachment, so the page is already the whole answer.
+                            respond(id, MessageListResult{std::move(out)});
                         }));
     }
 

@@ -17,7 +17,6 @@
 import type {
   AccountInfo,
   Attachment,
-  AttachmentStatus,
   AttachmentTransfer,
   AutoDownload,
   Conversation,
@@ -323,7 +322,9 @@ export class FakeAccount {
     }
     this.conversations.set(id, { ...state, conversation })
 
-    this.emit({ type: 'message-added', conversationId: id, message })
+    // A batch of one: the fake delivers a message at a time, which is a batch the real
+    // bridge could also produce. A handler that only works on larger ones is broken.
+    this.announce('messages-added', [message])
     this.emit({ type: 'conversation-updated', conversation })
     // Always moves: the message it just stored is the newest activity in the conversation.
     this.announceIfMoved(state.conversation, conversation)
@@ -338,7 +339,7 @@ export class FakeAccount {
     if (index < 0 || !existing) return
     const updated: Message = { ...existing, ...patch }
     state.messages[index] = updated
-    this.emit({ type: 'message-updated', conversationId: id, message: updated })
+    this.announce('messages-updated', [updated])
   }
 
   markRead(id: ConversationId): void {
@@ -498,28 +499,57 @@ export class FakeAccount {
   }
 
   /**
-   * What each of these messages' attachments is doing, the way a page answers alongside itself.
+   * Emits messages with their attachments' availability stamped on.
    *
-   * Nothing to fetch is left out rather than reported idle, which is libsession's rule: an
-   * outgoing attachment that has not uploaded is not a row offering to download anything.
+   * Every announcement goes through here, not only the paged answer: availability is derived
+   * rather than stored, so a message emitted straight out of the map carries whatever it was
+   * built with - which for a file already in the cache is a lie in the direction that matters.
    */
-  transfersFor(messages: Message[]): AttachmentStatus[] {
-    const out: AttachmentStatus[] = []
-    for (const message of messages) {
-      for (const attachment of message.attachments) {
-        if (!attachment.uploaded) continue
-        const running = this.running.get(`${message.id}:${attachment.index}`)
-        out.push({
-          messageId: message.id,
-          index: attachment.index,
-          cached: this.isCached(message.id, attachment.index),
-          transferring: running !== undefined,
-          done: running?.done ?? 0,
-          total: running?.total ?? 0,
-        })
+  private announce(type: 'messages-added' | 'messages-updated', messages: Message[]): void {
+    this.emit({ type, messages: this.withAvailability(messages) })
+  }
+
+  /**
+   * Says that what we hold of an attachment changed, which is a change to the message showing it.
+   *
+   * libsession reports this and nothing else would: filling the cache stores no field, so a
+   * display reading `availability` would keep the answer it was given until something else
+   * happened to the message.
+   */
+  private announceAttachment(messageId: number): void {
+    for (const [, state] of this.conversations) {
+      const message = state.messages.find((m) => m.id === messageId)
+      if (message) {
+        this.announce('messages-updated', [message])
+        return
       }
     }
-    return out
+  }
+
+  /**
+   * The same messages, with what each attachment's bytes are doing written onto it.
+   *
+   * The real bridge does this inside libsession, which owns the cache and the transfers; the fake
+   * owns both here, so it stamps them on the way out. Everything a display needs arrives with the
+   * message rather than beside it.
+   */
+  withAvailability(messages: Message[]): Message[] {
+    return messages.map((message) => ({
+      ...message,
+      attachments: message.attachments.map((attachment) => {
+        const running = this.running.get(`${message.id}:${attachment.index}`)
+        return {
+          ...attachment,
+          availability: running
+            ? ('fetching' as const)
+            : this.isCached(message.id, attachment.index)
+              ? ('cached' as const)
+              : ('absent' as const),
+          fetchDone: running?.done ?? 0,
+          fetchTotal: running?.total ?? 0,
+        }
+      }),
+    }))
   }
 
   attachmentCacheLimit(): number | undefined {
@@ -550,9 +580,10 @@ export class FakeAccount {
     const joined = this.downloading.get(key)
     if (joined) return joined
 
-    const running = this.transfer('download', found.conversationId, messageId, index).then(() => {
+    const running = this.transfer('download', messageId, index).then(() => {
       this.cached.add(key)
       this.downloading.delete(key)
+      this.announceAttachment(messageId)
     })
     this.downloading.set(key, running)
     return running
@@ -568,7 +599,7 @@ export class FakeAccount {
     const found = this.locate(messageId, index)
     if (!found) return Promise.reject(new Error(`No attachment ${messageId}:${index}`))
 
-    return this.transfer('save', found.conversationId, messageId, index).then(() => {
+    return this.transfer('save', messageId, index).then(() => {
       const saved = found.message.attachments.map((a) =>
         a.index === index ? { ...a, savedAt: this.world?.now() ?? Date.now() } : a,
       )
@@ -583,12 +614,7 @@ export class FakeAccount {
    * The first report is 0 of 0 - the size is not known until the server answers - and exactly one
    * report carries a result, which is the only thing that says it finished.
    */
-  private transfer(
-    transfer: AttachmentTransfer,
-    conversationId: ConversationId,
-    messageId: number,
-    index: number,
-  ): Promise<void> {
+  private transfer(transfer: AttachmentTransfer, messageId: number, index: number): Promise<void> {
     const found = this.locate(messageId, index)
     const total = encryptedSize(found?.attachment.size ?? 0)
     const world = this.world
@@ -609,7 +635,6 @@ export class FakeAccount {
       this.emit({
         type: 'attachment-progress',
         transfer,
-        conversationId,
         messageId,
         index,
         done,

@@ -234,6 +234,41 @@ struct EnumTraits<SendState> {
     }
 };
 
+/// Whether an attachment's bytes are here, on their way, or neither.
+///
+/// What it is for is deciding what to *draw*: the file, a progress indicator, or something to
+/// press. It arrives **on the message** rather than being asked for separately, which is what
+/// makes a display that missed the reports correct without a second query.
+///
+/// A hint about what the next call will do rather than a promise about the file: a `cached` that
+/// is evicted before anybody asks only means the fetch reads the network instead of the disk.
+///
+/// Reported for an outgoing attachment as for an incoming one - what we send is kept under the
+/// rule that would have fetched it - so "can this be drawn without a download" has one answer
+/// regardless of direction.
+enum class AttachmentAvailability {
+    cached,
+    fetching,
+    absent,
+};
+
+template <>
+struct EnumTraits<AttachmentAvailability> {
+    static constexpr std::string_view name = "AttachmentAvailability";
+    static constexpr std::array<std::string_view, 3> names{"cached", "fetching", "absent"};
+
+    static constexpr std::string_view to_string(AttachmentAvailability value) {
+        return names[static_cast<std::size_t>(value)];
+    }
+
+    static constexpr std::optional<AttachmentAvailability> parse(std::string_view text) {
+        for (std::size_t i = 0; i < names.size(); i++)
+            if (names[i] == text)
+                return static_cast<AttachmentAvailability>(i);
+        return std::nullopt;
+    }
+};
+
 /// An attachment on a stored message, in either direction.
 ///
 /// Nothing here says whether the bytes are on this device: that is answered by asking for them, and
@@ -244,8 +279,6 @@ struct Attachment {
     /// The sender's claim on an incoming attachment: a display hint, not a fact about the bytes.
     std::optional<std::string> content_type;
     std::optional<std::string> filename;
-    /// Shown with the attachment, and distinct from the message body.
-    std::optional<std::string> caption;
     /// The file's size before encryption. Unset on an outgoing attachment that has not uploaded, and
     /// the sender's claim on an incoming one. Not comparable with a progress report's `total`, which
     /// counts encrypted bytes.
@@ -254,24 +287,43 @@ struct Attachment {
     /// Supplied by whoever attached the file - libsession does not measure images.
     std::optional<double> width;
     std::optional<double> height;
+    /// A BlurHash of the picture, for drawing something in its place before the bytes arrive.
+    ///
+    /// Carried and never parsed: libsession bounds its length and looks no further, so this is the
+    /// sender's claim like `width` and `height` beside it. Absent on everything sent by a client
+    /// that does not encode one, which today is every 1.x client.
+    std::optional<std::string> blurhash;
     /// On the file server: an outgoing attachment's upload finished, and always true for an incoming
     /// one. Deliberately not "the bytes are here" - libsession records no local path, because the
     /// application chose it and a stored copy would go stale the moment the file moved.
     bool uploaded;
-    /// A fetch has failed in a way that will not come out differently: the file server does not hold
-    /// it, or the bytes arrived and were not what they claimed. Offering to download it again is
-    /// offering the same failure.
+    /// Why the last fetch failed, when it failed in a way that trying again will not fix. Unset
+    /// means only that nothing has proved otherwise.
     ///
-    /// False means only that nothing has proved otherwise - an attachment nobody has tried to fetch
-    /// looks the same as one that would succeed.
-    bool unavailable;
+    /// A code rather than a flag, because the two cases are different things to tell somebody: 404,
+    /// which is how the file server answers for an upload it does not hold, is the sender's to
+    /// repair - the same file re-sent lands at the same url and puts the bytes back - and
+    /// `ATTACHMENT_UNREADABLE` is not. **Anything read off this needs a default**: what is recorded
+    /// is the code the failure carried, so a value nothing here anticipates is kept as itself
+    /// rather than flattened into "some other problem".
+    std::optional<double> unavailable;
+    /// Whether the bytes are here, coming, or neither. See `AttachmentAvailability`.
+    ::session_bridge::AttachmentAvailability availability;
+    /// How far the transfer has got while `availability` is `fetching`, and 0 otherwise.
+    ///
+    /// The same encrypted-byte figures `attachment-progress` carries, so a bar drawn from these and
+    /// then fed by reports continues rather than jumping. `fetchTotal` is 0 until the server has
+    /// said how big the file is. What they are for is a conversation opened while a download is
+    /// already running: the reports went to whoever started it.
+    double fetch_done;
+    double fetch_total;
     /// When the recipient last saved it - us on an incoming attachment, the other party on one we
     /// sent. Unset means *not known to have been saved*, which is not the same as not saved: it
     /// depends on the other end volunteering a notification.
     std::optional<double> saved_at;
 
-    Attachment(double index_, std::optional<std::string> content_type_, std::optional<std::string> filename_, std::optional<std::string> caption_, std::optional<double> size_, bool voice_message_, std::optional<double> width_, std::optional<double> height_, bool uploaded_, bool unavailable_, std::optional<double> saved_at_) :
-            index{std::move(index_)}, content_type{std::move(content_type_)}, filename{std::move(filename_)}, caption{std::move(caption_)}, size{std::move(size_)}, voice_message{std::move(voice_message_)}, width{std::move(width_)}, height{std::move(height_)}, uploaded{std::move(uploaded_)}, unavailable{std::move(unavailable_)}, saved_at{std::move(saved_at_)} {}
+    Attachment(double index_, std::optional<std::string> content_type_, std::optional<std::string> filename_, std::optional<double> size_, bool voice_message_, std::optional<double> width_, std::optional<double> height_, std::optional<std::string> blurhash_, bool uploaded_, std::optional<double> unavailable_, ::session_bridge::AttachmentAvailability availability_, double fetch_done_, double fetch_total_, std::optional<double> saved_at_) :
+            index{std::move(index_)}, content_type{std::move(content_type_)}, filename{std::move(filename_)}, size{std::move(size_)}, voice_message{std::move(voice_message_)}, width{std::move(width_)}, height{std::move(height_)}, blurhash{std::move(blurhash_)}, uploaded{std::move(uploaded_)}, unavailable{std::move(unavailable_)}, availability{std::move(availability_)}, fetch_done{std::move(fetch_done_)}, fetch_total{std::move(fetch_total_)}, saved_at{std::move(saved_at_)} {}
 };
 
 /// The message a reply points at, resolved one level deep only: a reply to a reply shows its own
@@ -340,46 +392,19 @@ struct Message {
             id{std::move(id_)}, conversation_id{std::move(conversation_id_)}, author{std::move(author_)}, timestamp{std::move(timestamp_)}, body{std::move(body_)}, outgoing{std::move(outgoing_)}, send_state{std::move(send_state_)}, sync_state{std::move(sync_state_)}, attachments{std::move(attachments_)}, gallery_viewable{std::move(gallery_viewable_)}, reply_to{std::move(reply_to_)}, deleted{std::move(deleted_)} {}
 };
 
-/// What one attachment's bytes are doing on this device, as of the answer that carried it.
+/// A page of history.
 ///
-/// The one way back to the truth about a transfer: nothing about one is stored, so a screen that
-/// was not listening - it had not opened this conversation, the app had not started - cannot learn
-/// from the reports what it missed. It arrives with the page of messages it describes, so a row
-/// never draws a state it is about to correct.
-struct AttachmentStatus {
-    double message_id;
-    double index;
-    /// Asking for the bytes would answer from disk. A strong hint: a sweep can falsify it, and a
-    /// fetch that misses simply downloads.
-    bool cached;
-    /// A transfer is running, and `done`/`total` are where it has got to - the same encrypted-byte
-    /// figures `attachment-progress` carries, so a bar seeded here and then fed by reports does not
-    /// jump. A save is never visible here: it keeps nothing, so there is nothing to join.
-    bool transferring;
-    double done;
-    double total;
-
-    AttachmentStatus(double message_id_, double index_, bool cached_, bool transferring_, double done_, double total_) :
-            message_id{std::move(message_id_)}, index{std::move(index_)}, cached{std::move(cached_)}, transferring{std::move(transferring_)}, done{std::move(done_)}, total{std::move(total_)} {}
-};
-
-/// A page, and what its attachments are doing.
-///
-/// The two travel together because a transfer has no stored state to look up later: a window
-/// that arrived without them would draw every attachment as untouched and then correct itself.
-/// Deliberately not fields on `Attachment` - that is libsession's account of the message, and
-/// this is what this device is doing about it, which changes far more often and is also what
-/// `attachment-progress` reports. One writer for the first picture, one for the updates.
-///
-/// Attachments with nothing to fetch are absent rather than listed as idle.
+/// What each attachment's bytes are doing rides on the attachment itself - `availability`,
+/// `fetchDone`, `fetchTotal` - rather than in a list beside the page. One writer for the first
+/// picture and for every correction after it, which is what stops a window drawing an
+/// attachment as untouched and then taking it back.
 struct MessageListResult {
     static constexpr std::string_view type_tag = "messageList";
 
     std::vector<::session_bridge::Message> messages;
-    std::vector<::session_bridge::AttachmentStatus> transfers;
 
-    MessageListResult(std::vector<::session_bridge::Message> messages_, std::vector<::session_bridge::AttachmentStatus> transfers_) :
-            messages{std::move(messages_)}, transfers{std::move(transfers_)} {}
+    explicit MessageListResult(std::vector<::session_bridge::Message> messages_) :
+            messages{std::move(messages_)} {}
 };
 
 struct MessageIdResult {
@@ -519,24 +544,31 @@ struct RequestListReplacedSessionEvent {
             conversations{std::move(conversations_)} {}
 };
 
-struct MessageAddedSessionEvent {
-    static constexpr std::string_view type_tag = "message-added";
+/// Messages arrived or changed, oldest first.
+///
+/// A batch, and **it may span conversations**: one cause routinely reaches several, because a
+/// file is one file and fetching or evicting it changes every message showing it, wherever
+/// those are. Each `Message` carries its own `conversationId` for that reason.
+///
+/// Reported for every message in every conversation rather than whichever one is on screen -
+/// there is no notion here of what the app is showing, so deciding what to redraw is the app's.
+/// A message can also arrive here because something it *quotes* changed.
+struct MessagesAddedSessionEvent {
+    static constexpr std::string_view type_tag = "messages-added";
 
-    std::string conversation_id;
-    ::session_bridge::Message message;
+    std::vector<::session_bridge::Message> messages;
 
-    MessageAddedSessionEvent(std::string conversation_id_, ::session_bridge::Message message_) :
-            conversation_id{std::move(conversation_id_)}, message{std::move(message_)} {}
+    explicit MessagesAddedSessionEvent(std::vector<::session_bridge::Message> messages_) :
+            messages{std::move(messages_)} {}
 };
 
-struct MessageUpdatedSessionEvent {
-    static constexpr std::string_view type_tag = "message-updated";
+struct MessagesUpdatedSessionEvent {
+    static constexpr std::string_view type_tag = "messages-updated";
 
-    std::string conversation_id;
-    ::session_bridge::Message message;
+    std::vector<::session_bridge::Message> messages;
 
-    MessageUpdatedSessionEvent(std::string conversation_id_, ::session_bridge::Message message_) :
-            conversation_id{std::move(conversation_id_)}, message{std::move(message_)} {}
+    explicit MessagesUpdatedSessionEvent(std::vector<::session_bridge::Message> messages_) :
+            messages{std::move(messages_)} {}
 };
 
 struct HistoryReplacedSessionEvent {
@@ -594,17 +626,14 @@ struct AttachmentProgressSessionEvent {
     static constexpr std::string_view type_tag = "attachment-progress";
 
     ::session_bridge::AttachmentTransfer transfer;
-    /// So a screen can drop what it is not showing: an auto-downloading conversation reports
-    /// whether or not anyone is looking at it.
-    std::string conversation_id;
     double message_id;
     double index;
     double done;
     double total;
     std::optional<double> result;
 
-    AttachmentProgressSessionEvent(::session_bridge::AttachmentTransfer transfer_, std::string conversation_id_, double message_id_, double index_, double done_, double total_, std::optional<double> result_) :
-            transfer{std::move(transfer_)}, conversation_id{std::move(conversation_id_)}, message_id{std::move(message_id_)}, index{std::move(index_)}, done{std::move(done_)}, total{std::move(total_)}, result{std::move(result_)} {}
+    AttachmentProgressSessionEvent(::session_bridge::AttachmentTransfer transfer_, double message_id_, double index_, double done_, double total_, std::optional<double> result_) :
+            transfer{std::move(transfer_)}, message_id{std::move(message_id_)}, index{std::move(index_)}, done{std::move(done_)}, total{std::move(total_)}, result{std::move(result_)} {}
 };
 
 /// libsession's own log lines, forwarded when the bridge was opened with a log level. Worth
@@ -638,8 +667,8 @@ using SessionEvent = std::variant<
         ConversationRemovedSessionEvent,
         ConversationListReplacedSessionEvent,
         RequestListReplacedSessionEvent,
-        MessageAddedSessionEvent,
-        MessageUpdatedSessionEvent,
+        MessagesAddedSessionEvent,
+        MessagesUpdatedSessionEvent,
         HistoryReplacedSessionEvent,
         AttachmentProgressSessionEvent,
         LogSessionEvent>;

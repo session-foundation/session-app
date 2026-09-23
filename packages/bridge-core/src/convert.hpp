@@ -19,10 +19,10 @@ namespace session_bridge {
 /// Spelled out rather than reached through an enclosing namespace: this namespace is flat, so
 /// nothing of libsession's is in scope unless a file says so.
 Attachment to_bridge(::session::client::Attachment&& from);
-/// Taken by reference: a status is a handful of scalars, and the vector it came in is the
-/// caller's.
-AttachmentStatus to_bridge(const ::session::client::AttachmentStatus& from);
 Message to_bridge(::session::client::Message&& from);
+/// A batch, in the order libsession gave it -- oldest first, which is already the order a handler
+/// applies them in. Only the paged query reverses, because paging runs the other way.
+std::vector<Message> to_bridge(std::vector<::session::client::Message>&& from);
 Conversation to_bridge(::session::client::AnyConversation&& from);
 
 }  // namespace session_bridge

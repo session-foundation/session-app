@@ -6,6 +6,7 @@ import { ELEMENT } from '@session/test-ids'
 import { FileRow, type FileRowState, type FileRowThumbnail } from '@session/ui'
 import { useState } from 'react'
 
+import { fetchOf, type Fetch } from './attachmentFetch'
 import { mayResolve } from './autoDownload'
 import { formatBytes } from './formatBytes'
 import { PENDING_COPY } from './pendingCopy'
@@ -41,31 +42,22 @@ export function AttachmentRow({
   autoDownload?: AutoDownload | undefined
 }) {
   const actions = useSessionActions()
-  const download = useAttachmentTransfer('download', message.id, attachment.index)
+  // The report is the live half; `attachment.availability` is the resting one. See `fetchOf`.
+  const report = useAttachmentTransfer('download', message.id, attachment.index)
   // The bridge calls it `save`; the button says Export. See `exportAttachment`.
   const exporting = useAttachmentTransfer('save', message.id, attachment.index)
   const [error, setError] = useState(false)
 
-  // `unavailable` says the file server will not hand this out again, which does not unsay a copy
-  // already in the cache - drawing "expired" over bytes we hold would refuse to show a file for
-  // the one reason that does not apply to it.
-  const expired = attachment.unavailable && download?.state !== 'done'
-
-  const state: FileRowState = expired
-    ? 'unavailable'
-    : download?.state === 'running'
-      ? 'fetching'
-      : download?.state === 'failed' || error
-        ? 'failed'
-        : download?.state === 'done'
-          ? 'ready'
-          : 'idle'
+  const fetched = fetchOf(attachment, report)
+  // A rejected call is this component's own knowledge and reaches no event, so it is the one
+  // thing here that neither libsession nor a report can supply.
+  const state: FileRowState = error && fetched.state === 'idle' ? 'failed' : fetched.state
 
   // A picture fetches itself as it draws: the url *is* the request, and the same call reads the
   // cache, joins a transfer already running, or starts one. Absent once expired, where asking
   // would only fail.
   const thumbnail: FileRowThumbnail | undefined =
-    expired || !isViewable(attachment)
+    state === 'unavailable' || !isViewable(attachment)
       ? undefined
       : {
           // Left off where this is not ours to fetch: a url is the request, so handing one over
@@ -92,11 +84,11 @@ export function AttachmentRow({
       {...(attachment.contentType === undefined ? {} : { contentType: attachment.contentType })}
       {...(thumbnail === undefined ? {} : { thumbnail })}
       {...(thumbnail === undefined || onOpen === undefined ? {} : { onOpen })}
-      caption={caption(attachment, state, download, exporting?.state === 'running')}
+      caption={caption(attachment, state, fetched, exporting?.state === 'running')}
       state={state}
       // Absent while the server has not said how big the file is, which is what the first report
       // of every transfer means: an empty ring rather than a full one.
-      {...(download && download.total > 0 ? { progress: download.done / download.total } : {})}
+      {...(fetched.total > 0 ? { progress: fetched.done / fetched.total } : {})}
       {...(state === 'unavailable' || state === 'fetching'
         ? {}
         : { actionLabel: actionLabel(state), onAction: act })}
@@ -116,20 +108,18 @@ export function AttachmentRow({
   )
 }
 
-type Transfer = ReturnType<typeof useAttachmentTransfer>
-
 function caption(
   attachment: Attachment,
   state: FileRowState,
-  download: Transfer,
+  fetched: Fetch,
   exporting: boolean,
 ): string {
   if (state === 'unavailable') return tr('attachmentsExpired')
   if (state === 'failed') return tr('failedToDownload')
   if (state === 'fetching') {
     // Indeterminate until the server says how big it is, which is what a total of 0 means.
-    if (download === undefined || download.total === 0) return tr('downloading')
-    return `${formatBytes(download.done)} / ${formatBytes(download.total)}`
+    if (fetched.total === 0) return tr('downloading')
+    return `${formatBytes(fetched.done)} / ${formatBytes(fetched.total)}`
   }
   if (exporting) return PENDING_COPY.exporting
   return attachment.size === undefined ? '' : formatBytes(attachment.size)

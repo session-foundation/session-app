@@ -95,8 +95,10 @@ export function conversationListFrame(conversations: Conversation[]): Frame {
   return { type: 'event', event: { type: 'conversation-list-replaced', conversations } }
 }
 
-export function messageAddedFrame(conversationId: string, message: Message): Frame {
-  return { type: 'event', event: { type: 'message-added', conversationId, message } }
+export function messageAddedFrame(_conversationId: string, message: Message): Frame {
+  // A batch of one: the message carries its own conversation, so the id is kept only to leave
+  // every caller of this fixture reading the same as it did.
+  return { type: 'event', event: { type: 'messages-added', messages: [message] } }
 }
 
 /** A single-conversation update - the event a poll produces when an unread count moves. */

@@ -1,16 +1,8 @@
-import type {
-  AttachmentStatus,
-  AutoDownload,
-  ConversationId,
-  Message,
-  SessionClient,
-} from '@session/client'
+import type { AutoDownload, ConversationId, Message, SessionClient } from '@session/client'
 import { createStore, type StoreApi } from 'zustand/vanilla'
 
-import { ATTACHMENT_OK } from '@session/client'
-
-import { applyEvent, mergePages, withoutConversation } from './applyEvent'
-import { emptyState, transferKey, type MessageWindow, type SessionState } from './types'
+import { applyEvent, mergePages, withoutHistory } from './applyEvent'
+import { emptyState, type MessageWindow, type SessionState } from './types'
 
 export interface SessionActions {
   /**
@@ -238,47 +230,6 @@ export function createSessionStore(
     })
   }
 
-  /**
-   * Whatever the page said its attachments were doing, before the window is marked ready.
-   *
-   * Seeded rather than left to the reports: a transfer has no stored state, so a window that
-   * arrived without this would draw every attachment as untouched. Written first so that no
-   * render happens between the messages appearing and their transfers being known.
-   *
-   * Only what a report cannot say: a `done` entry stands for a cached file that nothing is
-   * fetching, which no event will ever announce.
-   */
-  function seedTransfers(id: ConversationId, statuses: AttachmentStatus[]): void {
-    if (statuses.length === 0) return
-    store.setState((state) => {
-      const transfers = { ...state.transfers }
-      for (const status of statuses) {
-        const key = transferKey('download', status.messageId, status.index)
-        if (status.transferring) {
-          transfers[key] = {
-            conversationId: id,
-            state: 'running',
-            done: status.done,
-            total: status.total,
-          }
-        } else if (status.cached) {
-          transfers[key] = {
-            conversationId: id,
-            state: 'done',
-            done: 0,
-            total: 0,
-            result: ATTACHMENT_OK,
-          }
-        } else {
-          // Nothing doing and nothing here: an entry would claim to know something the row
-          // learns better from its absence.
-          delete transfers[key]
-        }
-      }
-      return { transfers }
-    })
-  }
-
   function windowFrom(messages: Message[], previous: Message[] = []): Partial<MessageWindow> {
     const all = mergePages(messages, previous)
     const oldest = all[0]
@@ -398,7 +349,6 @@ export function createSessionStore(
       if (existing?.fetching) return
       patchWindow(id, { fetching: true })
       const page = await client.getMessages(id, { limit: PAGE })
-      seedTransfers(id, page.transfers)
       patchWindow(id, windowFrom(page.messages))
     },
 
@@ -408,7 +358,6 @@ export function createSessionStore(
 
       patchWindow(id, { fetching: true })
       const page = await client.getMessages(id, { limit: PAGE, before: window.oldestCursor })
-      seedTransfers(id, page.transfers)
       patchWindow(id, windowFrom(page.messages, store.getState().histories[id]?.messages ?? []))
     },
 
@@ -416,7 +365,7 @@ export function createSessionStore(
       store.setState((state) => {
         const { [id]: dropped, ...histories } = state.histories
         if (dropped === undefined) return state
-        return { histories, transfers: withoutConversation(state.transfers, id) }
+        return { histories, transfers: withoutHistory(state.transfers, dropped.messages) }
       })
     },
 

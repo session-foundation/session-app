@@ -21,12 +21,7 @@ function swatchPng(messageId: number, index: number): Uint8Array {
   const deflate = new Uint8Array([0x78, 0x01, 0x01, 4, 0, 0xfb, 0xff, ...raw, ...adler32(raw)])
   const idat = chunk('IDAT', deflate)
   const iend = chunk('IEND', new Uint8Array())
-  return new Uint8Array([
-    0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
-    ...ihdr,
-    ...idat,
-    ...iend,
-  ])
+  return new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, ...ihdr, ...idat, ...iend])
 }
 
 function chunk(type: string, data: Uint8Array): Uint8Array {
@@ -112,8 +107,13 @@ export function createFakeBridge(): BridgeTransport & MediaSource {
 
   return {
     ...createFakeTransport(alice),
-    fetchMedia(messageId: number, index: number) {
-      return Promise.resolve({ contentType: 'image/png', bytes: swatchPng(messageId, index) })
+    async fetchMedia(messageId: number, index: number) {
+      // Through the same door a tap uses. Serving this scheme *is* a fetch: the real bridge
+      // fills the cache and libsession announces the availability change, so a fake that handed
+      // bytes back without either would leave every picture it just drew still reported as one
+      // nobody has. Cheap to repeat - a cached attachment answers at once.
+      await alice.downloadAttachment(messageId, index)
+      return { contentType: 'image/png', bytes: swatchPng(messageId, index) }
     },
   }
 }

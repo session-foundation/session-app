@@ -1,6 +1,8 @@
 import type { Attachment, Message } from '@session/client'
 import type { AttachmentTransferState } from '@session/state'
 
+import { fetchOf } from './attachmentFetch'
+
 /**
  * What a message's attachments are collectively doing.
  *
@@ -47,7 +49,7 @@ export interface AttachmentSet {
  */
 export function summarise(
   message: Message,
-  transferFor: (attachment: Attachment) => AttachmentTransferState | undefined,
+  reportFor: (attachment: Attachment) => AttachmentTransferState | undefined,
 ): AttachmentSet {
   const attachments = message.attachments
   let size: number | undefined = 0
@@ -60,18 +62,20 @@ export function summarise(
     if (attachment.size === undefined || size === undefined) size = undefined
     else size += attachment.size
 
-    const transfer = transferFor(attachment)
-    if (transfer === undefined) continue
-    if (transfer.state === 'failed') failed += 1
-    if (transfer.state === 'done') {
+    const fetch = fetchOf(attachment, reportFor(attachment))
+    // Unavailable counts as neither: the set is not failing at something a retry would fix, and
+    // it is not ready either. A message of one expired file rests at idle, and its one control
+    // is the row's, which says what happened.
+    if (fetch.state === 'failed') failed += 1
+    if (fetch.state === 'ready') {
       ready += 1
       done += attachment.size ?? 0
     }
-    if (transfer.state === 'running') {
+    if (fetch.state === 'fetching') {
       running += 1
       // The fraction comes from the encrypted figures because that is what is being moved; it is
       // then spent against the plaintext size, so `done` and `total` agree with each other.
-      const fraction = transfer.total > 0 ? transfer.done / transfer.total : 0
+      const fraction = fetch.total > 0 ? fetch.done / fetch.total : 0
       done += (attachment.size ?? 0) * fraction
     }
   }

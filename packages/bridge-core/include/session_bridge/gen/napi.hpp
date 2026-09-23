@@ -336,6 +336,22 @@ struct Codec<::session_bridge::SendState> {
 };
 
 template <>
+struct Codec<::session_bridge::AttachmentAvailability> {
+    static constexpr std::string_view name = "AttachmentAvailability";
+    static Napi::Value to(Napi::Env env, ::session_bridge::AttachmentAvailability value) {
+        auto text = ::session_bridge::EnumTraits<::session_bridge::AttachmentAvailability>::to_string(value);
+        return Napi::String::New(env, text.data(), text.size());
+    }
+    static ::session_bridge::AttachmentAvailability from(const Napi::Value& value, std::string_view where) {
+        std::string text = Codec<std::string>::from(value, where);
+        auto parsed = ::session_bridge::EnumTraits<::session_bridge::AttachmentAvailability>::parse(text);
+        if (!parsed)
+            throw std::invalid_argument(std::string{where} + ": \"" + text + "\" is not a AttachmentAvailability");
+        return *parsed;
+    }
+};
+
+template <>
 struct Codec<::session_bridge::Attachment> {
     static constexpr std::string_view name = "Attachment";
     static Napi::Value to(Napi::Env env, const ::session_bridge::Attachment& value) {
@@ -345,8 +361,6 @@ struct Codec<::session_bridge::Attachment> {
             obj.Set("contentType", Codec<std::string>::to(env, *value.content_type));
         if (value.filename)
             obj.Set("filename", Codec<std::string>::to(env, *value.filename));
-        if (value.caption)
-            obj.Set("caption", Codec<std::string>::to(env, *value.caption));
         if (value.size)
             obj.Set("size", Codec<double>::to(env, *value.size));
         obj.Set("voiceMessage", Codec<bool>::to(env, value.voice_message));
@@ -354,8 +368,14 @@ struct Codec<::session_bridge::Attachment> {
             obj.Set("width", Codec<double>::to(env, *value.width));
         if (value.height)
             obj.Set("height", Codec<double>::to(env, *value.height));
+        if (value.blurhash)
+            obj.Set("blurhash", Codec<std::string>::to(env, *value.blurhash));
         obj.Set("uploaded", Codec<bool>::to(env, value.uploaded));
-        obj.Set("unavailable", Codec<bool>::to(env, value.unavailable));
+        if (value.unavailable)
+            obj.Set("unavailable", Codec<double>::to(env, *value.unavailable));
+        obj.Set("availability", Codec<::session_bridge::AttachmentAvailability>::to(env, value.availability));
+        obj.Set("fetchDone", Codec<double>::to(env, value.fetch_done));
+        obj.Set("fetchTotal", Codec<double>::to(env, value.fetch_total));
         if (value.saved_at)
             obj.Set("savedAt", Codec<double>::to(env, *value.saved_at));
         return obj;
@@ -366,13 +386,16 @@ struct Codec<::session_bridge::Attachment> {
                 Codec<double>::from(obj.Get("index"), "Attachment.index"),
                 optional<std::string>(obj.Get("contentType"), "Attachment.contentType"),
                 optional<std::string>(obj.Get("filename"), "Attachment.filename"),
-                optional<std::string>(obj.Get("caption"), "Attachment.caption"),
                 optional<double>(obj.Get("size"), "Attachment.size"),
                 Codec<bool>::from(obj.Get("voiceMessage"), "Attachment.voiceMessage"),
                 optional<double>(obj.Get("width"), "Attachment.width"),
                 optional<double>(obj.Get("height"), "Attachment.height"),
+                optional<std::string>(obj.Get("blurhash"), "Attachment.blurhash"),
                 Codec<bool>::from(obj.Get("uploaded"), "Attachment.uploaded"),
-                Codec<bool>::from(obj.Get("unavailable"), "Attachment.unavailable"),
+                optional<double>(obj.Get("unavailable"), "Attachment.unavailable"),
+                Codec<::session_bridge::AttachmentAvailability>::from(obj.Get("availability"), "Attachment.availability"),
+                Codec<double>::from(obj.Get("fetchDone"), "Attachment.fetchDone"),
+                Codec<double>::from(obj.Get("fetchTotal"), "Attachment.fetchTotal"),
                 optional<double>(obj.Get("savedAt"), "Attachment.savedAt"));
     }
 };
@@ -457,45 +480,18 @@ struct Codec<::session_bridge::Message> {
 };
 
 template <>
-struct Codec<::session_bridge::AttachmentStatus> {
-    static constexpr std::string_view name = "AttachmentStatus";
-    static Napi::Value to(Napi::Env env, const ::session_bridge::AttachmentStatus& value) {
-        Napi::Object obj = Napi::Object::New(env);
-        obj.Set("messageId", Codec<double>::to(env, value.message_id));
-        obj.Set("index", Codec<double>::to(env, value.index));
-        obj.Set("cached", Codec<bool>::to(env, value.cached));
-        obj.Set("transferring", Codec<bool>::to(env, value.transferring));
-        obj.Set("done", Codec<double>::to(env, value.done));
-        obj.Set("total", Codec<double>::to(env, value.total));
-        return obj;
-    }
-    static ::session_bridge::AttachmentStatus from(const Napi::Value& value, std::string_view where) {
-        Napi::Object obj = object(value, where);
-        return ::session_bridge::AttachmentStatus(
-                Codec<double>::from(obj.Get("messageId"), "AttachmentStatus.messageId"),
-                Codec<double>::from(obj.Get("index"), "AttachmentStatus.index"),
-                Codec<bool>::from(obj.Get("cached"), "AttachmentStatus.cached"),
-                Codec<bool>::from(obj.Get("transferring"), "AttachmentStatus.transferring"),
-                Codec<double>::from(obj.Get("done"), "AttachmentStatus.done"),
-                Codec<double>::from(obj.Get("total"), "AttachmentStatus.total"));
-    }
-};
-
-template <>
 struct Codec<::session_bridge::MessageListResult> {
     static constexpr std::string_view name = "MessageListResult";
     static Napi::Value to(Napi::Env env, const ::session_bridge::MessageListResult& value) {
         Napi::Object obj = Napi::Object::New(env);
         obj.Set("type", Napi::String::New(env, ::session_bridge::MessageListResult::type_tag.data(), ::session_bridge::MessageListResult::type_tag.size()));
         obj.Set("messages", Codec<std::vector<::session_bridge::Message>>::to(env, value.messages));
-        obj.Set("transfers", Codec<std::vector<::session_bridge::AttachmentStatus>>::to(env, value.transfers));
         return obj;
     }
     static ::session_bridge::MessageListResult from(const Napi::Value& value, std::string_view where) {
         Napi::Object obj = object(value, where);
         return ::session_bridge::MessageListResult(
-                Codec<std::vector<::session_bridge::Message>>::from(obj.Get("messages"), "MessageListResult.messages"),
-                Codec<std::vector<::session_bridge::AttachmentStatus>>::from(obj.Get("transfers"), "MessageListResult.transfers"));
+                Codec<std::vector<::session_bridge::Message>>::from(obj.Get("messages"), "MessageListResult.messages"));
     }
 };
 
@@ -756,38 +752,34 @@ struct Codec<::session_bridge::RequestListReplacedSessionEvent> {
 };
 
 template <>
-struct Codec<::session_bridge::MessageAddedSessionEvent> {
-    static constexpr std::string_view name = "MessageAddedSessionEvent";
-    static Napi::Value to(Napi::Env env, const ::session_bridge::MessageAddedSessionEvent& value) {
+struct Codec<::session_bridge::MessagesAddedSessionEvent> {
+    static constexpr std::string_view name = "MessagesAddedSessionEvent";
+    static Napi::Value to(Napi::Env env, const ::session_bridge::MessagesAddedSessionEvent& value) {
         Napi::Object obj = Napi::Object::New(env);
-        obj.Set("type", Napi::String::New(env, ::session_bridge::MessageAddedSessionEvent::type_tag.data(), ::session_bridge::MessageAddedSessionEvent::type_tag.size()));
-        obj.Set("conversationId", Codec<std::string>::to(env, value.conversation_id));
-        obj.Set("message", Codec<::session_bridge::Message>::to(env, value.message));
+        obj.Set("type", Napi::String::New(env, ::session_bridge::MessagesAddedSessionEvent::type_tag.data(), ::session_bridge::MessagesAddedSessionEvent::type_tag.size()));
+        obj.Set("messages", Codec<std::vector<::session_bridge::Message>>::to(env, value.messages));
         return obj;
     }
-    static ::session_bridge::MessageAddedSessionEvent from(const Napi::Value& value, std::string_view where) {
+    static ::session_bridge::MessagesAddedSessionEvent from(const Napi::Value& value, std::string_view where) {
         Napi::Object obj = object(value, where);
-        return ::session_bridge::MessageAddedSessionEvent(
-                Codec<std::string>::from(obj.Get("conversationId"), "MessageAddedSessionEvent.conversationId"),
-                Codec<::session_bridge::Message>::from(obj.Get("message"), "MessageAddedSessionEvent.message"));
+        return ::session_bridge::MessagesAddedSessionEvent(
+                Codec<std::vector<::session_bridge::Message>>::from(obj.Get("messages"), "MessagesAddedSessionEvent.messages"));
     }
 };
 
 template <>
-struct Codec<::session_bridge::MessageUpdatedSessionEvent> {
-    static constexpr std::string_view name = "MessageUpdatedSessionEvent";
-    static Napi::Value to(Napi::Env env, const ::session_bridge::MessageUpdatedSessionEvent& value) {
+struct Codec<::session_bridge::MessagesUpdatedSessionEvent> {
+    static constexpr std::string_view name = "MessagesUpdatedSessionEvent";
+    static Napi::Value to(Napi::Env env, const ::session_bridge::MessagesUpdatedSessionEvent& value) {
         Napi::Object obj = Napi::Object::New(env);
-        obj.Set("type", Napi::String::New(env, ::session_bridge::MessageUpdatedSessionEvent::type_tag.data(), ::session_bridge::MessageUpdatedSessionEvent::type_tag.size()));
-        obj.Set("conversationId", Codec<std::string>::to(env, value.conversation_id));
-        obj.Set("message", Codec<::session_bridge::Message>::to(env, value.message));
+        obj.Set("type", Napi::String::New(env, ::session_bridge::MessagesUpdatedSessionEvent::type_tag.data(), ::session_bridge::MessagesUpdatedSessionEvent::type_tag.size()));
+        obj.Set("messages", Codec<std::vector<::session_bridge::Message>>::to(env, value.messages));
         return obj;
     }
-    static ::session_bridge::MessageUpdatedSessionEvent from(const Napi::Value& value, std::string_view where) {
+    static ::session_bridge::MessagesUpdatedSessionEvent from(const Napi::Value& value, std::string_view where) {
         Napi::Object obj = object(value, where);
-        return ::session_bridge::MessageUpdatedSessionEvent(
-                Codec<std::string>::from(obj.Get("conversationId"), "MessageUpdatedSessionEvent.conversationId"),
-                Codec<::session_bridge::Message>::from(obj.Get("message"), "MessageUpdatedSessionEvent.message"));
+        return ::session_bridge::MessagesUpdatedSessionEvent(
+                Codec<std::vector<::session_bridge::Message>>::from(obj.Get("messages"), "MessagesUpdatedSessionEvent.messages"));
     }
 };
 
@@ -830,7 +822,6 @@ struct Codec<::session_bridge::AttachmentProgressSessionEvent> {
         Napi::Object obj = Napi::Object::New(env);
         obj.Set("type", Napi::String::New(env, ::session_bridge::AttachmentProgressSessionEvent::type_tag.data(), ::session_bridge::AttachmentProgressSessionEvent::type_tag.size()));
         obj.Set("transfer", Codec<::session_bridge::AttachmentTransfer>::to(env, value.transfer));
-        obj.Set("conversationId", Codec<std::string>::to(env, value.conversation_id));
         obj.Set("messageId", Codec<double>::to(env, value.message_id));
         obj.Set("index", Codec<double>::to(env, value.index));
         obj.Set("done", Codec<double>::to(env, value.done));
@@ -843,7 +834,6 @@ struct Codec<::session_bridge::AttachmentProgressSessionEvent> {
         Napi::Object obj = object(value, where);
         return ::session_bridge::AttachmentProgressSessionEvent(
                 Codec<::session_bridge::AttachmentTransfer>::from(obj.Get("transfer"), "AttachmentProgressSessionEvent.transfer"),
-                Codec<std::string>::from(obj.Get("conversationId"), "AttachmentProgressSessionEvent.conversationId"),
                 Codec<double>::from(obj.Get("messageId"), "AttachmentProgressSessionEvent.messageId"),
                 Codec<double>::from(obj.Get("index"), "AttachmentProgressSessionEvent.index"),
                 Codec<double>::from(obj.Get("done"), "AttachmentProgressSessionEvent.done"),
@@ -895,10 +885,10 @@ struct Codec<::session_bridge::SessionEvent> {
             return Codec<::session_bridge::ConversationListReplacedSessionEvent>::from(value, where);
         if (tag == "request-list-replaced")
             return Codec<::session_bridge::RequestListReplacedSessionEvent>::from(value, where);
-        if (tag == "message-added")
-            return Codec<::session_bridge::MessageAddedSessionEvent>::from(value, where);
-        if (tag == "message-updated")
-            return Codec<::session_bridge::MessageUpdatedSessionEvent>::from(value, where);
+        if (tag == "messages-added")
+            return Codec<::session_bridge::MessagesAddedSessionEvent>::from(value, where);
+        if (tag == "messages-updated")
+            return Codec<::session_bridge::MessagesUpdatedSessionEvent>::from(value, where);
         if (tag == "history-replaced")
             return Codec<::session_bridge::HistoryReplacedSessionEvent>::from(value, where);
         if (tag == "attachment-progress")

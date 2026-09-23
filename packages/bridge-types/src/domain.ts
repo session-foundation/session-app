@@ -50,26 +50,20 @@ export type AutoDownload = 'none' | 'image-attachments' | 'all'
 export type AttachmentTransfer = 'download' | 'save'
 
 /**
- * What one attachment's bytes are doing on this device, as of the answer that carried it.
+ * Whether an attachment's bytes are here, on their way, or neither.
  *
- * The one way back to the truth about a transfer: nothing about one is stored, so a screen that
- * was not listening - it had not opened this conversation, the app had not started - cannot learn
- * from the reports what it missed. It arrives with the page of messages it describes, so a row
- * never draws a state it is about to correct.
+ * What it is for is deciding what to *draw*: the file, a progress indicator, or something to
+ * press. It arrives **on the message** rather than being asked for separately, which is what
+ * makes a display that missed the reports correct without a second query.
+ *
+ * A hint about what the next call will do rather than a promise about the file: a `cached` that
+ * is evicted before anybody asks only means the fetch reads the network instead of the disk.
+ *
+ * Reported for an outgoing attachment as for an incoming one - what we send is kept under the
+ * rule that would have fetched it - so "can this be drawn without a download" has one answer
+ * regardless of direction.
  */
-export interface AttachmentStatus {
-  messageId: number
-  index: number
-  /** Asking for the bytes would answer from disk. A strong hint: a sweep can falsify it, and a
-   *  fetch that misses simply downloads. */
-  cached: boolean
-  /** A transfer is running, and `done`/`total` are where it has got to - the same encrypted-byte
-   *  figures `attachment-progress` carries, so a bar seeded here and then fed by reports does not
-   *  jump. A save is never visible here: it keeps nothing, so there is nothing to join. */
-  transferring: boolean
-  done: number
-  total: number
-}
+export type AttachmentAvailability = 'cached' | 'fetching' | 'absent'
 
 /** Accepted and verified: the only `AttachmentProgress.result` that means finished. */
 export const ATTACHMENT_OK = 0
@@ -90,8 +84,6 @@ export interface Attachment {
   /** The sender's claim on an incoming attachment: a display hint, not a fact about the bytes. */
   contentType?: string
   filename?: string
-  /** Shown with the attachment, and distinct from the message body. */
-  caption?: string
   /**
    * The file's size before encryption. Unset on an outgoing attachment that has not uploaded, and
    * the sender's claim on an incoming one. Not comparable with a progress report's `total`, which
@@ -103,20 +95,43 @@ export interface Attachment {
   width?: number
   height?: number
   /**
+   * A BlurHash of the picture, for drawing something in its place before the bytes arrive.
+   *
+   * Carried and never parsed: libsession bounds its length and looks no further, so this is the
+   * sender's claim like `width` and `height` beside it. Absent on everything sent by a client
+   * that does not encode one, which today is every 1.x client.
+   */
+  blurhash?: string
+  /**
    * On the file server: an outgoing attachment's upload finished, and always true for an incoming
    * one. Deliberately not "the bytes are here" - libsession records no local path, because the
    * application chose it and a stored copy would go stale the moment the file moved.
    */
   uploaded: boolean
   /**
-   * A fetch has failed in a way that will not come out differently: the file server does not hold
-   * it, or the bytes arrived and were not what they claimed. Offering to download it again is
-   * offering the same failure.
+   * Why the last fetch failed, when it failed in a way that trying again will not fix. Unset
+   * means only that nothing has proved otherwise.
    *
-   * False means only that nothing has proved otherwise - an attachment nobody has tried to fetch
-   * looks the same as one that would succeed.
+   * A code rather than a flag, because the two cases are different things to tell somebody: 404,
+   * which is how the file server answers for an upload it does not hold, is the sender's to
+   * repair - the same file re-sent lands at the same url and puts the bytes back - and
+   * `ATTACHMENT_UNREADABLE` is not. **Anything read off this needs a default**: what is recorded
+   * is the code the failure carried, so a value nothing here anticipates is kept as itself
+   * rather than flattened into "some other problem".
    */
-  unavailable: boolean
+  unavailable?: number
+  /** Whether the bytes are here, coming, or neither. See `AttachmentAvailability`. */
+  availability: AttachmentAvailability
+  /**
+   * How far the transfer has got while `availability` is `fetching`, and 0 otherwise.
+   *
+   * The same encrypted-byte figures `attachment-progress` carries, so a bar drawn from these and
+   * then fed by reports continues rather than jumping. `fetchTotal` is 0 until the server has
+   * said how big the file is. What they are for is a conversation opened while a download is
+   * already running: the reports went to whoever started it.
+   */
+  fetchDone: number
+  fetchTotal: number
   /**
    * When the recipient last saved it - us on an incoming attachment, the other party on one we
    * sent. Unset means *not known to have been saved*, which is not the same as not saved: it

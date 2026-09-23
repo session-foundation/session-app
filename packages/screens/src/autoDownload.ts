@@ -28,12 +28,11 @@ export function mayFetchUnasked(attachment: Attachment, setting?: AutoDownload):
 /**
  * Whether a tile should be given a url at all.
  *
- * Only the permission question for now. "The bytes are already here" would be the other half of
- * it - reading a local file costs nothing and refusing to draw it would answer a question nobody
- * asked - but nothing on an attachment says so yet, and the only thing that knows is a transfer
- * this session happened to watch. A page loaded fresh has no such record, so a rule built on one
- * would give two different answers to the same question.
+ * Cached is not a permission question: the bytes are on this device, reading them costs nothing
+ * and refusing to draw them would be answering a question nobody asked. It became askable with
+ * `availability` - before that the only thing that knew was a transfer this session happened to
+ * watch, which a freshly loaded page does not have.
  */
 export function mayResolve(attachment: Attachment, setting?: AutoDownload): boolean {
-  return mayFetchUnasked(attachment, setting)
+  return attachment.availability === 'cached' || mayFetchUnasked(attachment, setting)
 }

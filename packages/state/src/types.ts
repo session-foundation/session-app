@@ -83,7 +83,7 @@ export interface SessionState {
    * whose history is gone, and an auto-downloading conversation would otherwise grow this for
    * the life of the session.
    */
-  transfers: Record<string, AttachmentTransferState & { conversationId: ConversationId }>
+  transfers: Record<string, AttachmentTransferState>
 }
 
 export const emptyState: SessionState = {

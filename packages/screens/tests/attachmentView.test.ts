@@ -9,7 +9,9 @@ function attachment(index: number, contentType?: string): Attachment {
     ...(contentType === undefined ? {} : { contentType }),
     voiceMessage: false,
     uploaded: true,
-    unavailable: false,
+    availability: 'absent',
+    fetchDone: 0,
+    fetchTotal: 0,
   }
 }
 

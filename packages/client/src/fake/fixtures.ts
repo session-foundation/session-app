@@ -64,7 +64,9 @@ const SEEDED_PICTURES: Attachment[] = [
     width: 1600,
     height: 1200,
     uploaded: true,
-    unavailable: false,
+    availability: 'absent',
+    fetchDone: 0,
+    fetchTotal: 0,
   },
   {
     index: 1,
@@ -75,7 +77,9 @@ const SEEDED_PICTURES: Attachment[] = [
     width: 1200,
     height: 1600,
     uploaded: true,
-    unavailable: false,
+    availability: 'absent',
+    fetchDone: 0,
+    fetchTotal: 0,
   },
 ]
 
@@ -93,7 +97,9 @@ const SEEDED_FILES: Attachment[] = [
     width: 900,
     height: 1200,
     uploaded: true,
-    unavailable: false,
+    availability: 'absent',
+    fetchDone: 0,
+    fetchTotal: 0,
   },
   {
     index: 1,
@@ -102,7 +108,9 @@ const SEEDED_FILES: Attachment[] = [
     size: 184_320,
     voiceMessage: false,
     uploaded: true,
-    unavailable: false,
+    availability: 'absent',
+    fetchDone: 0,
+    fetchTotal: 0,
   },
 ]
 
@@ -126,7 +134,9 @@ const SEEDED_MANY: Attachment[] = Array.from({ length: 13 }, (_, at) => ({
   size: 120_000 + at * 4_000,
   voiceMessage: false,
   uploaded: true,
-  unavailable: false,
+  availability: 'absent',
+  fetchDone: 0,
+  fetchTotal: 0,
 }))
 
 export interface FakeSetup {

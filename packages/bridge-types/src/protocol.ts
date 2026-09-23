@@ -1,6 +1,5 @@
 import type {
   AccountInfo,
-  AttachmentStatus,
   AttachmentTransfer,
   AutoDownload,
   Conversation,
@@ -287,17 +286,14 @@ export type Result =
    * wrong shows up as a conversation that reads bottom to top.
    */
   /**
-   * A page, and what its attachments are doing.
+   * A page of history.
    *
-   * The two travel together because a transfer has no stored state to look up later: a window
-   * that arrived without them would draw every attachment as untouched and then correct itself.
-   * Deliberately not fields on `Attachment` - that is libsession's account of the message, and
-   * this is what this device is doing about it, which changes far more often and is also what
-   * `attachment-progress` reports. One writer for the first picture, one for the updates.
-   *
-   * Attachments with nothing to fetch are absent rather than listed as idle.
+   * What each attachment's bytes are doing rides on the attachment itself - `availability`,
+   * `fetchDone`, `fetchTotal` - rather than in a list beside the page. One writer for the first
+   * picture and for every correction after it, which is what stops a window drawing an
+   * attachment as untouched and then taking it back.
    */
-  | { type: 'messageList'; messages: Message[]; transfers: AttachmentStatus[] }
+  | { type: 'messageList'; messages: Message[] }
   | { type: 'messageId'; messageId: number }
   | { type: 'hex'; hex: string }
   | { type: 'pref'; value?: string }
@@ -338,8 +334,19 @@ export type SessionEvent =
   | { type: 'conversation-removed'; conversationId: ConversationId }
   | { type: 'conversation-list-replaced'; conversations: Conversation[] }
   | { type: 'request-list-replaced'; conversations: Conversation[] }
-  | { type: 'message-added'; conversationId: ConversationId; message: Message }
-  | { type: 'message-updated'; conversationId: ConversationId; message: Message }
+  /**
+   * Messages arrived or changed, oldest first.
+   *
+   * A batch, and **it may span conversations**: one cause routinely reaches several, because a
+   * file is one file and fetching or evicting it changes every message showing it, wherever
+   * those are. Each `Message` carries its own `conversationId` for that reason.
+   *
+   * Reported for every message in every conversation rather than whichever one is on screen -
+   * there is no notion here of what the app is showing, so deciding what to redraw is the app's.
+   * A message can also arrive here because something it *quotes* changed.
+   */
+  | { type: 'messages-added'; messages: Message[] }
+  | { type: 'messages-updated'; messages: Message[] }
   | { type: 'history-replaced'; conversationId: ConversationId }
   /**
    * One report about one attachment transfer, whether a command asked for it or libsession
@@ -361,9 +368,6 @@ export type SessionEvent =
   | {
       type: 'attachment-progress'
       transfer: AttachmentTransfer
-      /** So a screen can drop what it is not showing: an auto-downloading conversation reports
-       *  whether or not anyone is looking at it. */
-      conversationId: ConversationId
       messageId: number
       index: number
       done: number

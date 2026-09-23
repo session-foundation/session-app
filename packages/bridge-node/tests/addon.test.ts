@@ -3,14 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import type {
-  Attachment,
-  AttachmentStatus,
-  Conversation,
-  Frame,
-  Message,
-  Request,
-} from '@session/bridge-types'
+import type { Attachment, Conversation, Frame, Message, Request } from '@session/bridge-types'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { createNodeBridgeTransport } from '#src/index'
@@ -269,37 +262,27 @@ describeEcho('the generated converters', () => {
     index: 0,
     contentType: 'image/jpeg',
     filename: 'harbour ñ.jpg',
-    caption: 'the harbour',
     size: 2_411_724,
     voiceMessage: true,
     width: 1600,
     height: 1200,
+    blurhash: 'LEHV6nWB2yk8pyo0adR*.7kCMdnj',
     uploaded: true,
-    unavailable: true,
+    unavailable: 404,
+    availability: 'cached',
+    fetchDone: 0,
+    fetchTotal: 0,
     savedAt: 1_700_000_200_000,
   }
   const bareAttachment: Attachment = {
     index: 1,
     voiceMessage: false,
     uploaded: false,
-    unavailable: false,
+    availability: 'absent',
+    fetchDone: 0,
+    fetchTotal: 0,
   }
-  const fullStatus: AttachmentStatus = {
-    messageId: 42,
-    index: 0,
-    cached: true,
-    transferring: true,
-    done: 1_200_000,
-    total: 2_411_748,
-  }
-  const bareStatus: AttachmentStatus = {
-    messageId: 42,
-    index: 1,
-    cached: false,
-    transferring: false,
-    done: 0,
-    total: 0,
-  }
+
   const fullMessage: Message = {
     id: 42,
     conversationId,
@@ -367,7 +350,6 @@ describeEcho('the generated converters', () => {
         result: {
           type: 'messageList',
           messages: [fullMessage, bareMessage],
-          transfers: [fullStatus, bareStatus],
         },
       },
     },
@@ -377,8 +359,14 @@ describeEcho('the generated converters', () => {
     { type: 'response', response: { id: 900_011, result: { type: 'pref' } } },
     { type: 'response', response: { id: 900_012, result: { type: 'bool', value: true } } },
     { type: 'response', response: { id: 900_013, result: { type: 'empty' } } },
-    { type: 'response', response: { id: 900_014, result: { type: 'path', path: '/tmp/a (2).jpg' } } },
-    { type: 'response', response: { id: 900_015, result: { type: 'byteCount', bytes: 5_000_000 } } },
+    {
+      type: 'response',
+      response: { id: 900_014, result: { type: 'path', path: '/tmp/a (2).jpg' } },
+    },
+    {
+      type: 'response',
+      response: { id: 900_015, result: { type: 'byteCount', bytes: 5_000_000 } },
+    },
     { type: 'response', response: { id: 900_016, result: { type: 'byteCount' } } },
     { type: 'event', event: { type: 'conversation-added', conversation: fullConversation } },
     { type: 'event', event: { type: 'conversation-updated', conversation: bareConversation } },
@@ -388,15 +376,14 @@ describeEcho('the generated converters', () => {
       event: { type: 'conversation-list-replaced', conversations: [fullConversation] },
     },
     { type: 'event', event: { type: 'request-list-replaced', conversations: [] } },
-    { type: 'event', event: { type: 'message-added', conversationId, message: fullMessage } },
-    { type: 'event', event: { type: 'message-updated', conversationId, message: bareMessage } },
+    { type: 'event', event: { type: 'messages-added', messages: [fullMessage] } },
+    { type: 'event', event: { type: 'messages-updated', messages: [bareMessage] } },
     { type: 'event', event: { type: 'history-replaced', conversationId } },
     {
       type: 'event',
       event: {
         type: 'attachment-progress',
         transfer: 'download',
-        conversationId,
         messageId: 42,
         index: 0,
         done: 0,
@@ -408,7 +395,6 @@ describeEcho('the generated converters', () => {
       event: {
         type: 'attachment-progress',
         transfer: 'save',
-        conversationId,
         messageId: 42,
         index: 1,
         done: 2_411_748,

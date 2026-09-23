@@ -36,8 +36,13 @@ function message(overrides: Partial<Message> = {}): Message {
   }
 }
 
-/** A conversation whose history is loaded, which is what a progress report needs to land. */
-function loaded(messages: Message[] = []): SessionState {
+/**
+ * A loaded history holding the message the reports below are about.
+ *
+ * A report names a message and not a conversation, so what decides whether one is kept is
+ * whether some loaded window holds that message.
+ */
+function loaded(messages: Message[] = [message()]): SessionState {
   return {
     ...emptyState,
     histories: {
@@ -52,7 +57,6 @@ function progress(
   return {
     type: 'attachment-progress',
     transfer: 'download',
-    conversationId: '05alice',
     messageId: 1,
     index: 0,
     done: 0,
@@ -111,7 +115,7 @@ describe('applyEvent', () => {
   it('ignores messages for a conversation whose history was never loaded', () => {
     const state = replay([
       { type: 'conversation-added', conversation: conversation() },
-      { type: 'message-added', conversationId: '05alice', message: message() },
+      { type: 'messages-added', messages: [message()] },
     ])
 
     // A window built from one event would look complete and would not be.
@@ -134,9 +138,8 @@ describe('applyEvent', () => {
     // A timestamp that would sort between the two, to show it is not sorted in: the event
     // reports what libsession just recorded, and the transcript reads in libsession's order.
     const state = applyEvent(seeded, {
-      type: 'message-added',
-      conversationId: '05alice',
-      message: message({ id: 2, timestamp: 2000 }),
+      type: 'messages-added',
+      messages: [message({ id: 2, timestamp: 2000 })],
     })
 
     expect(state.histories['05alice']?.messages.map((m) => m.id)).toEqual([1, 3, 2])
@@ -156,9 +159,8 @@ describe('applyEvent', () => {
     }
 
     const state = applyEvent(seeded, {
-      type: 'message-updated',
-      conversationId: '05alice',
-      message: message({ id: 1, sendState: 'sent' }),
+      type: 'messages-updated',
+      messages: [message({ id: 1, sendState: 'sent' })],
     })
 
     const messages = state.histories['05alice']?.messages ?? []
@@ -269,9 +271,8 @@ describe('applyEvent', () => {
     }
 
     const state = applyEvent(seeded, {
-      type: 'message-added',
-      conversationId: '05alice',
-      message: message({ id: 3, timestamp: 3000 }),
+      type: 'messages-added',
+      messages: [message({ id: 3, timestamp: 3000 })],
     })
 
     expect(state.histories['05alice']?.messages.map((m) => m.id)).toEqual([1, 2, 3])
@@ -287,7 +288,7 @@ describe('applyEvent', () => {
     const state = replay(
       [
         { type: 'conversation-added', conversation: convo },
-        { type: 'message-added', conversationId: '05alice', message: msg },
+        { type: 'messages-added', messages: [msg] },
       ],
       seeded,
     )
@@ -323,13 +324,9 @@ describe('mergePages', () => {
 
 describe('attachment transfers', () => {
   it('records a report against the transfer it belongs to', () => {
-    const state = replay(
-      [progress(), progress({ done: 512, total: 2048 })],
-      loaded([message({ attachments: [] })]),
-    )
+    const state = replay([progress(), progress({ done: 512, total: 2048 })], loaded([message()]))
 
     expect(state.transfers['download:1:0']).toEqual({
-      conversationId: '05alice',
       state: 'running',
       done: 512,
       total: 2048,
@@ -376,7 +373,10 @@ describe('attachment transfers', () => {
 
   it('forgets a conversation transfers when its history is replaced', () => {
     const state = replay(
-      [progress({ done: 512, total: 2048 }), { type: 'history-replaced', conversationId: '05alice' }],
+      [
+        progress({ done: 512, total: 2048 }),
+        { type: 'history-replaced', conversationId: '05alice' },
+      ],
       loaded(),
     )
     expect(Object.keys(state.transfers)).toEqual([])

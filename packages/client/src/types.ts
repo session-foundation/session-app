@@ -11,7 +11,6 @@
 
 import type {
   AccountInfo,
-  AttachmentStatus,
   AutoDownload,
   Conversation,
   ConversationId,
@@ -110,16 +109,16 @@ export interface SessionClient {
   deleteConversation(id: ConversationId, keepMessages?: boolean): Promise<void>
 
   /**
-   * A page, and what its attachments are doing.
+   * A page of history, oldest first.
    *
-   * The two come back together because a transfer has no stored state to look up afterwards: a
-   * window built without them would draw every attachment as untouched and correct itself a
-   * moment later. Attachments with nothing to fetch are absent rather than listed as idle.
+   * What each attachment's bytes are doing rides on the attachment - `availability`, `fetchDone`,
+   * `fetchTotal` - so a window built from this page is already correct rather than drawing every
+   * attachment as untouched and then taking it back.
    */
   getMessages(
     id: ConversationId,
     options?: { limit?: number; before?: MessageCursor; includeDeleted?: boolean },
-  ): Promise<{ messages: Message[]; transfers: AttachmentStatus[] }>
+  ): Promise<{ messages: Message[] }>
   /**
    * Resolves as soon as libsession has stored the row, which is before it is sent. The states
    * that follow arrive as message-updated.
