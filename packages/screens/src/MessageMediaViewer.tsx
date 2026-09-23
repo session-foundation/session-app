@@ -5,7 +5,8 @@ import { useSessionActions } from '@session/state'
 import { ELEMENT } from '@session/test-ids'
 import { MediaViewer, type MediaViewerItem } from '@session/ui'
 
-import { saveOne } from './saveAttachment'
+import { exportOne } from './exportAttachment'
+import { PENDING_COPY } from './pendingCopy'
 import { viewableAttachments } from './viewableAttachments'
 
 /**
@@ -48,7 +49,7 @@ export function MessageMediaViewer({
       onIndex={onIndex}
       onClose={onClose}
       onExport={() => {
-        if (attachment !== undefined) void saveOne(message, attachment.index, actions)
+        if (attachment !== undefined) void exportOne(message, attachment.index, actions)
       }}
       // Nothing behind it yet: the row's own menu is where these live, and a second copy of it
       // belongs with that work rather than ahead of it.
@@ -56,7 +57,7 @@ export function MessageMediaViewer({
       positionLabel={`${String(at + 1)} / ${String(items.length)}`}
       unavailableLabel={tr('attachmentsErrorNotSupported')}
       closeLabel={tr('close')}
-      exportLabel={tr('save')}
+      exportLabel={PENDING_COPY.export}
       moreLabel={tr('openMessageContextMenu')}
       // `back` rather than a `previous` the catalogue does not have. The pair reads as one
       // thing anyway: this steps back through the set and `next` steps forward through it.

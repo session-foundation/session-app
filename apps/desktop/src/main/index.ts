@@ -10,6 +10,7 @@ const { app, BrowserWindow, MessageChannelMain, ipcMain, session, shell } = elec
 import type { Request } from '@session/client'
 
 import { createBridge } from './bridge'
+import { serveFiles } from './files'
 import { registerMediaScheme, serveMedia } from './media'
 import {
   applyContentProtection,
@@ -184,6 +185,8 @@ void app.whenReady().then(async () => {
   ipcMain.on('open-external', (_event, url: unknown) => {
     if (typeof url === 'string' && /^https?:\/\//i.test(url)) void shell.openExternal(url)
   })
+
+  serveFiles()
   await createWindow()
 
   app.on('activate', () => {

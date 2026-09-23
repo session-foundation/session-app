@@ -28,4 +28,15 @@ contextBridge.exposeInMainWorld('sessionDesktop', {
   openExternal: (url: string) => {
     ipcRenderer.send('open-external', url)
   },
+  /**
+   * Where a file should go, and showing somebody where it went.
+   *
+   * `invoke` rather than `send` for all three because the first has an answer and the other two
+   * are worth awaiting: a reveal that failed and one that was refused look identical from here,
+   * and main is the only side that knows which.
+   */
+  chooseSaveLocation: (suggestedName: string): Promise<string | null> =>
+    ipcRenderer.invoke('files:choose-save-location', suggestedName),
+  revealInFolder: (path: string): Promise<void> => ipcRenderer.invoke('files:reveal', path),
+  openPath: (path: string): Promise<void> => ipcRenderer.invoke('files:open', path),
 })

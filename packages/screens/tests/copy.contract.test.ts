@@ -118,6 +118,8 @@ describe('screen copy', () => {
       'attachmentCount',
       'attachmentViewGallery',
       'attachmentViewList',
+      'export',
+      'exporting',
     ])
   })
 })

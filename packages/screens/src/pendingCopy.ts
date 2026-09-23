@@ -3,8 +3,9 @@
  *
  * Every other word a person reads comes from `@session/localization`, and
  * `tests/copy.contract.test.ts` enforces that across every screen. These do not: the attachment
- * cache section, the set's own count and the gallery/list toggle need them and the Crowdin set
- * has nothing that fits, so they ship as English in every locale until the keys land.
+ * cache section, the set's own count, the gallery/list toggle and the export verb need them and
+ * the Crowdin set has nothing that fits, so they ship as English in every locale until the keys
+ * land.
  *
  * Each name is the token it is destined for, so promoting one is a swap:
  * `PENDING_COPY.attachmentCache` becomes `tr('attachmentCache')` and the entry goes. Adding to
@@ -26,4 +27,14 @@ export const PENDING_COPY = {
     count === 1 ? '1 attachment' : `${String(count)} attachments`,
   attachmentViewGallery: 'Gallery',
   attachmentViewList: 'List',
+  /**
+   * Writing a file we already hold out to a folder somebody chose.
+   *
+   * The catalogue has `save`, `saving` and `saved`, and every one of them is used for the
+   * download as well - which is how the same word ends up on a row that has nothing and on a row
+   * that has everything. The only Export in the set is `helpReportABugExportLogs`, which is
+   * about logs.
+   */
+  export: 'Export',
+  exporting: 'Exporting',
 } as const

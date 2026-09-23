@@ -11,7 +11,7 @@ import { AttachmentPill } from './AttachmentPill'
 import { summarise, type AttachmentSet } from './attachmentSet'
 import { attachmentView, canChooseView, type AttachmentView } from './attachmentView'
 import { MessageAlbum } from './MessageAlbum'
-import { saveOne } from './saveAttachment'
+import { exportOne } from './exportAttachment'
 
 /**
  * Everything one message's attachments draw: the album or the list, and the one footer under both.
@@ -48,7 +48,7 @@ export function MessageAttachments({
     if (set.state === 'ready') {
       // Exactly one, or the footer would not have offered this - see `verb`.
       const only = message.attachments[0]
-      if (only !== undefined) void saveOne(message, only.index, actions)
+      if (only !== undefined) void exportOne(message, only.index, actions)
       return
     }
     // Every attachment, whether or not a tile is drawing it. Download and retry are the same call:

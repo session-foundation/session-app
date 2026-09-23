@@ -7,6 +7,7 @@ import { _electron, type ElectronApplication, type Page } from '@playwright/test
 import type { ElementId } from '@session/test-ids'
 
 import type { ISessionApp } from './ISessionApp'
+import type { IFileChooser } from './FileChooser'
 import type { IPerformanceProbe } from './PerformanceProbe'
 
 /**
@@ -57,7 +58,7 @@ const repoRoot = fileURLToPath(new URL('../../..', import.meta.url))
  * writes is the same string the component was given. There is no per-platform locator table
  * here, and there should not need to be one.
  */
-export class DesktopApp implements ISessionApp, IPerformanceProbe {
+export class DesktopApp implements ISessionApp, IPerformanceProbe, IFileChooser {
   readonly platform = 'desktop' as const
 
   private constructor(
@@ -174,6 +175,32 @@ export class DesktopApp implements ISessionApp, IPerformanceProbe {
       path: join(repoRoot, 'test-results', `${name}.png`),
       animations: 'disabled',
     })
+  }
+
+  // -- IFileChooser -----------------------------------------------------------------------
+
+  async answerSaveDialogWith(path: string): Promise<void> {
+    await this.app.evaluate(({ dialog, shell }, chosen) => {
+      dialog.showSaveDialog = () => Promise.resolve({ canceled: false, filePath: chosen })
+      // Recorded on the main process itself, because that is what outlives the call and what a
+      // later evaluate can read back. Replacing it also stops a file manager window opening on
+      // whoever is running the suite.
+      const global = globalThis as unknown as { sessionRevealed?: string[] }
+      global.sessionRevealed = []
+      shell.showItemInFolder = (revealed: string) => global.sessionRevealed?.push(revealed)
+    }, path)
+  }
+
+  async cancelNextSaveDialog(): Promise<void> {
+    await this.app.evaluate(({ dialog }) => {
+      dialog.showSaveDialog = () => Promise.resolve({ canceled: true, filePath: '' })
+    })
+  }
+
+  async revealedPaths(): Promise<string[]> {
+    return this.app.evaluate(
+      () => (globalThis as unknown as { sessionRevealed?: string[] }).sessionRevealed ?? [],
+    )
   }
 
   // -- IPerformanceProbe ------------------------------------------------------------------

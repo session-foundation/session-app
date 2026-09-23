@@ -8,7 +8,8 @@ import { useState } from 'react'
 
 import { mayResolve } from './autoDownload'
 import { formatBytes } from './formatBytes'
-import { saveOne } from './saveAttachment'
+import { PENDING_COPY } from './pendingCopy'
+import { exportOne } from './exportAttachment'
 import { isViewable } from './viewableAttachments'
 
 /**
@@ -41,7 +42,8 @@ export function AttachmentRow({
 }) {
   const actions = useSessionActions()
   const download = useAttachmentTransfer('download', message.id, attachment.index)
-  const save = useAttachmentTransfer('save', message.id, attachment.index)
+  // The bridge calls it `save`; the button says Export. See `exportAttachment`.
+  const exporting = useAttachmentTransfer('save', message.id, attachment.index)
   const [error, setError] = useState(false)
 
   // `unavailable` says the file server will not hand this out again, which does not unsay a copy
@@ -82,7 +84,7 @@ export function AttachmentRow({
     })
   }
 
-  const act = state === 'ready' ? () => void saveOne(message, attachment.index, actions) : start
+  const act = state === 'ready' ? () => void exportOne(message, attachment.index, actions) : start
 
   return (
     <FileRow
@@ -90,7 +92,7 @@ export function AttachmentRow({
       {...(attachment.contentType === undefined ? {} : { contentType: attachment.contentType })}
       {...(thumbnail === undefined ? {} : { thumbnail })}
       {...(thumbnail === undefined || onOpen === undefined ? {} : { onOpen })}
-      caption={caption(attachment, state, download, save?.state === 'running')}
+      caption={caption(attachment, state, download, exporting?.state === 'running')}
       state={state}
       // Absent while the server has not said how big the file is, which is what the first report
       // of every transfer means: an empty ring rather than a full one.
@@ -107,7 +109,7 @@ export function AttachmentRow({
         // only thing a test can ask about now that the two verbs share one button.
         action:
           state === 'ready'
-            ? ELEMENT.conversation.attachmentSave
+            ? ELEMENT.conversation.attachmentExport
             : ELEMENT.conversation.attachmentDownload,
       }}
     />
@@ -120,7 +122,7 @@ function caption(
   attachment: Attachment,
   state: FileRowState,
   download: Transfer,
-  saving: boolean,
+  exporting: boolean,
 ): string {
   if (state === 'unavailable') return tr('attachmentsExpired')
   if (state === 'failed') return tr('failedToDownload')
@@ -129,13 +131,17 @@ function caption(
     if (download === undefined || download.total === 0) return tr('downloading')
     return `${formatBytes(download.done)} / ${formatBytes(download.total)}`
   }
-  if (saving) return tr('saving')
+  if (exporting) return PENDING_COPY.exporting
   return attachment.size === undefined ? '' : formatBytes(attachment.size)
 }
 
-/** What a screen reader announces the one control as. The glyph is what everyone else reads. */
+/**
+ * What a screen reader announces the one control as. The glyph is what everyone else reads.
+ *
+ * Two verbs, and the state settles which with no further rule: Download moves bytes from the
+ * network into the cache, Export writes a file we already hold out to a folder somebody chose.
+ */
 function actionLabel(state: FileRowState): string {
   if (state === 'failed') return tr('retry')
-  // `save` until the catalogue has a key for exporting; the two verbs are their own piece of work.
-  return state === 'ready' ? tr('save') : tr('download')
+  return state === 'ready' ? PENDING_COPY.export : tr('download')
 }

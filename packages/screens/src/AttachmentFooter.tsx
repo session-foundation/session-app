@@ -182,7 +182,6 @@ function caption(set: AttachmentSet): string {
 function verb(set: AttachmentSet): string | null {
   if (set.state === 'fetching') return null
   if (set.state === 'failed') return tr('retry')
-  // `save` until the catalogue has a key for exporting; the two verbs are their own piece of work.
-  if (set.state === 'ready') return set.count === 1 ? tr('save') : null
+  if (set.state === 'ready') return set.count === 1 ? PENDING_COPY.export : null
   return tr('download')
 }

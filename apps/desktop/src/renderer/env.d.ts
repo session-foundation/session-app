@@ -30,9 +30,12 @@ interface ImportMeta {
   readonly env: ImportMetaEnv
 }
 
-/** What the preload exposes. One function, because that is the whole of the page's privilege. */
+/** What the preload exposes, which is the whole of the page's privilege. */
 interface Window {
   readonly sessionDesktop: {
     openExternal(url: string): void
+    chooseSaveLocation(suggestedName: string): Promise<string | null>
+    revealInFolder(path: string): Promise<void>
+    openPath(path: string): Promise<void>
   }
 }

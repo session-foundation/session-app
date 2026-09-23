@@ -39,7 +39,7 @@ export const ELEMENT = {
     attachmentState: 'message-attachment-state',
     attachmentProgress: 'message-attachment-progress',
     attachmentDownload: 'message-attachment-download',
-    attachmentSave: 'message-attachment-save',
+    attachmentExport: 'message-attachment-export',
     attachmentPill: 'message-attachment-pill',
     attachmentFooter: 'message-attachment-footer',
     attachmentAction: 'message-attachment-action',

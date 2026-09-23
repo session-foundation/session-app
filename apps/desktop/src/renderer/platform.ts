@@ -11,6 +11,15 @@ import { parseNetworkName } from '@session/basic-types'
  */
 setPorts(
   memoryPorts({
+    files: {
+      // Attaching is not a thing the composer can do yet, so the pickers stay the memory ones
+      // rather than becoming two dialogs nothing opens.
+      ...memoryPorts().files,
+      chooseSaveLocation: (suggestedName) =>
+        window.sessionDesktop.chooseSaveLocation(suggestedName),
+      revealInFolder: (path) => window.sessionDesktop.revealInFolder(path),
+      openPath: (path) => window.sessionDesktop.openPath(path),
+    },
     // The scheme the main process registered and serves from the addon - see main/media.ts.
     // Built here rather than imported from there: this is the renderer, and main is not on its
     // side of the sandbox.

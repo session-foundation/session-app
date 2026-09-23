@@ -50,10 +50,10 @@ sessionTest({
       })
       .toBe(false)
 
-    // Downloaded is the row offering to save: nothing says so in words, because there is no
-    // catalogue key that does.
+    // Downloaded is the row offering to export: the two verbs are what tells "the bytes are
+    // not here" apart from "the bytes are here and can be written out".
     await expect
-      .poll(async () => alice.isVisible(ELEMENT.conversation.attachmentSave), { timeout: 10_000 })
+      .poll(async () => alice.isVisible(ELEMENT.conversation.attachmentExport), { timeout: 10_000 })
       .toBe(true)
 
     // Left and come back. The window is dropped when a screen stops showing it, so the store has
@@ -63,7 +63,7 @@ sessionTest({
     await alice.tap(ELEMENT.conversationList.row(0))
     await alice.waitForVisible(ELEMENT.conversation.screen)
     await expect
-      .poll(async () => alice.isVisible(ELEMENT.conversation.attachmentSave), { timeout: 10_000 })
+      .poll(async () => alice.isVisible(ELEMENT.conversation.attachmentExport), { timeout: 10_000 })
       .toBe(true)
 
     await alice.screenshot('attachment-download-desktop')
