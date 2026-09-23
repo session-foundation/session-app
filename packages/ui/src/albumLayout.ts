@@ -21,14 +21,6 @@ export interface AlbumLayout {
   rows: AlbumCell[][]
   /** How many the album is not drawing. The last cell carries the count. 0 when it draws all. */
   overflow: number
-  /**
-   * The box the set's own control centres on.
-   *
-   * The lead tile where there is one; the whole album where there is not, because four equal tiles
-   * have no first among them and a control on one of them would read as that tile's state. Named
-   * here rather than worked out by the renderer: it is a fact about the shape.
-   */
-  control: { width: number; height: number }
   width: number
   height: number
 }
@@ -49,12 +41,12 @@ export function albumLayout(count: number, width: number, seam = ALBUM_SEAM): Al
   const overflow = Math.max(count - shown, 0)
 
   if (shown <= 1) {
-    return layout({ lead: { at: 0, side: width }, rows: [], overflow, width, height: width })
+    return ({ lead: { at: 0, side: width }, rows: [], overflow, width, height: width })
   }
 
   if (shown === 2) {
     const half = Math.floor((width - seam) / 2)
-    return layout({
+    return ({
       lead: null,
       rows: [[{ at: 0, side: half }, { at: 1, side: half }]],
       overflow,
@@ -68,7 +60,7 @@ export function albumLayout(count: number, width: number, seam = ALBUM_SEAM): Al
     // the seam are exactly the big one's height.
     const small = Math.floor((width - 2 * seam) / 3)
     const big = small * 2 + seam
-    return layout({
+    return ({
       lead: { at: 0, side: big },
       rows: [[{ at: 1, side: small }], [{ at: 2, side: small }]],
       overflow,
@@ -79,7 +71,7 @@ export function albumLayout(count: number, width: number, seam = ALBUM_SEAM): Al
 
   if (shown === 4) {
     const half = Math.floor((width - seam) / 2)
-    return layout({
+    return ({
       lead: null,
       rows: [
         [{ at: 0, side: half }, { at: 1, side: half }],
@@ -96,7 +88,7 @@ export function albumLayout(count: number, width: number, seam = ALBUM_SEAM): Al
   // big tile's height, which makes the right block exactly as wide as the big tile.
   const big = Math.floor((width - seam) / 2)
   const small = Math.floor((big - seam) / 2)
-  return layout({
+  return ({
     lead: { at: 0, side: big },
     rows: [
       [{ at: 1, side: small }, { at: 2, side: small }],
@@ -106,14 +98,6 @@ export function albumLayout(count: number, width: number, seam = ALBUM_SEAM): Al
     width,
     height: big,
   })
-}
-
-function layout(parts: Omit<AlbumLayout, 'control'>): AlbumLayout {
-  const control =
-    parts.lead === null
-      ? { width: parts.width, height: parts.height }
-      : { width: parts.lead.side, height: parts.lead.side }
-  return { ...parts, control }
 }
 
 /** The last tile drawn, which is the one the overflow count sits on. */

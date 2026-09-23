@@ -3,7 +3,6 @@ import { XStack, YStack } from 'tamagui'
 
 import { ALBUM_SEAM, albumLayout, lastCell, type AlbumCell } from './albumLayout'
 import { AttachmentTile } from './AttachmentTile'
-import { logical } from './logicalEdges'
 
 export interface AlbumItem {
   /** Where the bytes are, once they are here. Null where this platform has no resolver. */
@@ -20,7 +19,12 @@ export interface AttachmentAlbumProps {
   /** Already worded, because `@session/ui` cannot reach the catalogue. */
   overflowLabel: (count: number) => string
   onOpen: (at: number) => void
-  /** Drawn over the box the layout names, which is the lead tile or the whole album. */
+  /**
+   * The set's own badge, drawn in the album's corner.
+   *
+   * The corner rather than the middle of a tile: a badge on a tile reads as that tile's state, and
+   * this one is about the whole message, including the attachments behind "+N".
+   */
   control?: ReactNode
   testID?: string
 }
@@ -93,15 +97,17 @@ export function AttachmentAlbum({
       )}
 
       {control === undefined ? null : (
+        // The album owns the corner; the control owns what it says. `flex-end` rather than an
+        // inline inset, so it mirrors with the layout and nothing has to ask which way it reads.
         <YStack
           position="absolute"
           top={0}
-          width={layout.control.width}
-          height={layout.control.height}
-          alignItems="center"
-          justifyContent="center"
+          bottom={0}
+          left={0}
+          right={0}
+          alignItems="flex-end"
+          padding="$xs"
           pointerEvents="box-none"
-          {...logical({ insetStart: 0 })}
         >
           {control}
         </YStack>

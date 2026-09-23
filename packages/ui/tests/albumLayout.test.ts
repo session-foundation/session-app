@@ -75,25 +75,6 @@ describe('an album’s shape', () => {
   })
 })
 
-describe('where the set’s control sits', () => {
-  it('centres on the lead tile where there is one', () => {
-    for (const count of [1, 3, 5, 9]) {
-      const l = albumLayout(count, WIDE)
-      expect(l.control.width).toBe(l.lead?.side)
-    }
-  })
-
-  it('centres on the whole album where the tiles are equal', () => {
-    // Four has no first among equals, so a control on one of them would read as that tile's state
-    // rather than the message's.
-    for (const count of [2, 4]) {
-      const l = albumLayout(count, WIDE)
-      expect(l.control.width).toBe(l.width)
-      expect(l.control.height).toBe(l.height)
-    }
-  })
-})
-
 describe('an album at a phone’s width', () => {
   it('keeps every shape, scaled', () => {
     for (const count of [1, 2, 3, 4, 5]) {

@@ -3,6 +3,7 @@ import { transferKey, useAttachmentTransfers, useSessionActions } from '@session
 import { YStack } from '@session/ui'
 
 import { AttachmentFooter } from './AttachmentFooter'
+import { AttachmentPill } from './AttachmentPill'
 import { AttachmentRow } from './AttachmentRow'
 import { summarise, type AttachmentSet } from './attachmentSet'
 import { MessageAlbum } from './MessageAlbum'
@@ -48,7 +49,14 @@ export function MessageAttachments({
 
   return (
     <YStack gap="$3xs">
-      {viewable.length === 0 ? null : <MessageAlbum message={message} onOpen={onOpen} autoDownload={autoDownload} />}
+      {viewable.length === 0 ? null : (
+        <MessageAlbum
+          message={message}
+          onOpen={onOpen}
+          control={<AttachmentPill set={set} />}
+          autoDownload={autoDownload}
+        />
+      )}
       {files.map((attachment) => (
         <AttachmentRow
           key={attachment.index}
