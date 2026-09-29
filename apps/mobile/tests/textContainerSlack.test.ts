@@ -32,6 +32,11 @@ function body(source: string, selectorStart: string): string {
 describe('the iOS text container slack', () => {
   const selector = /SELECTOR =\s*@"([^"]+)"/.exec(fix)?.[1]
 
+  it('names the class that method is on', () => {
+    expect(/CLASS = @"([^"]+)"/.exec(fix)?.[1]).toBe('RCTTextLayoutManager')
+    expect(layoutManager).toMatch(/^@implementation RCTTextLayoutManager\b/m)
+  })
+
   it('names the method React Native builds every text container in', () => {
     expect(selector).toBe(
       '_textStorageAndLayoutManagerWithAttributesString:paragraphAttributes:size:',

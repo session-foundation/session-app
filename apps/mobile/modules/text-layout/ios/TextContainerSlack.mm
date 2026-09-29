@@ -2,7 +2,6 @@
 #import <objc/runtime.h>
 
 #import <react/renderer/attributedstring/ParagraphAttributes.h>
-#import <react/renderer/textlayoutmanager/RCTTextLayoutManager.h>
 
 using facebook::react::ParagraphAttributes;
 
@@ -25,6 +24,10 @@ using facebook::react::ParagraphAttributes;
  */
 static const CGFloat SLACK = 0.01;
 
+// By name, so nothing here links against React Native: the class is looked up at launch, and the
+// only thing taken from its headers is the argument type the replacement has to share.
+static NSString *const CLASS = @"RCTTextLayoutManager";
+
 static NSString *const SELECTOR =
     @"_textStorageAndLayoutManagerWithAttributesString:paragraphAttributes:size:";
 
@@ -46,9 +49,9 @@ static NSTextStorage *withSlack(
 
 + (void)load
 {
-  Method method = class_getInstanceMethod([RCTTextLayoutManager class], NSSelectorFromString(SELECTOR));
+  Method method = class_getInstanceMethod(NSClassFromString(CLASS), NSSelectorFromString(SELECTOR));
   if (method == NULL) {
-    NSAssert(NO, @"RCTTextLayoutManager no longer has %@; see TextContainerSlack.mm", SELECTOR);
+    NSAssert(NO, @"%@ no longer has %@; see TextContainerSlack.mm", CLASS, SELECTOR);
     return;
   }
   original = (TextStorageForSize)method_setImplementation(method, (IMP)withSlack);
