@@ -21,6 +21,9 @@ using facebook::react::ParagraphAttributes;
  * The method is React Native's own, private, and reached here from the prebuilt core without
  * building it from source. `apps/mobile/tests/textContainerSlack.test.ts` checks React Native's
  * source still declares it with this signature; a debug build stops at launch if it has gone.
+ *
+ * React Native 0.88 fixes this upstream by rounding the measurement past the pixel boundary
+ * (react/react-native@5e40a17); the test fails once that is installed, and this module can go.
  */
 static const CGFloat SLACK = 0.01;
 

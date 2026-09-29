@@ -57,6 +57,14 @@ describe('the iOS text container slack', () => {
     expect(draw).toMatch(/_textStorageAndLayoutManagerWithAttributesString:.*?size:frame\.size\]/)
   })
 
+  // React Native 0.88 fixes the same bug upstream, in measurement rather than drawing: it rounds a
+  // text's measured size up past the pixel boundary (react/react-native@5e40a17), so the frame
+  // Yoga rounds is never short of the text. Once the installed version has it, re-check the
+  // notifications step on iOS 26 without this module and remove it.
+  it('is still needed: React Native does not yet round measurements past the pixel boundary', () => {
+    expect(layoutManager).not.toContain('internal_roundTextMeasurementToPixelGrid')
+  })
+
   // Fails when React Native stops clipping a text with no line limit, which may mean the
   // shortfall no longer loses a line and the fix can go -- check on iOS 26 before removing it.
   it('is still needed: a text with no line limit still clips', () => {
