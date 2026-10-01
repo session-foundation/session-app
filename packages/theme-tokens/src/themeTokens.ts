@@ -427,14 +427,30 @@ function dim({
   return tint(dimmed, Math.max(emphasis, own.c * CHROMA_DECAY), ownHue)
 }
 
+/** The roles that depend on the accent. Every other role is derived from the knobs alone. */
+type AccentRole = 'primaryColor' | 'onAccent' | 'accentText' | 'accentHover' | 'accentPressed'
+
+/** A theme's accent-independent half, and the anchors its accent roles are measured against. */
+interface ThemeBase {
+  tokens: Omit<ThemeTokens, AccentRole>
+  text: string
+  background: string
+  surfaces: string[]
+}
+
 /**
- * The whole theme from its knobs and an accent.
+ * Each set of knobs' accent-independent half, derived once.
  *
- * Public, and not only for the four presets: an accent the *user* picks has to go through exactly
- * the same derivation as one we shipped, or a custom accent is a second code path that nobody
- * tests. A preset is then just a stored set of knobs.
+ * The app builds every theme against every accent at startup, and all but five roles are the same
+ * for each accent: without this the same surfaces, text and semantic colours were derived over
+ * again per accent, which was about forty milliseconds of the first render. Keyed by the knobs
+ * object, so a preset is derived once and a custom set is let go with it.
  */
-export function deriveTokens(knobs: ThemeKnobs, accent: string): ThemeTokens {
+const BASES = new WeakMap<ThemeKnobs, ThemeBase>()
+
+function themeBase(knobs: ThemeKnobs): ThemeBase {
+  const held = BASES.get(knobs)
+  if (held !== undefined) return held
   const { polarity, background, tint: t, textTint, semantic, overrides } = knobs
   const target = TARGETS[polarity]
 
@@ -502,6 +518,80 @@ export function deriveTokens(knobs: ThemeKnobs, accent: string): ThemeTokens {
     hue: t.hue,
   })
 
+  const base: ThemeBase = {
+    tokens: {
+      // Both are nearly always labels, which is normal-size text and owes 4.5:1 -- not the 3:1 a
+      // graphic boundary gets. Picking against the fill rather than preferring one anchor is what
+      // keeps that true in every theme: white clears 3:1 on a mid red and loses to black on 4.5.
+      dangerColor: danger,
+      onDanger: contrastPickAll([text, background], [danger]),
+      warningColor: warning,
+      backgroundPrimary: background,
+      backgroundSecondary,
+      backgroundTertiary,
+      backgroundNested,
+      surfaceInverted: panel,
+      surfaceInk: ink,
+      textPrimary: text,
+      // Muted text is the body text dimmed, not the page lifted: deriving it from the background
+      // discards the hue the theme chose for its text, which is how a navy secondary became teal.
+      //
+      // Dimmed as far as the *worst* surface allows, not as far as the base allows. A caption sits on
+      // a card far more often than on the page -- feature rows, stat cards, settings values -- and
+      // targeting the base alone put it at 3.9:1 there while measuring 4.6 where nothing was drawn.
+      // This is also what explains the shipped light value of 5.17 that had looked merely dark: 5.14
+      // against white is exactly what 4.5 against the nested surface costs.
+      textSecondary: contrastAdjustAll(
+        dim({ text, background, ratio: target.mutedText, hue: t.hue, emphasis: t.emphasis }),
+        surfaces,
+        CONTRAST.normal,
+      ),
+      // Deliberately below the AA floor -- a disabled control has to read as unavailable -- but still
+      // present on every surface, which is a lower bar rather than no bar.
+      textDisabled: contrastAdjustAll(
+        dim({ text, background, ratio: target.disabledText, hue: t.hue, emphasis: t.emphasis }),
+        surfaces,
+        DISABLED_FLOOR,
+      ),
+      // A border is a line, not a surface: read as an edge, and in a tinted theme deliberately part
+      // of the identity, so it takes the emphasis chroma.
+      bordersColor: above({
+        parent: background,
+        ratio: target.border,
+        chroma: t.emphasis,
+        hue: t.hue,
+      }),
+      separatorColor: above({
+        parent: backgroundSecondary,
+        ratio: target.border,
+        chroma: t.surface,
+        hue: t.hue,
+      }),
+      messageBubbleIncomingBg: incomingBg,
+      messageBubbleIncomingText: contrastPrefer(
+        [text, '#000000', '#FFFFFF'],
+        incomingBg,
+        CONTRAST.normal,
+      ),
+    },
+    text,
+    background,
+    surfaces,
+  }
+  BASES.set(knobs, base)
+  return base
+}
+
+/**
+ * The whole theme from its knobs and an accent.
+ *
+ * Public, and not only for the four presets: an accent the *user* picks has to go through exactly
+ * the same derivation as one we shipped, or a custom accent is a second code path that nobody
+ * tests. A preset is then just a stored set of knobs.
+ */
+export function deriveTokens(knobs: ThemeKnobs, accent: string): ThemeTokens {
+  const { tokens, text, background, surfaces } = themeBase(knobs)
+
   // Text on the accent is one of the theme's own two anchors rather than flat black or white: on a
   // bright accent every theme reaches for its darkest anchor, which is the text in a light theme
   // and the page itself in a dark one.
@@ -519,59 +609,7 @@ export function deriveTokens(knobs: ThemeKnobs, accent: string): ThemeTokens {
     accentText: contrastPreferAll([accent, text], surfaces, CONTRAST.normal),
     accentHover: step(accent, 1, background),
     accentPressed: step(accent, 2, background),
-    // Both are nearly always labels, which is normal-size text and owes 4.5:1 -- not the 3:1 a
-    // graphic boundary gets. Picking against the fill rather than preferring one anchor is what
-    // keeps that true in every theme: white clears 3:1 on a mid red and loses to black on 4.5.
-    dangerColor: danger,
-    onDanger: contrastPickAll([text, background], [danger]),
-    warningColor: warning,
-    backgroundPrimary: background,
-    backgroundSecondary,
-    backgroundTertiary,
-    backgroundNested,
-    surfaceInverted: panel,
-    surfaceInk: ink,
-    textPrimary: text,
-    // Muted text is the body text dimmed, not the page lifted: deriving it from the background
-    // discards the hue the theme chose for its text, which is how a navy secondary became teal.
-    //
-    // Dimmed as far as the *worst* surface allows, not as far as the base allows. A caption sits on
-    // a card far more often than on the page -- feature rows, stat cards, settings values -- and
-    // targeting the base alone put it at 3.9:1 there while measuring 4.6 where nothing was drawn.
-    // This is also what explains the shipped light value of 5.17 that had looked merely dark: 5.14
-    // against white is exactly what 4.5 against the nested surface costs.
-    textSecondary: contrastAdjustAll(
-      dim({ text, background, ratio: target.mutedText, hue: t.hue, emphasis: t.emphasis }),
-      surfaces,
-      CONTRAST.normal,
-    ),
-    // Deliberately below the AA floor -- a disabled control has to read as unavailable -- but still
-    // present on every surface, which is a lower bar rather than no bar.
-    textDisabled: contrastAdjustAll(
-      dim({ text, background, ratio: target.disabledText, hue: t.hue, emphasis: t.emphasis }),
-      surfaces,
-      DISABLED_FLOOR,
-    ),
-    // A border is a line, not a surface: read as an edge, and in a tinted theme deliberately part
-    // of the identity, so it takes the emphasis chroma.
-    bordersColor: above({
-      parent: background,
-      ratio: target.border,
-      chroma: t.emphasis,
-      hue: t.hue,
-    }),
-    separatorColor: above({
-      parent: backgroundSecondary,
-      ratio: target.border,
-      chroma: t.surface,
-      hue: t.hue,
-    }),
-    messageBubbleIncomingBg: incomingBg,
-    messageBubbleIncomingText: contrastPrefer(
-      [text, '#000000', '#FFFFFF'],
-      incomingBg,
-      CONTRAST.normal,
-    ),
-    ...overrides,
+    ...tokens,
+    ...knobs.overrides,
   }
 }
