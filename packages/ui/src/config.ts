@@ -12,7 +12,7 @@ import {
   Z_INDEX_SCALE,
 } from './scales'
 import { MONO_FAMILY } from './monoFamily'
-import { buildThemes, DEFAULT_THEME, themeName } from './themes'
+import { DEFAULT_THEME, initialThemes, themeName } from './themes'
 
 /**
  * The tamagui configuration, shared by both apps.
@@ -61,7 +61,7 @@ export const tokens = createTokens({
 export const config = createTamagui({
   fonts: { body: bodyFont, heading: bodyFont, mono: monoFont },
   tokens,
-  themes: buildThemes(),
+  themes: initialThemes(),
   media: {
     /**
      * Phone: one pane at a time, the router provides back.
