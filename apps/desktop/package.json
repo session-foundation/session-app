@@ -30,6 +30,7 @@
     "@session/localization": "workspace:*",
     "@session/screens": "workspace:*",
     "@session/state": "workspace:*",
+    "@session/theme-tokens": "workspace:*",
     "@session/ui": "workspace:*",
     "react": "catalog:",
     "react-dom": "catalog:",

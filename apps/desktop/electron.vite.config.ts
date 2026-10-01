@@ -83,6 +83,7 @@ const workspacePackages = [
   '@session/client',
   '@session/localization',
   '@session/state',
+  '@session/theme-tokens',
 ]
 
 /**
