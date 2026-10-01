@@ -536,18 +536,18 @@ function themeBase(knobs: ThemeKnobs): ThemeBase {
       // Muted text is the body text dimmed, not the page lifted: deriving it from the background
       // discards the hue the theme chose for its text, which is how a navy secondary became teal.
       //
-      // Dimmed as far as the *worst* surface allows, not as far as the base allows. A caption sits on
-      // a card far more often than on the page -- feature rows, stat cards, settings values -- and
-      // targeting the base alone put it at 3.9:1 there while measuring 4.6 where nothing was drawn.
-      // This is also what explains the shipped light value of 5.17 that had looked merely dark: 5.14
-      // against white is exactly what 4.5 against the nested surface costs.
+      // Dimmed as far as the *worst* surface allows, not as far as the base allows. A caption sits
+      // on a card far more often than on the page -- feature rows, stat cards, settings values --
+      // and targeting the base alone put it at 3.9:1 there while measuring 4.6 where nothing was
+      // drawn. This is also what explains the shipped light value of 5.17 that had looked merely
+      // dark: 5.14 against white is exactly what 4.5 against the nested surface costs.
       textSecondary: contrastAdjustAll(
         dim({ text, background, ratio: target.mutedText, hue: t.hue, emphasis: t.emphasis }),
         surfaces,
         CONTRAST.normal,
       ),
-      // Deliberately below the AA floor -- a disabled control has to read as unavailable -- but still
-      // present on every surface, which is a lower bar rather than no bar.
+      // Deliberately below the AA floor -- a disabled control has to read as unavailable -- but
+      // still present on every surface, which is a lower bar rather than no bar.
       textDisabled: contrastAdjustAll(
         dim({ text, background, ratio: target.disabledText, hue: t.hue, emphasis: t.emphasis }),
         surfaces,
