@@ -61,14 +61,8 @@ export type { UIProviderProps } from './UIProvider'
 export type { BackdropBlur, BackdropBlurProps } from './backdropBlur'
 
 export { config, tokens } from './config'
-export {
-  appearanceFrom,
-  buildThemes,
-  PRIMARY_COLORS,
-  registerTheme,
-  themeName,
-  THEME_STATES,
-} from './themes'
+export { appearanceFrom } from '@session/theme-tokens'
+export { buildThemes, PRIMARY_COLORS, registerTheme, themeName, THEME_STATES } from './themes'
 
 export { keyboardTypeToInputMode, keyboardTypeToNative, domInputType } from './nativeProps'
 export type { KeyboardType } from './nativeProps'

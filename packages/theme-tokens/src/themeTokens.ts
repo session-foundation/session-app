@@ -1,5 +1,5 @@
-import { PRIMARY_COLOR_HEX } from './colors'
-import type { PrimaryColorState, ThemeState } from './colors'
+import { DEFAULT_ACCENT, DEFAULT_THEME, PRIMARY_COLOR_HEX, isPrimaryColorState } from './colors'
+import type { Appearance, PrimaryColorState, ThemeState } from './colors'
 import {
   CONTRAST,
   contrastAdjust,
@@ -372,6 +372,17 @@ export function getThemeKnobs(theme: ThemeState): ThemeKnobs {
 /** Whether a stored theme name is one this build ships. */
 export function isThemeState(name: string): name is ThemeState {
   return Object.hasOwn(KNOBS, name)
+}
+
+/**
+ * The theme and accent a stored choice names, each falling back to the default where this build
+ * does not ship the name -- a preference outlives the build that wrote it.
+ */
+export function appearanceFrom(stored: { theme: string; accent: string } | null): Appearance {
+  return {
+    theme: stored !== null && isThemeState(stored.theme) ? stored.theme : DEFAULT_THEME,
+    accent: stored !== null && isPrimaryColorState(stored.accent) ? stored.accent : DEFAULT_ACCENT,
+  }
 }
 
 export function getThemeTokens(theme: ThemeState, primaryColor: PrimaryColorState): ThemeTokens {

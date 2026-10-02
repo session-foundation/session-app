@@ -6,6 +6,12 @@ export type PrimaryColorState = 'green' | 'blue' | 'yellow' | 'pink' | 'purple' 
 export const DEFAULT_THEME: ThemeState = 'classic-dark'
 export const DEFAULT_ACCENT: PrimaryColorState = 'green'
 
+/** A theme and accent this build ships, as the UI is told to draw. */
+export interface Appearance {
+  theme: ThemeState
+  accent: PrimaryColorState
+}
+
 type ClassicThemeScale = {
   DANGER: string
   WARNING: string

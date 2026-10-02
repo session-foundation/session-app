@@ -1,5 +1,5 @@
 export { applyEvent } from './applyEvent'
-export { ACCENT_PREF, THEME_PREF } from './prefs'
+export { ACCENT_PREF, THEME_PREF, storedAppearance } from './prefs'
 export { createSessionStore } from './store'
 export type { LogLevel, SessionStoreOptions } from './store'
 export type { CacheSettings, SessionActions, SessionStore } from './store'

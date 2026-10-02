@@ -8,7 +8,7 @@ import type {
 import { createStore, type StoreApi } from 'zustand/vanilla'
 
 import { applyEvent, mergePages, recordRefusal, withoutHistory } from './applyEvent'
-import { ACCENT_PREF, THEME_PREF } from './prefs'
+import { ACCENT_PREF, THEME_PREF, storedAppearance } from './prefs'
 import { emptyState, type MessageWindow, type SessionState, type StoredAppearance } from './types'
 
 export interface CacheSettings {
@@ -372,8 +372,8 @@ export function createSessionStore(
       ])
 
       // In the same update as `hydrated`, so the screen the account opens on is drawn once, in its
-      // theme. Both or neither: an accent without its theme is half a choice.
-      const appearance = theme === undefined || accent === undefined ? null : { theme, accent }
+      // theme.
+      const appearance = storedAppearance(theme, accent)
       store.setState({ conversations, requests, appearance, hydrated: true })
     },
 
