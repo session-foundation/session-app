@@ -38,9 +38,9 @@ export type ThemeKnobs = {
    * ones. A single target over-darkens the light themes, which is exactly what a first attempt at
    * this did.
    */
-  polarity: 'light' | 'dark'
+  readonly polarity: 'light' | 'dark'
   /** The page. Every surface is a measured distance from this. */
-  background: string
+  readonly background: string
   /**
    * Optional. How much of the theme's identity the *text* carries.
    *
@@ -54,7 +54,7 @@ export type ThemeKnobs = {
    * A theme that wants its text tinted anyway -- Ocean Light's navy is part of what makes it Ocean
    * -- gives a chroma here, and the hue defaults to the theme's own.
    */
-  textTint?: { chroma: number; hue?: number }
+  readonly textTint?: { readonly chroma: number; readonly hue?: number }
   /**
    * The hue the theme is seen through, and how much of it each kind of role carries.
    *
@@ -67,11 +67,11 @@ export type ThemeKnobs = {
    * Classic is `0, 0`: its surfaces measure C=0.0000 across the board, so it is genuinely neutral
    * rather than subtly warm.
    */
-  tint: { hue: number; surface: number; emphasis: number }
+  readonly tint: { readonly hue: number; readonly surface: number; readonly emphasis: number }
   /** The colour a shadow is drawn in. Not derived -- see the elevation note in the plan. */
-  elevation: string
+  readonly elevation: string
   /** The onion path when connected. Fixed, and deliberately never the accent. */
-  pathConnected: string
+  readonly pathConnected: string
   /**
    * The accent this theme starts on.
    *
@@ -83,7 +83,7 @@ export type ThemeKnobs = {
    * It changes nothing about the derivation. It exists so that "which accent does this theme come
    * up as" has an answer in the model rather than only in whatever code selects a theme.
    */
-  defaultAccent: string
+  readonly defaultAccent: string
   /**
    * Authored semantic colours, replacing the derived ones.
    *
@@ -100,9 +100,9 @@ export type ThemeKnobs = {
    * nothing. The dark one does differ (a more golden `#D6A400` against `#FCB159`), and is left
    * derived deliberately so the comparison shows what the rules actually produce.
    */
-  semantic?: { danger?: string; warning?: string }
+  readonly semantic?: { readonly danger?: string; readonly warning?: string }
   /** Deliberate departures from what the rules would produce. */
-  overrides?: Partial<ThemeTokens>
+  readonly overrides?: Readonly<Partial<ThemeTokens>>
 }
 
 /** The brand red and amber, authored once. The shipped themes already varied these by polarity
@@ -441,10 +441,10 @@ interface ThemeBase {
 /**
  * Each set of knobs' accent-independent half, derived once.
  *
- * The app builds every theme against every accent at startup, and all but five roles are the same
- * for each accent: without this the same surfaces, text and semantic colours were derived over
- * again per accent, which was about forty milliseconds of the first render. Keyed by the knobs
- * object, so a preset is derived once and a custom set is let go with it.
+ * All but five roles are the same for every accent, so the surfaces, text and semantic colours are
+ * derived once per knobs object rather than once per accent. Keyed by the object, so a preset is
+ * derived once and a custom set is let go with it -- which is why `ThemeKnobs` is read-only: a set
+ * changed in place would be answered from the cache as it was first derived.
  */
 const BASES = new WeakMap<ThemeKnobs, ThemeBase>()
 

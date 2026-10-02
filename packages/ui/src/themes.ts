@@ -185,10 +185,9 @@ const registered = new Set(Object.keys(initialThemes()))
 /**
  * Adds a theme to tamagui the first time it is asked for, and says its name.
  *
- * **Derived when first shown, not at launch.** Building every theme against every accent up front
- * cost the first render about 40ms before the derivation was cached, and the count grows with
- * every theme a person can make; one theme takes well under a millisecond. On the web `addTheme`
- * writes the theme's CSS as it goes, which is the part `getCSS()` did for the initial ones.
+ * **Registered when first shown, not at launch**, so launch does not grow with the number of
+ * themes a person can make. On the web `addTheme` writes the theme's CSS as it goes, which is the
+ * part `getCSS()` did for the initial ones.
  */
 export function registerTheme(theme: ThemeState, accent: PrimaryColorState): string {
   for (const [name, values] of [
