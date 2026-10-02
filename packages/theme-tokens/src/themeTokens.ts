@@ -369,6 +369,11 @@ export function getThemeKnobs(theme: ThemeState): ThemeKnobs {
   return KNOBS[theme]
 }
 
+/** Whether a stored theme name is one this build ships. */
+export function isThemeState(name: string): name is ThemeState {
+  return Object.hasOwn(KNOBS, name)
+}
+
 export function getThemeTokens(theme: ThemeState, primaryColor: PrimaryColorState): ThemeTokens {
   return deriveTokens(KNOBS[theme], PRIMARY_COLOR_HEX[primaryColor])
 }

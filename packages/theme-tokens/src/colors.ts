@@ -110,3 +110,8 @@ export const PRIMARY_COLOR_HEX: Record<PrimaryColorState, string> = {
   orange: COLORS.PRIMARY.orange,
   red: COLORS.PRIMARY.red,
 }
+
+/** Whether a stored accent name is one this build ships. */
+export function isPrimaryColorState(name: string): name is PrimaryColorState {
+  return Object.hasOwn(PRIMARY_COLOR_HEX, name)
+}

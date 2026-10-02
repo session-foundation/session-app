@@ -8,11 +8,8 @@ import type {
 import { createStore, type StoreApi } from 'zustand/vanilla'
 
 import { applyEvent, mergePages, recordRefusal, withoutHistory } from './applyEvent'
+import { ACCENT_PREF, THEME_PREF } from './prefs'
 import { emptyState, type MessageWindow, type SessionState, type StoredAppearance } from './types'
-
-/** Where the account's theme and accent are kept, as libsession preferences. */
-const THEME_PREF = 'appearance.theme'
-const ACCENT_PREF = 'appearance.accent'
 
 export interface CacheSettings {
   /** Empty when the bridge was opened without one. */
