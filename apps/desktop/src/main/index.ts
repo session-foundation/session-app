@@ -7,15 +7,16 @@ import electron from 'electron'
 
 const { app, BrowserWindow, Menu, MessageChannelMain, clipboard, session, shell } = electron
 
-import type { Request } from '@session/client'
+import { createSessionClient } from '@session/client'
+import type { BridgeTransport, Request, SessionClient } from '@session/client'
 import { isCrowdinLocale, setLocale } from '@session/localization'
 import { getThemeTokens } from '@session/theme-tokens'
 
 import { createBridge } from './bridge'
 import { editMenuItems } from './editMenu'
 import { serveFiles } from './files'
-import { routeFrames, type FrameRouter } from './frameRouter'
 import { registerMediaScheme, serveMedia, stopServingMedia } from './media'
+import { shareBridge } from './shareBridge'
 import { readStoredTheme } from './storedTheme'
 import {
   acceptsCopy,
@@ -60,15 +61,20 @@ registerMediaScheme()
  * database there instead of carrying on with the one already open, so it is built once, every
  * window is wired to it, and it is closed when the app quits.
  *
- * Its frames go through `frames`, the bridge's one sink, which main's own requests share with the
- * window's channel.
+ * Its one sink is shared, by `shareBridge`, between a client of main's own and the renderer's
+ * channel.
  */
-let opened: { bridge: Awaited<ReturnType<typeof createBridge>>; frames: FrameRouter } | null = null
+let opened: {
+  bridge: Awaited<ReturnType<typeof createBridge>>
+  client: SessionClient
+  renderer: BridgeTransport
+} | null = null
 
 async function requireBridge(): Promise<NonNullable<typeof opened>> {
   if (opened === null) {
     const bridge = await createBridge()
-    opened = { bridge, frames: routeFrames(bridge) }
+    const { main, renderer } = shareBridge(bridge)
+    opened = { bridge, client: createSessionClient(main), renderer }
     // With the bridge rather than with a window: `protocol.handle` installs one handler for the
     // whole session, and the scheme has to outlive a window for the same reason the bridge does.
     serveMedia(bridge)
@@ -77,8 +83,8 @@ async function requireBridge(): Promise<NonNullable<typeof opened>> {
 }
 
 async function createWindow(): Promise<Electron.BrowserWindow> {
-  const { bridge, frames } = await requireBridge()
-  const { theme, accent } = await readStoredTheme(frames)
+  const { client, renderer } = await requireBridge()
+  const { theme, accent } = await readStoredTheme(client)
 
   const window = new BrowserWindow({
     width: 1100,
@@ -183,7 +189,7 @@ async function createWindow(): Promise<Electron.BrowserWindow> {
     port = port1
 
     // A frame is a plain object built by the addon; structured clone carries it to the renderer.
-    frames.attach((frame) => {
+    renderer.setSink((frame) => {
       files.observe(frame)
       port?.postMessage(frame)
     })
@@ -198,7 +204,7 @@ async function createWindow(): Promise<Electron.BrowserWindow> {
           port?.postMessage({ type: 'response', response: { id: request.id, error: admitted } })
           return
         }
-        bridge.send(admitted)
+        renderer.send(admitted)
       } catch {
         // No id to answer on, so there is nobody to tell.
       }
@@ -248,6 +254,7 @@ app.on('window-all-closed', () => {
 // The bridge outlives every window, so it is closed here rather than with one of them.
 app.on('before-quit', () => {
   stopServingMedia()
+  opened?.client.close()
   opened?.bridge.close()
   opened = null
 })
