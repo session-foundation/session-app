@@ -14,6 +14,7 @@ import { getThemeTokens } from '@session/theme-tokens'
 import { createBridge } from './bridge'
 import { editMenuItems } from './editMenu'
 import { serveFiles } from './files'
+import { routeFrames, type FrameRouter } from './frameRouter'
 import { registerMediaScheme, serveMedia, stopServingMedia } from './media'
 import { readStoredTheme } from './storedTheme'
 import {
@@ -58,22 +59,26 @@ registerMediaScheme()
  * way an app comes back from the dock. A bridge owned by a window would reopen libsession's
  * database there instead of carrying on with the one already open, so it is built once, every
  * window is wired to it, and it is closed when the app quits.
+ *
+ * Its frames go through `frames`, the bridge's one sink, which main's own requests share with the
+ * window's channel.
  */
-let bridge: Awaited<ReturnType<typeof createBridge>> | null = null
+let opened: { bridge: Awaited<ReturnType<typeof createBridge>>; frames: FrameRouter } | null = null
 
-async function requireBridge(): Promise<NonNullable<typeof bridge>> {
-  if (bridge === null) {
-    bridge = await createBridge()
+async function requireBridge(): Promise<NonNullable<typeof opened>> {
+  if (opened === null) {
+    const bridge = await createBridge()
+    opened = { bridge, frames: routeFrames(bridge) }
     // With the bridge rather than with a window: `protocol.handle` installs one handler for the
     // whole session, and the scheme has to outlive a window for the same reason the bridge does.
     serveMedia(bridge)
   }
-  return bridge
+  return opened
 }
 
 async function createWindow(): Promise<Electron.BrowserWindow> {
-  const opened = await requireBridge()
-  const { theme, accent, bridge: open } = await readStoredTheme(opened)
+  const { bridge, frames } = await requireBridge()
+  const { theme, accent } = await readStoredTheme(frames)
 
   const window = new BrowserWindow({
     width: 1100,
@@ -178,7 +183,7 @@ async function createWindow(): Promise<Electron.BrowserWindow> {
     port = port1
 
     // A frame is a plain object built by the addon; structured clone carries it to the renderer.
-    open.setSink((frame) => {
+    frames.attach((frame) => {
       files.observe(frame)
       port?.postMessage(frame)
     })
@@ -193,7 +198,7 @@ async function createWindow(): Promise<Electron.BrowserWindow> {
           port?.postMessage({ type: 'response', response: { id: request.id, error: admitted } })
           return
         }
-        open.send(admitted)
+        bridge.send(admitted)
       } catch {
         // No id to answer on, so there is nobody to tell.
       }
@@ -243,6 +248,6 @@ app.on('window-all-closed', () => {
 // The bridge outlives every window, so it is closed here rather than with one of them.
 app.on('before-quit', () => {
   stopServingMedia()
-  bridge?.close()
-  bridge = null
+  opened?.bridge.close()
+  opened = null
 })
