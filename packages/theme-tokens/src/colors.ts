@@ -2,6 +2,10 @@ export type ThemeState = 'classic-light' | 'classic-dark' | 'ocean-light' | 'oce
 
 export type PrimaryColorState = 'green' | 'blue' | 'yellow' | 'pink' | 'purple' | 'orange' | 'red'
 
+/** What every app opens with until a theme is chosen; desktop main paints the window with it. */
+export const DEFAULT_THEME: ThemeState = 'classic-dark'
+export const DEFAULT_ACCENT: PrimaryColorState = 'green'
+
 type ClassicThemeScale = {
   DANGER: string
   WARNING: string

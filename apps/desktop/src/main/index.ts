@@ -9,7 +9,7 @@ const { app, BrowserWindow, Menu, MessageChannelMain, clipboard, session, shell 
 
 import type { Request } from '@session/client'
 import { isCrowdinLocale, setLocale } from '@session/localization'
-import { getThemeTokens } from '@session/theme-tokens'
+import { DEFAULT_ACCENT, DEFAULT_THEME, getThemeTokens } from '@session/theme-tokens'
 
 import { createBridge } from './bridge'
 import { editMenuItems } from './editMenu'
@@ -90,7 +90,7 @@ async function createWindow(): Promise<Electron.BrowserWindow> {
     // in it invisible to a test.
     show: true,
     // The default theme's page, so the window is not white until the renderer first paints.
-    backgroundColor: getThemeTokens('classic-dark', 'green').backgroundPrimary,
+    backgroundColor: getThemeTokens(DEFAULT_THEME, DEFAULT_ACCENT).backgroundPrimary,
     webPreferences: {
       ...hardenedWebPreferences({ packaged: app.isPackaged }),
       // CommonJS, because a sandboxed preload cannot be an ES module; it is built that way in

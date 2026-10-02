@@ -1,5 +1,7 @@
 import { addTheme } from 'tamagui'
 import {
+  DEFAULT_ACCENT,
+  DEFAULT_THEME,
   getThemeTokens,
   type PrimaryColorState,
   type ThemeState,
@@ -53,8 +55,7 @@ export function isDarkTheme(theme: ThemeState): boolean {
   return theme.endsWith('-dark')
 }
 
-export const DEFAULT_THEME: ThemeState = 'classic-dark'
-export const DEFAULT_ACCENT: PrimaryColorState = 'green'
+export { DEFAULT_ACCENT, DEFAULT_THEME }
 
 /**
  * The theme and accent a stored choice names, each falling back to the default where this build
