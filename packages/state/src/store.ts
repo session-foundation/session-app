@@ -8,7 +8,11 @@ import type {
 import { createStore, type StoreApi } from 'zustand/vanilla'
 
 import { applyEvent, mergePages, recordRefusal, withoutHistory } from './applyEvent'
-import { emptyState, type MessageWindow, type SessionState } from './types'
+import { emptyState, type MessageWindow, type SessionState, type StoredAppearance } from './types'
+
+/** Where the account's theme and accent are kept, as libsession preferences. */
+const THEME_PREF = 'appearance.theme'
+const ACCENT_PREF = 'appearance.accent'
 
 export interface CacheSettings {
   /** Empty when the bridge was opened without one. */
@@ -46,6 +50,12 @@ export interface SessionActions {
    */
   getPreference: (key: string) => Promise<string | undefined>
   setPreference: (key: string, value: string) => Promise<void>
+  /**
+   * Stores the account's theme and accent and shows them.
+   *
+   * Nothing calls it yet. TODO: the Appearance screen.
+   */
+  setAppearance: (appearance: StoredAppearance) => Promise<void>
   /**
    * Subscribes first, then asks - never the other way round.
    *
@@ -357,12 +367,24 @@ export function createSessionStore(
         return
       }
 
-      const [conversations, requests] = await Promise.all([
+      const [conversations, requests, theme, accent] = await Promise.all([
         client.getConversations(),
         client.getMessageRequests(),
+        client.getPref(THEME_PREF),
+        client.getPref(ACCENT_PREF),
       ])
 
-      store.setState({ conversations, requests, hydrated: true })
+      // In the same update as `hydrated`, so the screen the account opens on is drawn once, in its
+      // theme. Both or neither: an accent without its theme is half a choice.
+      const appearance = theme === undefined || accent === undefined ? null : { theme, accent }
+      store.setState({ conversations, requests, appearance, hydrated: true })
+    },
+
+    async setAppearance(appearance): Promise<void> {
+      if (store.getState().account?.haveAccount !== true) return
+      await client.setPref(THEME_PREF, appearance.theme)
+      await client.setPref(ACCENT_PREF, appearance.accent)
+      store.setState({ appearance })
     },
 
     async loadHistory(id): Promise<void> {

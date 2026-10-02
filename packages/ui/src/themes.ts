@@ -57,6 +57,19 @@ export const DEFAULT_THEME: ThemeState = 'classic-dark'
 export const DEFAULT_ACCENT: PrimaryColorState = 'green'
 
 /**
+ * The theme and accent a stored choice names, each falling back to the default where this build
+ * does not ship the name -- a preference outlives the build that wrote it.
+ */
+export function appearanceFrom(stored: { theme: string; accent: string } | null): {
+  theme: ThemeState
+  accent: PrimaryColorState
+} {
+  const theme = THEME_STATES.find((name) => name === stored?.theme) ?? DEFAULT_THEME
+  const accent = PRIMARY_COLORS.find((name) => name === stored?.accent) ?? DEFAULT_ACCENT
+  return { theme, accent }
+}
+
+/**
  * The names tamagui's own components reach for.
  *
  * Session's vocabulary is semantic and its own - `backgroundPrimary`, `textSecondary` - and

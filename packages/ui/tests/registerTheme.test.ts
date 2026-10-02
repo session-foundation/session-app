@@ -1,7 +1,13 @@
 import { addTheme } from 'tamagui'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { DEFAULT_ACCENT, DEFAULT_THEME, isThemeRegistered, registerTheme } from '#src/themes'
+import {
+  appearanceFrom,
+  DEFAULT_ACCENT,
+  DEFAULT_THEME,
+  isThemeRegistered,
+  registerTheme,
+} from '#src/themes'
 
 // Only the bookkeeping is under test: what tamagui does with a theme is tamagui's, and the CSS it
 // writes on the web needs a document this package's tests do not have.
@@ -38,5 +44,22 @@ describe('registerTheme', () => {
 
     registerTheme('ocean-light', 'purple')
     expect(added()).toEqual(['oceanLight_purple'])
+  })
+})
+
+describe('appearanceFrom', () => {
+  it('names the stored theme and accent', () => {
+    expect(appearanceFrom({ theme: 'ocean-dark', accent: 'pink' })).toEqual({
+      theme: 'ocean-dark',
+      accent: 'pink',
+    })
+  })
+
+  it('falls back per half to the default for a name this build does not ship', () => {
+    expect(appearanceFrom({ theme: 'sunset-dark', accent: 'pink' })).toEqual({
+      theme: DEFAULT_THEME,
+      accent: 'pink',
+    })
+    expect(appearanceFrom(null)).toEqual({ theme: DEFAULT_THEME, accent: DEFAULT_ACCENT })
   })
 })

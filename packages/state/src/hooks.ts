@@ -19,7 +19,12 @@ import { useStore } from 'zustand'
 
 import { selectAttachmentTransfer, selectMessage, selectMessageTransfers } from './selectors'
 import type { SessionActions, SessionStore } from './store'
-import type { AttachmentTransferState, MessageTransfers, MessageWindow } from './types'
+import type {
+  AttachmentTransferState,
+  MessageTransfers,
+  MessageWindow,
+  StoredAppearance,
+} from './types'
 
 const StoreContext = createContext<SessionStore | null>(null)
 
@@ -56,6 +61,12 @@ export function useHydrated(): boolean {
 export function useStartupError(): string | null {
   const store = useSessionStore()
   return useStore(store, (state) => state.startupError)
+}
+
+/** The theme and accent the account chose, as stored, or null where it has not chosen one. */
+export function useAppearance(): StoredAppearance | null {
+  const store = useSessionStore()
+  return useStore(store, (state) => state.appearance)
 }
 
 /** The whole of what libsession says about the account, or null before the first answer. */

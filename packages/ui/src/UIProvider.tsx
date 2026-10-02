@@ -46,7 +46,7 @@ export function UIProvider({
   // exists to be woken by it, so the first frame is already in it. A theme that arrives later and
   // is new to tamagui is registered in the layout effect -- adding one wakes every mounted themed
   // component, which a render must not do -- and drawn a pass later, never painted in the old one.
-  // One registered before it reaches here is drawn at once.
+  // One registered before it reaches here (see `registerStoredAppearance`) is drawn at once.
   const [shown, setShown] = useState(() => {
     registerTheme(theme, accent)
     return { theme, accent }

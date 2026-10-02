@@ -44,6 +44,44 @@ describe('hydrating a device that has no account', () => {
   })
 })
 
+describe("the account's theme", () => {
+  function alice() {
+    const { world, clients } = friends(['Alice', 'Bob'])
+    const client = clients['Alice']
+    if (!client) throw new Error('fixture did not produce a client')
+    return { world, client, store: createSessionStore(client) }
+  }
+
+  it('is none until the account has chosen one', async () => {
+    const { store } = alice()
+    await store.actions.hydrate()
+    expect(store.getState().appearance).toBeNull()
+  })
+
+  it('is stored against the account and read back with it', async () => {
+    const { client, store } = alice()
+    await store.actions.hydrate()
+
+    await store.actions.setAppearance({ theme: 'ocean-light', accent: 'blue' })
+    expect(store.getState().appearance).toEqual({ theme: 'ocean-light', accent: 'blue' })
+
+    const next = createSessionStore(client)
+    await next.actions.hydrate()
+    expect(next.getState().appearance).toEqual({ theme: 'ocean-light', accent: 'blue' })
+  })
+
+  it('goes with the account', async () => {
+    // A theme is the account's: one left on a cleared device could tie it back to the account.
+    const { world, store } = alice()
+    await store.actions.hydrate()
+    await store.actions.setAppearance({ theme: 'ocean-light', accent: 'blue' })
+
+    world.account('Alice').haveAccount = false
+    await store.actions.hydrate()
+    expect(store.getState().appearance).toBeNull()
+  })
+})
+
 describe('hydrating with a cache limit', () => {
   it('hands the limit to libsession', async () => {
     const { clients } = friends(['Alice', 'Bob'])

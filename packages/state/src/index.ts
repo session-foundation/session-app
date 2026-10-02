@@ -5,6 +5,7 @@ export type { CacheSettings, SessionActions, SessionStore } from './store'
 export {
   SessionStoreProvider,
   useAccount,
+  useAppearance,
   useAttachmentTransfer,
   useConversation,
   useConversations,
@@ -23,4 +24,5 @@ export type {
   MessageTransfers,
   MessageWindow,
   SessionState,
+  StoredAppearance,
 } from './types'
