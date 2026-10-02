@@ -17,6 +17,11 @@ export interface IPerformanceProbe {
   readLongTasks(): Promise<{ start: number; duration: number }[]>
   /** Milliseconds from now until the element is on screen. The tap belongs to the caller. */
   timeUntilVisible(testId: string, timeoutMs?: number): Promise<number>
+  /**
+   * The app's own clock, on the same timeline as a long task's `start`: what lets a caller say
+   * which tasks came before a moment and which after it.
+   */
+  pageNow(): Promise<number>
   /** Frames the renderer painted over `windowMs`, as a proxy for whether it kept up. */
   countFrames(windowMs: number): Promise<number>
 }

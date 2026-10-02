@@ -286,6 +286,10 @@ export class DesktopApp implements ISessionApp, IPerformanceProbe, IFileChooser,
     return performance.now() - start
   }
 
+  async pageNow(): Promise<number> {
+    return this.page.evaluate(() => performance.now())
+  }
+
   async countFrames(windowMs: number): Promise<number> {
     return this.page.evaluate(async (ms: number) => {
       const g = globalThis as unknown as PageGlobals
