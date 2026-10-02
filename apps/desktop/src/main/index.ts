@@ -72,7 +72,8 @@ async function requireBridge(): Promise<NonNullable<typeof bridge>> {
 }
 
 async function createWindow(): Promise<Electron.BrowserWindow> {
-  const { theme, accent, bridge: open } = await readStoredTheme(await requireBridge())
+  const opened = await requireBridge()
+  const { theme, accent, bridge: open } = await readStoredTheme(opened)
 
   const window = new BrowserWindow({
     width: 1100,

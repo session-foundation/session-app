@@ -15,8 +15,6 @@ import { useFirstPaintHeld } from './firstPaintHold'
  * behind the app.
  *
  * On the desktop that is the window's own background, which main paints in the account's theme.
- * TODO: on the phones it is the system's root view until the native splash is held over this
- * (expo-splash-screen, M337).
  */
 export function StoredThemeProvider(props: Omit<UIProviderProps, 'theme' | 'accent'>) {
   const hydrated = useHydrated()

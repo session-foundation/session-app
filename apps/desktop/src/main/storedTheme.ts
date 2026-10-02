@@ -10,7 +10,7 @@ import {
 } from '@session/theme-tokens'
 
 /** How long a window waits for the account's theme before opening on the default's. */
-export const STORED_THEME_TIMEOUT_MS = 500
+const STORED_THEME_TIMEOUT_MS = 500
 
 /**
  * Negative, because the renderer's client numbers its requests up from 1: an answer to one of
