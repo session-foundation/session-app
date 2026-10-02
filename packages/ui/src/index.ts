@@ -64,8 +64,6 @@ export { config, tokens } from './config'
 export {
   appearanceFrom,
   buildThemes,
-  DEFAULT_ACCENT,
-  DEFAULT_THEME,
   PRIMARY_COLORS,
   registerTheme,
   themeName,

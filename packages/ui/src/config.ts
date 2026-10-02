@@ -1,3 +1,4 @@
+import { DEFAULT_THEME } from '@session/theme-tokens'
 import { createFont, createTamagui, createTokens } from 'tamagui'
 
 import {
@@ -12,7 +13,7 @@ import {
   Z_INDEX_SCALE,
 } from './scales'
 import { MONO_FAMILY } from './monoFamily'
-import { DEFAULT_THEME, initialThemes, themeName } from './themes'
+import { initialThemes, themeName } from './themes'
 
 /**
  * The tamagui configuration, shared by both apps.

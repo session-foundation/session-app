@@ -55,8 +55,6 @@ export function isDarkTheme(theme: ThemeState): boolean {
   return theme.endsWith('-dark')
 }
 
-export { DEFAULT_ACCENT, DEFAULT_THEME }
-
 /**
  * The theme and accent a stored choice names, each falling back to the default where this build
  * does not ship the name -- a preference outlives the build that wrote it.

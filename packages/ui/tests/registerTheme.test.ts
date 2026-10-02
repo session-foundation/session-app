@@ -1,13 +1,9 @@
 import { addTheme } from 'tamagui'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import {
-  appearanceFrom,
-  DEFAULT_ACCENT,
-  DEFAULT_THEME,
-  isThemeRegistered,
-  registerTheme,
-} from '#src/themes'
+import { DEFAULT_ACCENT, DEFAULT_THEME } from '@session/theme-tokens'
+
+import { appearanceFrom, isThemeRegistered, registerTheme } from '#src/themes'
 
 // Only the bookkeeping is under test: what tamagui does with a theme is tamagui's, and the CSS it
 // writes on the web needs a document this package's tests do not have.
