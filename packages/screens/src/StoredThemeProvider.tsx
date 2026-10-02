@@ -1,5 +1,7 @@
-import { useAppearance, type SessionStore } from '@session/state'
+import { useAppearance, useHydrated, useStartupError, type SessionStore } from '@session/state'
 import { appearanceFrom, registerTheme, UIProvider, type UIProviderProps } from '@session/ui'
+
+import { useFirstPaintHeld } from './firstPaintHold'
 
 /**
  * The UI provider, in the theme the account chose.
@@ -7,13 +9,21 @@ import { appearanceFrom, registerTheme, UIProvider, type UIProviderProps } from 
  * Inside the store's provider, since the choice is read with the account. Until then -- and on a
  * device with no account -- it is the default theme.
  *
- * TODO: the stored theme arrives with the account, so the launch screen is drawn in the default
- * one first. Holding the first paint until it is read closes that: on the desktop the main process
- * has the bridge before the window and can read it there; on the phones the native splash would
- * stay up until `start` has it, which needs expo-splash-screen.
+ * **Nothing is drawn until the choice is known**: until the start has read the account or failed,
+ * for at most `FIRST_PAINT_HOLD_MS` from launch. Otherwise the launch screen would be drawn in the
+ * default theme and redrawn in the chosen one. What shows meanwhile is what the platform draws
+ * behind the app.
+ *
+ * TODO: on the desktop that is the window's own background, which knows nothing of the theme; the
+ * main process has the bridge before the window and could read the theme for it. On the phones it is
+ * the system's root view until the native splash is held over this (expo-splash-screen, M337).
  */
 export function StoredThemeProvider(props: Omit<UIProviderProps, 'theme' | 'accent'>) {
+  const hydrated = useHydrated()
+  const failed = useStartupError() !== null
+  const held = useFirstPaintHeld(hydrated || failed)
   const { theme, accent } = appearanceFrom(useAppearance())
+  if (held) return null
   return <UIProvider {...props} theme={theme} accent={accent} />
 }
 

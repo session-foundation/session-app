@@ -1,4 +1,9 @@
-import { registerStoredAppearance, StoredThemeProvider, useTextDirection } from '@session/screens'
+import {
+  registerStoredAppearance,
+  StoredThemeProvider,
+  useFirstPaintHeld,
+  useTextDirection,
+} from '@session/screens'
 import { SessionStoreProvider, type SessionStore } from '@session/state'
 import { DirectionRoot, FONT_ASSETS, Text, UIProvider, YStack } from '@session/ui'
 import { useFonts } from 'expo-font'
@@ -29,6 +34,7 @@ export default function RootLayout() {
   useFonts(FONT_ASSETS)
 
   const [store, setStore] = useState<SessionStore | null>(null)
+  const held = useFirstPaintHeld(false)
 
   useEffect(() => {
     let live = true
@@ -52,17 +58,20 @@ export default function RootLayout() {
     <KeyboardProvider>
       <SafeAreaProvider>
         {store === null ? (
-          // Before the store there is no account to have chosen a theme, so this is the default.
-          <UIProvider backdropBlur={mobileBackdropBlur}>
-            <YStack
-              flex={1}
-              alignItems="center"
-              justifyContent="center"
-              backgroundColor="$backgroundPrimary"
-            >
-              <Text tone="secondary">Starting…</Text>
-            </YStack>
-          </UIProvider>
+          // Held as the provider holds, on the same budget from launch: a placeholder drawn in the
+          // default theme now would be redrawn in the account's a moment later.
+          held ? null : (
+            <UIProvider backdropBlur={mobileBackdropBlur}>
+              <YStack
+                flex={1}
+                alignItems="center"
+                justifyContent="center"
+                backgroundColor="$backgroundPrimary"
+              >
+                <Text tone="secondary">Starting…</Text>
+              </YStack>
+            </UIProvider>
+          )
         ) : (
           <SessionStoreProvider store={store}>
             <StoredThemeProvider backdropBlur={mobileBackdropBlur}>
