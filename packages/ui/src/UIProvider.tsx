@@ -42,22 +42,24 @@ export function UIProvider({
   accent = DEFAULT_ACCENT,
   backdropBlur,
 }: UIProviderProps) {
-  // What tamagui is drawing, which trails `theme` by one layout pass when the theme is new to it:
-  // it is registered in an effect, since adding one updates every mounted themed component and a
-  // render cannot do that. A layout effect, so the frame drawn in the old theme is never painted.
-  const [shown, setShown] = useState(() =>
-    isThemeRegistered(theme, accent)
-      ? { theme, accent }
-      : { theme: DEFAULT_THEME, accent: DEFAULT_ACCENT },
-  )
+  // What tamagui is drawing. On the first mount the theme is registered before anything themed
+  // exists to be woken by it, so the first frame is already in it. A theme that arrives later and
+  // is new to tamagui is registered in the layout effect -- adding one wakes every mounted themed
+  // component, which a render must not do -- and drawn a pass later, never painted in the old one.
+  // One registered before it reaches here is drawn at once.
+  const [shown, setShown] = useState(() => {
+    registerTheme(theme, accent)
+    return { theme, accent }
+  })
   useLayoutEffect(() => {
     registerTheme(theme, accent)
-    setShown({ theme, accent })
+    setShown((prev) => (prev.theme === theme && prev.accent === accent ? prev : { theme, accent }))
   }, [theme, accent])
+  const drawn = isThemeRegistered(theme, accent) ? { theme, accent } : shown
 
   return (
-    <TamaguiProvider config={config} defaultTheme={themeName(shown.theme, shown.accent)}>
-      <ThemeIsDarkContext.Provider value={isDarkTheme(shown.theme)}>
+    <TamaguiProvider config={config} defaultTheme={themeName(drawn.theme, drawn.accent)}>
+      <ThemeIsDarkContext.Provider value={isDarkTheme(drawn.theme)}>
         <BackdropBlurProvider value={backdropBlur ?? null}>{children}</BackdropBlurProvider>
       </ThemeIsDarkContext.Provider>
     </TamaguiProvider>
