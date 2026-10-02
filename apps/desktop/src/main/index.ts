@@ -9,12 +9,13 @@ const { app, BrowserWindow, Menu, MessageChannelMain, clipboard, session, shell 
 
 import type { Request } from '@session/client'
 import { isCrowdinLocale, setLocale } from '@session/localization'
-import { DEFAULT_ACCENT, DEFAULT_THEME, getThemeTokens } from '@session/theme-tokens'
+import { getThemeTokens } from '@session/theme-tokens'
 
 import { createBridge } from './bridge'
 import { editMenuItems } from './editMenu'
 import { serveFiles } from './files'
 import { registerMediaScheme, serveMedia, stopServingMedia } from './media'
+import { readStoredTheme } from './storedTheme'
 import {
   acceptsCopy,
   applyContentProtection,
@@ -71,7 +72,7 @@ async function requireBridge(): Promise<NonNullable<typeof bridge>> {
 }
 
 async function createWindow(): Promise<Electron.BrowserWindow> {
-  const open = await requireBridge()
+  const { theme, accent, bridge: open } = await readStoredTheme(await requireBridge())
 
   const window = new BrowserWindow({
     width: 1100,
@@ -89,8 +90,8 @@ async function createWindow(): Promise<Electron.BrowserWindow> {
     // headless display, and a window that never shows has no layout, which makes every element
     // in it invisible to a test.
     show: true,
-    // The default theme's page, so the window is not white until the renderer first paints.
-    backgroundColor: getThemeTokens(DEFAULT_THEME, DEFAULT_ACCENT).backgroundPrimary,
+    // The account's page, so no other theme shows while the renderer holds its first paint.
+    backgroundColor: getThemeTokens(theme, accent).backgroundPrimary,
     webPreferences: {
       ...hardenedWebPreferences({ packaged: app.isPackaged }),
       // CommonJS, because a sandboxed preload cannot be an ES module; it is built that way in
