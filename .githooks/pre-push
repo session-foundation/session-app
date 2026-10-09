@@ -1,0 +1,4 @@
+#!/bin/sh
+# Which checks run, and when, is tooling/checks/src/checks.ts; turbo-guard keeps it in step with CI.
+. "$(dirname "$0")/_node.sh"
+exec pnpm -s checks pre-push

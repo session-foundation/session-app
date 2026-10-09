@@ -4,13 +4,15 @@
   "type": "module",
   "packageManager": "pnpm@10.30.3",
   "engines": {
-    "node": ">=22",
+    "node": ">=22.18",
     "pnpm": ">=10"
   },
   "scripts": {
+    "prepare": "node --disable-warning=ExperimentalWarning tooling/checks/src/installHooks.ts",
     "build": "turbo build",
     "codegen": "turbo codegen",
     "codegen:check": "turbo codegen:check",
+    "checks": "node --disable-warning=ExperimentalWarning tooling/checks/src/cli.ts",
     "dev": "turbo dev",
     "dev:fake": "turbo dev:fake",
     "dev:desktop": "pnpm --filter @session/desktop dev",
@@ -20,12 +22,13 @@
     "android": "pnpm --filter @session/mobile android",
     "ios": "pnpm --filter @session/mobile ios",
     "lint": "turbo lint",
-    "boundaries": "depcruise --config tooling/depcruise-config/root.cjs $(ls -d packages apps tests tooling 2>/dev/null)",
+    "boundaries": "depcruise --config tooling/depcruise-config/root.cjs packages apps tests tooling && depcruise --config tooling/depcruise-config/native.cjs packages apps tests tooling",
     "typecheck": "turbo typecheck",
     "test": "turbo test",
+    "test:native": "pnpm --filter @session/bridge-rn run --if-present test:native",
     "knip": "knip",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
+    "format": "prettier --write --cache .",
+    "format:check": "prettier --check --cache .",
     "lint:manifests": "eslint --no-config-lookup --config eslint.config.js \"**/package.json\" pnpm-workspace.yaml && pnpm --filter @session/turbo-guard check"
   },
   "devDependencies": {

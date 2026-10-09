@@ -4,7 +4,8 @@
   "private": true,
   "main": "root.cjs",
   "files": [
-    "root.cjs"
+    "root.cjs",
+    "native.cjs"
   ],
   "devDependencies": {
     "dependency-cruiser": "catalog:"

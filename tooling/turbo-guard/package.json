@@ -16,6 +16,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@session/checks": "workspace:*",
     "typescript": "catalog:"
   },
   "devDependencies": {

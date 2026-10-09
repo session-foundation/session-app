@@ -15,7 +15,7 @@ const mayOnlyDependOn = (pkg, allowed) => ({
   severity: 'error',
   from: { path: `^packages/${pkg}/` },
   to: {
-    path: `^packages/(?!${[pkg, ...allowed].join('|')})[^/]+/`,
+    path: `^packages/(?!(${[pkg, ...allowed].join('|')})/)[^/]+/`,
   },
 })
 
@@ -43,7 +43,7 @@ module.exports = {
     mayOnlyDependOn('client-contract', ['client', 'basic-types']),
     mayOnlyDependOn('state', ['client', 'basic-types']),
     mayOnlyDependOn('ui', ['theme-tokens', 'test-ids', 'basic-types']),
-    mayOnlyDependOn('app', ['client', 'state', 'basic-types']),
+    mayOnlyDependOn('app', ['client', 'client-contract', 'state', 'basic-types']),
     mayOnlyDependOn('bridge-node', ['client', 'client-contract', 'bridge-types']),
     mayOnlyDependOn('bridge-rn', ['bridge-types']),
     mayOnlyDependOn('screens', [
@@ -162,13 +162,57 @@ module.exports = {
     },
     {
       name: 'no-orphans',
-      severity: 'warn',
+      comment: 'A .native file is only reachable through Metro resolution; native.cjs checks it.',
+      severity: 'error',
       from: {
         orphan: true,
         pathNot:
-          '(\\.d\\.ts$|^tooling/|(^|/)[^/]+\\.config\\.[cm]?[jt]s$|^apps/[^/]+/src/(main|preload|renderer)/(index|main)\\.tsx?$)',
+          '(\\.d\\.ts$|\\.native\\.tsx?$|^tooling/|(^|/)[^/]+\\.config\\.[cm]?[jt]s$|^apps/[^/]+/src/(main|preload|renderer)/(index|main)\\.tsx?$)',
       },
       to: {},
+    },
+    {
+      name: 'not-to-unresolvable',
+      severity: 'error',
+      from: {},
+      to: { couldNotResolve: true },
+    },
+    {
+      name: 'src-not-to-tests',
+      severity: 'error',
+      from: { path: '^(packages|apps)/[^/]+/src/' },
+      to: { path: '^(packages/[^/]+/tests/|apps/[^/]+/tests/|tests/)' },
+    },
+    {
+      name: 'not-to-dev-dep',
+      comment:
+        "Shipped code needs its import at runtime. A peer is the consumer's to provide, and " +
+        'the electron module is provided by the Electron runtime rather than bundled.',
+      severity: 'error',
+      from: {
+        path: '^(packages|apps)/[^/]+/src/',
+        pathNot: '\\.(test|spec)\\.tsx?$|/dev/',
+      },
+      to: {
+        dependencyTypes: ['npm-dev'],
+        dependencyTypesNot: ['type-only', 'npm-peer'],
+        pathNot: '^node_modules/electron/',
+      },
+    },
+    {
+      name: 'no-duplicate-dep-types',
+      comment:
+        'Any pair that includes a peer is exempt: peer plus devDependency is how a library gets it ' +
+        'for its own tests, and peer plus dependency falls under the same exemption.',
+      severity: 'error',
+      from: {},
+      to: { moreThanOneDependencyType: true, dependencyTypesNot: ['type-only', 'npm-peer'] },
+    },
+    {
+      name: 'not-to-deprecated',
+      severity: 'error',
+      from: {},
+      to: { dependencyTypes: ['deprecated'] },
     },
   ],
 

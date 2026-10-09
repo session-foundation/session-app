@@ -568,13 +568,13 @@ importers:
       '@session/basic-types':
         specifier: workspace:*
         version: link:../basic-types
+      '@session/bridge-rn':
+        specifier: workspace:*
+        version: link:../bridge-rn
       '@session/bridge-types':
         specifier: workspace:*
         version: link:../bridge-types
     devDependencies:
-      '@session/bridge-rn':
-        specifier: workspace:*
-        version: link:../bridge-rn
       '@session/eslint-config':
         specifier: workspace:*
         version: link:../../tooling/eslint-config
@@ -882,6 +882,27 @@ importers:
         specifier: 'catalog:'
         version: 5.0.0(@types/node@22.20.1)(vite@8.2.2(@types/node@22.20.1)(esbuild@0.27.7)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.0))
 
+  tooling/checks:
+    devDependencies:
+      '@session/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@session/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      '@types/node':
+        specifier: 'catalog:'
+        version: 22.20.1
+      eslint:
+        specifier: 'catalog:'
+        version: 10.9.1(jiti@2.7.0)
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 5.0.0(@types/node@22.20.1)(vite@8.2.2(@types/node@22.20.1)(esbuild@0.27.7)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.0))
+
   tooling/depcruise-config:
     devDependencies:
       dependency-cruiser:
@@ -912,6 +933,9 @@ importers:
 
   tooling/turbo-guard:
     dependencies:
+      '@session/checks':
+        specifier: workspace:*
+        version: link:../checks
       typescript:
         specifier: 'catalog:'
         version: 5.9.3

@@ -25,8 +25,10 @@
     "@session/basic-types": "workspace:*",
     "@session/bridge-types": "workspace:*"
   },
+  "peerDependencies": {
+    "@session/bridge-rn": "workspace:*"
+  },
   "devDependencies": {
-    "@session/bridge-rn": "workspace:*",
     "@session/eslint-config": "workspace:*",
     "@session/typescript-config": "workspace:*",
     "eslint": "catalog:",

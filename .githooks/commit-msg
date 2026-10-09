@@ -1,0 +1,6 @@
+#!/bin/sh
+# Commits here carry their human author only; see Conventions in CLAUDE.md.
+if grep -Eiq '^co-authored-by:|^[^#]*generated with \[?claude' "$1"; then
+  echo "commit-msg: this commit's message carries a co-author or AI attribution line; remove it (an amend or reword inherits it from the older message)" >&2
+  exit 1
+fi

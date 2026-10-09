@@ -17,7 +17,13 @@ theme-tokens/test-ids/basic-types; `screens` imports ui/state/app/client/localiz
 apps/mobile; `electron` only in desktop main and preload; `react-router` only in the desktop nav
 driver; no node builtins in shared packages; the Nitro module only from
 `packages/client/src/*.native.*`; the addon only from desktop main; the fake only from tests and
-dev entries. When a rule fires, fix the design - not the config.
+dev entries. depcruise alone also refuses orphan files, unresolvable imports, `src` importing a
+test, and shipped code importing a registry devDependency; a `@session/*` sibling listed only under
+devDependencies is turbo-guard's to refuse (`lint:manifests`), since the tsconfig alias hides it
+from depcruise. depcruise runs twice: `root.cjs` resolves as the desktop bundle does and
+`native.cjs` as Metro does, which is the only pass that resolves an import to a `.native` file and
+refuses one no mobile root reaches; a `.native` file without its plain twin is turbo-guard's too.
+When a rule fires, fix the design - not the config.
 
 ## Hard rules
 
@@ -155,3 +161,10 @@ turbo gen package|screen|port|bridge-capability
 English everywhere - commits, PRs, comments, docs. Commit subjects are imperative; no AI
 attribution or co-author trailers. Branch off `main` and open a PR; never push to `main`.
 Comments explain a constraint or a choice; they never restate the code.
+
+`pnpm install` points git at `.githooks/`. `tooling/checks/src/checks.ts` places every `pnpm`
+step of CI in pre-commit, in pre-push (narrowed to the packages the branch changes), or in CI alone
+with a reason; `lint:manifests` fails when it and the workflow disagree, so a new CI check goes
+there too. A hook checks the working tree, not the commit: CI is the authority, and a commit that
+left a fix unstaged fails there. commit-msg refuses co-author and AI attribution lines. Never commit
+or push with `--no-verify`: fix what the hook found.
