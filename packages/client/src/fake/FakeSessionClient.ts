@@ -295,9 +295,15 @@ export class FakeSessionClient implements SessionClient {
     return Promise.resolve(sessionId)
   }
 
-  markRead(id: ConversationId): Promise<void> {
+  markRead(id: ConversationId, upTo?: number): Promise<void> {
     this.assertOpen()
-    this.account.markRead(id)
+    // The bridge carries the watermark as a whole number of milliseconds and refuses anything else.
+    if (upTo !== undefined && !Number.isSafeInteger(upTo)) {
+      return Promise.reject(
+        new SessionClientError('markRead.upTo must be a whole number this bridge can carry'),
+      )
+    }
+    this.account.markRead(id, upTo)
     return Promise.resolve()
   }
 

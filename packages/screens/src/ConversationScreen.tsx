@@ -60,6 +60,7 @@ import {
   replyingToHeading,
 } from './quotedReply'
 import { TranscriptWidth } from './TranscriptWidth'
+import { useMarkReadWhileOpen } from './useMarkReadWhileOpen'
 
 const messageKey = (message: Message) => String(message.id)
 
@@ -275,6 +276,12 @@ function Conversation({ conversationId }: { conversationId: ConversationId }) {
   const { messages, ready, firstPageFailed, reload } = transcript
   const showLoading = useShowAfter(!ready && !firstPageFailed)
   const actions = useSessionActions()
+  useMarkReadWhileOpen(conversationId, {
+    ready,
+    messages,
+    unreadCount: conversation?.unreadCount ?? 0,
+    markedUnread: conversation?.markedUnread ?? false,
+  })
   const toasts = useToast()
   const list = useRef<TranscriptListHandle | null>(null)
   const highlight = useLanding(transcript, list)
