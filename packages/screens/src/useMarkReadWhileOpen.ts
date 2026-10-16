@@ -6,8 +6,9 @@ import { useEffect, useRef } from 'react'
 import { createReadMarker, READ_SETTLE_MS, type ReadMarker, type ReadView } from './readMarker'
 
 /**
- * Marks the conversation on screen read: when it opens, and as messages arrive while the app is
- * in front. See `createReadMarker` for when a call is made.
+ * Marks the conversation on screen read, up to the newest message seen: when it opens, as messages
+ * come into view, and as they arrive while the app is in front. See `createReadMarker` for when a
+ * call is made.
  */
 export function useMarkReadWhileOpen(conversationId: ConversationId, view: ReadView): void {
   const actions = useSessionActions()
@@ -31,10 +32,10 @@ export function useMarkReadWhileOpen(conversationId: ConversationId, view: ReadV
     }
   }, [actions, conversationId])
 
-  const { ready, messages, unreadCount, markedUnread } = view
+  const { ready, messages, lastActivity, unreadCount, markedUnread } = view
   // Lists the marker's own dependencies too, so a marker made again is given the view at once:
   // effects run in order, so this one runs after the one above that made it.
   useEffect(() => {
-    marker.current?.update({ ready, messages, unreadCount, markedUnread })
-  }, [actions, conversationId, ready, messages, unreadCount, markedUnread])
+    marker.current?.update({ ready, messages, lastActivity, unreadCount, markedUnread })
+  }, [actions, conversationId, ready, messages, lastActivity, unreadCount, markedUnread])
 }

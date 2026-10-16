@@ -703,9 +703,12 @@ export class FakeAccount {
   }
 
   removeConversation(id: ConversationId): void {
-    if (!this.conversations.delete(id)) return
+    const removed = this.conversations.get(id)?.conversation
+    if (removed === undefined || !this.conversations.delete(id)) return
     this.withdrawOrphanedTransfers()
-    const list = this.placed.get(id) ?? 'none'
+    // The list it is in by its own state, as libsession answers, not only one it was announced in.
+    const list: ConversationList =
+      removed.priority < 0 ? 'none' : removed.request ? 'requests' : 'conversations'
     this.placed.delete(id)
     this.emit({ type: 'conversation-removed', conversationId: id, list })
   }

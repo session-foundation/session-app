@@ -12,7 +12,13 @@ export const READ_SETTLE_MS = 300
 export interface ReadView {
   /** False until the first page is loaded: until then, an empty transcript means nothing. */
   ready: boolean
+  /** The messages seen: those whose bottom edge is on screen. */
   messages: readonly Message[]
+  /**
+   * The conversation's last activity, which moves when a message is sent or received there: not
+   * the newest message in the window, which a page or a jump changes too.
+   */
+  lastActivity: number | undefined
   unreadCount: number
   markedUnread: boolean
 }
@@ -20,7 +26,7 @@ export interface ReadView {
 /**
  * The timestamp to mark read up to, or undefined when there is nothing to mark.
  *
- * The newest *incoming* message shown, not the newest of all: libsession's watermark counts
+ * The newest *incoming* message seen, not the newest of all: libsession's watermark counts
  * incoming messages by their sender's clock, so an outgoing timestamp from this device's clock
  * could pass over a message that was sent earlier and has not arrived yet, and mark it read
  * unseen.
@@ -55,6 +61,11 @@ export interface ReadMarker {
 /**
  * Keeps an open conversation read while the app is in front.
  *
+ * Marking it unread while it is open holds: nothing is marked read again until something that
+ * would change its state happens - a message sent or received, which moves the newest message, or
+ * the conversation being closed and opened again, which makes a new marker. A read from another
+ * device or an explicit mark read clears `markedUnread` itself, which ends the hold too.
+ *
  * Plain rather than a hook so it can be driven by a store and a clock in a test: this package has
  * no renderer to mount a screen with.
  *
@@ -68,9 +79,11 @@ export function createReadMarker(options: ReadMarkerOptions): ReadMarker {
   let marked: number | undefined
   let timer: ReturnType<typeof setTimeout> | undefined
   let waitingFor: number | undefined
+  /** Set while a mark-unread made with the conversation open holds: the newest message then. */
+  let holding: { lastActivity: number | undefined } | undefined
 
   function due(): number | undefined {
-    if (!focused || view === undefined) return undefined
+    if (!focused || view === undefined || holding !== undefined) return undefined
     const target = readTarget(view)
     if (target === undefined || (marked !== undefined && target <= marked)) return undefined
     return target
@@ -112,7 +125,16 @@ export function createReadMarker(options: ReadMarkerOptions): ReadMarker {
 
   return {
     update(next) {
+      const previous = view
       view = next
+      if (!next.markedUnread) holding = undefined
+      else if (previous !== undefined && !previous.markedUnread)
+        holding = { lastActivity: next.lastActivity }
+      else if (holding !== undefined && next.lastActivity !== holding.lastActivity) {
+        holding = undefined
+        // The flag is still set, so marking the same timestamp again is what clears it.
+        marked = undefined
+      }
       schedule()
     },
     dispose() {

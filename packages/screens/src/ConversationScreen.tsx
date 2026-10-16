@@ -89,6 +89,7 @@ function Transcript({
   showsOnceAtEnd,
   onAtEnd,
   onRowsOnScreen,
+  onRowsSeen,
 }: {
   conversationId: ConversationId
   transcript: LoadedTranscript
@@ -102,6 +103,8 @@ function Transcript({
   showsOnceAtEnd?: boolean | undefined
   onAtEnd: () => void
   onRowsOnScreen: (keys: ReadonlySet<string>) => void
+  /** The rows whose bottom edge is on screen: see `TranscriptListProps.onRowsSeen`. */
+  onRowsSeen?: ((keys: readonly string[]) => void) | undefined
 }) {
   const {
     messages,
@@ -140,6 +143,7 @@ function Transcript({
       showsOnceAtEnd={showsOnceAtEnd}
       onAtEnd={onAtEnd}
       onRowsOnScreen={onRowsOnScreen}
+      onRowsSeen={onRowsSeen}
       onWaitsForStart={setWaitsForOlder}
       header={
         <PageStatus
@@ -276,9 +280,16 @@ function Conversation({ conversationId }: { conversationId: ConversationId }) {
   const { messages, ready, firstPageFailed, reload } = transcript
   const showLoading = useShowAfter(!ready && !firstPageFailed)
   const actions = useSessionActions()
+  // The messages whose bottom edge is on screen, as the transcript reports them, by key.
+  const [seenKeys, setSeenKeys] = useState<readonly string[]>([])
+  const seen = useMemo(() => {
+    const keys = new Set(seenKeys)
+    return messages.filter((message) => keys.has(messageKey(message)))
+  }, [messages, seenKeys])
   useMarkReadWhileOpen(conversationId, {
     ready,
-    messages,
+    messages: seen,
+    lastActivity: conversation?.lastActivity,
     unreadCount: conversation?.unreadCount ?? 0,
     markedUnread: conversation?.markedUnread ?? false,
   })
@@ -513,6 +524,7 @@ function Conversation({ conversationId }: { conversationId: ConversationId }) {
                     onFarFromEnd={setFarFromEnd}
                     onAtEnd={reachedEnd}
                     onRowsOnScreen={followRows}
+                    onRowsSeen={setSeenKeys}
                   />
                 </QuoteJumpContext.Provider>
                 {offersLatest ? (

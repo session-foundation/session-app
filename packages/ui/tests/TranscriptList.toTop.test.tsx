@@ -77,7 +77,13 @@ function report(held: readonly Item[], first: number, last: number): void {
     .slice(first, last + 1)
     .map((item, i) => ({ item, key: item.id, index: first + i, isViewable: true }))
   act(() => {
-    flatList.props?.onViewableItemsChanged?.({ viewableItems, changed: viewableItems })
+    // The first pair is the rows with any part on screen; the second, wholly on it.
+    const pairs = flatList.props?.viewabilityConfigCallbackPairs as
+      | {
+          onViewableItemsChanged?: (info: { viewableItems: unknown[]; changed: unknown[] }) => void
+        }[]
+      | undefined
+    pairs?.[0]?.onViewableItemsChanged?.({ viewableItems, changed: viewableItems })
   })
 }
 
