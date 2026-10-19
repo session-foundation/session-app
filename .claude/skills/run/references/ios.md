@@ -46,9 +46,10 @@ shim's, and `-jobs 6` xcodebuild's.
 
 ### Not doing work twice
 
-- **Build one architecture.** Name a simulator in `-destination`, as above. `generic/platform=iOS
-  Simulator` builds arm64 and x86_64, every file twice, and nothing on an Apple silicon Mac runs
-  the x86_64 half; if a generic destination is unavoidable, add `ARCHS=arm64 ONLY_ACTIVE_ARCH=YES`.
+- **Build one architecture.** Name a simulator in `-destination`, as above. A generic
+  destination, `generic/platform=iOS Simulator`, builds arm64 and x86_64, every file twice, and
+  nothing on an Apple silicon Mac runs the x86_64 half; if one is unavoidable, add
+  `ARCHS=arm64 ONLY_ACTIVE_ARCH=YES`.
   The same goes for libsession: the default `both` mode, never `all`, unless an Intel Mac is the
   target.
 - **Prebuild and `pod install` only when the native side changed**: a new native module, a config
