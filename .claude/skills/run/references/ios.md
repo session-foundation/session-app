@@ -9,7 +9,7 @@ Device builds and a release-shaped xcframework are untried. Everything below has
 ## Building
 
 ```sh
-pnpm --filter @session/bridge-rn build:libsession:ios     # libsession + the shim, one slice
+pnpm --filter @session/bridge-rn build:libsession:ios     # libsession + the shim
 cd apps/mobile && npx expo prebuild --platform ios
 cd ios && pod install
 xcodebuild -workspace Session.xcworkspace -scheme Session -configuration Debug \
@@ -43,6 +43,19 @@ a libsession `all` build took 69 minutes under it, where `both` takes about 4 un
 
 To cap the cores outright, `JOBS=6` limits libsession's build, `CMAKE_BUILD_PARALLEL_LEVEL=6` the
 shim's, and `-jobs 6` xcodebuild's.
+
+### Not doing work twice
+
+- **Build one architecture.** Name a simulator in `-destination`, as above. `generic/platform=iOS
+  Simulator` builds arm64 and x86_64, every file twice, and nothing on an Apple silicon Mac runs
+  the x86_64 half; if a generic destination is unavoidable, add `ARCHS=arm64 ONLY_ACTIVE_ARCH=YES`.
+  The same goes for libsession: the default `both` mode, never `all`, unless an Intel Mac is the
+  target.
+- **Prebuild and `pod install` only when the native side changed**: a new native module, a config
+  plugin, `app.json`/`app.config.ts`. Both regenerate the Xcode project, and xcodebuild then
+  recompiles every pod - well over a thousand files - however little moved.
+- **Shut the simulators down when finished**, `xcrun simctl shutdown all`. Each booted one holds
+  gigabytes, and the Mac is shared: once it swaps, every build on it slows down.
 
 ## Simulators
 
