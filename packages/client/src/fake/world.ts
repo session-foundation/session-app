@@ -14,9 +14,9 @@
  * the two cannot drift apart quietly.
  */
 
-import { isImageContentType } from '@session/basic-types'
 import {
   ATTACHMENT_NOT_FOUND,
+  FILE_DOWNLOAD_CANCELLED,
   FILE_NOT_FOUND,
   FILE_UNREADABLE,
   MESSAGE_NOT_FOUND,
@@ -31,6 +31,7 @@ import {
   type ConfigSize,
   type Conversation,
   type ConversationId,
+  type Deletion,
   type Message,
   type SendState,
   type SessionEvent,
@@ -99,14 +100,19 @@ function transferTicks(bytes: number): number {
   return Math.max(Math.round((bytes / 1_000_000) * TICKS_PER_MEGABYTE), MIN_TRANSFER_TICKS)
 }
 
+/** libsession's image test: a case-sensitive prefix, so `Image/JPEG` is not one here. */
+function libsessionImage(contentType: string | undefined): boolean {
+  return contentType?.startsWith('image/') === true
+}
+
 /** libsession's rule: has attachments, and every one of them is an image. */
 function galleryViewable(attachments: Attachment[]): boolean {
-  return attachments.length > 0 && attachments.every((a) => isImageContentType(a.contentType))
+  return attachments.length > 0 && attachments.every((a) => libsessionImage(a.contentType))
 }
 
 function wantedBy(mode: AutoDownload | undefined, attachment: Attachment): boolean {
   if (mode === 'all') return true
-  if (mode === 'image-attachments') return isImageContentType(attachment.contentType)
+  if (mode === 'image-attachments') return libsessionImage(attachment.contentType)
   return false
 }
 
@@ -149,6 +155,20 @@ function refuseMissing(ref: AttachmentRef, messageExists: boolean): Promise<neve
 
 function isVerdict(availability: AttachmentAvailability): availability is Verdict {
   return availability in VERDICT_ERRORS
+}
+
+/** Somebody waiting on a transfer: a download's caller, an auto-download, or an export. */
+interface Consumer {
+  kind: AttachmentTransfer
+  resolve: () => void
+  reject: (error: unknown) => void
+}
+
+/** One fetch of one attachment's bytes, and everybody waiting on it. */
+interface Transfer {
+  ref: AttachmentRef
+  progress: TransferProgress
+  consumers: Consumer[]
 }
 
 export interface LocatedAttachment {
@@ -196,10 +216,11 @@ export class FakeAccount {
   private world: FakeWorld | undefined
   /** Attachments whose bytes are in the cache, by `keyOf`. */
   private readonly cached = new Set<string>()
-  /** Downloads in flight, so a second request for one joins it rather than starting another. */
-  private readonly downloading = new Map<string, { done: Promise<void>; handlers: number }>()
-  /** Where each running transfer has got to, so a page can be told without waiting for a report. */
-  private readonly running = new Map<string, TransferProgress>()
+  /**
+   * Transfers in flight, by `keyOf`, so a second request for a file joins its transfer rather than
+   * starting another - a download and an export alike, as libsession keys both by the file.
+   */
+  private readonly transfers = new Map<string, Transfer>()
   /**
    * Attachments a download has judged unavailable, by `keyOf`. Seeded from a fixture's
    * `availability`, since the fake has no file server to reach the verdict against.
@@ -207,8 +228,6 @@ export class FakeAccount {
   private readonly verdicts = new Map<string, Verdict>()
   /** Paths exported to, so a repeat can collide the way a file on disk would. */
   private readonly exported = new Set<string>()
-  /** Bumped by a restart: a transfer that was running does not survive the process. */
-  private generation = 0
   private cacheLimitBytes: number | undefined
 
   constructor(options: FakeAccountOptions) {
@@ -426,15 +445,37 @@ export class FakeAccount {
     this.emit({ type: 'conversation-updated', conversation })
   }
 
+  /**
+   * Empties a message in place, as libsession does: the row stays, so a gap can be drawn where it
+   * was, and its body and its attachments' rows go. Its scope only widens: a delete "here" after
+   * one "everywhere" leaves it deleted everywhere.
+   */
+  deleteMessage(messageId: number, scope: Deletion): void {
+    for (const [id, state] of this.conversations) {
+      const message = state.messages.find((m) => m.id === messageId)
+      if (!message) continue
+      this.updateMessage(id, messageId, {
+        deleted: message.deleted === 'everywhere' ? 'everywhere' : scope,
+        body: '',
+        attachments: [],
+        galleryViewable: false,
+      })
+      this.withdrawOrphanedTransfers()
+      return
+    }
+  }
+
   clearHistory(id: ConversationId): void {
     const state = this.conversations.get(id)
     if (!state) return
     this.conversations.set(id, { ...state, messages: [] })
+    this.withdrawOrphanedTransfers()
     this.emit({ type: 'history-replaced', conversationId: id })
   }
 
   removeConversation(id: ConversationId): void {
     if (!this.conversations.delete(id)) return
+    this.withdrawOrphanedTransfers()
     this.emit({ type: 'conversation-removed', conversationId: id })
     this.emit({ type: 'conversation-list-replaced', conversations: this.list() })
   }
@@ -447,9 +488,11 @@ export class FakeAccount {
   restart(): void {
     // A transfer is not stored anywhere, so one that was running is simply gone: its remaining
     // reports are dropped and whoever was waiting is told, rather than left holding a promise.
-    this.generation += 1
-    this.downloading.clear()
-    this.running.clear()
+    const lost = [...this.transfers.values()]
+    this.transfers.clear()
+    for (const { consumers } of lost)
+      for (const consumer of consumers)
+        consumer.reject(new Error('the transfer did not survive the restart'))
     // An account nobody confirmed does not survive a restart, the way it does not survive one
     // against the real bridge. Checked before the send states are settled, because there is no
     // point settling messages that are about to be thrown away with the account.
@@ -615,7 +658,7 @@ export class FakeAccount {
       ...message,
       attachments: message.attachments.map((attachment) => {
         const key = keyOf({ messageId: message.id, index: attachment.index })
-        const running = this.running.get(key)
+        const running = this.transfers.get(key)?.progress
         const availability: AttachmentAvailability = running
           ? 'fetching'
           : this.cached.has(key)
@@ -680,69 +723,36 @@ export class FakeAccount {
    * Fetches an attachment into the cache, reporting as it goes.
    *
    * Cached already means no reports at all and an answer now - the case a progress indicator has
-   * to survive. A fetch already running is joined rather than duplicated, as libsession joins it:
-   * the joiner is told at once where it has got to, and from then on every report reaches every
-   * handler, so each step (and the end) arrives once per handler.
+   * to survive. A transfer already running is joined rather than duplicated, as libsession joins
+   * it, whether a download or an export started it: the joiner is told at once where it has got
+   * to, and from then on every report reaches every consumer, so each step (and the end) arrives
+   * once per consumer.
    */
   downloadAttachment(ref: AttachmentRef): Promise<void> {
-    const key = keyOf(ref)
     if (!this.locate(ref)) return refuseMissing(ref, this.hasMessage(ref.messageId))
-    if (this.cached.has(key)) return Promise.resolve()
-
-    const joined = this.downloading.get(key)
-    if (joined) {
-      joined.handlers += 1
-      this.emit({
-        type: 'attachment-progress',
-        transfer: 'download',
-        messageId: ref.messageId,
-        index: ref.index,
-        ...(this.running.get(key) ?? { doneBytes: 0, totalBytes: 0 }),
-      })
-      return joined.done
-    }
-
-    const verdict = this.verdicts.get(key)
-    if (verdict !== undefined) return refuseVerdict(ref, verdict)
-
-    const running = this.transfer(
-      'download',
-      ref,
-      () => this.downloading.get(key)?.handlers ?? 1,
-    ).then(
-      () => {
-        this.cached.add(key)
-        this.downloading.delete(key)
-        this.announceAttachment(ref.messageId)
-      },
-      (error: unknown) => {
-        this.downloading.delete(key)
-        throw error
-      },
-    )
-    this.downloading.set(key, { done: running, handlers: 1 })
-    return running
+    if (this.cached.has(keyOf(ref))) return Promise.resolve()
+    return this.consume(ref, 'download')
   }
 
   /**
-   * Writes an attachment out to a chosen path, fetching it if the cache does not hold it.
+   * Writes an attachment out to a chosen path.
    *
-   * Never joined with a download of the same file: an export streams to its destination and
-   * leaves the cache alone, so the two are separate transfers even for the same bytes. Uncached,
-   * it has to fetch, so it fails on a verdict as a download would.
+   * A cached file is written from the cache with no report, there being no transfer to watch.
+   * Otherwise the export is one more consumer of the file's transfer: it joins one already running
+   * or starts one that fills the cache, and fails on a verdict as a download would.
    */
   exportAttachment(ref: AttachmentRef, destination: string, replace = false): Promise<string> {
-    const found = this.locate(ref)
-    if (!found) return refuseMissing(ref, this.hasMessage(ref.messageId))
+    if (!this.locate(ref)) return refuseMissing(ref, this.hasMessage(ref.messageId))
 
-    const verdict = this.cached.has(keyOf(ref)) ? undefined : this.verdicts.get(keyOf(ref))
-    if (verdict !== undefined) return refuseVerdict(ref, verdict)
-
-    return this.transfer('export', ref).then(() => {
-      const saved = found.message.attachments.map((a) =>
-        a.index === ref.index ? { ...a, savedAtMs: this.world?.now() ?? Date.now() } : a,
-      )
-      this.updateMessage(found.conversationId, ref.messageId, { attachments: saved })
+    const fetched = this.cached.has(keyOf(ref)) ? Promise.resolve() : this.consume(ref, 'export')
+    return fetched.then(() => {
+      const found = this.locate(ref)
+      if (found) {
+        const saved = found.message.attachments.map((a) =>
+          a.index === ref.index ? { ...a, savedAtMs: this.world?.now() ?? Date.now() } : a,
+        )
+        this.updateMessage(found.conversationId, ref.messageId, { attachments: saved })
+      }
       const landed = replace ? destination : this.unusedPath(destination)
       this.exported.add(landed)
       return landed
@@ -765,70 +775,115 @@ export class FakeAccount {
     }
   }
 
+  /** Puts a consumer on the file's transfer, starting one if nothing is fetching it. */
+  private consume(ref: AttachmentRef, kind: AttachmentTransfer): Promise<void> {
+    const key = keyOf(ref)
+    const running = this.transfers.get(key)
+    const verdict = running ? undefined : this.verdicts.get(key)
+    if (verdict !== undefined) return refuseVerdict(ref, verdict)
+
+    return new Promise<void>((resolve, reject) => {
+      const consumer: Consumer = { kind, resolve, reject }
+      if (running) {
+        running.consumers.push(consumer)
+        this.tell(ref, consumer, running.progress)
+      } else {
+        this.start(ref, consumer)
+      }
+    })
+  }
+
   /**
    * One transfer, reported on the world's clock.
    *
    * The first report is 0 of 0 - the size is not known until the server answers - and exactly one
-   * report per handler carries a result, which is the only thing that says it finished.
+   * report per consumer carries a result, which is the only thing that says it finished.
    */
-  private transfer(
-    transfer: AttachmentTransfer,
-    ref: AttachmentRef,
-    handlers: () => number = () => 1,
-  ): Promise<void> {
-    const found = this.locate(ref)
-    const sizeBytes = encryptedSize(found?.attachment.sizeBytes ?? 0)
-    const world = this.world
-    const generation = this.generation
-
+  private start(ref: AttachmentRef, first: Consumer): void {
     const key = keyOf(ref)
-    const report = (doneBytes: number, totalBytes: number, outcome?: AttachmentOutcome): void => {
-      if (generation !== this.generation) return
-      // Remembered as well as announced, and remembered as exactly what was announced: a page
-      // loading midway is told where this is without waiting for the next report, and a caller
-      // cannot tell the two routes apart.
-      if (transfer === 'download') {
-        if (outcome === undefined) this.running.set(key, { doneBytes, totalBytes })
-        else this.running.delete(key)
-      }
-      const event: SessionEvent = {
-        type: 'attachment-progress',
-        transfer,
-        messageId: ref.messageId,
-        index: ref.index,
-        doneBytes,
-        totalBytes,
-        ...(outcome === undefined ? {} : { outcome }),
-      }
-      for (let handler = handlers(); handler > 0; handler -= 1) this.emit(event)
+    const sizeBytes = encryptedSize(this.locate(ref)?.attachment.sizeBytes ?? 0)
+    const transfer: Transfer = {
+      ref,
+      progress: { doneBytes: 0, totalBytes: 0 },
+      consumers: [first],
     }
-    report(0, 0)
-    // libsession announces `fetching` on every message showing the file once a download starts.
-    if (transfer === 'download') this.announceAttachment(ref.messageId)
+    this.transfers.set(key, transfer)
 
+    // Withdrawn, or lost to a restart, it is no longer the one registered, and says nothing more.
+    const live = (): boolean => this.transfers.get(key) === transfer
+    const step = (doneBytes: number, totalBytes: number): void => {
+      if (!live()) return
+      // Kept as well as reported, and as exactly what was reported: a page loading midway is told
+      // where this is without waiting for the next report, and cannot tell the two routes apart.
+      transfer.progress = { doneBytes, totalBytes }
+      for (const consumer of transfer.consumers) this.tell(ref, consumer, transfer.progress)
+    }
+    // Ended while still registered, as libsession reports the end before it records the copy.
+    const finish = (): void => {
+      if (!live()) return
+      const done = { doneBytes: sizeBytes, totalBytes: sizeBytes }
+      for (const consumer of transfer.consumers) this.tell(ref, consumer, done, { ok: true })
+      this.transfers.delete(key)
+      this.cached.add(key)
+      this.announceAttachment(ref.messageId)
+      for (const consumer of transfer.consumers) consumer.resolve()
+    }
+
+    step(0, 0)
+    // libsession announces `fetching` on every message showing the file once a transfer starts.
+    this.announceAttachment(ref.messageId)
+
+    const world = this.world
     if (!world) {
-      report(sizeBytes, sizeBytes, { ok: true })
-      return Promise.resolve()
+      finish()
+      return
     }
 
     // Spread over a span that follows the size, with the same number of reports either way: the
     // bar moves in the same increments on any file, and a bigger one takes longer to get there.
     const span = transferTicks(sizeBytes)
-    return new Promise<void>((resolve, reject) => {
-      for (let step = 1; step < TRANSFER_STEPS; step += 1) {
-        world.schedule((span * step) / TRANSFER_STEPS, () =>
-          report(Math.round((sizeBytes * step) / TRANSFER_STEPS), sizeBytes),
+    for (let i = 1; i < TRANSFER_STEPS; i += 1) {
+      world.schedule((span * i) / TRANSFER_STEPS, () =>
+        step(Math.round((sizeBytes * i) / TRANSFER_STEPS), sizeBytes),
+      )
+    }
+    world.schedule(span, finish)
+  }
+
+  private tell(
+    ref: AttachmentRef,
+    consumer: Consumer,
+    progress: TransferProgress,
+    outcome?: AttachmentOutcome,
+  ): void {
+    this.emit({
+      type: 'attachment-progress',
+      transfer: consumer.kind,
+      messageId: ref.messageId,
+      index: ref.index,
+      ...progress,
+      ...(outcome === undefined ? {} : { outcome }),
+    })
+  }
+
+  /**
+   * Withdraws every transfer whose attachment is gone, as libsession does once a delete commits:
+   * asked of what is stored rather than worked out by each caller, which delete in different ways.
+   */
+  private withdrawOrphanedTransfers(): void {
+    for (const [key, transfer] of this.transfers) {
+      if (this.locate(transfer.ref)) continue
+      this.transfers.delete(key)
+      for (const consumer of transfer.consumers) {
+        this.tell(transfer.ref, consumer, transfer.progress, {
+          ok: false,
+          error: FILE_DOWNLOAD_CANCELLED,
+        })
+        consumer.reject(
+          new SessionClientError('the attachment was deleted', FILE_DOWNLOAD_CANCELLED),
         )
       }
-      world.schedule(span, () => {
-        if (generation !== this.generation) {
-          reject(new Error('the transfer did not survive the restart'))
-          return
-        }
-        report(sizeBytes, sizeBytes, { ok: true })
-        resolve()
-      })
-    })
+    }
   }
 
   setSendState(id: ConversationId, messageId: number, sendState: SendState): void {

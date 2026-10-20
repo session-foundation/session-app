@@ -6,6 +6,8 @@ import android.content.pm.ApplicationInfo
 import android.graphics.Bitmap
 import android.util.Log
 import com.facebook.imagepipeline.bitmaps.SimpleBitmapReleaser
+import com.facebook.cache.common.CacheKey
+import com.facebook.common.internal.Predicate
 import com.facebook.common.memory.PooledByteBuffer
 import com.facebook.common.references.CloseableReference
 import com.facebook.imagepipeline.core.ImagePipelineFactory
@@ -79,11 +81,25 @@ internal object SessionMediaNative {
 
   /** Frees the memory a direct buffer handed to `load` points into. */
   @JvmStatic external fun release(handle: Long)
+
+  /** Drops every session-media picture from Fresco's memory caches; see `forget_media`. */
+  @JvmStatic
+  @DoNotStrip
+  fun forgetPictures() {
+    if (!ImagePipelineFactory.hasBeenInitialized()) return
+    // An animated frame's key has a null uriString, and a throw here stops removeAll part-way.
+    val ours = Predicate<CacheKey> { it.uriString?.startsWith("${SessionMedia.SCHEME}:") == true }
+    val pipeline = ImagePipelineFactory.getInstance()
+    pipeline.bitmapMemoryCache.removeAll(ours)
+    pipeline.encodedMemoryCache.removeAll(ours)
+  }
 }
 
 /**
  * Fresco's own order for a decoded sequence, minus every disk-cache producer, so decrypted bytes
- * live only in memory. Keyed by URL, which is why a file and its preview have separate ones.
+ * live only in memory. Keyed by URL, which is why a file and its preview have separate ones, and
+ * which keeps naming one picture: libsession never reuses a message id, and a discard calls
+ * `forget_media`.
  */
 internal class SessionMediaSequenceFactory : CustomProducerSequenceFactory() {
   override fun getCustomDecodedImageSequence(

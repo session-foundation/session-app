@@ -294,6 +294,7 @@ void HybridSessionBridge::init(const SessionBridgeOptions& options) {
         init.raw_key = key_from_hex(*options.rawKeyHex);
     else if (options.password)
         init.password = *options.password;
+    init.on_database_replaced = ::session_bridge_rn::forget_media;
 
     _bridge = std::make_unique<::session_bridge::ClientBridge>(
             std::move(init), [sink = _sink](::session_bridge::Frame frame) {

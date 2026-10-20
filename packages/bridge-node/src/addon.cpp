@@ -28,6 +28,7 @@ class SessionBridge : public Napi::ObjectWrap<SessionBridge> {
                         InstanceMethod<&SessionBridge::Call>("call"),
                         InstanceMethod<&SessionBridge::FetchMedia>("fetchMedia"),
                         InstanceMethod<&SessionBridge::FetchPreview>("fetchPreview"),
+                        InstanceMethod<&SessionBridge::DatabasesReplaced>("databasesReplaced"),
                         InstanceMethod<&SessionBridge::Close>("close"),
                 });
         exports.Set("SessionBridge", ctor);
@@ -126,6 +127,10 @@ class SessionBridge : public Napi::ObjectWrap<SessionBridge> {
         }
         if (options.Has("logLevel") && !options.Get("logLevel").IsUndefined())
             init.log_level = options.Get("logLevel").As<Napi::String>().Utf8Value();
+
+        // Desktop keeps nothing by message id that main could empty (docs/ARCHITECTURE.md,
+        // 2026-10-09), so this only counts, for the tests that hold the bridge to calling it.
+        init.on_database_replaced = [this] { ++_databases_replaced; };
 
         // Unlimited queue, so a frame produced on Core's loop is never dropped and BlockingCall
         // never blocks the thread that produced it. The JavaScript side drains the queue on its
@@ -299,6 +304,12 @@ class SessionBridge : public Napi::ObjectWrap<SessionBridge> {
                 });
     }
 
+    /// `databasesReplaced() -> number`: how many discards have replaced the database, the startup
+    /// sweep's included.
+    Napi::Value DatabasesReplaced(const Napi::CallbackInfo& info) {
+        return Napi::Number::New(info.Env(), _databases_replaced);
+    }
+
     void Close(const Napi::CallbackInfo&) { Shutdown(true); }
 
     void Shutdown(bool reject_pending) {
@@ -321,6 +332,8 @@ class SessionBridge : public Napi::ObjectWrap<SessionBridge> {
     Napi::ThreadSafeFunction _sink;
     std::shared_ptr<PendingFetches> _fetches = std::make_shared<PendingFetches>();
     uint64_t _next_fetch = 0;
+    /// Only touched on the JavaScript thread: the bridge calls back on the thread that called in.
+    uint32_t _databases_replaced = 0;
 };
 
 /// `parseMediaUrl(url) -> { kind, messageId, index } | null`, the shim's parser.

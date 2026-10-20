@@ -772,6 +772,8 @@ struct ClientBridge::Impl {
             throw;
         }
         open_failure.clear();
+        if (options.on_database_replaced)
+            options.on_database_replaced();
     }
 
     void handle(double id, const DiscardAccountCommand&) {

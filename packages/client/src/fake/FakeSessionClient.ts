@@ -408,13 +408,7 @@ export class FakeSessionClient implements SessionClient {
 
   deleteMessage(messageId: number, scope: Deletion): Promise<void> {
     this.assertOpen()
-    for (const conversation of [...this.account.list(), ...this.account.requests()]) {
-      const found = this.account.messages(conversation.id).find((m) => m.id === messageId)
-      if (found) {
-        this.account.updateMessage(conversation.id, messageId, { deleted: scope, body: '' })
-        break
-      }
-    }
+    this.account.deleteMessage(messageId, scope)
     return Promise.resolve()
   }
 

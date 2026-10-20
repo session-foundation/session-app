@@ -8,6 +8,7 @@ namespace {
 
     std::mutex registry_mutex;
     std::shared_ptr<MediaSource> registered;
+    std::function<void()> forgetter;
 
     template <typename Answer>
     Answer failed(const std::string& error) {
@@ -37,6 +38,22 @@ void clear_media_source(const MediaSource* source) {
 bool media_served_by_another(const MediaSource* mine) {
     std::lock_guard lock{registry_mutex};
     return registered && registered.get() != mine;
+}
+
+void set_media_forgetter(std::function<void()> forget) {
+    std::lock_guard lock{registry_mutex};
+    forgetter = std::move(forget);
+}
+
+void forget_media() {
+    std::function<void()> forget;
+    {
+        std::lock_guard lock{registry_mutex};
+        forget = forgetter;
+    }
+    // Outside the lock: it calls into the platform's image pipeline, which takes locks of its own.
+    if (forget)
+        forget();
 }
 
 std::optional<PendingAnswers::Handler> PendingAnswers::take(uint64_t id) {

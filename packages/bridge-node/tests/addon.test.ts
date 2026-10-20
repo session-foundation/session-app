@@ -1,6 +1,7 @@
 import { execFile } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { mkdtemp, rm } from 'node:fs/promises'
+import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
@@ -576,6 +577,73 @@ describeEcho('the generated converters', () => {
     } finally {
       transport.close()
       await rm(dir, { recursive: true, force: true })
+    }
+  })
+})
+
+/** The addon's own class, for what the transport does not expose. */
+interface RawBridge {
+  call(request: Request): void
+  databasesReplaced(): number
+  close(): void
+}
+
+describeAddon('the database-replaced hook', () => {
+  let dir: string
+  // A skipped suite still runs its body to collect tests, so the load waits for beforeAll.
+  let open: (name: string) => RawBridge
+
+  beforeAll(async () => {
+    dir = await mkdtemp(join(tmpdir(), 'session-replaced-'))
+    const { SessionBridge } = createRequire(import.meta.url)(addon) as {
+      SessionBridge: new (options: object, onFrame: (frame: Frame) => void) => RawBridge
+    }
+    open = (name) =>
+      new SessionBridge(
+        {
+          dbPath: join(dir, `${name}.db`),
+          cacheDir: join(dir, `${name}-cache`),
+          rawKey: new Uint8Array(32).fill(9),
+          deferAccount: true,
+        },
+        () => undefined,
+      )
+  })
+
+  afterAll(async () => {
+    await rm(dir, { recursive: true, force: true })
+  })
+
+  it('is called once a discard has replaced the database', () => {
+    const bridge = open('discarded')
+    try {
+      bridge.call({ id: 1, command: { type: 'createAccount' } })
+      expect(bridge.databasesReplaced()).toBe(0)
+
+      bridge.call({ id: 2, command: { type: 'discardAccount' } })
+      expect(bridge.databasesReplaced()).toBe(1)
+    } finally {
+      bridge.close()
+    }
+  })
+
+  it('is called by the sweep at startup, and only for an account nobody kept', () => {
+    const abandoned = open('abandoned')
+    abandoned.call({ id: 1, command: { type: 'createAccount' } })
+    abandoned.close()
+    const kept = open('kept')
+    kept.call({ id: 1, command: { type: 'createAccount' } })
+    kept.call({ id: 2, command: { type: 'keepAccount' } })
+    kept.close()
+
+    const swept = open('abandoned')
+    const reopened = open('kept')
+    try {
+      expect(swept.databasesReplaced()).toBe(1)
+      expect(reopened.databasesReplaced()).toBe(0)
+    } finally {
+      swept.close()
+      reopened.close()
     }
   })
 })

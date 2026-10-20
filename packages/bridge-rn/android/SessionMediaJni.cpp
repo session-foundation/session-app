@@ -4,6 +4,7 @@
 
 #include <session_bridge/media_url.hpp>
 
+#include <oxen/log.hpp>
 #include <pthread.h>
 
 #include <climits>
@@ -14,10 +15,13 @@
 
 namespace {
 
+auto cat = oxen::log::Cat("media");
+
 JavaVM* java_vm = nullptr;
 jmethodID on_media = nullptr;
 jmethodID on_preview = nullptr;
 jmethodID on_failure = nullptr;
+jclass media_native = nullptr;
 pthread_key_t detach_on_exit;
 
 /// The calling thread's JNIEnv, attaching it if it is one of Core's: ART aborts the process when
@@ -39,6 +43,30 @@ bool clear_pending(JNIEnv* env) {
         return false;
     env->ExceptionClear();
     return true;
+}
+
+/// The pending exception's `toString()`, clearing it; empty when none was pending.
+std::string take_pending(JNIEnv* env) {
+    jthrowable thrown = env->ExceptionOccurred();
+    if (!thrown)
+        return {};
+    env->ExceptionClear();
+    std::string text = "an exception";
+    jclass type = env->GetObjectClass(thrown);
+    jmethodID to_string = env->GetMethodID(type, "toString", "()Ljava/lang/String;");
+    auto described = to_string ? static_cast<jstring>(env->CallObjectMethod(thrown, to_string))
+                               : nullptr;
+    if (described) {
+        if (const char* chars = env->GetStringUTFChars(described, nullptr)) {
+            text = chars;
+            env->ReleaseStringUTFChars(described, chars);
+        }
+        env->DeleteLocalRef(described);
+    }
+    clear_pending(env);
+    env->DeleteLocalRef(type);
+    env->DeleteLocalRef(thrown);
+    return text;
 }
 
 void fail(JNIEnv* env, jobject load, const std::string& message) {
@@ -139,6 +167,23 @@ void answer_preview(jobject load, ::session_bridge::Preview preview) {
     env->DeleteGlobalRef(load);
 }
 
+void forget_pictures() {
+    JNIEnv* env = attached_env();
+    if (!env)
+        return;
+    // Looked up here rather than at load: that initialises the class, whose initialiser loads
+    // this very library.
+    static jmethodID forget = env->GetStaticMethodID(media_native, "forgetPictures", "()V");
+    if (!forget) {
+        clear_pending(env);
+        oxen::log::error(cat, "No forgetPictures: a discard leaves pictures cached");
+        return;
+    }
+    env->CallStaticVoidMethod(media_native, forget);
+    if (auto thrown = take_pending(env); !thrown.empty())
+        oxen::log::warning(cat, "forgetPictures threw, so pictures may stay cached: {}", thrown);
+}
+
 }  // namespace
 
 namespace session_bridge_rn {
@@ -158,6 +203,12 @@ jint register_media_loader(JavaVM* vm) {
     env->DeleteLocalRef(load);
     if (!on_media || !on_preview || !on_failure)
         return JNI_ERR;
+    jclass native = env->FindClass("session/bridge/rn/SessionMediaNative");
+    if (!native)
+        return JNI_ERR;
+    media_native = static_cast<jclass>(env->NewGlobalRef(native));
+    env->DeleteLocalRef(native);
+    set_media_forgetter(forget_pictures);
     pthread_key_create(&detach_on_exit, [](void*) { java_vm->DetachCurrentThread(); });
     return JNI_VERSION_1_6;
 }

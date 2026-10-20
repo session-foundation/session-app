@@ -30,6 +30,10 @@ run() {
 run "$out/JsMediaSource.test"
 
 "${CXX:-g++}" "${flags[@]}" \
+    "$pkg/cpp/MediaSource.cpp" "$here/MediaSource.test.cpp" -o "$out/MediaSource.test"
+run "$out/MediaSource.test"
+
+"${CXX:-g++}" "${flags[@]}" \
     "$pkg/../bridge-core/src/media_url.cpp" "$here/media_url.test.cpp" \
     -o "$out/media_url.test"
 run "$out/media_url.test"

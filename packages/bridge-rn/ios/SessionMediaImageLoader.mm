@@ -119,7 +119,9 @@ static UIImage* _Nullable PreviewImage(std::shared_ptr<::session_bridge::Preview
 
 /// Decoded tiles and previews, keyed by URL, size and scale. React Native caches only what it
 /// decoded itself from an HTTP response, so a loader's answers would otherwise decode again on
-/// every mount; bounded per entry so a viewer-size picture never evicts a screen of tiles.
+/// every mount; bounded per entry so a viewer-size picture never evicts a screen of tiles. A URL
+/// keeps naming one picture: libsession never reuses a message id, and a discard calls
+/// `forget_media`.
 static const NSUInteger kCacheTotalCostBytes = 48 * 1024 * 1024;
 static const NSUInteger kCacheEntryCostLimitBytes = 4 * 1024 * 1024;
 
@@ -186,6 +188,8 @@ RCT_EXPORT_MODULE()
                    selector:@selector(removeAllObjects)
                        name:UIApplicationWillResignActiveNotification
                      object:nil];
+        __weak NSCache<NSString*, UIImage*>* cache = _cache;
+        session_bridge_rn::set_media_forgetter([cache] { [cache removeAllObjects]; });
     }
     return self;
 }

@@ -3,6 +3,7 @@
 #include <session_bridge/client_bridge.hpp>
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -41,6 +42,14 @@ void clear_media_source(const MediaSource* source);
 /// Whether a source other than `mine` is registered. The registry is one per process and a bridge
 /// is one per HybridObject, so this, not a member, is what a would-be source must refuse on.
 bool media_served_by_another(const MediaSource* mine);
+
+/// What empties this platform's loader of every picture it has decoded. Set by the loader, once
+/// it exists; may run on any thread.
+void set_media_forgetter(std::function<void()> forget);
+
+/// Runs the loader's forgetter, if one is set: a discard has replaced the database, whose message
+/// ids start again at 1, so every URL cached before it names some other message now.
+void forget_media();
 
 /// The handlers a source has handed out and not yet answered, so closing can answer them.
 class PendingAnswers : public std::enable_shared_from_this<PendingAnswers> {

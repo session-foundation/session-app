@@ -743,3 +743,18 @@ Append one paragraph per decision. Undocumented decisions are what rot.
   failed load only to the view's `onError`, so the loader logs each one with its URL. The fake
   registers itself as the source with `serveMediaFrom` on both platforms, so it draws through the
   real loaders.
+
+- **2026-10-09 - A media URL names one attachment for the life of one database.** libsession
+  never hands a message id out twice within a database, so `session-media://attachment/<id>/<n>`
+  and its preview can be cached by URL for as long as that database is open. A discard opens a new
+  one numbering from 1 again, after which every URL cached before it names some other message. The
+  bridge calls `InitOptions::on_database_replaced` after every discard, the startup sweep's
+  included. Mobile empties its loaders' caches there: Fresco's bitmap and encoded memory caches on
+  Android, the loader's cache of decoded stills and previews on iOS. Desktop empties nothing, because Blink caches the
+  scheme's responses where main cannot reach them; it relies on the process ending instead.
+  Settings > Clear data ends the process, and so does the clear offered when the database will
+  not open if an account had been loaded, which is where a failed Settings > Clear data lands.
+  Onboarding's back, that clear at launch and the startup sweep all come before any media is
+  drawn. A decode answered just before a mobile reset can still land after it and cache the old
+  picture again, which the same ordering keeps latent. A discard that can follow drawn media in one process needs a per-database
+  epoch in the URL instead.
