@@ -36,18 +36,11 @@ const PUSH_SERVICE: NotificationsPort['pushService'] = ((): NotificationsPort['p
   return named === 'huawei' || named === 'google' ? named : 'google'
 })()
 
-/**
- * The scheme where a native loader resolves it - Fresco on Android - and nothing elsewhere: iOS
- * has no loader yet, and saying so draws the file form, which works, rather than an image that
- * never loads.
- */
-const MEDIA: MediaPort =
-  Platform.OS === 'android'
-    ? {
-        urlFor: (ref) => mediaUrl('attachment', ref),
-        previewUrlFor: (ref) => mediaUrl('preview', ref),
-      }
-    : { urlFor: () => null, previewUrlFor: () => null }
+/** The scheme, which a native image loader resolves on each platform: Fresco's, and React's. */
+const MEDIA: MediaPort = {
+  urlFor: (ref) => mediaUrl('attachment', ref),
+  previewUrlFor: (ref) => mediaUrl('preview', ref),
+}
 
 // Hex rather than base64: the keychain stores strings, and hex needs no polyfill on either
 // platform's JavaScript engine.

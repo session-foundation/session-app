@@ -17,9 +17,6 @@ a time, via the `port-feature` skill.
   (desktop to a chosen path, mobile where the legacy clients put it), and the per-conversation
   auto-download setting. `sendMessage` still takes a body
   and nothing else, so `SendState::uploading` is a state nothing here can reach.
-- **Showing an attachment on iOS.** Desktop and Android draw pictures inline over the
-  `session-media` scheme. iOS needs its `RCTImageURLLoader`, which is not written, so
-  `MediaPort.urlFor` returns null there and the file form is what iOS shows.
 - **The media viewer is one picture at a time.** It pages through a message's pictures and
   nothing more: no zoom, no video playback, no swipe to dismiss, no filmstrip.
 - **Returning to a conversation starts at the newest page.** A window is dropped when its screen

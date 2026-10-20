@@ -13,11 +13,11 @@ Pod::Spec.new do |s|
   s.platforms    = { :ios => "15.1" }
   s.source       = { :path => "." }
 
-  # Only the HybridObject. The shim itself is a CMake project on every platform - cmake-js for
-  # the addon, the Android Gradle plugin for Android, and the iOS build script here - because
-  # CocoaPods compiles only what lives inside the pod directory and drops a glob that reaches
-  # out of it without saying so.
-  s.source_files = "cpp/**/*.{hpp,cpp}"
+  # The HybridObject and the image loader. The shim itself is a CMake project on every platform -
+  # cmake-js for the addon, the Android Gradle plugin for Android, and the iOS build script here -
+  # because CocoaPods compiles only what lives inside the pod directory and drops a glob that
+  # reaches out of it without saying so.
+  s.source_files = "cpp/**/*.{hpp,cpp}", "ios/*.{h,mm}"
 
   # libsession, and the shim built against it. Both produced by
   # `pnpm --filter @session/bridge-rn build:libsession:ios`, neither committed.
@@ -48,4 +48,8 @@ Pod::Spec.new do |s|
   s.dependency "React-jsi"
   s.dependency "React-callinvoker"
   s.dependency "NitroModules"
+
+  # React's own headers and pods, for the image loader in ios/. Last, because it adds to the
+  # xcconfig above rather than setting it.
+  install_modules_dependencies(s)
 end

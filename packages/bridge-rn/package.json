@@ -31,5 +31,20 @@
     "react-native": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
+  },
+  "codegenConfig": {
+    "name": "SessionBridgeRNSpec",
+    "type": "modules",
+    "jsSrcsDir": "src",
+    "android": {
+      "javaPackageName": "session.bridge.rn"
+    },
+    "ios": {
+      "modulesConformingToProtocol": {
+        "RCTImageURLLoader": [
+          "SessionMediaImageLoader"
+        ]
+      }
+    }
   }
 }
