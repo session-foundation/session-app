@@ -55,8 +55,8 @@ export function AttachmentList({
   /**
    * Opens the rest.
    *
-   * Absent in the sheet itself, which is where "the rest" already is - so the same component
-   * draws both, capped in the transcript and whole inside the sheet.
+   * Absent, every row is drawn and none is capped. The sheet draws the same `AttachmentRow`s
+   * through a windowed list instead, since it is where a set too long to mount at once goes.
    */
   onShowAll?: (() => void) | undefined
 }) {

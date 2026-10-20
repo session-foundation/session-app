@@ -22,6 +22,9 @@ export function PressArea({
   disabled = false,
   fill = false,
   accessibilityLabel,
+  role = 'button',
+  checked,
+  toggled,
   busy = false,
   testID,
   children,
@@ -29,7 +32,9 @@ export function PressArea({
   return (
     <YStack
       {...(fill ? { flex: 1 } : {})}
-      role="button"
+      role={role}
+      {...(checked === undefined ? {} : { 'aria-checked': checked })}
+      {...(toggled === undefined ? {} : { 'aria-pressed': toggled })}
       // A control's label is not selectable text; set here so a new control cannot forget it.
       userSelect="none"
       disabled={disabled}

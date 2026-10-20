@@ -142,11 +142,6 @@ export const AttachmentTile = memo(function AttachmentTile({
       borderRadius={radius}
       overflow="hidden"
       backgroundColor="$backgroundTertiary"
-      // Only round the flat surface, which needs an edge to be seen against the page. A tile
-      // wearing the picture's own colour already has one.
-      {...(here || placeholder !== null
-        ? {}
-        : { borderWidth: TILE_HAIRLINE_WIDTH, borderColor: '$bordersColor' })}
     >
       {/* Underneath, always: the picture lands on top of it rather than replacing it, so nothing
           reflows and there is no frame where the tile is empty.
@@ -201,6 +196,23 @@ export const AttachmentTile = memo(function AttachmentTile({
       )}
 
       {here && kind === 'video' ? <VideoAffordances side={side} duration={duration} /> : null}
+
+      {here || placeholder !== null ? null : (
+        // Only round the flat surface, which needs an edge to be seen against the page; a tile
+        // wearing the picture's own colour already has one. Its own layer, because on Android a
+        // border dropped from the clipping view as the picture lands leaves the tile blank.
+        <YStack
+          position="absolute"
+          top={0}
+          bottom={0}
+          left={0}
+          right={0}
+          borderRadius={radius}
+          borderWidth={TILE_HAIRLINE_WIDTH}
+          borderColor="$bordersColor"
+          pointerEvents="none"
+        />
+      )}
 
       {overflowLabel === undefined ? null : (
         // Replaces whatever is under it rather than sitting beside it: this tile stands for the

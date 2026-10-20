@@ -78,20 +78,19 @@ function MessageViewer({
       onExport={() => {
         if (attachment !== undefined) void exportOne(message, attachment.index, actions, feedback)
       }}
-      // Nothing behind it yet: the row's own menu is where these live, and a second copy of it
-      // belongs with that work rather than ahead of it.
-      onMore={() => undefined}
       positionLabel={`${String(at + 1)} / ${String(items.length)}`}
       unavailableLabel={tr('attachmentsErrorNotSupported')}
       failedLabel={tr('attachmentsErrorOpen')}
       closeLabel={tr('close')}
       exportLabel={PENDING_COPY.export}
-      moreLabel={tr('openMessageContextMenu')}
       previousLabel={PENDING_COPY.previous}
       nextLabel={tr('next')}
       testID={ELEMENT.conversation.mediaViewer}
       closeTestID={ELEMENT.conversation.mediaViewerClose}
       exportTestID={ELEMENT.conversation.mediaViewerExport}
+      previousTestID={ELEMENT.conversation.mediaViewerPrevious}
+      nextTestID={ELEMENT.conversation.mediaViewerNext}
+      imageTestID={ELEMENT.conversation.mediaViewerImage}
     />
   )
 }

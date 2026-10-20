@@ -87,6 +87,8 @@ export function MessageAlbum({
         if (attachment !== undefined) onOpen(attachment.index)
       }}
       control={control}
+      fetchLabel={tr('download')}
+      fetchTestID={ELEMENT.conversation.attachmentFetch}
       testID={ELEMENT.conversation.attachment}
     />
   )

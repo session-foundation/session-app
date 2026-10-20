@@ -51,9 +51,18 @@ interface PageGlobals {
   performance: { now: () => number }
 }
 
+/** Only what `clipped` reads of an element, since this program has no DOM types. */
+interface LaidOutNode {
+  textContent: string | null
+  clientWidth: number
+  scrollWidth: number
+  querySelectorAll(selector: string): ArrayLike<LaidOutNode>
+}
+
 /** What the layout probe's page-side bodies touch. */
 interface DocumentGlobals {
   document: { documentElement: { dir: string; clientWidth: number } }
+  getComputedStyle(element: unknown): { direction: string }
 }
 
 const repoRoot = fileURLToPath(new URL('../../..', import.meta.url))
@@ -119,6 +128,10 @@ export class DesktopApp implements ISessionApp, IPerformanceProbe, IFileChooser,
 
   async isVisible(id: ElementId): Promise<boolean> {
     return this.locator(id).first().isVisible()
+  }
+
+  async isDisabled(id: ElementId): Promise<boolean> {
+    return (await this.locator(id).first().getAttribute('aria-disabled')) === 'true'
   }
 
   async tap(id: ElementId): Promise<void> {
@@ -243,6 +256,32 @@ export class DesktopApp implements ISessionApp, IPerformanceProbe, IFileChooser,
       () => (globalThis as unknown as DocumentGlobals).document.documentElement.clientWidth,
     )
     return box.x + box.width / 2 > width / 2 ? 'right' : 'left'
+  }
+
+  async verticalCentre(id: ElementId): Promise<number> {
+    const box = await this.locator(id).first().boundingBox()
+    if (box === null) throw new Error(`${id} is not laid out`)
+    return box.y + box.height / 2
+  }
+
+  async clipped(id: ElementId): Promise<boolean[]> {
+    return this.locator(id).evaluateAll((elements) =>
+      (elements as unknown as LaidOutNode[]).map((element) =>
+        [element, ...Array.from(element.querySelectorAll('*'))].some(
+          (node) =>
+            (node.textContent ?? '') !== '' &&
+            (node.clientWidth === 0 || node.scrollWidth > node.clientWidth + 1),
+        ),
+      ),
+    )
+  }
+
+  async directions(id: ElementId): Promise<string[]> {
+    return this.locator(id).evaluateAll((elements) =>
+      elements.map(
+        (element) => (globalThis as unknown as DocumentGlobals).getComputedStyle(element).direction,
+      ),
+    )
   }
 
   async isLeftOf(first: ElementId, second: ElementId): Promise<boolean> {

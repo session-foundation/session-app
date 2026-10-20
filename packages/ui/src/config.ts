@@ -95,6 +95,6 @@ declare module 'tamagui' {
   // Named so a control nested in another answers only to its own hover: an unnamed group matches
   // any grouped ancestor, which lights every layer inside a hovered row.
   interface TypeOverride {
-    groupNames(): 'tile' | 'row' | 'control'
+    groupNames(): 'tile' | 'row' | 'control' | 'album'
   }
 }

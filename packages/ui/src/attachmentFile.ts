@@ -21,6 +21,18 @@ function parts(name: string): { stem: string; ext: string } {
     : { stem: name, ext: '' }
 }
 
+/** Hebrew, Arabic, Syriac, Thaana, N'Ko, Samaritan, Mandaic and their presentation forms. */
+const RTL_LETTER = /[\u0590-\u08FF\uFB1D-\uFDFF\uFE70-\uFEFF]/
+
+/**
+ * The direction a name reads in, from its first letter rather than the layout around it: a
+ * filename is in whatever script its author wrote it, whatever language the app is in.
+ */
+export function nameDirection(name: string): 'ltr' | 'rtl' {
+  const first = /\p{Letter}/u.exec(name)?.[0]
+  return first !== undefined && RTL_LETTER.test(first) ? 'rtl' : 'ltr'
+}
+
 /**
  * A filename split into the part a layout may truncate and the part it may not.
  *

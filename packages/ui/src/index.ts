@@ -59,6 +59,9 @@ export { MessageBubble, type MessageBubbleProps } from './MessageBubble'
 export { Modal } from './Modal'
 export { SegmentedToggle } from './SegmentedToggle'
 export type { Segment, SegmentedToggleProps } from './SegmentedToggle'
+export { toggleRowHeight } from './segmentedToggleLayout'
+/** What the toggle grows to on touch, and 0 with a pointer: the row it sits in has to hold it. */
+export { SEGMENT_TARGET as SEGMENTED_TOGGLE_TARGET } from './segmentedToggleMetrics'
 export { Sheet } from './Sheet'
 export type { SheetProps } from './Sheet'
 export { ModalStackProvider, useModalNavigation, useModals } from './ModalsProvider'
@@ -134,6 +137,7 @@ export {
   FILE_ROW_CONTROL,
   FILE_ROW_GAP,
   fileRowControl,
+  fileRowHeight,
   fileRowTone,
 } from './fileRowState'
 export type { FileRowState, FileRowTone } from './fileRowState'

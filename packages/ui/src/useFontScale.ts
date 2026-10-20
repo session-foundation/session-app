@@ -1,12 +1,23 @@
-import { useWindowDimensions } from 'react-native'
+import { useSyncExternalStore } from 'react'
+import { Dimensions } from 'react-native'
+
+function subscribe(onChange: () => void): () => void {
+  const subscription = Dimensions.addEventListener('change', onChange)
+  return () => {
+    subscription.remove()
+  }
+}
+
+function readFontScale(): number {
+  return Dimensions.get('window').fontScale
+}
 
 /**
- * The system text size as a multiple of the default, re-rendering whoever asks when it changes.
+ * The OS text-size setting: 1 at the default, and always 1 on the web.
  *
- * React Native scales every piece of text by this on its own; this is for the layout around text
- * that has to grow in step and cannot measure first -- a fixed-height list row. 1 on the web,
- * where react-native-web reports no text size and the browser's zoom scales the whole page.
+ * For a height counted rather than measured, which has to grow with the text it holds. Unlike
+ * `useWindowSize`, a resize that leaves the scale alone re-renders nothing.
  */
 export function useFontScale(): number {
-  return useWindowDimensions().fontScale
+  return useSyncExternalStore(subscribe, readFontScale, readFontScale)
 }

@@ -1,18 +1,51 @@
 import { describe, expect, it } from 'vitest'
 
-import { MIN_HIT_TARGET } from '#src/buttonHitTarget'
-import { selectedSegment } from '#src/segmentedToggleLayout'
+import {
+  SEGMENT_PADDING,
+  selectedSegment,
+  toggleRowHeight,
+  toggleSlop,
+} from '#src/segmentedToggleLayout'
 import * as web from '#src/segmentedToggleMetrics'
 import * as native from '#src/segmentedToggleMetrics.native'
 
-describe('a segmented toggle’s segments', () => {
-  it('are their own touch target on native, so no slop overlaps the neighbour', () => {
-    expect(native.SEGMENT_HEIGHT).toBeGreaterThanOrEqual(MIN_HIT_TARGET)
-    expect(native.SEGMENT_WIDTH).toBeGreaterThanOrEqual(MIN_HIT_TARGET)
+/** The caption line the attachment footer draws the toggle in. */
+const FOOTER_HEIGHT = 30
+
+describe('a segmented toggle on touch', () => {
+  it('fits the caption line it sits in', () => {
+    expect(native.SEGMENT_HEIGHT + 2 * SEGMENT_PADDING).toBeLessThanOrEqual(FOOTER_HEIGHT)
   })
 
-  it('are drawn small on the web, where a pointer needs no more than what is drawn', () => {
-    expect(web.SEGMENT_HEIGHT).toBeLessThan(MIN_HIT_TARGET)
+  it('is one target, grown to a thumb’s size on both axes', () => {
+    expect(native.SEGMENT_TAPS).toBe('whole')
+    const slop = toggleSlop(native.SEGMENT_HEIGHT, native.SEGMENT_TARGET)
+    expect(native.SEGMENT_HEIGHT + 2 * SEGMENT_PADDING + 2 * slop).toBeGreaterThanOrEqual(48)
+    expect(2 * native.SEGMENT_WIDTH + 3 * SEGMENT_PADDING + 2 * slop).toBeGreaterThanOrEqual(48)
+  })
+
+  it('sits in a row tall enough to hold the slop, which stops at the row’s edge', () => {
+    const slop = toggleSlop(native.SEGMENT_HEIGHT, native.SEGMENT_TARGET)
+    const target = native.SEGMENT_HEIGHT + 2 * SEGMENT_PADDING + 2 * slop
+    expect(toggleRowHeight(FOOTER_HEIGHT, native.SEGMENT_TARGET)).toBeGreaterThanOrEqual(target)
+  })
+})
+
+describe('a segmented toggle with a pointer', () => {
+  it('lets each segment be clicked, drawn small', () => {
+    expect(web.SEGMENT_TAPS).toBe('segment')
+    expect(web.SEGMENT_HEIGHT + 2 * SEGMENT_PADDING).toBeLessThanOrEqual(FOOTER_HEIGHT)
+  })
+
+  it('leaves the row it sits in at the caption line’s height', () => {
+    expect(toggleRowHeight(FOOTER_HEIGHT, web.SEGMENT_TARGET)).toBe(FOOTER_HEIGHT)
+  })
+})
+
+describe('the slop that grows the toggle', () => {
+  it('is half the shortfall, and nothing where there is none', () => {
+    expect(toggleSlop(22, 48)).toBe(11)
+    expect(toggleSlop(60, 48)).toBe(0)
   })
 })
 

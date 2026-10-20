@@ -122,3 +122,22 @@ export function lastCell(layout: AlbumLayout): AlbumCell | undefined {
   const lastRow = layout.rows[layout.rows.length - 1]
   return lastRow?.[lastRow.length - 1] ?? layout.lead ?? undefined
 }
+
+/** Where the cell drawing attachment `at` sits, from the album's leading and top edges. */
+export function cellPlace(
+  layout: AlbumLayout,
+  at: number,
+  seam = ALBUM_SEAM,
+): { side: number; start: number; top: number } | undefined {
+  if (layout.lead?.at === at) return { side: layout.lead.side, start: 0, top: 0 }
+  const start = layout.lead === null ? 0 : layout.lead.side + seam
+  let top = 0
+  for (const row of layout.rows) {
+    const column = row.findIndex((cell) => cell.at === at)
+    const cell = row[column]
+    if (cell !== undefined)
+      return { side: cell.side, start: start + column * (cell.side + seam), top }
+    top += (row[0]?.side ?? 0) + seam
+  }
+  return undefined
+}

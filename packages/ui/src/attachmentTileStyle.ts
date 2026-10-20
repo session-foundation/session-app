@@ -25,8 +25,8 @@ export function tileRadius(side: number): number {
 export const TILE_SCRIM = 'rgba(0, 0, 0, 0.55)'
 
 /** How much of `TILE_SCRIM` a tile takes under a pointer and while pressed. */
-export const TILE_HOVER_OPACITY = 0.35
-export const TILE_PRESS_OPACITY = 0.6
+export const TILE_HOVER_OPACITY = 0.7
+export const TILE_PRESS_OPACITY = 1
 
 /**
  * The hairline round a tile with no picture in it yet.

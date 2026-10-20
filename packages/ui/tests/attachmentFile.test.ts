@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { fileFormat, fileGlyph, MAX_EXTENSION, splitFilename } from '#src/attachmentFile'
+import {
+  fileFormat,
+  fileGlyph,
+  MAX_EXTENSION,
+  nameDirection,
+  splitFilename,
+} from '#src/attachmentFile'
 
 describe('a filename split into two runs', () => {
   it('keeps the extension on the tail, where nothing can truncate it', () => {
@@ -89,5 +95,23 @@ describe('which glyph names a file', () => {
   it('ignores the case of both', () => {
     expect(fileGlyph('ARCHIVE.ZIP')).toBe('fileArchive')
     expect(fileGlyph('recording', 'AUDIO/AAC')).toBe('fileAudio')
+  })
+})
+
+describe('the direction a name reads in', () => {
+  it('follows the script of its first letter', () => {
+    expect(nameDirection('itinerary.pdf')).toBe('ltr')
+    expect(nameDirection('تقرير-الرحلة.pdf')).toBe('rtl')
+    expect(nameDirection('דוח.docx')).toBe('rtl')
+    expect(nameDirection('Отчёт.pdf')).toBe('ltr')
+  })
+
+  it('skips the digits and punctuation a name starts with', () => {
+    expect(nameDirection('2026-03 تقرير.pdf')).toBe('rtl')
+    expect(nameDirection('_2026-report.pdf')).toBe('ltr')
+  })
+
+  it('reads a name with no letters left to right', () => {
+    expect(nameDirection('2026-03-01')).toBe('ltr')
   })
 })

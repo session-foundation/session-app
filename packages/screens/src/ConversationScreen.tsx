@@ -6,7 +6,7 @@ import { Button, Input, List, Screen, Separator, Text, XStack, YStack } from '@s
 import { memo, useMemo, useState } from 'react'
 
 import { AttachmentSheet } from './AttachmentSheet'
-import type { AttachmentView } from './attachmentView'
+import { createViewChoices } from './viewChoices'
 import { ConversationUiContext, type ConversationUi } from './conversationUi'
 import { MessageAttachments } from './MessageAttachments'
 import { MessageMediaViewer, type ViewerTarget } from './MessageMediaViewer'
@@ -148,7 +148,7 @@ function Conversation({ conversationId }: { conversationId: ConversationId }) {
    * itself the moment somebody scrolls down and back. Dropped with the conversation, which is the
    * right scope - it is a way of reading one message, not a setting.
    */
-  const [views, setViews] = useState<Record<number, AttachmentView>>({})
+  const [views] = useState(createViewChoices)
   // One viewer and one sheet for the whole transcript, so two can never be open at once.
   const [viewer, setViewer] = useState<ViewerTarget | null>(null)
   const [sheet, setSheet] = useState<number | null>(null)
@@ -161,10 +161,7 @@ function Conversation({ conversationId }: { conversationId: ConversationId }) {
       requestAutoDownloadPrompt: () => {
         if (autoDownload === undefined) setPrompting(true)
       },
-      viewFor: (messageId) => views[messageId],
-      chooseView: (messageId, view) => {
-        setViews((all) => ({ ...all, [messageId]: view }))
-      },
+      views,
       openViewer: (messageId, index) => {
         setViewer({ messageId, index })
       },

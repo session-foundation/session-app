@@ -14,6 +14,17 @@ export interface PressAreaProps {
   /** Takes an equal share of the row it is in, so a dialog's actions can share their width. */
   fill?: boolean
   accessibilityLabel?: string
+  /**
+   * `switch` for a control that flips between two values, announced with `checked` as its state.
+   * A button otherwise.
+   */
+  role?: 'button' | 'switch'
+  checked?: boolean
+  /**
+   * A button that stays on until pressed again, announced as pressed while it is. A segment of a
+   * choice drawn as buttons; not the transient press `children` is told about.
+   */
+  toggled?: boolean
   /** Announced as busy, for a control whose action is running. */
   busy?: boolean
   testID?: string

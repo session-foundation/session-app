@@ -44,7 +44,7 @@ const SEEDED_PICTURES: Attachment[] = [
 ]
 
 /**
- * One picture and one file, which libsession's rule makes *not* gallery-viewable: a message is
+ * One picture and two files, which libsession's rule makes *not* gallery-viewable: a message is
  * only shown as pictures when every attachment is one. This is what draws the file form.
  */
 const SEEDED_FILES: Attachment[] = [
@@ -67,6 +67,18 @@ const SEEDED_FILES: Attachment[] = [
     contentType: 'application/pdf',
     filename: 'itinerary.pdf',
     sizeBytes: 184_320,
+    voiceMessage: false,
+    hasPreview: false,
+    uploaded: true,
+    availability: 'absent',
+    fetchDoneBytes: 0,
+    fetchTotalBytes: 0,
+  }, // Named in Arabic, so a right-to-left name is on screen in every locale.
+  {
+    index: 2,
+    contentType: 'application/pdf',
+    filename: 'تقرير-الرحلة.pdf',
+    sizeBytes: 52_480,
     voiceMessage: false,
     hasPreview: false,
     uploaded: true,

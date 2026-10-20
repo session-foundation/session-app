@@ -1,4 +1,4 @@
-import { XStack, YStack } from 'tamagui'
+import { isWeb, XStack, YStack } from 'tamagui'
 
 import { SPACING } from '@session/theme-tokens'
 
@@ -14,12 +14,13 @@ import type {
 import type { ElementId } from '@session/test-ids'
 
 import { AttachmentTile } from './AttachmentTile'
-import { fileFormat, fileGlyph, splitFilename } from './attachmentFile'
+import { fileFormat, fileGlyph, nameDirection, splitFilename } from './attachmentFile'
 import {
   FILE_GLYPH_SIDE,
   FILE_LEAD_WIDTH,
   FILE_ROW_CONTROL,
   FILE_ROW_GAP,
+  fileLeadHeight,
   fileRowControl,
   fileRowTone,
   type FileRowState,
@@ -30,6 +31,7 @@ import { Icon } from './Icon'
 import { ProgressRing } from './ProgressRing'
 import { StateLayer } from './StateLayer'
 import { Text } from './Text'
+import { useFontScale } from './useFontScale'
 import { tileRadius } from './attachmentTileStyle'
 
 export interface FileRowTestIDs {
@@ -72,6 +74,12 @@ const TONE_COLOR = {
   secondary: '$textSecondary',
   danger: '$dangerColor',
 } as const satisfies Record<FileRowTone, string>
+
+/**
+ * The caption is the app's copy, so its words order by their own script rather than by the
+ * name's direction it sits under. Native text already takes its paragraph direction that way.
+ */
+const CAPTION_BIDI = isWeb ? ({ unicodeBidi: 'plaintext' } as const) : undefined
 
 /**
  * Drawn inside the touch target rather than filling it, so it reads as a gauge and not a button.
@@ -171,7 +179,10 @@ export function FileRow({
 }: FileRowProps) {
   const { head, tail } = splitFilename(filename)
   const format = fileFormat(filename)
+  // On the name and the caption together, so the two share an edge.
+  const direction = { direction: nameDirection(filename) }
   const tone = fileRowTone(state)
+  const fontScale = useFontScale()
 
   const lead =
     thumbnail === undefined ? (
@@ -209,7 +220,12 @@ export function FileRow({
       {onAction === undefined ? null : (
         <StateLayer group="row" tone="ink" borderRadius="$sm" bleed={SPACING.xs} />
       )}
-      <YStack width={FILE_LEAD_WIDTH} alignItems="center" gap="$3xs">
+      <YStack
+        width={FILE_LEAD_WIDTH}
+        height={fileLeadHeight(fontScale)}
+        alignItems="center"
+        gap="$3xs"
+      >
         {onOpen === undefined ? (
           lead
         ) : (
@@ -227,7 +243,9 @@ export function FileRow({
           >
             {lead}
             <StateLayer group="tile" tone="scrim" borderRadius={tileRadius(FILE_GLYPH_SIDE)} />
-            {thumbnail?.fetchesOnOpen === true ? <FetchHint side={FILE_GLYPH_SIDE} /> : null}
+            {thumbnail?.fetchesOnOpen === true ? (
+              <FetchHint side={FILE_GLYPH_SIDE} group="tile" />
+            ) : null}
           </YStack>
         )}
         {/* Under the lead rather than in the caption line, where it was competing with the size
@@ -240,7 +258,7 @@ export function FileRow({
         )}
       </YStack>
 
-      <YStack flex={1} minWidth={0} gap="$3xs">
+      <YStack flex={1} minWidth={0} gap="$3xs" style={direction}>
         {/* Two runs: the head gives up whatever width the row is short of and the tail cannot,
             so a long name loses its middle instead of its extension. See `splitFilename`.
 
@@ -262,7 +280,17 @@ export function FileRow({
             {tail}
           </Text>
         </XStack>
-        <Text size="$caption" tone={tone.caption} numberOfLines={1} testID={testIDs?.caption}>
+        {/* Sized to its words, so the column's direction places it rather than each platform's
+            own alignment of a line of text. */}
+        <Text
+          size="$caption"
+          tone={tone.caption}
+          numberOfLines={1}
+          alignSelf="flex-start"
+          maxWidth="100%"
+          style={CAPTION_BIDI}
+          testID={testIDs?.caption}
+        >
           {caption}
         </Text>
       </YStack>

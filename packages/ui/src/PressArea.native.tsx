@@ -64,6 +64,9 @@ export function PressArea({
   fill = false,
   hitSlop,
   accessibilityLabel,
+  role = 'button',
+  checked,
+  toggled,
   busy = false,
   testID,
   children,
@@ -88,13 +91,19 @@ export function PressArea({
       // The zero basis spelled out: under `flex: 1` alone each label's width leaks into the split,
       // and two fill buttons with different labels come out different widths.
       {...(fill ? { style: { flexGrow: 1, flexShrink: 1, flexBasis: 0 } } : {})}
-      accessibilityRole="button"
+      accessibilityRole={role}
       disabled={disabled}
       onPress={onPress}
       {...(hitSlop === undefined || hitSlop === 0 ? {} : { hitSlop })}
       accessibilityLabel={accessibilityLabel}
-      // Stated whole: passing a state replaces the one Pressable derives from `disabled`.
-      accessibilityState={{ disabled, busy }}
+      // Stated whole: passing a state replaces the one Pressable derives from `disabled`. Native
+      // has no `pressed` state for a toggle button; both readers announce `selected`.
+      accessibilityState={{
+        disabled,
+        busy,
+        ...(checked === undefined ? {} : { checked }),
+        ...(toggled === undefined ? {} : { selected: toggled }),
+      }}
       testID={testID}
       // A finger reports pointer events too, and it does not hover.
       onPointerEnter={(e: PointerEvent) => {
