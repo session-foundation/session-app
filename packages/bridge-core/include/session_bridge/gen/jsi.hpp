@@ -2091,13 +2091,34 @@ struct JSIConverter<::session_bridge::SetPrefCommand> final {
 };
 
 template <>
+struct JSIConverter<::session_bridge::TestAttachment> final {
+    static inline ::session_bridge::TestAttachment fromJSI(jsi::Runtime& runtime, const jsi::Value& arg) {
+        jsi::Object obj = arg.asObject(runtime);
+        return ::session_bridge::TestAttachment(
+                JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "contentType"))),
+                ::session_bridge::optional_from_jsi<std::vector<std::byte>>(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "thumbhash"))));
+    }
+    static inline jsi::Value toJSI(jsi::Runtime& runtime, const ::session_bridge::TestAttachment& arg) {
+        jsi::Object obj(runtime);
+        obj.setProperty(runtime, PropNameIDCache::get(runtime, "contentType"), JSIConverter<std::string>::toJSI(runtime, arg.content_type));
+        if (arg.thumbhash)
+            obj.setProperty(runtime, PropNameIDCache::get(runtime, "thumbhash"), JSIConverter<std::vector<std::byte>>::toJSI(runtime, *arg.thumbhash));
+        return obj;
+    }
+    static inline bool canConvert(jsi::Runtime&, const jsi::Value& value) {
+        return value.isObject();
+    }
+};
+
+template <>
 struct JSIConverter<::session_bridge::DeliverTestMessageCommand> final {
     static inline ::session_bridge::DeliverTestMessageCommand fromJSI(jsi::Runtime& runtime, const jsi::Value& arg) {
         jsi::Object obj = arg.asObject(runtime);
         return ::session_bridge::DeliverTestMessageCommand(
                 JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "senderSeedHex"))),
                 JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "body"))),
-                JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "timestamp"))));
+                JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "timestamp"))),
+                ::session_bridge::optional_from_jsi<std::vector<::session_bridge::TestAttachment>>(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "attachments"))));
     }
     static inline jsi::Value toJSI(jsi::Runtime& runtime, const ::session_bridge::DeliverTestMessageCommand& arg) {
         jsi::Object obj(runtime);
@@ -2105,6 +2126,8 @@ struct JSIConverter<::session_bridge::DeliverTestMessageCommand> final {
         obj.setProperty(runtime, PropNameIDCache::get(runtime, "senderSeedHex"), JSIConverter<std::string>::toJSI(runtime, arg.sender_seed_hex));
         obj.setProperty(runtime, PropNameIDCache::get(runtime, "body"), JSIConverter<std::string>::toJSI(runtime, arg.body));
         obj.setProperty(runtime, PropNameIDCache::get(runtime, "timestamp"), JSIConverter<double>::toJSI(runtime, arg.timestamp));
+        if (arg.attachments)
+            obj.setProperty(runtime, PropNameIDCache::get(runtime, "attachments"), JSIConverter<std::vector<::session_bridge::TestAttachment>>::toJSI(runtime, *arg.attachments));
         return obj;
     }
     static inline bool canConvert(jsi::Runtime& runtime, const jsi::Value& value) {

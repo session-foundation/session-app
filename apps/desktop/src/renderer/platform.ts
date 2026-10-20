@@ -2,7 +2,8 @@ import { memoryPorts, setPorts } from '@session/app'
 import { parseNetworkName } from '@session/basic-types'
 import { getLocale, subscribeLocale } from '@session/localization'
 
-import { mediaUrl } from '../shared/mediaUrl'
+import { mediaUrl } from '@session/app/mediaUrl'
+
 import { flushLogRecords } from './logs'
 
 const memory = memoryPorts()

@@ -11,6 +11,7 @@
 
 import type {
   AccountInfo,
+  AttachmentRef,
   AutoDownload,
   ConfigSize,
   Conversation,
@@ -21,6 +22,7 @@ import type {
   Frame,
   Message,
   MessageCursor,
+  PixelSize,
   Request,
   RouterKind,
   SeedNode,
@@ -176,4 +178,30 @@ export interface BridgeTransport {
   send(request: Request): void
   setSink(onFrame: (frame: Frame) => void): void
   close(): void
+}
+
+/** An attachment's bytes, decrypted, for whatever draws them. */
+export interface AttachmentMedia {
+  contentType: string
+  bytes: Uint8Array
+}
+
+/**
+ * A decoded ThumbHash: RGBA8, row-major, not alpha-premultiplied, `width * height * 4` long.
+ *
+ * Raw pixels rather than an encoded image, because the bridge is not the right place to pick a
+ * format. Whatever serves the media scheme hands them to its platform's image pipeline.
+ */
+export type AttachmentPreview = PixelSize & { rgba: Uint8Array }
+
+/**
+ * What answers a media URL: the addon, the Nitro bridge, or the fake.
+ *
+ * Beside the transport rather than on it, because the frame stream carries state and its ordering
+ * is what makes a display bindable: a multi-megabyte file on it would stall every state frame
+ * behind a payload nothing can contradict. Progress still arrives as events.
+ */
+export interface MediaSource {
+  fetchMedia(ref: AttachmentRef): Promise<AttachmentMedia>
+  fetchPreview(ref: AttachmentRef): Promise<AttachmentPreview>
 }

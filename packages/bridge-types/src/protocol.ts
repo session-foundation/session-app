@@ -28,6 +28,14 @@ import type { FileServerConfig, RouterKind, SeedNode } from './sessionBridgeOpti
  */
 type SecretBytes = Uint8Array
 
+/** A file a forged message says it carries: a pointer to nothing, so it never downloads. */
+// Not exported: only the request below names it, and the generator reads it from this file.
+interface TestAttachment {
+  contentType: string
+  /** Unset is a sender who sent no ThumbHash, which is what leaves an attachment no preview. */
+  thumbhash?: Uint8Array
+}
+
 /**
  * Everything the app asks libsession to do. One Request goes in, exactly one Response comes
  * back carrying the same id. Commands are named for what the app wants, not for the C++ method
@@ -265,7 +273,13 @@ export type Command =
    * whoever holds `senderSeedHex`, a 32-byte account seed; the recipient is always the client
    * the command is sent to, since that is the only account it can decrypt for.
    */
-  | { type: 'deliverTestMessage'; senderSeedHex: string; body: string; timestamp: number }
+  | {
+      type: 'deliverTestMessage'
+      senderSeedHex: string
+      body: string
+      timestamp: number
+      attachments?: TestAttachment[]
+    }
   /** This client's own account seed, so the harness can forge messages from it to another. */
   | { type: 'getTestAccountSeed' }
   /**

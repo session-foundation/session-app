@@ -1,6 +1,14 @@
 import { createRequire } from 'node:module'
 
-import type { AttachmentRef, BridgeTransport, Frame, PixelSize, Request } from '@session/client'
+import type {
+  AttachmentMedia,
+  AttachmentPreview,
+  AttachmentRef,
+  BridgeTransport,
+  Frame,
+  MediaSource,
+  Request,
+} from '@session/client'
 import type { SessionBridgeOptions } from '@session/bridge-types'
 
 /**
@@ -23,37 +31,13 @@ export interface NodeBridgeOptions extends Omit<SessionBridgeOptions, 'rawKeyHex
 
 interface NativeBridge {
   call(request: Request): void
-  fetchMedia(messageId: number, index: number): Promise<{ contentType: string; bytes: Buffer }>
-  fetchPreview(messageId: number, index: number): Promise<Preview>
+  fetchMedia(messageId: number, index: number): Promise<AttachmentMedia>
+  fetchPreview(messageId: number, index: number): Promise<AttachmentPreview>
   close(): void
 }
 
-/** An attachment's bytes, decrypted, for whatever draws them. */
-export interface Media {
-  contentType: string
-  bytes: Buffer
-}
-
-/**
- * A decoded ThumbHash: RGBA8, row-major, not alpha-premultiplied, `width * height * 4` long.
- *
- * Raw pixels rather than an encoded image, because the bridge is not the right place to pick a
- * format. Whatever serves the media scheme encodes them for the platform it is on.
- */
-export type Preview = PixelSize & { rgba: Uint8Array }
-
-/**
- * The transport, plus the one thing that does not go over it.
- *
- * Media is a second channel on purpose: the frame stream carries state, and its ordering is what
- * makes a display bindable, so a multi-megabyte file on it would stall every state frame behind a
- * payload nothing can contradict. Progress still arrives as events, so a picture loading draws
- * the same bar a tap does.
- */
-export interface NodeBridgeTransport extends BridgeTransport {
-  fetchMedia(ref: AttachmentRef): Promise<Media>
-  fetchPreview(ref: AttachmentRef): Promise<Preview>
-}
+/** The transport, plus the one thing that does not go over it. */
+export type NodeBridgeTransport = BridgeTransport & MediaSource
 
 interface Addon {
   SessionBridge: new (
@@ -117,12 +101,12 @@ export function createNodeBridgeTransport(options: NodeBridgeOptions): NodeBridg
       }
     },
 
-    fetchMedia({ messageId, index }: AttachmentRef): Promise<Media> {
+    fetchMedia({ messageId, index }: AttachmentRef): Promise<AttachmentMedia> {
       if (closed) return Promise.reject(new Error('the bridge is closed'))
       return bridge.fetchMedia(messageId, index)
     },
 
-    fetchPreview({ messageId, index }: AttachmentRef): Promise<Preview> {
+    fetchPreview({ messageId, index }: AttachmentRef): Promise<AttachmentPreview> {
       if (closed) return Promise.reject(new Error('the bridge is closed'))
       return bridge.fetchPreview(messageId, index)
     },

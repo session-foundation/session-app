@@ -77,7 +77,7 @@ export interface ContractHarness {
 
 type Runner = (name: string, body: () => Promise<void> | void) => void
 
-type TestFns = {
+export type TestFns = {
   describe: (name: string, body: () => void) => void
   it: Runner & { skip: Runner }
   expect: <T>(actual: T) => {

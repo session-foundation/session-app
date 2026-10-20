@@ -14,7 +14,14 @@ export { rowShowcase } from './rows'
 export { showcase } from './showcase'
 export { noDatabaseOpen, unopenable } from './unopenable'
 export type { FakeSetup, FixtureName } from './fixtures'
-export { fakePreviewPixels, PHOTO_COUNT, photoFileName, photoFileNames, photoNumber } from './media'
+export {
+  createFakeMediaSource,
+  fakePreviewPixels,
+  PHOTO_COUNT,
+  photoFileName,
+  photoFileNames,
+  photoNumber,
+} from './media'
 export { decodeThumbhash } from './thumbhash'
 export { backlog } from './backlog'
 export { driveFakeClock, FAKE_FIXTURES, pickFakeFixture, startDevFake } from './devSetup'

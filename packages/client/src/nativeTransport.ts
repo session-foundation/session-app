@@ -1,6 +1,6 @@
 import type { SessionBridgeOptions } from '@session/bridge-types'
 
-import type { BridgeTransport } from './types'
+import type { BridgeTransport, MediaSource } from './types'
 
 /**
  * There is no native bridge outside the mobile app.
@@ -10,7 +10,9 @@ import type { BridgeTransport } from './types'
  * import resolves everywhere and fails where it should, rather than resolving to a Nitro
  * module that is not there.
  */
-export function createNativeBridgeTransport(_options: SessionBridgeOptions): BridgeTransport {
+export function createNativeBridgeTransport(
+  _options: SessionBridgeOptions,
+): BridgeTransport & MediaSource {
   throw new Error(
     'The Nitro bridge is the mobile app only. Desktop loads @session/bridge-node in its main process.',
   )

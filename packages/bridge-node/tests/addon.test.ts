@@ -13,8 +13,8 @@ import { createNodeBridgeTransport } from '#src/index'
 /**
  * The addon against the real libsession, with no network attached.
  *
- * Skipped when the addon has not been built, because the per-PR job compiles no C++ - the
- * native workflow is where this runs. `turbo build:native` is what makes it run here.
+ * Skipped when the addon has not been built, because the per-PR job compiles no C++.
+ * `turbo build:native` is what makes it run here.
  */
 const addon = join(import.meta.dirname, '../build/Release/session_bridge_node.node')
 const describeAddon = existsSync(addon) ? describe : describe.skip
@@ -272,10 +272,10 @@ describeAddon('the N-API addon', () => {
     })
 
     await expect(transport.fetchMedia({ messageId: 424_242, index: 0 })).rejects.toThrow(
-      /does not exist/,
+      'attachment 0 of message 424242 does not exist',
     )
     await expect(transport.fetchPreview({ messageId: 424_242, index: 0 })).rejects.toThrow(
-      /no such attachment/,
+      'attachment 0 of message 424242 does not exist',
     )
     transport.close()
   })

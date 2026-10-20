@@ -24,6 +24,13 @@ describe('which content types are viewable', () => {
     expect(isViewableImage('Image/JPEG; charset=binary')).toBe(true)
     expect(isViewableVideo('VIDEO/MP4;codecs="avc1"')).toBe(true)
     expect(isImageContentType(' IMAGE/HEIC')).toBe(true)
+    expect(isViewableImage('\t\r\n\f\v image/png \v\f\n\r\t')).toBe(true)
+  })
+
+  it('trims ASCII space only, as the shim does', () => {
+    expect(isViewableImage('\u00a0image/png')).toBe(false)
+    expect(isViewableImage('\ufeffimage/png')).toBe(false)
+    expect(isViewableImage('image/png\u2003')).toBe(false)
   })
 
   it('refuses an absent or unknown type', () => {

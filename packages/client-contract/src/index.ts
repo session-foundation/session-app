@@ -1,2 +1,6 @@
 export { runSessionClientContract } from './suite'
 export type { ContractHarness, ContractOptions } from './suite'
+export { runMediaSourceContract } from './mediaSource'
+export type { MediaSourceHarness } from './mediaSource'
+export { MEDIA_URL_VECTORS, SERVABLE_VECTORS } from './mediaVectors'
+export type { MediaUrlVector, ServableVector } from './mediaVectors'

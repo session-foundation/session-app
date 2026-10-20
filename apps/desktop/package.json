@@ -40,6 +40,7 @@
     "react-router": "catalog:"
   },
   "devDependencies": {
+    "@session/client-contract": "workspace:*",
     "@session/build-stamp": "workspace:*",
     "@session/eslint-config": "workspace:*",
     "@session/typescript-config": "workspace:*",

@@ -272,6 +272,9 @@ importers:
       '@session/build-stamp':
         specifier: workspace:*
         version: link:../../tooling/build-stamp
+      '@session/client-contract':
+        specifier: workspace:*
+        version: link:../../packages/client-contract
       '@session/eslint-config':
         specifier: workspace:*
         version: link:../../tooling/eslint-config
@@ -463,6 +466,9 @@ importers:
         specifier: workspace:*
         version: link:../logging
     devDependencies:
+      '@session/client-contract':
+        specifier: workspace:*
+        version: link:../client-contract
       '@session/eslint-config':
         specifier: workspace:*
         version: link:../../tooling/eslint-config

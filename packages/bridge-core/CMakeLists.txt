@@ -98,7 +98,8 @@ endfunction()
 add_library(session-bridge-core STATIC
     src/client_bridge.cpp
     src/convert.cpp
-    src/mark_downloaded.cpp)
+    src/mark_downloaded.cpp
+    src/media_url.cpp)
 
 target_include_directories(session-bridge-core
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include

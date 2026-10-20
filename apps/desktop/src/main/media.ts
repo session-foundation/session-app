@@ -1,21 +1,10 @@
 import { protocol } from 'electron'
 
 import { isViewableContentType, mediaKindOf } from '@session/basic-types'
-import type { Preview } from '@session/bridge-node'
-import type { AttachmentRef } from '@session/client'
+import type { MediaSource } from '@session/client'
 
-import { MEDIA_SCHEME, type MediaUrlKind } from '../shared/mediaUrl'
+import { MEDIA_SCHEME, parseMediaUrl } from '@session/app/mediaUrl'
 import { encodePng } from './png'
-
-/**
- * Whatever can answer with an attachment's bytes: the addon, or the fake behind the same door.
- *
- * Narrower than the transport on purpose: serving the scheme has no business with frames.
- */
-export interface MediaSource {
-  fetchMedia(ref: AttachmentRef): Promise<{ contentType: string; bytes: Uint8Array }>
-  fetchPreview(ref: AttachmentRef): Promise<Preview>
-}
 
 /**
  * Registered before `app.whenReady()`, which is the only time Electron accepts it.
@@ -30,37 +19,6 @@ export function registerMediaScheme(): void {
   protocol.registerSchemesAsPrivileged([
     { scheme: MEDIA_SCHEME, privileges: { standard: true, secure: true } },
   ])
-}
-
-// Number() alone would also take '', '0x2A', '1e1', '+42' and '-0'.
-const ID_SEGMENT = /^(0|[1-9]\d{0,15})$/
-
-function parseId(segment: string | undefined): number | null {
-  if (segment === undefined || !ID_SEGMENT.test(segment)) return null
-  const id = Number(segment)
-  return Number.isSafeInteger(id) ? id : null
-}
-
-/** `session-media://<attachment|preview>/<messageId>/<index>` split back up, or null. */
-export function parseMediaUrl(url: string): { kind: MediaUrlKind; ref: AttachmentRef } | null {
-  let parsed: URL
-  try {
-    parsed = new URL(url)
-  } catch {
-    return null
-  }
-  if (parsed.protocol !== `${MEDIA_SCHEME}:`) return null
-  if (parsed.search !== '' || parsed.hash !== '') return null
-  const kind = parsed.hostname
-  if (kind !== 'attachment' && kind !== 'preview') return null
-
-  const [message, index, ...rest] = parsed.pathname.replace(/^\//, '').split('/')
-  if (rest.length > 0) return null
-
-  const messageId = parseId(message)
-  const at = parseId(index)
-  if (messageId === null || messageId === 0 || at === null) return null
-  return { kind, ref: { messageId, index: at } }
 }
 
 /**

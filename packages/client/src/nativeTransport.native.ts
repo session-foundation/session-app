@@ -1,9 +1,9 @@
 import { createSessionBridge } from '@session/bridge-rn'
 
 import type { NativeFrame, NativeRequest } from '@session/bridge-rn'
-import type { Frame, Request, SessionBridgeOptions } from '@session/bridge-types'
+import type { AttachmentRef, Frame, Request, SessionBridgeOptions } from '@session/bridge-types'
 
-import type { BridgeTransport } from './types'
+import type { AttachmentMedia, AttachmentPreview, BridgeTransport, MediaSource } from './types'
 
 /**
  * The bridge, backed by the real libsession, over JSI.
@@ -14,7 +14,9 @@ import type { BridgeTransport } from './types'
  * The two casts are the whole cost of nitrogen not being able to name a union: the spec carries
  * opaque brands and the C++ behind them builds and reads exactly these types.
  */
-export function createNativeBridgeTransport(options: SessionBridgeOptions): BridgeTransport {
+export function createNativeBridgeTransport(
+  options: SessionBridgeOptions,
+): BridgeTransport & MediaSource {
   const bridge = createSessionBridge()
 
   // Frames produced while the Client is being constructed would otherwise be dropped:
@@ -49,6 +51,19 @@ export function createNativeBridgeTransport(options: SessionBridgeOptions): Brid
         const message = error instanceof Error ? error.message : String(error)
         deliver({ type: 'response', response: { id: request.id, error: message } })
       }
+    },
+
+    // Viewed rather than copied, so the bytes stay where the shim put them.
+    async fetchMedia({ messageId, index }: AttachmentRef): Promise<AttachmentMedia> {
+      if (closed) throw new Error('the bridge is closed')
+      const media = await bridge.fetchMedia(messageId, index)
+      return { contentType: media.contentType, bytes: new Uint8Array(media.bytes) }
+    },
+
+    async fetchPreview({ messageId, index }: AttachmentRef): Promise<AttachmentPreview> {
+      if (closed) throw new Error('the bridge is closed')
+      const preview = await bridge.fetchPreview(messageId, index)
+      return { width: preview.width, height: preview.height, rgba: new Uint8Array(preview.rgba) }
     },
 
     setSink(onFrame: (frame: Frame) => void): void {

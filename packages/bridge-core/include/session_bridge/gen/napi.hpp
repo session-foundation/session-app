@@ -1757,6 +1757,24 @@ struct Codec<::session_bridge::SetPrefCommand> {
 };
 
 template <>
+struct Codec<::session_bridge::TestAttachment> {
+    static constexpr std::string_view name = "TestAttachment";
+    static Napi::Value to(Napi::Env env, const ::session_bridge::TestAttachment& value) {
+        Napi::Object obj = Napi::Object::New(env);
+        obj.Set("contentType", Codec<std::string>::to(env, value.content_type));
+        if (value.thumbhash)
+            obj.Set("thumbhash", Codec<std::vector<std::byte>>::to(env, *value.thumbhash));
+        return obj;
+    }
+    static ::session_bridge::TestAttachment from(const Napi::Value& value, std::string_view where) {
+        Napi::Object obj = object(value, where);
+        return ::session_bridge::TestAttachment(
+                Codec<std::string>::from(obj.Get("contentType"), "TestAttachment.contentType"),
+                optional<std::vector<std::byte>>(obj.Get("thumbhash"), "TestAttachment.thumbhash"));
+    }
+};
+
+template <>
 struct Codec<::session_bridge::DeliverTestMessageCommand> {
     static constexpr std::string_view name = "DeliverTestMessageCommand";
     static Napi::Value to(Napi::Env env, const ::session_bridge::DeliverTestMessageCommand& value) {
@@ -1765,6 +1783,8 @@ struct Codec<::session_bridge::DeliverTestMessageCommand> {
         obj.Set("senderSeedHex", Codec<std::string>::to(env, value.sender_seed_hex));
         obj.Set("body", Codec<std::string>::to(env, value.body));
         obj.Set("timestamp", Codec<double>::to(env, value.timestamp));
+        if (value.attachments)
+            obj.Set("attachments", Codec<std::vector<::session_bridge::TestAttachment>>::to(env, *value.attachments));
         return obj;
     }
     static ::session_bridge::DeliverTestMessageCommand from(const Napi::Value& value, std::string_view where) {
@@ -1772,7 +1792,8 @@ struct Codec<::session_bridge::DeliverTestMessageCommand> {
         return ::session_bridge::DeliverTestMessageCommand(
                 Codec<std::string>::from(obj.Get("senderSeedHex"), "DeliverTestMessageCommand.senderSeedHex"),
                 Codec<std::string>::from(obj.Get("body"), "DeliverTestMessageCommand.body"),
-                Codec<double>::from(obj.Get("timestamp"), "DeliverTestMessageCommand.timestamp"));
+                Codec<double>::from(obj.Get("timestamp"), "DeliverTestMessageCommand.timestamp"),
+                optional<std::vector<::session_bridge::TestAttachment>>(obj.Get("attachments"), "DeliverTestMessageCommand.attachments"));
     }
 };
 

@@ -5,9 +5,11 @@
 #include <session_bridge/gen/jsi.hpp>
 
 #include <array>
+#include <cstddef>
 #include <stdexcept>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace margelo::nitro::session::bridge::rn {
 
@@ -88,6 +90,58 @@ namespace {
             key[i] = static_cast<std::byte>(digit(hex[i * 2]) << 4 | digit(hex[i * 2 + 1]));
         }
         return key;
+    }
+
+    std::exception_ptr closed_error() {
+        return std::make_exception_ptr(std::runtime_error{"the bridge is closed"});
+    }
+
+    /// Worded as call() words its own refusal, so a log says which way the caller is wrong.
+    std::exception_ptr not_open_error(const char* method) {
+        return std::make_exception_ptr(
+                std::runtime_error{std::string{method} + "() before init()"});
+    }
+
+    /// The shim's vector, handed to JavaScript as the ArrayBuffer's own storage rather than copied.
+    std::shared_ptr<ArrayBuffer> buffer_of(std::vector<std::byte>&& bytes) {
+        // wrap() takes a _Nonnull pointer, and an empty vector's data() may be null.
+        if (bytes.empty())
+            return ArrayBuffer::allocate(0);
+        auto* owned = new std::vector<std::byte>(std::move(bytes));
+        return ArrayBuffer::wrap(
+                reinterpret_cast<uint8_t*>(owned->data()),
+                owned->size(),
+                [owned] { delete owned; });
+    }
+
+    /// A promise settled from Core's loop by whatever `begin` hands its handler, or rejected by
+    /// close() if the shim drops that handler first. Nitro promises may settle from any thread.
+    template <typename Native, typename Answer, typename Begin, typename Build>
+    std::shared_ptr<Promise<Native>> settled_by(
+            const std::shared_ptr<HybridSessionBridge::PendingFetches>& pending,
+            Begin begin,
+            Build build) {
+        auto promise = Promise<Native>::create();
+        uint64_t id = 0;
+        {
+            std::lock_guard lock{pending->mutex};
+            id = pending->next++;
+            pending->rejects.emplace(
+                    id, [promise](std::exception_ptr error) { promise->reject(error); });
+        }
+        // Outside the lock: a cached file may be answered before begin() returns.
+        begin([pending, id, promise, build](Answer answer) mutable {
+            {
+                std::lock_guard lock{pending->mutex};
+                if (pending->rejects.erase(id) == 0)
+                    return;  // close() has rejected it already
+            }
+            if (answer.error)
+                promise->reject(std::make_exception_ptr(std::runtime_error{*answer.error}));
+            else
+                promise->resolve(build(std::move(answer)));
+        });
+        return promise;
     }
 
 }  // namespace
@@ -183,6 +237,7 @@ void HybridSessionBridge::init(const SessionBridgeOptions& options) {
                             JSIConverter<::session_bridge::Frame>::toJSI(runtime, frame));
                 });
             });
+    _opened = true;
 }
 
 void HybridSessionBridge::call(::session_bridge::Request request) {
@@ -191,10 +246,50 @@ void HybridSessionBridge::call(::session_bridge::Request request) {
     _bridge->call(std::move(request));
 }
 
+std::shared_ptr<Promise<NativeMedia>> HybridSessionBridge::fetchMedia(
+        double messageId, double index) {
+    if (!_bridge)
+        return Promise<NativeMedia>::rejected(
+                _opened ? closed_error() : not_open_error("fetchMedia"));
+    return settled_by<NativeMedia, ::session_bridge::Media>(
+            _fetches,
+            [&](::session_bridge::MediaHandler cb) {
+                _bridge->fetch_media(messageId, index, std::move(cb));
+            },
+            [](::session_bridge::Media media) {
+                return NativeMedia{
+                        std::move(media.content_type), buffer_of(std::move(media.bytes))};
+            });
+}
+
+std::shared_ptr<Promise<NativePreview>> HybridSessionBridge::fetchPreview(
+        double messageId, double index) {
+    if (!_bridge)
+        return Promise<NativePreview>::rejected(
+                _opened ? closed_error() : not_open_error("fetchPreview"));
+    return settled_by<NativePreview, ::session_bridge::Preview>(
+            _fetches,
+            [&](::session_bridge::PreviewHandler cb) {
+                _bridge->fetch_preview(messageId, index, std::move(cb));
+            },
+            [](::session_bridge::Preview preview) {
+                return NativePreview{
+                        preview.width, preview.height, buffer_of(std::move(preview.rgba))};
+            });
+}
+
 void HybridSessionBridge::close() {
     // Destroy before dropping the sink: destroying joins Core's loop, so nothing can be
-    // produced afterwards, and a frame in flight still has somewhere to go.
+    // produced afterwards, and a frame in flight still has somewhere to go. The same join is what
+    // makes the fetches left in the map ones no handler can still settle.
     _bridge.reset();
+    std::unordered_map<uint64_t, std::function<void(std::exception_ptr)>> unsettled;
+    {
+        std::lock_guard lock{_fetches->mutex};
+        unsettled.swap(_fetches->rejects);
+    }
+    for (auto& [id, reject] : unsettled)
+        reject(closed_error());
     _sink.reset();
 }
 

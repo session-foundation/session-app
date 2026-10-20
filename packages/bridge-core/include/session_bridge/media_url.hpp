@@ -1,0 +1,36 @@
+#pragma once
+
+#include <cstddef>
+#include <optional>
+#include <span>
+#include <string>
+#include <string_view>
+
+namespace session_bridge {
+
+/// Which of an attachment's two images a media URL names: the file, or its placeholder.
+enum class MediaUrlKind { attachment, preview };
+
+struct MediaUrl {
+    MediaUrlKind kind;
+    double message_id;
+    double index;
+};
+
+/// `session-media://<attachment|preview>/<messageId>/<index>` split back up, or nullopt.
+///
+/// The same rules as `parseMediaUrl` in `@session/app/mediaUrl`, and checked against the same
+/// vectors: the canonical form only, two plain decimal ids no larger than 2^53 - 1, a non-zero
+/// message id, no port, user, query or fragment. A native image loader is handed whatever URL the
+/// app drew, so this is the whole of what one may ask the bridge for.
+std::optional<MediaUrl> parse_media_url(std::string_view url);
+
+/// The type to hand an attachment's bytes to a decoder as, or nullopt to refuse them.
+///
+/// The sender declares the type and a decoder decodes whatever format the bytes really are, so
+/// the declaration alone decides nothing: served only when it is a viewable type and the leading
+/// bytes are that family, and what is returned is what the bytes are.
+std::optional<std::string> servable_content_type(
+        std::string_view declared, std::span<const std::byte> bytes);
+
+}  // namespace session_bridge

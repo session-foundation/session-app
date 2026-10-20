@@ -678,3 +678,27 @@ Append one paragraph per decision. Undocumented decisions are what rot.
   mounted and only swaps the prop. The store is then a view of what is on screen, so a progress
   report for a message no window holds is dropped. The cost is that returning to a conversation
   reloads it and loses paging depth and scroll position, which is in `STATUS.md`.
+
+- **2026-09-28 - Mobile resolves `session-media://` in a native image loader per platform.**
+  `MediaPort.urlFor` stays synchronous and the URL stays the request, so the bytes never enter
+  JavaScript: the loader recognises the scheme, asks the shim, and hands the platform a decoded
+  image. Android's is a Fresco producer sequence and iOS's an `RCTImageURLLoader`.
+
+  Rejected for Android: a non-exported `ContentProvider` and a `content://` URL, which is what the
+  legacy client does and would serve Glide and Media3 too. Fresco reads a content URI
+  synchronously on a two-thread executor, so two pictures still downloading would stall every
+  local image in the app.
+
+  The URL builder moved to `@session/app/mediaUrl`, one for all three platforms; the handlers did
+  not. Both mobile loaders are native and share the shim, so the parser and the servable check -
+  the declared type viewable and the leading bytes that family - are C++ in `bridge-core`
+  (`media_url.hpp`), with desktop keeping its TypeScript pair for `protocol.handle`. One vector
+  table in `@session/client-contract` holds both languages to the same answers. The grammar is the
+  canonical form only, because Chromium canonicalises before a handler sees a URL and a native
+  loader is handed the one the app built.
+
+  The Nitro bridge has `fetchMedia` and `fetchPreview` as the addon does, returning `ArrayBuffer`s
+  the client views as `Uint8Array`, so the transport has one shape and a device-side contract run
+  can assert bytes. Nothing in the app calls them. The fake answers the same `MediaSource`
+  contract through `createFakeMediaSource`. Video is out of scope until a tile has a still on any
+  platform.

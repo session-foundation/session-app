@@ -1,6 +1,6 @@
 import type { BrowserWindow, Session, WebContents, WebFrameMain, WebPreferences } from 'electron'
 
-import { MEDIA_SCHEME } from '../shared/mediaUrl'
+import { MEDIA_SCHEME } from '@session/app/mediaUrl'
 
 /**
  * The renderer's privileges, and what it is allowed to reach.

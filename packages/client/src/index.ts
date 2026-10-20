@@ -42,7 +42,10 @@ export type {
 } from '@session/bridge-types'
 export { BridgeClosedError, SessionClientError } from './errors'
 export type {
+  AttachmentMedia,
+  AttachmentPreview,
   BridgeTransport,
+  MediaSource,
   MessagePage,
   OutgoingMessage,
   SessionClient,

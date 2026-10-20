@@ -5,7 +5,12 @@
 
 #include <jsi/jsi.h>
 
+#include <cstdint>
+#include <exception>
+#include <functional>
 #include <memory>
+#include <mutex>
+#include <unordered_map>
 
 #include "HybridSessionBridgeSpec.hpp"
 
@@ -29,7 +34,18 @@ class HybridSessionBridge : public HybridSessionBridgeSpec {
 
     void init(const SessionBridgeOptions& options) override;
     void call(::session_bridge::Request request) override;
+    std::shared_ptr<Promise<NativeMedia>> fetchMedia(double messageId, double index) override;
+    std::shared_ptr<Promise<NativePreview>> fetchPreview(double messageId, double index) override;
     void close() override;
+
+    /// Media promises not yet settled, each by its reject: the shim drops the handlers still in
+    /// flight when it closes, so close() rejects what they would have settled. Shared with those
+    /// handlers, which run on Core's loop.
+    struct PendingFetches {
+        std::mutex mutex;
+        uint64_t next = 0;
+        std::unordered_map<uint64_t, std::function<void(std::exception_ptr)>> rejects;
+    };
 
   protected:
     void loadHybridMethods() override;
@@ -52,7 +68,10 @@ class HybridSessionBridge : public HybridSessionBridgeSpec {
     };
 
     std::shared_ptr<Sink> _sink;
+    std::shared_ptr<PendingFetches> _fetches = std::make_shared<PendingFetches>();
     std::unique_ptr<::session_bridge::ClientBridge> _bridge;
+    /// Tells a null `_bridge` apart: not yet opened before init(), closed after.
+    bool _opened = false;
 };
 
 }  // namespace margelo::nitro::session::bridge::rn

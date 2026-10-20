@@ -14,6 +14,8 @@ const bridge = vi.hoisted(() => ({
   setSink: vi.fn(),
   init: vi.fn(),
   call: vi.fn(),
+  fetchMedia: vi.fn(),
+  fetchPreview: vi.fn(),
   close: vi.fn(),
 }))
 
@@ -63,5 +65,32 @@ describe('the JSI transport', () => {
     const frames: Frame[] = []
     transport.setSink((frame) => frames.push(frame))
     expect(frames).toHaveLength(1)
+  })
+
+  it('hands back the bridge bytes as a view of the same buffer', async () => {
+    const transport = createNativeBridgeTransport(options)
+    const bytes = Uint8Array.from([0xff, 0xd8, 0xff]).buffer
+    const rgba = new Uint8Array(4 * 2 * 3).buffer
+    bridge.fetchMedia.mockResolvedValueOnce({ contentType: 'image/jpeg', bytes })
+    bridge.fetchPreview.mockResolvedValueOnce({ width: 2, height: 3, rgba })
+
+    const media = await transport.fetchMedia({ messageId: 4, index: 1 })
+    expect(bridge.fetchMedia).toHaveBeenLastCalledWith(4, 1)
+    expect(media.contentType).toBe('image/jpeg')
+    expect(media.bytes).toBeInstanceOf(Uint8Array)
+    expect(media.bytes.buffer).toBe(bytes)
+
+    const preview = await transport.fetchPreview({ messageId: 4, index: 1 })
+    expect(preview).toMatchObject({ width: 2, height: 3 })
+    expect(preview.rgba.buffer).toBe(rgba)
+  })
+
+  it('refuses media once closed rather than asking a closed bridge', async () => {
+    const transport = createNativeBridgeTransport(options)
+    transport.close()
+    bridge.fetchMedia.mockClear()
+    await expect(transport.fetchMedia({ messageId: 4, index: 0 })).rejects.toThrow('closed')
+    await expect(transport.fetchPreview({ messageId: 4, index: 0 })).rejects.toThrow('closed')
+    expect(bridge.fetchMedia).not.toHaveBeenCalled()
   })
 })

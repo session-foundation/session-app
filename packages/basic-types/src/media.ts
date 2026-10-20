@@ -17,9 +17,12 @@ const VIEWABLE_IMAGE: ReadonlySet<string> = new Set([
 
 const VIEWABLE_VIDEO: ReadonlySet<string> = new Set(['video/mp4', 'video/webm', 'video/ogg'])
 
+// The six characters the shim's essence() strips; trim() would also take Unicode space and a BOM.
+const ASCII_EDGE_SPACE = /^[ \t\r\n\f\v]+|[ \t\r\n\f\v]+$/g
+
 /** `Image/JPEG; charset=binary` → `image/jpeg`: a declared type is compared by its essence only. */
 function essence(contentType: string | undefined): string | undefined {
-  return contentType?.split(';')[0]?.trim().toLowerCase()
+  return contentType?.split(';')[0]?.replace(ASCII_EDGE_SPACE, '').toLowerCase()
 }
 
 export function isImageContentType(contentType: string | undefined): boolean {

@@ -3,15 +3,8 @@ import { readFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
-import type { AttachmentRef, BridgeTransport } from '@session/client'
-import {
-  createFakeTransport,
-  fakePreviewPixels,
-  photoFileName,
-  startDevFake,
-} from '@session/client/fake'
-
-import type { MediaSource } from '../media'
+import type { BridgeTransport, MediaSource } from '@session/client'
+import { createFakeMediaSource, createFakeTransport, startDevFake } from '@session/client/fake'
 
 /**
  * The folder of dev photographs the fake serves, filled by `pnpm fake-media:fetch`.
@@ -39,20 +32,6 @@ export function createFakeBridge(): BridgeTransport & MediaSource {
 
   return {
     ...createFakeTransport(served),
-    async fetchMedia(ref: AttachmentRef) {
-      // Through the same door a tap uses. Serving this scheme *is* a fetch: the real bridge
-      // fills the cache and libsession announces the availability change, so a fake that handed
-      // bytes back without either would leave every picture it just drew still reported as one
-      // nobody has. Cheap to repeat - a cached attachment answers at once.
-      await alice.downloadAttachment(ref.messageId, ref.index)
-      const photo = photoFileName(alice, ref)
-      if (photo === null) throw new Error('not a picture')
-      // A video is served its still: nothing here plays one, and a photograph is a still.
-      return { contentType: 'image/jpeg', bytes: await readFile(join(MEDIA_DIR, photo)) }
-    },
-
-    fetchPreview(ref: AttachmentRef) {
-      return Promise.resolve(fakePreviewPixels(alice, ref))
-    },
+    ...createFakeMediaSource(alice, (photo) => readFile(join(MEDIA_DIR, photo))),
   }
 }

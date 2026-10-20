@@ -23,6 +23,19 @@ export type NativeRequest = CustomType<
   { include: 'session_bridge/gen/jsi.hpp'; canBePassedByReference: true }
 >
 
+/** An attachment's bytes, as an ArrayBuffer because that is how Nitro carries bytes. */
+interface NativeMedia {
+  contentType: string
+  bytes: ArrayBuffer
+}
+
+/** A decoded ThumbHash: RGBA8, row-major, not alpha-premultiplied, `width * height * 4` long. */
+interface NativePreview {
+  width: number
+  height: number
+  rgba: ArrayBuffer
+}
+
 /**
  * The bridge, as nitrogen sees it.
  *
@@ -35,5 +48,13 @@ export type NativeRequest = CustomType<
 export interface SessionBridge extends HybridObject<{ ios: 'c++'; android: 'c++' }> {
   init(options: SessionBridgeOptions): void
   call(request: NativeRequest): void
+  /**
+   * The same answers the addon gives, so the transport has one shape on both platforms and a
+   * contract run on a device can assert bytes. Nothing in the app calls them: pictures reach the
+   * screen as URLs the native image loaders resolve, and a JavaScript caller reading a file this
+   * way is the multi-megabyte copy those loaders exist to avoid.
+   */
+  fetchMedia(messageId: number, index: number): Promise<NativeMedia>
+  fetchPreview(messageId: number, index: number): Promise<NativePreview>
   close(): void
 }

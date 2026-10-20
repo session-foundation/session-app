@@ -1,6 +1,7 @@
 #include <napi.h>
 #include <session_bridge/client_bridge.hpp>
 #include <session_bridge/gen/napi.hpp>
+#include <session_bridge/media_url.hpp>
 
 #include <cstdint>
 #include <cstring>
@@ -322,9 +323,50 @@ class SessionBridge : public Napi::ObjectWrap<SessionBridge> {
     uint64_t _next_fetch = 0;
 };
 
+/// `parseMediaUrl(url) -> { kind, messageId, index } | null`, the shim's parser.
+///
+/// Desktop serves the scheme with its own TypeScript parser; this is here so the one both mobile
+/// loaders call can be held to the same vectors.
+Napi::Value ParseMediaUrl(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+    if (info.Length() < 1 || !info[0].IsString())
+        throw Napi::TypeError::New(env, "parseMediaUrl(url)");
+    auto parsed = session_bridge::parse_media_url(info[0].As<Napi::String>().Utf8Value());
+    if (!parsed)
+        return env.Null();
+    Napi::Object result = Napi::Object::New(env);
+    result.Set(
+            "kind",
+            parsed->kind == session_bridge::MediaUrlKind::attachment ? "attachment" : "preview");
+    result.Set("messageId", parsed->message_id);
+    result.Set("index", parsed->index);
+    return result;
+}
+
+/// `servableContentType(declared, bytes) -> string | null`, the shim's check, for the same reason.
+Napi::Value ServableContentType(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+    // A Uint8Array by element type, not any TypedArray: ElementLength() of a wider one would
+    // hand the shim a fraction of the buffer and let a vector pass against the wrong prefix.
+    if (info.Length() < 2 || !info[0].IsString() || !info[1].IsTypedArray() ||
+        info[1].As<Napi::TypedArray>().TypedArrayType() != napi_uint8_array)
+        throw Napi::TypeError::New(env, "servableContentType(declared, bytes: Uint8Array)");
+    auto bytes = info[1].As<Napi::Uint8Array>();
+    auto served = session_bridge::servable_content_type(
+            info[0].As<Napi::String>().Utf8Value(),
+            {reinterpret_cast<const std::byte*>(bytes.Data()), bytes.ElementLength()});
+    if (!served)
+        return env.Null();
+    return Napi::String::New(env, *served);
+}
+
 }  // namespace
 
 static Napi::Object InitAll(Napi::Env env, Napi::Object exports) {
+    exports.Set("parseMediaUrl", Napi::Function::New<ParseMediaUrl>(env, "parseMediaUrl"));
+    exports.Set(
+            "servableContentType",
+            Napi::Function::New<ServableContentType>(env, "servableContentType"));
     return SessionBridge::Init(env, exports);
 }
 
