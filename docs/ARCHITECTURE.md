@@ -702,3 +702,25 @@ Append one paragraph per decision. Undocumented decisions are what rot.
   can assert bytes. Nothing in the app calls them. The fake answers the same `MediaSource`
   contract through `createFakeMediaSource`. Video is out of scope until a tile has a still on any
   platform.
+
+- **2026-09-30 - Android draws `session-media://` through a Fresco producer sequence.**
+  A `CustomProducerSequenceFactory`, installed by a config plugin that rewrites the generated
+  `MainApplication` to build `PackageList(this, SessionMedia.packageConfig(this))`: nothing
+  initialises Fresco before React Native's `FrescoModule`, and a config handed in replaces React
+  Native's default, so `ReactFrescoDefaults` rebuilds what that default sets - the OkHttp fetcher
+  with React Native's cookie jar, `DownsampleMode.AUTO`, the Systrace listener. The sequence is
+  Fresco's own decoded sequence minus every disk-cache producer, so decrypted bytes only ever sit
+  in the encoded and bitmap memory caches. A project generated before the plugin compiles the
+  loader and never installs it, so the package checks Fresco's factories once the React instance
+  is up and refuses in a debuggable build.
+
+  A loader reaches the bridge through a process-wide media source the Nitro bridge registers and
+  clears before it closes. `close()` detaches the source under its lock before destroying the
+  bridge, and every fetch holds that lock, so a load in flight never reaches a freed bridge. The loader does not wait on the network: it starts the fetch and
+  returns, the answer arrives on Core's loop and is handed to a thread the loader owns, which
+  copies the bytes into Fresco's pool. The gate is `servable_image_type`: a video is servable to
+  desktop's `protocol.handle`, but no picture decoder may be handed one. Previews are RGBA handed
+  over as a bitmap rather than encoded; only desktop encodes, because `protocol.handle` answers
+  with a body. The fake has no libsession behind it, so `serveMediaFrom` lets JavaScript be the
+  source: each load is posted to the JS thread, the only thread that may touch a JavaScript value,
+  and the host test holds that under ThreadSanitizer.

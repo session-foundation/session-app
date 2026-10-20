@@ -109,6 +109,11 @@ pnpm android                # build and install the dev client itself, then star
 The desktop app needs the addon built before any of those will start; see
 `packages/bridge-node/README.md`. On the fake it does not.
 
+`pnpm android` prebuilds only when `apps/mobile/android/` is absent, and the config plugins -
+the media loader's among them - are applied at prebuild. A checkout whose `android/` predates
+one builds an app that, in debug, refuses to start and names the fix:
+`pnpm --filter @session/mobile prebuild --platform android --clean`, then `pnpm android`.
+
 Against the fake:
 
 ```sh

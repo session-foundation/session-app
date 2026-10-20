@@ -1,4 +1,4 @@
-import { memo, useState } from 'react'
+import { memo, useEffect, useState } from 'react'
 import { YStack } from 'tamagui'
 
 import type {
@@ -12,6 +12,8 @@ import {
   TILE_BADGE_INSET,
   TILE_HAIRLINE_WIDTH,
   TILE_SCRIM,
+  heldFailure,
+  tileFace,
   tilePlaceholder,
   tileRadius,
 } from './attachmentTileStyle'
@@ -19,13 +21,15 @@ import { Icon } from './Icon'
 import { Image } from './Image'
 import { logical } from './logicalEdges'
 import { Text } from './Text'
-import type { WithTestID } from './with'
+import type { WithFailedLabel, WithFailedTestID, WithTestID } from './with'
 
 export type AttachmentTileProps = WithMediaUri &
   WithMediaPreview &
   WithMediaKind &
   WithDurationLabel &
-  WithTestID & {
+  WithTestID &
+  WithFailedLabel &
+  WithFailedTestID & {
     /** Always square. The album and the list both size it; it never measures anything itself. */
     side: number
     /**
@@ -36,6 +40,11 @@ export type AttachmentTileProps = WithMediaUri &
      * basic-types.
      */
     overflowLabel?: string | undefined
+    /**
+     * Told whenever the tile starts or stops wearing its failed face, so a button holding it can
+     * say so in its own name: a named button's contents are not announced on their own.
+     */
+    onFailedChange?: ((failed: boolean) => void) | undefined
   }
 
 /**
@@ -45,6 +54,46 @@ export type AttachmentTileProps = WithMediaUri &
  * row's format label already reads MP4, which is the same fact in the space it fits in.
  */
 const PLAY_MARK_MIN_SIDE = 56
+
+/**
+ * A picture that arrived and did not decode: the viewer's "unavailable" look, as a mark.
+ *
+ * Over the sender's placeholder it sits on the scrim the play mark uses, so it reads against
+ * whatever the placeholder's colours are; on the flat tile the glyph slot draws it instead.
+ */
+function FailedMark({
+  side,
+  failedLabel,
+  failedTestID,
+}: { side: number } & WithFailedLabel & WithFailedTestID) {
+  const small = side < 90
+  return (
+    <YStack
+      position="absolute"
+      top={0}
+      bottom={0}
+      left={0}
+      right={0}
+      alignItems="center"
+      justifyContent="center"
+      pointerEvents="none"
+    >
+      <YStack
+        width={small ? 30 : 40}
+        height={small ? 30 : 40}
+        borderRadius="$full"
+        alignItems="center"
+        justifyContent="center"
+        backgroundColor={TILE_SCRIM}
+        role="img"
+        aria-label={failedLabel}
+        testID={failedTestID}
+      >
+        <Icon name="triangleAlert" size={small ? 'sm' : 'md'} color="$textPrimary" />
+      </YStack>
+    </YStack>
+  )
+}
 
 /** The play mark and the length, which are only true once the file can be played. */
 function VideoAffordances({ side, duration }: { side: number } & WithDurationLabel) {
@@ -119,6 +168,9 @@ export const AttachmentTile = memo(function AttachmentTile({
   duration,
   overflowLabel,
   testID,
+  failedLabel,
+  failedTestID,
+  onFailedChange,
 }: AttachmentTileProps) {
   const radius = tileRadius(side)
   /**
@@ -129,10 +181,20 @@ export const AttachmentTile = memo(function AttachmentTile({
    * starts hidden over the placeholder instead of showing an empty frame until it loads.
    */
   const [loadedUri, setLoadedUri] = useState<string | null>(null)
+  // A picture that did not load: a corrupt file, bytes the loader refused, or a native loader's
+  // failed download. Drawn as failed rather than left on the placeholder, which says "downloading".
+  const [failedUri, setFailedUri] = useState<string | null>(null)
+  const stillFailed = heldFailure(uri, failedUri)
+  if (stillFailed !== failedUri) setFailedUri(stillFailed)
   const drawable = uri !== undefined && uri !== null
-  const here = drawable && loadedUri === uri
+  const face = tileFace(uri, loadedUri, failedUri)
+  const here = face === 'picture'
+  const failed = face === 'failed'
   const [failedPreview, setFailedPreview] = useState<string | null>(null)
   const placeholder = tilePlaceholder(preview, failedPreview)
+  useEffect(() => {
+    onFailedChange?.(failed)
+  }, [failed, onFailedChange])
 
   return (
     <YStack
@@ -171,9 +233,10 @@ export const AttachmentTile = memo(function AttachmentTile({
           right={0}
           alignItems="center"
           justifyContent="center"
+          {...(failed ? { role: 'img', 'aria-label': failedLabel, testID: failedTestID } : {})}
         >
           <Icon
-            name={kind === 'video' ? 'video' : 'image'}
+            name={failed ? 'triangleAlert' : kind === 'video' ? 'video' : 'image'}
             size={side >= 90 ? 'lg' : 'md'}
             color="$textSecondary"
           />
@@ -190,10 +253,17 @@ export const AttachmentTile = memo(function AttachmentTile({
             onLoad={() => {
               setLoadedUri(uri)
             }}
+            onError={() => {
+              setFailedUri(uri)
+            }}
             testID={testID}
           />
         </YStack>
       )}
+
+      {failed && placeholder !== null ? (
+        <FailedMark side={side} failedLabel={failedLabel} failedTestID={failedTestID} />
+      ) : null}
 
       {here && kind === 'video' ? <VideoAffordances side={side} duration={duration} /> : null}
 

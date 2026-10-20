@@ -8,6 +8,9 @@
     "#src/*": [
       "./src/*.ts",
       "./src/*.tsx"
+    ],
+    "#plugins/*": [
+      "./plugins/*.ts"
     ]
   },
   "scripts": {

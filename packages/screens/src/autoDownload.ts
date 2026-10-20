@@ -1,4 +1,4 @@
-import { isImageContentType } from '@session/basic-types'
+import { isImageContentType, isViewableVideo } from '@session/basic-types'
 import type { Attachment, AutoDownload } from '@session/client'
 
 /**
@@ -40,4 +40,15 @@ export function mayResolve(attachment: Attachment, setting?: AutoDownload): bool
   if (attachment.availability === 'notFound' || attachment.availability === 'unreadable')
     return false
   return attachment.availability === 'cached' || mayFetchUnasked(attachment, setting)
+}
+
+/**
+ * Whether a tile may be handed a url: `mayResolve`, less video.
+ *
+ * Nothing here plays one yet, so a video's url would only have each loader decrypt the file and
+ * copy it into an image decoder that fails on it, on every mount. Its still comes from the
+ * sender's preview, which this does not govern.
+ */
+export function mayDrawInline(attachment: Attachment, setting?: AutoDownload): boolean {
+  return !isViewableVideo(attachment.contentType) && mayResolve(attachment, setting)
 }

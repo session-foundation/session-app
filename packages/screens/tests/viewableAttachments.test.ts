@@ -1,7 +1,8 @@
+import { memoryPorts, resetPorts, setPorts } from '@session/app'
 import type { Attachment, Message } from '@session/client'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 
-import { isViewable, viewableAttachments } from '#src/viewableAttachments'
+import { isViewable, viewableAttachments, viewerUri } from '#src/viewableAttachments'
 
 function attachment(index: number, contentType?: string): Attachment {
   return {
@@ -64,5 +65,32 @@ describe('which attachments a viewer can show', () => {
     const viewable = viewableAttachments(set)
     expect(viewable.map((a) => a.index)).toEqual([0, 2])
     expect(viewable[1]?.index).toBe(2)
+  })
+})
+
+describe('what the viewer is handed', () => {
+  afterEach(() => {
+    resetPorts()
+  })
+
+  function serving(): void {
+    setPorts(
+      memoryPorts({
+        media: {
+          urlFor: ({ messageId, index }) => `media://${String(messageId)}/${String(index)}`,
+          previewUrlFor: () => null,
+        },
+      }),
+    )
+  }
+
+  it('hands a picture its url', () => {
+    serving()
+    expect(viewerUri(7, attachment(2, 'image/png'))).toBe('media://7/2')
+  })
+
+  it('hands a video no url, so nothing decrypts a file the viewer cannot play', () => {
+    serving()
+    expect(viewerUri(7, attachment(1, 'video/mp4'))).toBeNull()
   })
 })

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { isWeb, XStack, YStack } from 'tamagui'
 
 import { SPACING } from '@session/theme-tokens'
@@ -32,7 +33,8 @@ import { ProgressRing } from './ProgressRing'
 import { StateLayer } from './StateLayer'
 import { Text } from './Text'
 import { useFontScale } from './useFontScale'
-import { tileRadius } from './attachmentTileStyle'
+import { tileButtonName, tileRadius } from './attachmentTileStyle'
+import type { WithFailedLabel } from './with'
 
 export interface FileRowTestIDs {
   row?: ElementId | undefined
@@ -41,10 +43,15 @@ export interface FileRowTestIDs {
   action?: ElementId | undefined
   /** Addresses the picture inside the thumbnail, so a test can ask whether it arrived. */
   thumbnail?: ElementId | undefined
+  thumbnailFailed?: ElementId | undefined
 }
 
 /** What the lead square shows when the row is for something with a picture behind it. */
-export type FileRowThumbnail = WithMediaUri & WithMediaPreview & WithMediaKind & WithFetchesOnOpen
+export type FileRowThumbnail = WithMediaUri &
+  WithMediaPreview &
+  WithMediaKind &
+  WithFetchesOnOpen &
+  WithFailedLabel
 
 export type FileRowProps = WithFilename &
   WithContentType &
@@ -183,6 +190,7 @@ export function FileRow({
   const direction = { direction: nameDirection(filename) }
   const tone = fileRowTone(state)
   const fontScale = useFontScale()
+  const [thumbnailFailed, setThumbnailFailed] = useState(false)
 
   const lead =
     thumbnail === undefined ? (
@@ -203,6 +211,9 @@ export function FileRow({
         uri={thumbnail.uri}
         preview={thumbnail.preview}
         testID={testIDs?.thumbnail}
+        failedLabel={thumbnail.failedLabel}
+        failedTestID={testIDs?.thumbnailFailed}
+        onFailedChange={setThumbnailFailed}
       />
     )
 
@@ -231,7 +242,11 @@ export function FileRow({
         ) : (
           <YStack
             role="button"
-            aria-label={filename}
+            aria-label={
+              thumbnail === undefined
+                ? filename
+                : tileButtonName(filename, thumbnail.failedLabel, thumbnailFailed)
+            }
             position="relative"
             group="tile"
             $platform-web={{ cursor: 'pointer' }}

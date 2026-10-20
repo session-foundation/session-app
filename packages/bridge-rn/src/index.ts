@@ -13,6 +13,29 @@ export type { NativeFrame, NativeRequest } from './SessionBridge.nitro'
  */
 export type SessionBridge = Spec & {
   setSink(onFrame: (frame: NativeFrame) => void): void
+  /**
+   * Answers the image loaders from JavaScript rather than from libsession, until `close()`: what
+   * lets the fake, which has no Client, draw through the real URL, loader, check and caches.
+   * Refused while the bridge is open, since two sources would disagree about what a URL names.
+   *
+   * A raw JSI method, like `setSink`, so that every call into these functions and every read of
+   * the bytes they answer with happens on the JS thread, which is the only one that may.
+   */
+  serveMediaFrom(
+    fetchMedia: (messageId: number, index: number) => Promise<ServedMedia>,
+    fetchPreview: (messageId: number, index: number) => Promise<ServedPreview>,
+  ): void
+}
+
+/** What `serveMediaFrom`'s functions answer with. */
+export interface ServedMedia {
+  contentType: string
+  bytes: ArrayBuffer
+}
+export interface ServedPreview {
+  width: number
+  height: number
+  rgba: ArrayBuffer
 }
 
 /**

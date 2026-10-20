@@ -1,4 +1,5 @@
-import { isViewableContentType } from '@session/basic-types'
+import { isViewableContentType, isViewableVideo } from '@session/basic-types'
+import { requirePorts } from '@session/app'
 import type { Attachment, Message } from '@session/client'
 
 /**
@@ -24,4 +25,15 @@ export function isViewable(attachment: Attachment): boolean {
  */
 export function viewableAttachments(message: Message): Attachment[] {
   return message.attachments.filter(isViewable)
+}
+
+/**
+ * What the viewer is handed to draw `attachment`, or null to say it cannot.
+ *
+ * Null for a video: the viewer has no player, and its url would have the loader decrypt the whole
+ * file into an image decoder that refuses it, each time the viewer pages to it.
+ */
+export function viewerUri(messageId: number, attachment: Attachment): string | null {
+  if (isViewableVideo(attachment.contentType)) return null
+  return requirePorts().media.urlFor({ messageId, index: attachment.index })
 }

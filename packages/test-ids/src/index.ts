@@ -40,6 +40,7 @@ export const ELEMENT = {
     messageRetry: 'message-retry',
     attachment: 'message-attachment',
     attachmentImage: 'message-attachment-image',
+    attachmentFailed: 'message-attachment-failed',
     attachmentName: 'message-attachment-name',
     attachmentState: 'message-attachment-state',
     attachmentProgress: 'message-attachment-progress',

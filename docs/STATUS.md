@@ -17,10 +17,9 @@ a time, via the `port-feature` skill.
   (desktop to a chosen path, mobile where the legacy clients put it), and the per-conversation
   auto-download setting. `sendMessage` still takes a body
   and nothing else, so `SendState::uploading` is a state nothing here can reach.
-- **Showing an attachment on mobile.** Desktop draws pictures inline over the `session-media`
-  scheme; React Native needs a native image loader per platform - an `RCTImageURLLoader` on iOS, a
-  Fresco fetcher on Android - and neither is written, so `MediaPort.urlFor` returns null there and
-  the file form is what mobile shows.
+- **Showing an attachment on iOS.** Desktop and Android draw pictures inline over the
+  `session-media` scheme. iOS needs its `RCTImageURLLoader`, which is not written, so
+  `MediaPort.urlFor` returns null there and the file form is what iOS shows.
 - **The media viewer is one picture at a time.** It pages through a message's pictures and
   nothing more: no zoom, no video playback, no swipe to dismiss, no filmstrip.
 - **Returning to a conversation starts at the newest page.** A window is dropped when its screen
@@ -32,6 +31,9 @@ a time, via the `port-feature` skill.
 - **A devnet cannot have its own Pro backend.** The key libsession verifies proofs against is a
   `constexpr` read at one call site in `core.cpp`, so pointing a build at another deployment needs
   a libsession change. Nothing here configures one, and nothing here has Pro code to configure.
+- **Android needs an `android/` regenerated since the media loader landed.** `pnpm android`
+  prebuilds only when that directory is absent, and a stale one refuses to start in debug and says
+  so.
 - **No contact list, and the QR scanner only restores an account.** Starting a conversation means
   pasting an account ID.
 - **iOS device builds and a release-shaped xcframework.** The simulator works; nothing has been

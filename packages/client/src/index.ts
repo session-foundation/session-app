@@ -1,6 +1,7 @@
 export { createSessionClient } from './createSessionClient'
 export { discoverSeedNodes, seedNodesFrom } from './discoverSeedNodes'
 export type { FetchLike } from './discoverSeedNodes'
+export { serveNativeMediaFrom } from './nativeMedia'
 export { createNativeBridgeTransport } from './nativeTransport'
 export { BRIDGE_UNAVAILABLE, createRefusingTransport } from './refusingTransport'
 export {

@@ -33,4 +33,10 @@ std::optional<MediaUrl> parse_media_url(std::string_view url);
 std::optional<std::string> servable_content_type(
         std::string_view declared, std::span<const std::byte> bytes);
 
+/// `servable_content_type`, narrowed to what a picture decoder may be handed: nullopt for a
+/// servable video as well as for refused bytes. The image loaders' gate, since neither has a
+/// player and a video the loader accepts is decrypted and copied only to fail in the decoder.
+std::optional<std::string> servable_image_type(
+        std::string_view declared, std::span<const std::byte> bytes);
+
 }  // namespace session_bridge

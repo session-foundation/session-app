@@ -1,5 +1,4 @@
 import { mediaKindOf } from '@session/basic-types'
-import { requirePorts } from '@session/app'
 import type { ConversationId } from '@session/client'
 import { tr } from '@session/localization'
 import { transferKey, useMessage, useMessageTransfers, useSessionActions } from '@session/state'
@@ -11,7 +10,7 @@ import { fetchOf } from './attachmentFetch'
 import { exportOne } from './exportAttachment'
 import { useExportFeedback } from './useExportFeedback'
 import { PENDING_COPY } from './pendingCopy'
-import { viewableAttachments } from './viewableAttachments'
+import { viewableAttachments, viewerUri } from './viewableAttachments'
 
 /** An open viewer: which message, and the attachment's index in that message. */
 export interface ViewerTarget {
@@ -52,7 +51,7 @@ function MessageViewer({
       viewable.map((attachment) => ({
         // Null where the platform has no resolver. The viewer says so rather than drawing a broken
         // picture, which is the one thing it must not do with somebody's photograph.
-        uri: requirePorts().media.urlFor({ messageId: target.messageId, index: attachment.index }),
+        uri: viewerUri(target.messageId, attachment),
         kind: mediaKindOf(attachment.contentType),
       })),
     [viewable, target.messageId],

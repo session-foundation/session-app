@@ -40,8 +40,8 @@ interface NativePreview {
  * The bridge, as nitrogen sees it.
  *
  * The same surface the N-API addon exposes, because both are transports in front of the same
- * shim and neither is allowed an opinion of its own - minus `setSink`, which
- * `HybridSessionBridge` registers by hand as a raw JSI method. Nitro's typed callback wrapper
+ * shim and neither is allowed an opinion of its own - minus `setSink` and `serveMediaFrom`, which
+ * `HybridSessionBridge` registers by hand as raw JSI methods. Nitro's typed callback wrapper
  * copies every argument once before the hop to the JS thread, and the frame is the one thing
  * this module exists not to copy; `index.ts` puts the method back on the exported type.
  */

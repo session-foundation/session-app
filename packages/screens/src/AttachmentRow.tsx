@@ -11,7 +11,7 @@ import { ELEMENT } from '@session/test-ids'
 import { FileRow, type FileRowState, type FileRowThumbnail } from '@session/ui'
 
 import { fetchOf, type Fetch } from './attachmentFetch'
-import { mayResolve } from './autoDownload'
+import { mayDrawInline } from './autoDownload'
 import { useConversationUi } from './conversationUi'
 import { PENDING_COPY } from './pendingCopy'
 import { exportOne } from './exportAttachment'
@@ -86,7 +86,7 @@ export function AttachmentRow({
           // would spend the data the person was about to be asked about. Left off after a failure
           // too, so a retry hands it over afresh and the image tries again.
           uri:
-            mayResolve(attachment, ui.autoDownload) && state !== 'failed'
+            mayDrawInline(attachment, ui.autoDownload) && state !== 'failed'
               ? requirePorts().media.urlFor(ref)
               : undefined,
           kind: mediaKindOf(attachment.contentType),
@@ -94,6 +94,7 @@ export function AttachmentRow({
           // Its own URL rather than pixels on the frame stream, so a placeholder reaches the
           // screen by the route a picture does. Null where the platform has no resolver.
           preview: attachment.hasPreview ? requirePorts().media.previewUrlFor(ref) : undefined,
+          failedLabel: tr('attachmentsErrorOpen'),
         }
 
   function start(): void {
@@ -132,6 +133,7 @@ export function AttachmentRow({
         name: ELEMENT.conversation.attachmentName,
         caption: ELEMENT.conversation.attachmentState,
         thumbnail: ELEMENT.conversation.attachmentImage,
+        thumbnailFailed: ELEMENT.conversation.attachmentFailed,
         // The id names what the control currently means rather than where it sits, which is the
         // only thing a test can ask about now that the two verbs share one button.
         action:

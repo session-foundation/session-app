@@ -18,6 +18,11 @@ export function pushedPhotos(): Map<string, string> {
   return photos
 }
 
+/** The bytes of a dev photograph, by the url `pushedPhotos` gave. */
+export async function readPushedPhoto(uri: string): Promise<Uint8Array> {
+  return new Uint8Array(await new File(uri).arrayBuffer())
+}
+
 /** Writes what the fake exported at `path`: a copy of a dev photograph, or the bytes it made. */
 export function writeFakeExport(path: string, source: ExportSource): void {
   const target = new File(fileUri(path))

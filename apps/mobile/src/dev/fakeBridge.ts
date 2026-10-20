@@ -1,13 +1,15 @@
 import { requirePorts, setPorts } from '@session/app'
-import type { BridgeTransport } from '@session/client'
+import { serveNativeMediaFrom, type BridgeTransport } from '@session/client'
 import {
+  createFakeMediaSource,
   createFakeTransport,
   startDevFake,
   type FakeDevEnv,
   type FakeSessionClient,
 } from '@session/client/fake'
+import { Platform } from 'react-native'
 
-import { pushedPhotos, writeFakeExport } from '../storage/devMedia'
+import { pushedPhotos, readPushedPhoto, writeFakeExport } from '../storage/devMedia'
 import { fakeExportSource, fakeMediaPort } from './fakeMedia'
 
 /**
@@ -52,8 +54,19 @@ export function createFakeBridge(): BridgeTransport {
   })
 
   writingExports(alice, photos)
-  // Installed here rather than in platform.ts, so that no production module imports the fake.
-  setPorts({ ...requirePorts(), media: fakeMediaPort(alice, photos) })
+  if (Platform.OS === 'android') {
+    // Through the real loader: the port is platform.ts's, and only the bytes are the fake's.
+    serveNativeMediaFrom(
+      createFakeMediaSource(alice, async (photo) => {
+        const uri = photos.get(photo)
+        if (uri === undefined) throw new Error(`no dev photograph ${photo}`)
+        return readPushedPhoto(uri)
+      }),
+    )
+  } else {
+    // Installed here rather than in platform.ts, so that no production module imports the fake.
+    setPorts({ ...requirePorts(), media: fakeMediaPort(alice, photos) })
+  }
 
   return createFakeTransport(served)
 }

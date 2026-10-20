@@ -1,5 +1,10 @@
 {
   "extends": "@session/typescript-config/bundler.json",
-  "include": ["src", "tests"],
+  "compilerOptions": {
+    // For `scripts` only, which runs under node. `src` ships to platforms with no node, which
+    // `pnpm boundaries` is what enforces.
+    "types": ["node"]
+  },
+  "include": ["src", "tests", "scripts"],
   "exclude": ["node_modules", "dist"]
 }

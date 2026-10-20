@@ -18,7 +18,8 @@
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "media-vectors:hpp": "node --disable-warning=ExperimentalWarning scripts/writeMediaVectors.ts"
   },
   "dependencies": {
     "@session/client": "workspace:*"
@@ -26,6 +27,7 @@
   "devDependencies": {
     "@session/eslint-config": "workspace:*",
     "@session/typescript-config": "workspace:*",
+    "@types/node": "catalog:",
     "eslint": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

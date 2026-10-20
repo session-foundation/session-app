@@ -1,6 +1,7 @@
 #include <jni.h>
 
 #include "SessionBridgeRNOnLoad.hpp"
+#include "SessionMediaJni.hpp"
 
 /**
  * Registers the HybridObject when the library is loaded.
@@ -11,5 +12,7 @@
  * reads like a naming mistake rather than a missing eight lines.
  */
 extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void*) {
+    if (session_bridge_rn::register_media_loader(vm) == JNI_ERR)
+        return JNI_ERR;
     return margelo::nitro::session::bridge::rn::initialize(vm);
 }

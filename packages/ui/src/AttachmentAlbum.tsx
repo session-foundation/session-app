@@ -1,4 +1,4 @@
-import { memo, type ReactNode } from 'react'
+import { memo, useState, type ReactNode } from 'react'
 import { isWeb, XStack, YStack } from 'tamagui'
 
 import type {
@@ -12,34 +12,36 @@ import type { ElementId } from '@session/test-ids'
 import { ALBUM_SEAM, albumLayout, cellPlace, lastCell } from './albumLayout'
 import { AttachmentTile } from './AttachmentTile'
 import { FetchHint } from './FetchHint'
-import { tileRadius } from './attachmentTileStyle'
+import { tileButtonName, tileRadius } from './attachmentTileStyle'
 import { logical } from './logicalEdges'
 import { StateLayer } from './StateLayer'
-import type { WithTestID } from './with'
+import type { WithFailedLabel, WithFailedTestID, WithTestID } from './with'
 
 type AlbumMedia = WithMediaUri & WithMediaPreview & WithFetchesOnOpen & WithTestID
 export type AlbumImage = AlbumMedia & { kind: 'image' }
 export type AlbumVideo = AlbumMedia & { kind: 'video' } & WithDurationLabel
 export type AlbumItem = AlbumImage | AlbumVideo
 
-export type AttachmentAlbumProps = WithTestID & {
-  items: readonly AlbumItem[]
-  /** The message's own width. Never a constant: an album is as wide as the bubble it sits in. */
-  width: number
-  /** Already worded, because `@session/ui` cannot reach the catalogue. */
-  overflowLabel: (count: number) => string
-  onOpen: (at: number) => void
-  /**
-   * The set's own badge, drawn in the album's corner.
-   *
-   * The corner rather than the middle of a tile: a badge on a tile reads as that tile's state, and
-   * this one is about the whole message, including the attachments behind "+N".
-   */
-  control?: ReactNode | undefined
-  /** Already worded; what the cloud that fetches the set is announced as. */
-  fetchLabel: string
-  fetchTestID: ElementId
-}
+export type AttachmentAlbumProps = WithTestID &
+  WithFailedLabel &
+  WithFailedTestID & {
+    items: readonly AlbumItem[]
+    /** The message's own width. Never a constant: an album is as wide as the bubble it sits in. */
+    width: number
+    /** Already worded, because `@session/ui` cannot reach the catalogue. */
+    overflowLabel: (count: number) => string
+    onOpen: (at: number) => void
+    /**
+     * The set's own badge, drawn in the album's corner.
+     *
+     * The corner rather than the middle of a tile: a badge on a tile reads as that tile's state,
+     * and this one is about the whole message, including the attachments behind "+N".
+     */
+    control?: ReactNode | undefined
+    /** Already worded; what the cloud that fetches the set is announced as. */
+    fetchLabel: string
+    fetchTestID: ElementId
+  }
 
 /**
  * The cell arrives as `at` and `side` rather than as itself: `albumLayout` builds new cells on
@@ -51,22 +53,28 @@ const AlbumTile = memo(function AlbumTile({
   side,
   overflowLabel,
   onOpen,
-}: {
-  /** Absent only where the layout and the items disagree, which draws nothing. */
-  item: AlbumItem | undefined
-  at: number
-  side: number
-  /** Only on the tile that carries the overflow. */
-  overflowLabel?: string | undefined
-  onOpen: (at: number) => void
-}) {
+  failedLabel,
+  failedTestID,
+}: WithFailedLabel &
+  WithFailedTestID & {
+    /** Absent only where the layout and the items disagree, which draws nothing. */
+    item: AlbumItem | undefined
+    at: number
+    side: number
+    /** Only on the tile that carries the overflow. */
+    overflowLabel?: string | undefined
+    onOpen: (at: number) => void
+  }) {
+  const [failed, setFailed] = useState(false)
   if (item === undefined) return null
   // A tile that would fetch is the whole set's, so it dims with the album, and at rest on touch
   // under the album's cloud. One that is here opens its own picture, so it answers on its own.
   const fetches = item.fetchesOnOpen === true
+  const name = tileButtonName(undefined, failedLabel, failed)
   return (
     <YStack
       role="button"
+      {...(name === undefined ? {} : { 'aria-label': name })}
       position="relative"
       $platform-web={{ cursor: 'pointer' }}
       onPress={() => {
@@ -82,6 +90,9 @@ const AlbumTile = memo(function AlbumTile({
         duration={item.kind === 'video' ? item.duration : undefined}
         overflowLabel={overflowLabel}
         testID={item.testID}
+        failedLabel={failedLabel}
+        failedTestID={failedTestID}
+        onFailedChange={setFailed}
       />
       <StateLayer
         group={fetches ? 'album' : 'tile'}
@@ -109,6 +120,8 @@ export function AttachmentAlbum({
   control,
   fetchLabel,
   fetchTestID,
+  failedLabel,
+  failedTestID,
   testID,
 }: AttachmentAlbumProps) {
   const layout = albumLayout(items.length, width)
@@ -149,6 +162,8 @@ export function AttachmentAlbum({
               side={cell.side}
               overflowLabel={cell.at === overflowAt ? overflowText : undefined}
               onOpen={onOpen}
+              failedLabel={failedLabel}
+              failedTestID={failedTestID}
             />
           ))}
         </XStack>
@@ -169,6 +184,8 @@ export function AttachmentAlbum({
             side={layout.lead.side}
             overflowLabel={layout.lead.at === overflowAt ? overflowText : undefined}
             onOpen={onOpen}
+            failedLabel={failedLabel}
+            failedTestID={failedTestID}
           />
           {layout.rows.length === 0 ? null : beside}
         </XStack>

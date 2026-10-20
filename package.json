@@ -24,6 +24,7 @@
     "boundaries": "depcruise --config tooling/depcruise-config/root.cjs $(ls -d packages apps tests tooling 2>/dev/null)",
     "typecheck": "turbo typecheck",
     "test": "turbo test",
+    "test:native": "pnpm --filter @session/bridge-rn run --if-present test:native",
     "knip": "knip",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

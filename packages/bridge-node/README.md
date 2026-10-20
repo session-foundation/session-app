@@ -19,5 +19,5 @@ Takes a while the first time: it builds libsession and its static dependencies. 
 
 ## Testing
 
-`src/addon.test.ts` opens a real encrypted database and round-trips a request. It skips itself
-when the addon has not been built, because the per-PR job compiles no C++.
+`tests/addon.test.ts` opens a real encrypted database and round-trips a request. It skips itself
+when the addon has not been built, because the per-PR job does not build the addon.

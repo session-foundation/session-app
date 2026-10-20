@@ -19,7 +19,7 @@ import { ms, report, table } from '@session/bench/measure'
  * from these numbers is what the C++ half costs.
  *
  * No Electron and no network. Skipped unless the addon has been built, because the per-PR job
- * compiles no C++.
+ * does not build the addon.
  */
 
 const addon = join(import.meta.dirname, '../build/Release/session_bridge_node.node')

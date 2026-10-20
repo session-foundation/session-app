@@ -6,6 +6,10 @@ import { fileURLToPath } from 'node:url'
 import type * as ConfigPlugins from '@expo/config-plugins'
 import type { ConfigContext, ExpoConfig } from 'expo/config'
 
+// Through the package's imports map: Expo evaluates this file with node's ESM resolver, which
+// needs an extension on a relative path and finds one in the map.
+import { withSessionMedia } from '#plugins/withSessionMedia'
+
 /**
  * Required rather than imported, because node cannot see half of this module's exports.
  *
@@ -296,7 +300,7 @@ function appGroup(config: ConfigContext['config']): string {
 
 /** The plugins written in this file, which take the computed config rather than a plugin entry. */
 const withLocalPlugins: ConfigPlugins.ConfigPlugin = (config) =>
-  withExportStorageAccess(withNoBackups(withPermissionStrings(config)))
+  withSessionMedia(withExportStorageAccess(withNoBackups(withPermissionStrings(config))))
 
 /**
  * `app.json` plus the things that have to be computed.

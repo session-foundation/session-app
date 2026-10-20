@@ -151,4 +151,12 @@ std::optional<std::string> servable_content_type(
     return std::nullopt;
 }
 
+std::optional<std::string> servable_image_type(
+        std::string_view declared, std::span<const std::byte> bytes) {
+    auto type = servable_content_type(declared, bytes);
+    if (!type || !type->starts_with("image/"))
+        return std::nullopt;
+    return type;
+}
+
 }  // namespace session_bridge

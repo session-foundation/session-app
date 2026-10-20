@@ -7,7 +7,7 @@ import { ELEMENT } from '@session/test-ids'
 import { AttachmentAlbum, type AlbumItem } from '@session/ui'
 
 import type { Fetch } from './attachmentFetch'
-import { mayResolve } from './autoDownload'
+import { mayDrawInline } from './autoDownload'
 import { viewableAttachments } from './viewableAttachments'
 
 /**
@@ -63,7 +63,7 @@ export function MessageAlbum({
       // no resolver, and this says the person has not agreed to spend the data. Both draw the
       // placeholder, and the set's control is what offers to change it.
       uri:
-        mayResolve(attachment, autoDownload) && !failed.has(String(attachment.index))
+        mayDrawInline(attachment, autoDownload) && !failed.has(String(attachment.index))
           ? requirePorts().media.urlFor({ messageId: message.id, index: attachment.index })
           : undefined,
       kind: mediaKindOf(attachment.contentType),
@@ -89,6 +89,8 @@ export function MessageAlbum({
       control={control}
       fetchLabel={tr('download')}
       fetchTestID={ELEMENT.conversation.attachmentFetch}
+      failedLabel={tr('attachmentsErrorOpen')}
+      failedTestID={ELEMENT.conversation.attachmentFailed}
       testID={ELEMENT.conversation.attachment}
     />
   )
