@@ -54,7 +54,7 @@ _ls_hashes() {
     # A trailing slash is an embedded repository, not a file.
     sums=$(printf '%s\n' "$files" \
         | grep -vE '(^|/)(tests?|docs?|examples?)/|\.md$|(^|/)(\.DS_Store|\.gitignore)$|/$' \
-        | sort | tr '\n' '\0' | (cd "$1" && _ls_md5))
+        | LC_ALL=C sort | tr '\n' '\0' | (cd "$1" && _ls_md5))
     printf '%s %s\n' \
         "$(awk '{print $1}' <<<"$sums" | _ls_md5_stdin)" \
         "$(awk '$2 == "CMakeLists.txt" || $2 ~ /^cmake\// {print $1}' <<<"$sums" | _ls_md5_stdin)"
@@ -100,7 +100,8 @@ _ls_prune() {
         n=$((n + 1))
         [ "$n" -le 5 ] && continue
         [ -e "$entry.lock" ] && continue
-        [ -n "$(find "$entry" -maxdepth 0 -mtime +14)" ] && rm -rf "$entry"
+        # Not `[ ... ] && rm`: a false test as the loop's last command fails the caller's set -e.
+        if [ -n "$(find "$entry" -maxdepth 0 -mtime +14)" ]; then rm -rf "$entry"; fi
     done
 }
 
