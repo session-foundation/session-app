@@ -40,13 +40,19 @@ _ls_layout=v1
 # changes it (libsession globs its schema migrations); tests, docs and markdown cannot change what
 # is linked.
 _ls_hashes() {
-    local sums
-    # `--others` cannot be combined with `--recurse-submodules`, hence the foreach. A trailing slash
-    # is an embedded repository, not a file.
-    sums=$( (cd "$1" && git ls-files --recurse-submodules \
+    local files sums
+    # `--others` cannot be combined with `--recurse-submodules`, hence the foreach.
+    files=$(cd "$1" && git ls-files --recurse-submodules \
             && git ls-files --others --exclude-standard \
             && git submodule foreach --quiet --recursive \
-                'git ls-files --others --exclude-standard | sed "s|^|$displaypath/|"') \
+                'git ls-files --others --exclude-standard | sed "s|^|$displaypath/|"') || files=""
+    # An empty list hashes the same for every source state, and every edit would hit the cache.
+    if [ -z "$files" ]; then
+        echo "cannot list libsession's files with git in $1" >&2
+        return 1
+    fi
+    # A trailing slash is an embedded repository, not a file.
+    sums=$(printf '%s\n' "$files" \
         | grep -vE '(^|/)(tests?|docs?|examples?)/|\.md$|(^|/)(\.DS_Store|\.gitignore)$|/$' \
         | sort | tr '\n' '\0' | (cd "$1" && _ls_md5))
     printf '%s %s\n' \
@@ -115,7 +121,7 @@ libsession_bundle() {
     # the download partway often enough to fail cold builds. Hashes are still checked.
     set -- "$@" -DLOCAL_MIRROR="${SESSION_BRIDGE_DEPS_MIRROR:-https://builds.session.codes/deps}"
 
-    hashes=$(_ls_hashes "$libsession")
+    hashes=$(_ls_hashes "$libsession") || return
     src_hash=${hashes% *}
     rules_hash=${hashes#* }
     args_hash=$(printf '%s\n' "$@" | _ls_md5_stdin | cut -c1-12)
