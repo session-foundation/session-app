@@ -42,7 +42,7 @@
         "../../libsession-util/**"
       ],
       "outputs": ["prebuilds/**", "build/Release/**"],
-      "env": ["SESSION_BRIDGE_CC", "SESSION_BRIDGE_CXX"],
+      "env": ["SESSION_BRIDGE_CC", "SESSION_BRIDGE_CXX", "MACOSX_DEPLOYMENT_TARGET"],
       "passThroughEnv": ["SESSION_LIBSESSION_CACHE", "SESSION_BRIDGE_DEPS_MIRROR"]
     },
     "dev": {

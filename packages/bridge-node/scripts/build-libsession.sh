@@ -13,8 +13,12 @@ cxx="${SESSION_BRIDGE_CXX:-g++}"
 compiler_id="$( { command -v "$cc" "$cxx"; "$cc" --version | head -1; "$cxx" --version | head -1; } \
     | tr '\n' ' ' | cksum | cut -d' ' -f1)"
 
+key="desktop-$(uname -s)-$(uname -m)-$compiler_id"
+# CMake reads it from the environment on a tree's first configure only.
+[ "$(uname -s)" != Darwin ] || key="$key-macos${MACOSX_DEPLOYMENT_TARGET:-default}"
+
 . "$here/../../bridge-core/scripts/libsession-cache.sh"
-libsession_bundle "$libsession" "desktop-$(uname -s)-$(uname -m)-$compiler_id" \
+libsession_bundle "$libsession" "$key" \
     "$here/../build-libsession" \
     -DCMAKE_C_COMPILER="$cc" \
     -DCMAKE_CXX_COMPILER="$cxx" \

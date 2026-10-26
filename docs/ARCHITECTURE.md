@@ -368,7 +368,7 @@ Two things cost real time on a first clone, and neither is discoverable from a f
 - **gmplib.org drops connections often enough to matter**, and it is where gmp comes from.
   `-DLOCAL_MIRROR=https://builds.session.codes/deps` is tried ahead of every dependency's own
   mirror, so one flag takes the whole static build off the upstream hosts rather than just gmp.
-  The desktop and Android builds always pass it; the hashes are checked either way.
+  Every libsession build here passes it; the hashes are checked either way.
 
 Which compiler, and why, is in the decision log. How to build and run each client is the `run`
 skill's.

@@ -121,7 +121,9 @@ libsession_bundle() {
     # the download partway often enough to fail cold builds. Hashes are still checked.
     set -- "$@" -DLOCAL_MIRROR="${SESSION_BRIDGE_DEPS_MIRROR:-https://builds.session.codes/deps}"
 
-    hashes=$(_ls_hashes "$libsession") || return
+    # Set by the iOS script, which has already hashed this tree once for BUILT.json.
+    hashes=${_LS_HASHES:-}
+    if [ -z "$hashes" ]; then hashes=$(_ls_hashes "$libsession") || return; fi
     src_hash=${hashes% *}
     rules_hash=${hashes#* }
     args_hash=$(printf '%s\n' "$@" | _ls_md5_stdin | cut -c1-12)
@@ -165,6 +167,8 @@ libsession_bundle() {
             for arg in "$@"; do args+=("${arg//@SRC@/$tree/src}"); done
             # Otherwise a build that fails leaves the previous archive to be cached as this one.
             rm -f "$tree/build/libsession-util.a"
+            # CMake keeps the flags of a tree's first configure for good, and no key names them.
+            unset CFLAGS CXXFLAGS CPPFLAGS LDFLAGS
             # `cd` through the symlink: static-bundle.sh takes the source directory from $PWD.
             (cd "$tree/src" && ./utils/static-bundle.sh "$tree/build" "" "${args[@]}")
 

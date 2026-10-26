@@ -61,8 +61,8 @@ esac
 # own check (`Scripts/build_libSession_util.sh`), and the cache's: every tracked and every
 # untracked, unignored path across every submodule, hashed by working-tree content, so an
 # uncommitted patch or a new file changes it.
-source_hash=$(_ls_hashes "$libsession")
-source_hash=${source_hash% *}
+hashes=$(_ls_hashes "$libsession")
+source_hash=${hashes% *}
 
 # Each slice through the per-machine cache, with the arguments utils/ios.sh gives
 # static-bundle.sh: the cache cannot run ios.sh's own build, which builds every slice in one tree
@@ -71,7 +71,9 @@ deployment="${IPHONEOS_DEPLOYMENT_TARGET:-13}"
 toolchain="$libsession/external/ios-cmake/ios.toolchain.cmake"
 target="xcode$(xcodebuild -version | awk '/Build version/ {print $3}')-ios$deployment-$(md5 -q "$toolchain")"
 # ios.sh's `env -i`: what an Xcode build phase exports would otherwise reach every dependency.
-clean_env=(env -i PATH="$PATH" HOME="$HOME" SDKROOT="$(xcrun --sdk macosx --show-sdk-path)")
+# `_LS_HASHES` spares each slice another walk of the whole tree.
+clean_env=(env -i PATH="$PATH" HOME="$HOME" SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
+    _LS_HASHES="$hashes")
 for var in SESSION_LIBSESSION_CACHE SESSION_BRIDGE_DEPS_MIRROR; do
     if [ -n "${!var:-}" ]; then clean_env+=("$var=${!var}"); fi
 done

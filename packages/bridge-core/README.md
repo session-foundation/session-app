@@ -34,17 +34,20 @@ macOS):
 - `entries/`: finished bundles, keyed by a hash of libsession's whole source tree (every tracked
   file in every submodule and every untracked one not ignored, uncommitted edits included), the
   target and the cmake arguments. A clone on a cached libsession builds nothing; its copy is hard
-  links into the entry.
+  links into the entry on Linux and an APFS clone on macOS.
 - `trees/`: one build tree per set of build rules (libsession's top `CMakeLists.txt` and `cmake/`,
   session-deps included), target and cmake arguments, shared by every clone. When libsession's
   sources change and those do not, the dependencies are not configured or built again; only
   libsession compiles, through ccache. A change to any of them starts a new tree, because a
   dependency rebuilt under a finished one is how meson-based builds break.
 
-The target is the ABI, platform level and NDK revision on Android, the OS, architecture and
-compilers on desktop, and the slice, deployment target, Xcode build and ios-cmake toolchain on iOS. The five most recently used of each kind are kept, and anything used in the
-last fourteen days. One build at a time runs in a tree; a second waits for it. On a self-hosted
-runner, point `SESSION_LIBSESSION_CACHE` at a directory outside the job's workspace.
+The target is the ABI, platform level and NDK revision on Android, the OS, architecture,
+compilers and macOS deployment target on desktop, and the slice, deployment target, Xcode build
+and ios-cmake toolchain on iOS. `CFLAGS`, `CXXFLAGS`, `CPPFLAGS` and `LDFLAGS` are cleared for the
+build: CMake would keep a tree's first ones for good. `entries/` and `trees/` each keep their five
+most recently used, whatever the target, and anything used in the last fourteen days. One build
+at a time runs in a tree; a second waits for it. On a self-hosted runner, point
+`SESSION_LIBSESSION_CACHE` at a directory outside the job's workspace.
 
 Dependency sources come from `https://builds.session.codes/deps`, libsession's own mirror, before
 their own URLs, so gmp comes from there and not from gmplib.org, which drops downloads.
