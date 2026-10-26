@@ -17,13 +17,10 @@ The simulator slice is this machine's architecture and no other. `all` adds the 
 Intel Mac running the simulator; it is another 1.6GB of build tree and nothing on an Apple silicon
 machine will ever load it, so it is a release's business rather than the default.
 
-libsession's outputs are cached per machine in `~/Library/Caches/session-app/libsession-ios`,
-keyed by the source hash below, the slices built, `IPHONEOS_DEPLOYMENT_TARGET` and the Xcode build.
-The five most recently used are kept. A clone on a cached libsession skips its build, the build
-tree is deleted afterwards, and the xcframework here is an APFS clone of the cached one.
-`SESSION_LIBSESSION_IOS_CACHE` replaces `~/Library/Caches/session-app`; keep it on the same volume
-as the clones. `SESSION_LIBSESSION_IOS_KEEP_BUILD=1` bypasses the cache and keeps the build tree,
-for incremental rebuilds while changing libsession.
+Each slice of libsession is built through the per-machine cache `packages/bridge-core/README.md`
+describes, keyed also by `IPHONEOS_DEPLOYMENT_TARGET`, the Xcode build and the ios-cmake toolchain.
+A clone on a cached libsession skips the build, and a libsession change reuses every dependency.
+libsession's own `utils/ios.sh` then merges the slices and makes the xcframework.
 
 The shim is an xcframework rather than a directory of archives because `vendored_libraries` has
 no per-SDK form: a directory of `.a` files is a directory for exactly one slice, and the two have

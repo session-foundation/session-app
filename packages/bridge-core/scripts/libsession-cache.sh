@@ -1,5 +1,5 @@
 # Builds libsession's static bundle through a per-machine cache. Sourced by the Android and desktop
-# build scripts, which call `libsession_bundle` once per target.
+# build scripts, which call `libsession_bundle` once per target, and by the iOS one once per slice.
 #
 # Two levels, both under $SESSION_LIBSESSION_CACHE (default ~/.cache/session-app on Linux,
 # ~/Library/Caches/session-app on macOS):
@@ -96,7 +96,9 @@ _ls_prune() {
 #
 # Leaves libsession-util.a and static-deps/include in <destination>, which is what
 # bridge-core's SESSION_BRIDGE_LIBSESSION_BUNDLE reads beside the bundle. The target key has to
-# name everything about the toolchain that the cmake arguments do not.
+# name everything about the toolchain that the cmake arguments do not. `@SRC@` in an argument
+# stands for the libsession source directory: a clone's own path there would give every clone a
+# tree of its own.
 libsession_bundle() {
     local libsession dest key hashes src_hash rules_hash args_hash entry tree
     libsession="$(cd "$1" && pwd -P)"
@@ -145,8 +147,10 @@ libsession_bundle() {
                 rm -rf "$stamps" "${stamps%-stamp}" "${stamps%-stamp}-build"
             done
             ln -sfn "$libsession" "$tree/src"
+            args=()
+            for arg in "$@"; do args+=("${arg//@SRC@/$tree/src}"); done
             # `cd` through the symlink: static-bundle.sh takes the source directory from $PWD.
-            (cd "$tree/src" && ./utils/static-bundle.sh "$tree/build" "" "$@")
+            (cd "$tree/src" && ./utils/static-bundle.sh "$tree/build" "" "${args[@]}")
 
             mkdir -p "$incoming/static-deps"
             cp "$tree/build/libsession-util.a" "$incoming/"

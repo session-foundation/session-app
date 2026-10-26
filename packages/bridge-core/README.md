@@ -23,9 +23,10 @@ to C23 and sails past; clang still defaults to C17, engages the shim, and fails 
 because the `HAVE_STDBOOL_H` that shim needs is never defined. Nothing about our own code prefers
 either compiler.
 
-## libsession for desktop and Android
+## libsession's per-machine cache
 
-The addon's `build:native` and `build:libsession:android` build libsession's static bundle through
+The addon's `build:native`, `build:libsession:android` and `build:libsession:ios` (once per slice)
+build libsession's static bundle through
 `scripts/libsession-cache.sh`, which keeps two things per machine under
 `$SESSION_LIBSESSION_CACHE` (default `~/.cache/session-app`, `~/Library/Caches/session-app` on
 macOS):
@@ -39,16 +40,14 @@ macOS):
   libsession compiles, through ccache. A change to any of them starts a new tree, because a
   dependency rebuilt under a finished one is how meson-based builds break.
 
-The target is the ABI, platform level and NDK revision on Android, and the OS, architecture and
-compilers on desktop. The five most recently used of each kind are kept, and anything used in the
+The target is the ABI, platform level and NDK revision on Android, the OS, architecture and
+compilers on desktop, and the slice, deployment target, Xcode build and ios-cmake toolchain on iOS. The five most recently used of each kind are kept, and anything used in the
 last fourteen days. One build at a time runs in a tree; a second waits for it. On a self-hosted
 runner, point `SESSION_LIBSESSION_CACHE` at a directory outside the job's workspace.
 
 Dependency sources come from `https://builds.session.codes/deps`, libsession's own mirror, before
 their own URLs, so gmp comes from there and not from gmplib.org, which drops downloads.
 `SESSION_BRIDGE_DEPS_MIRROR` names another mirror.
-
-iOS has its own cache, in `packages/bridge-rn/scripts/build-libsession-ios.sh`.
 
 ## Layout
 

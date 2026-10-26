@@ -18,8 +18,7 @@ set -euo pipefail
 # of build tree, and nothing on an Apple silicon machine will ever load it.
 #
 # `simulator` is the debug loop's fast path, and `device` its opposite; both leave an artefact with
-# one slice in it, so what they are for is a rebuild with SESSION_LIBSESSION_IOS_KEEP_BUILD=1, not a
-# first build.
+# one slice in it, so what they are for is a rebuild while changing libsession, not a first build.
 #
 # **If you are here writing the release or archive scripts:** there are none yet, and an archive
 # wants `device` rather than the default -- a simulator slice in a shipped binary is dead weight
@@ -56,62 +55,52 @@ case "$platform" in
     *) case " $archs " in *" arm64 "*) slices="$slices ios-arm64" ;; esac ;;
 esac
 
-# **The hash is the honest half of BUILT.json**; the commit alone is not. The nested submodules are
-# routinely carrying uncommitted patches -- the `StaticBuild.cmake` ones are, right now -- and a
-# commit says nothing about them. It is the legacy client's own check
-# (`Scripts/build_libSession_util.sh`): every tracked path across every submodule, hashed by
-# content from the working tree, so an uncommitted edit changes it. Tests, docs and markdown are
-# left out because they cannot affect what gets linked.
-source_hash=$( \
-    ( cd "$libsession" && git ls-files --recurse-submodules ) \
-    | grep -vE '/(tests?|docs?|examples?)/|\.md$|/(\.DS_Store|\.gitignore)$' \
-    | sort | tr '\n' '\0' \
-    | ( cd "$libsession" && xargs -0 md5 -r ) \
-    | awk '{print $1}' | sort | md5 -q \
-)
+. "$here/../../bridge-core/scripts/libsession-cache.sh"
 
-build_libsession() {
-    ( cd "$libsession" && env ARCHS="$archs" PLATFORM_NAME="$platform" CONFIGURATION=Debug \
-        ./utils/ios.sh "" true true true false )
-}
+# **The hash is the honest half of BUILT.json**; the commit alone is not. It is the legacy client's
+# own check (`Scripts/build_libSession_util.sh`), and the cache's: every tracked path across every
+# submodule, hashed by working-tree content, so an uncommitted patch changes it.
+source_hash=$(_ls_hashes "$libsession")
+source_hash=${source_hash% *}
 
-tree="$libsession/build-ios"
-if [ "${SESSION_LIBSESSION_IOS_KEEP_BUILD:-0}" = 1 ]; then
-    # Bypasses the cache: while changing libsession, every edit would be an entry of its own.
-    build_libsession
-    built="$tree"
-else
-    # Shared by every clone on this machine. Bump v1 whenever what an entry holds changes.
-    cache_root="${SESSION_LIBSESSION_IOS_CACHE:-$HOME/Library/Caches/session-app}/libsession-ios"
-    xcode_build="$(xcodebuild -version | awk '/Build version/ {print $3}')"
-    built="$cache_root/v1-$source_hash-${platform:-both}-${archs// /+}-${IPHONEOS_DEPLOYMENT_TARGET:-default}-$xcode_build"
-
-    if [ -d "$built" ]; then
-        touch "$built"
-        echo "libsession from cache: $built"
-    else
-        build_libsession
-
-        # Renamed into place whole, so a concurrent build never reads half an entry.
-        incoming="$cache_root/.incoming-$$"
-        trap 'rm -rf "$incoming"' EXIT
-        mkdir -p "$incoming"
-        cp -cR "$tree/libsession-util.xcframework" "$incoming/"
-        for slice in $slices; do
-            mkdir -p "$incoming/$slice"
-            ( cd "$tree/$slice" \
-                && find libsession-util.a static-deps external/session-sqlite \( -name '*.a' -o -path 'static-deps/include/*' \) \
-                | cpio -pdm --quiet "$incoming/$slice" )
-        done
-        [ -e "$built" ] || mv "$incoming" "$built"
-        # A concurrent build's mv lands inside the entry rather than failing.
-        rm -rf "${built:?}/${incoming##*/}"
-
-        rm -rf "$tree"
-        ls -1td "$cache_root"/v*-* | tail -n +6 | while read -r stale; do rm -rf "$stale"; done
-        find "$cache_root" -maxdepth 1 -name '.incoming-*' -mtime +1 -exec rm -rf {} +
-    fi
-fi
+# Each slice through the per-machine cache, with the arguments utils/ios.sh gives
+# static-bundle.sh: the cache cannot run ios.sh's own build, which builds every slice in one tree
+# of its own. Its merge and xcframework steps still run below, on what the cache produced.
+deployment="${IPHONEOS_DEPLOYMENT_TARGET:-13}"
+toolchain="$libsession/external/ios-cmake/ios.toolchain.cmake"
+target="xcode$(xcodebuild -version | awk '/Build version/ {print $3}')-ios$deployment-$(md5 -q "$toolchain")"
+# ios.sh's `env -i`: what an Xcode build phase exports would otherwise reach every dependency.
+clean_env=(env -i PATH="$PATH" HOME="$HOME" SDKROOT="$(xcrun --sdk macosx --show-sdk-path)")
+for var in SESSION_LIBSESSION_CACHE SESSION_BRIDGE_DEPS_MIRROR; do
+    if [ -n "${!var:-}" ]; then clean_env+=("$var=${!var}"); fi
+done
+# ios.sh merges every slice directory it finds, so one left by another mode would join this build.
+rm -rf "$libsession/build-ios"
+for slice in $slices; do
+    case "$slice" in
+        sim-arm64)  ios_platform="SIMULATORARM64" ;;
+        sim-x86_64) ios_platform="SIMULATOR64" ;;
+        ios-arm64)  ios_platform="OS64" ;;
+        *) echo "no ios-cmake platform known for slice $slice" >&2; exit 1 ;;
+    esac
+    "${clean_env[@]}" bash -c '. "$1"; shift; libsession_bundle "$@"' _ \
+        "$here/../../bridge-core/scripts/libsession-cache.sh" \
+        "$libsession" "$slice-$target" "$libsession/build-ios/$slice" \
+        -DCMAKE_TOOLCHAIN_FILE=@SRC@/external/ios-cmake/ios.toolchain.cmake \
+        -DPLATFORM="$ios_platform" \
+        -DDEPLOYMENT_TARGET="$deployment" \
+        -DENABLE_BITCODE=OFF \
+        -DBUILD_TESTS=OFF \
+        -DBUILD_STATIC_DEPS=ON \
+        -DENABLE_VISIBILITY=ON \
+        -DSROUTER_FULL=OFF \
+        -DSROUTER_DAEMON=OFF \
+        -DSUBMODULE_CHECK=OFF \
+        -DCMAKE_BUILD_TYPE=Debug
+done
+( cd "$libsession" && env ARCHS="$archs" PLATFORM_NAME="$platform" CONFIGURATION=Debug \
+    IPHONEOS_DEPLOYMENT_TARGET="$deployment" ./utils/ios.sh "" false true true false )
+built="$libsession/build-ios"
 
 framework="$built/libsession-util.xcframework"
 [ -d "$framework" ] || { echo "no xcframework at $framework" >&2; exit 1; }

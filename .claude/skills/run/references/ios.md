@@ -23,8 +23,8 @@ obvious thing to pass for a simulator and it breaks the keychain.
 
 The first `build:libsession:ios` on a given libsession takes a long time: it cross-compiles
 libsession and every dependency. Every later clone on the same libsession takes it from the
-machine-wide cache in seconds - see `packages/bridge-rn/ios/README.md`, including
-`SESSION_LIBSESSION_IOS_KEEP_BUILD=1` for incremental rebuilds while changing libsession.
+machine-wide cache in seconds, and a libsession change rebuilds libsession alone - see
+`packages/bridge-core/README.md`.
 
 ### Building without taking over the machine
 
