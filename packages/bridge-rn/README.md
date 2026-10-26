@@ -18,7 +18,8 @@ cd android && ./gradlew :app:assembleDebug -PreactNativeArchitectures=x86_64 --n
 ```
 
 libsession is cross-compiled separately rather than from inside the Gradle CMake project, by
-`scripts/build-libsession-android.sh`.
+`scripts/build-libsession-android.sh`, through the per-machine cache
+`packages/bridge-core/README.md` describes.
 
 `--no-configuration-cache` is Gradle 9 against Expo, which still calls `node` at configuration
 time. Nothing to do with this module.

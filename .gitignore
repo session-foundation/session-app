@@ -33,6 +33,7 @@ packages/bridge-rn/ios/lib/
 packages/bridge-core/build-ios/
 .cxx/
 libsession-util/build-android/
+packages/bridge-node/build-libsession/
 
 # Playwright
 test-results/

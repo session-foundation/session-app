@@ -38,8 +38,9 @@ to notice. If it expires, read `$SCRATCH/emulator.log` rather than trying again.
 pnpm --filter @session/bridge-rn build:libsession:android    # one ABI by default, or `all`
 ```
 
-Slow the first time - it cross-compiles libsession and every dependency for the ABI - and
-incremental after that. `packages/bridge-rn/README.md` has the rest of the chain.
+Slow the first time on a machine - it cross-compiles libsession and every dependency for the
+ABI - and cached per machine after that: seconds on a libsession already built, libsession alone
+when only it changed (`packages/bridge-core/README.md`). `packages/bridge-rn/README.md` has the rest of the chain.
 
 ## Install and launch
 

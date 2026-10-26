@@ -23,6 +23,33 @@ to C23 and sails past; clang still defaults to C17, engages the shim, and fails 
 because the `HAVE_STDBOOL_H` that shim needs is never defined. Nothing about our own code prefers
 either compiler.
 
+## libsession for desktop and Android
+
+The addon's `build:native` and `build:libsession:android` build libsession's static bundle through
+`scripts/libsession-cache.sh`, which keeps two things per machine under
+`$SESSION_LIBSESSION_CACHE` (default `~/.cache/session-app`, `~/Library/Caches/session-app` on
+macOS):
+
+- `entries/`: finished bundles, keyed by a hash of libsession's whole source tree (every tracked
+  file in every submodule, uncommitted edits included), the target and the cmake arguments. A
+  clone on a cached libsession builds nothing; its copy is hard links into the entry.
+- `trees/`: one build tree per set of build rules (libsession's top `CMakeLists.txt` and `cmake/`,
+  session-deps included), target and cmake arguments, shared by every clone. When libsession's
+  sources change and those do not, the dependencies are not configured or built again; only
+  libsession compiles, through ccache. A change to any of them starts a new tree, because a
+  dependency rebuilt under a finished one is how meson-based builds break.
+
+The target is the ABI, platform level and NDK revision on Android, and the OS, architecture and
+compilers on desktop. The five most recently used of each kind are kept, and anything used in the
+last fourteen days. One build at a time runs in a tree; a second waits for it. On a self-hosted
+runner, point `SESSION_LIBSESSION_CACHE` at a directory outside the job's workspace.
+
+Dependency sources come from `https://builds.session.codes/deps`, libsession's own mirror, before
+their own URLs, so gmp comes from there and not from gmplib.org, which drops downloads.
+`SESSION_BRIDGE_DEPS_MIRROR` names another mirror.
+
+iOS has its own cache, in `packages/bridge-rn/scripts/build-libsession-ios.sh`.
+
 ## Layout
 
 | file                                       | what                                                 |

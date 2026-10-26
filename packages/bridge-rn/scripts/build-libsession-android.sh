@@ -91,22 +91,16 @@ export PATH="$shim:$PATH"
 export AR="$llvm_ar"
 export RANLIB="$ndk/toolchains/llvm/prebuilt/$host/bin/llvm-ranlib"
 
-# **A fallback for every dependency download, not a replacement.** `LOCAL_MIRROR` is a list of base
-# URLs that `expand_urls` appends each source filename to, tried in order after the upstream one --
-# which is what stands between this build and an upstream that serves a partial file. gmplib.org
-# did exactly that here: 81,698 bytes of a 2,094,196-byte tarball, cached, and then reported as a
-# hash mismatch on every subsequent run.
-#
-# libsession's own CI passes this on most pipelines but not on the Android one, so this is not the
-# configuration Android is known-good in -- it is a safety net, and it is cheap.
-cd "$libsession"
+. "$here/../../bridge-core/scripts/libsession-cache.sh"
+ndk_revision="$(sed -n 's/^Pkg.Revision *= *//p' "$ndk/source.properties")"
+
 for abi in "${abis[@]}"; do
     echo "Building libsession for $abi"
-    ./utils/static-bundle.sh "build-android/$abi" "" \
+    libsession_bundle "$libsession" "android-$abi-$platform-ndk$ndk_revision" \
+        "$libsession/build-android/$abi" \
         -DCMAKE_TOOLCHAIN_FILE="$ndk/build/cmake/android.toolchain.cmake" \
         -DANDROID_ABI="$abi" \
         -DANDROID_ARM_MODE=arm \
         -DANDROID_PLATFORM="$platform" \
-        -DANDROID_STL=c++_static \
-        -DLOCAL_MIRROR="${SESSION_DEP_MIRROR:-https://oxen.rocks/deps}"
+        -DANDROID_STL=c++_static
 done

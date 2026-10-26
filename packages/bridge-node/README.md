@@ -14,7 +14,8 @@ both, which is why `vitest` can exercise the addon here without an Electron proc
 pnpm --filter @session/bridge-node build:native
 ```
 
-Takes a while the first time: it builds libsession and its static dependencies. Needs `cmake`,
+Takes a while the first time: it builds libsession and its static dependencies, through the
+per-machine cache `packages/bridge-core/README.md` describes. Needs `cmake`,
 `ninja`, `meson` >= 1.4 and gcc - see `packages/bridge-core/README.md` for why gcc rather than clang.
 
 ## Testing

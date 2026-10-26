@@ -37,6 +37,7 @@ if(SESSION_BRIDGE_LIBSESSION_BUNDLE)
         "${_ls}/external/session-sqlite/include"
         "${_ls}/external/session-sqlite/SQLiteCpp/include"
         "${_ls}/external/protobuf/src"
+        "${_ls}/proto"
         "${_router}/external/oxen-libquic/include"
         "${_router}/external/oxen-mq/oxen-encoding"
         "${_router}/external/oxen-mq/oxen-logging/fmt/include"

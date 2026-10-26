@@ -17,11 +17,11 @@
     "./addon": "./build/Release/session_bridge_node.node"
   },
   "scripts": {
-    "build:native": "cmake-js configure --CDCMAKE_C_COMPILER=\"${SESSION_BRIDGE_CC:-gcc}\" --CDCMAKE_CXX_COMPILER=\"${SESSION_BRIDGE_CXX:-g++}\" --CDUSE_LTO=OFF --CDWITH_TESTS=OFF --CDSUBMODULE_CHECK=OFF --CDLOCAL_MIRROR=\"${SESSION_BRIDGE_DEPS_MIRROR:-}\" --CDSESSION_BRIDGE_TESTING=OFF && cmake-js build --parallel",
+    "build:native": "./scripts/build-libsession.sh && cmake-js configure --CDSESSION_BRIDGE_LIBSESSION_BUNDLE=\"$PWD/build-libsession/libsession-util.a\" --CDCMAKE_C_COMPILER=\"${SESSION_BRIDGE_CC:-gcc}\" --CDCMAKE_CXX_COMPILER=\"${SESSION_BRIDGE_CXX:-g++}\" --CDSESSION_BRIDGE_TESTING=OFF && cmake-js build --parallel",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests --no-file-parallelism",
-    "build:native:testing": "cmake-js configure --CDCMAKE_C_COMPILER=\"${SESSION_BRIDGE_CC:-gcc}\" --CDCMAKE_CXX_COMPILER=\"${SESSION_BRIDGE_CXX:-g++}\" --CDUSE_LTO=OFF --CDWITH_TESTS=OFF --CDSUBMODULE_CHECK=OFF --CDLOCAL_MIRROR=\"${SESSION_BRIDGE_DEPS_MIRROR:-}\" --CDSESSION_BRIDGE_TESTING=ON && cmake-js build --parallel"
+    "build:native:testing": "./scripts/build-libsession.sh && cmake-js configure --CDSESSION_BRIDGE_LIBSESSION_BUNDLE=\"$PWD/build-libsession/libsession-util.a\" --CDCMAKE_C_COMPILER=\"${SESSION_BRIDGE_CC:-gcc}\" --CDCMAKE_CXX_COMPILER=\"${SESSION_BRIDGE_CXX:-g++}\" --CDSESSION_BRIDGE_TESTING=ON && cmake-js build --parallel"
   },
   "dependencies": {
     "@session/bridge-types": "workspace:*",
