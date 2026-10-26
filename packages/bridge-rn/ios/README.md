@@ -32,6 +32,6 @@ of one slice against a submodule that has since moved looks exactly like a compl
 this is the file to read when something links and then behaves like an older libsession.
 
 **The hash matters more than the commit.** The nested submodules routinely carry uncommitted
-patches, and a commit says nothing about them; the hash is over every tracked path's working-tree
-contents, so an uncommitted edit changes it. It is the legacy client's own check, from
-`Scripts/build_libSession_util.sh`.
+patches, and a commit says nothing about them; the hash is over the working-tree contents of
+every tracked path and every untracked one not ignored, so an uncommitted edit or a new file
+changes it. It is the legacy client's own check, from `Scripts/build_libSession_util.sh`.

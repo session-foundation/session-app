@@ -58,8 +58,9 @@ esac
 . "$here/../../bridge-core/scripts/libsession-cache.sh"
 
 # **The hash is the honest half of BUILT.json**; the commit alone is not. It is the legacy client's
-# own check (`Scripts/build_libSession_util.sh`), and the cache's: every tracked path across every
-# submodule, hashed by working-tree content, so an uncommitted patch changes it.
+# own check (`Scripts/build_libSession_util.sh`), and the cache's: every tracked and every
+# untracked, unignored path across every submodule, hashed by working-tree content, so an
+# uncommitted patch or a new file changes it.
 source_hash=$(_ls_hashes "$libsession")
 source_hash=${source_hash% *}
 
@@ -83,7 +84,7 @@ for slice in $slices; do
         ios-arm64)  ios_platform="OS64" ;;
         *) echo "no ios-cmake platform known for slice $slice" >&2; exit 1 ;;
     esac
-    "${clean_env[@]}" bash -c '. "$1"; shift; libsession_bundle "$@"' _ \
+    "${clean_env[@]}" bash -c 'set -euo pipefail; . "$1"; shift; libsession_bundle "$@"' _ \
         "$here/../../bridge-core/scripts/libsession-cache.sh" \
         "$libsession" "$slice-$target" "$libsession/build-ios/$slice" \
         -DCMAKE_TOOLCHAIN_FILE=@SRC@/external/ios-cmake/ios.toolchain.cmake \

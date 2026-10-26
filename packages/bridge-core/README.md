@@ -32,8 +32,9 @@ build libsession's static bundle through
 macOS):
 
 - `entries/`: finished bundles, keyed by a hash of libsession's whole source tree (every tracked
-  file in every submodule, uncommitted edits included), the target and the cmake arguments. A
-  clone on a cached libsession builds nothing; its copy is hard links into the entry.
+  file in every submodule and every untracked one not ignored, uncommitted edits included), the
+  target and the cmake arguments. A clone on a cached libsession builds nothing; its copy is hard
+  links into the entry.
 - `trees/`: one build tree per set of build rules (libsession's top `CMakeLists.txt` and `cmake/`,
   session-deps included), target and cmake arguments, shared by every clone. When libsession's
   sources change and those do not, the dependencies are not configured or built again; only

@@ -35,13 +35,19 @@ _ls_cache="${SESSION_LIBSESSION_CACHE:-$_ls_cache_default}"
 # Bump whenever what an entry holds, or how a tree is laid out, changes.
 _ls_layout=v1
 
-# Prints "<source hash> <build rules hash>". Every tracked path across every submodule, hashed by
-# working-tree content, so an uncommitted patch changes it; tests, docs and markdown cannot change
-# what is linked.
+# Prints "<source hash> <build rules hash>". Every tracked path across every submodule, and every
+# untracked one not ignored, hashed by working-tree content, so an uncommitted patch or a new file
+# changes it (libsession globs its schema migrations); tests, docs and markdown cannot change what
+# is linked.
 _ls_hashes() {
     local sums
-    sums=$( (cd "$1" && git ls-files --recurse-submodules) \
-        | grep -vE '(^|/)(tests?|docs?|examples?)/|\.md$|(^|/)(\.DS_Store|\.gitignore)$' \
+    # `--others` cannot be combined with `--recurse-submodules`, hence the foreach. A trailing slash
+    # is an embedded repository, not a file.
+    sums=$( (cd "$1" && git ls-files --recurse-submodules \
+            && git ls-files --others --exclude-standard \
+            && git submodule foreach --quiet --recursive \
+                'git ls-files --others --exclude-standard | sed "s|^|$displaypath/|"') \
+        | grep -vE '(^|/)(tests?|docs?|examples?)/|\.md$|(^|/)(\.DS_Store|\.gitignore)$|/$' \
         | sort | tr '\n' '\0' | (cd "$1" && _ls_md5))
     printf '%s %s\n' \
         "$(awk '{print $1}' <<<"$sums" | _ls_md5_stdin)" \
@@ -100,7 +106,7 @@ _ls_prune() {
 # stands for the libsession source directory: a clone's own path there would give every clone a
 # tree of its own.
 libsession_bundle() {
-    local libsession dest key hashes src_hash rules_hash args_hash entry tree
+    local libsession dest key hashes src_hash rules_hash args_hash entry tree status
     libsession="$(cd "$1" && pwd -P)"
     key="$2"
     dest="$3"
@@ -119,6 +125,8 @@ libsession_bundle() {
     if [ ! -d "$entry" ]; then
         mkdir -p "$_ls_cache/entries" "$_ls_cache/trees"
         (
+            # Here rather than in the caller: a failed build must never become an entry.
+            set -euo pipefail
             _ls_lock "$tree"
             incoming="$_ls_cache/entries/.incoming-$$"
             trap 'rm -rf "$tree.lock" "$incoming"' EXIT
@@ -149,6 +157,8 @@ libsession_bundle() {
             ln -sfn "$libsession" "$tree/src"
             args=()
             for arg in "$@"; do args+=("${arg//@SRC@/$tree/src}"); done
+            # Otherwise a build that fails leaves the previous archive to be cached as this one.
+            rm -f "$tree/build/libsession-util.a"
             # `cd` through the symlink: static-bundle.sh takes the source directory from $PWD.
             (cd "$tree/src" && ./utils/static-bundle.sh "$tree/build" "" "${args[@]}")
 
@@ -157,6 +167,9 @@ libsession_bundle() {
             cp -R "$tree/build/static-deps/include" "$incoming/static-deps/"
             mv "$incoming" "$entry"
         )
+        # Not `|| return`: that context switches off the subshell's set -e.
+        status=$?
+        [ "$status" = 0 ] || return "$status"
         _ls_prune "$_ls_cache/entries"
         _ls_prune "$_ls_cache/trees"
     else
