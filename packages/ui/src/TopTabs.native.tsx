@@ -3,7 +3,8 @@ import { Animated, Easing, type LayoutChangeEvent } from 'react-native'
 import { XStack, YStack } from 'tamagui'
 
 import { PressArea } from './PressArea'
-import { Text } from './Text'
+import { FitText } from './FitText'
+import { LABEL_MAX_SCALE } from './fontScaleCaps'
 import { isLayoutRtl } from './layoutDirection'
 import type { TopTabsProps } from './TopTabs.types'
 import { BAR_HEIGHT, INDICATOR_HEIGHT, INDICATOR_INSET, SLIDE_MS } from './topTabsMetrics'
@@ -72,9 +73,15 @@ export function TopTabs({ tabs, active, onChange, instant = false }: TopTabsProp
               <YStack flex={1} alignItems="center" justifyContent="center">
                 {/* 17 on iOS, bold. The label keeps the text colour in both states: the bar
                     underneath is the whole signal, which is how the client draws it. */}
-                <Text size="$bodyLarge" weight="bold">
+                <FitText
+                  size="$bodyLarge"
+                  weight="bold"
+                  // The tab's width rather than the label's, so a long label has a box to fit.
+                  maxWidth="100%"
+                  maxFontSizeMultiplier={LABEL_MAX_SCALE}
+                >
                   {tab.label}
-                </Text>
+                </FitText>
               </YStack>
             )}
           </PressArea>

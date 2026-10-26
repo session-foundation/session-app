@@ -2,7 +2,8 @@ import { memoryPorts, setPorts } from '@session/app'
 import { parseNetworkName } from '@session/basic-types'
 import { getLocale, subscribeLocale } from '@session/localization'
 
-import { mediaUrl } from '../shared/mediaUrl'
+import { mediaUrl } from '@session/app/mediaUrl'
+
 import { flushLogRecords } from './logs'
 
 const memory = memoryPorts()
@@ -39,7 +40,8 @@ setPorts(
     // The scheme the main process registered and serves from the addon - see main/media.ts.
     media: {
       urlFor: (ref) => mediaUrl('attachment', ref),
-      previewUrlFor: (ref) => mediaUrl('preview', ref),
+      thumbhashUrlFor: (ref) => mediaUrl('thumbhash', ref),
+      thumbnailUrlFor: (ref) => mediaUrl('thumbnail', ref),
     },
     // The same variable and the same parser the main process uses, inlined at build time.
     network: {

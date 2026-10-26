@@ -27,13 +27,19 @@ export function OnboardingBackButton({
 }
 
 /** The control's width: a `md` circular bar button's. */
-const BACK_WIDTH = SIZE_SCALE['2xl']
+export const BACK_WIDTH = SIZE_SCALE['2xl']
 
 /** Clears the heading with the whole circle, which iOS 26's glass makes visible. */
 const BACK_GAP = SPACE_SCALE.xs
 
 /** Where the heading starts, from the column's edge. */
 const HEADING_INSET = SPACE_SCALE['2xs']
+
+/**
+ * How far the wide control hangs past the column's leading edge. Whatever holds the column keeps
+ * at least this much room beside it, or a scrolling container clips the control.
+ */
+export const WIDE_BACK_OVERHANG = BACK_WIDTH + BACK_GAP - HEADING_INSET
 
 /**
  * The same control, hung off the side of the wide column.

@@ -1,4 +1,5 @@
 import {
+  deviceLocale,
   followingSystemLocale,
   getLocale,
   subscribeLocale,
@@ -49,4 +50,23 @@ function choice(): LocaleChoice {
  */
 export function useLocaleChoice(): LocaleChoice {
   return useSyncExternalStore(subscribeLocale, choice, choice)
+}
+
+function formattingLocale(): string | undefined {
+  if (followingSystemLocale()) return undefined
+  const picked = getLocale()
+  return picked === deviceLocale() ? undefined : picked
+}
+
+/**
+ * The locale to format dates, times and numbers in, or undefined for the runtime's default.
+ *
+ * Undefined is the device's own locale, region and all, and the region is what decides day-first
+ * or month-first and the 12- or 24-hour clock. A language picked here carries no region, so it is
+ * passed on only when it differs from the device's language: somebody in the UK who picks English
+ * keeps en-GB's conventions rather than getting en-US's. Separate from `useLocaleChoice`, which the
+ * language picker needs as it is.
+ */
+export function useFormattingLocale(): string | undefined {
+  return useSyncExternalStore(subscribeLocale, formattingLocale, formattingLocale)
 }

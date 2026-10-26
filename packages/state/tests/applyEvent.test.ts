@@ -372,9 +372,9 @@ describe('attachment transfers', () => {
   })
 
   it('keeps a download and an export of the same attachment apart', () => {
-    // libsession joins downloads with each other and never joins an export, so both can be
-    // running against one file: keyed only by message and index they would overwrite each other
-    // and the bar would jump backwards.
+    // One file can be downloading and exporting at once, on separate transfers if libsession's
+    // `requested_cache_max_size` refuses it: keyed only by message and index the reports would
+    // overwrite each other and the bar would jump backwards.
     const state = replay(
       [
         progress({ transfer: 'download', doneBytes: 1024, totalBytes: 2048 }),
@@ -504,7 +504,8 @@ describe('attachment transfers', () => {
         {
           index: 0,
           voiceMessage: false,
-          hasPreview: false,
+          hasThumbhash: false,
+          hasThumbnail: false,
           uploaded: true,
           availability: 'cached',
           fetchDoneBytes: 0,
@@ -532,7 +533,8 @@ describe('attachment transfers', () => {
         {
           index: 0,
           voiceMessage: false,
-          hasPreview: false,
+          hasThumbhash: false,
+          hasThumbnail: false,
           uploaded: true,
           availability: 'absent',
           fetchDoneBytes: 0,

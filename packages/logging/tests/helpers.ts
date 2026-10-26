@@ -7,18 +7,22 @@ export function pseudonyms(): Pseudonyms {
   return new Pseudonyms(SALT)
 }
 
-/** A log directory in memory, for the writer's rules. */
+/** A log directory in memory, for the writer's rules. `appends` records each append's urgency. */
 export function memoryDirectory(initial: Record<string, string> = {}): LogDirectory & {
   files: Map<string, string>
+  appends: boolean[]
 } {
   const files = new Map(Object.entries(initial))
+  const appends: boolean[] = []
   return {
     files,
+    appends,
     list: () =>
       Promise.resolve(
         [...files].map(([name, text]): LogFileInfo => ({ name, sizeBytes: text.length })),
       ),
-    append: (name, text) => {
+    append: (name, text, urgent) => {
+      appends.push(urgent)
       files.set(name, (files.get(name) ?? '') + text)
       return Promise.resolve()
     },

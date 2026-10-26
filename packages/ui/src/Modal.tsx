@@ -1,15 +1,17 @@
 import type { ReactNode } from 'react'
-import { Modal as NativeModal } from 'react-native'
+import { Modal as NativeModal, ScrollView } from 'react-native'
 import { useTheme, XStack, YStack } from 'tamagui'
 
 import { useBackdropBlur } from './backdropBlur'
 import { useThemeIsDark } from './UIProvider'
 import { Button } from './Button'
+import { LABEL_MAX_SCALE } from './fontScaleCaps'
 import { Icon } from './Icon'
 import { Text } from './Text'
 import { logical } from './logicalEdges'
 import { ACTION_HEIGHT } from './modalPanelMetrics'
 import { RADIUS_SCALE, SPACE_SCALE } from './scales'
+import { useScreenInsets } from './screenInsets'
 import { ALERT_BORDER, alertShadow } from './alertEdge'
 
 interface ModalProps {
@@ -79,6 +81,48 @@ const ACTIONS_GAP = SPACE_SCALE.md
  */
 const CLOSE_INSET = SPACE_SCALE['3xs']
 
+/** How far an alert stays from the edges of the area the hardware leaves free. */
+const FRAME_MARGIN = SPACE_SCALE.xl
+
+/** The body scrolls between the fixed title and actions; only the body's own gaps go inside it. */
+const BODY_GAP = { gap: CONTENT_GAP } as const
+
+/**
+ * Shrinks to fit rather than growing to fill, so a short body leaves the box its natural height.
+ */
+const BODY_SCROLL = { flexGrow: 0, flexShrink: 1 } as const
+
+/**
+ * Where an alert sits: centred, clear of the notch, the home indicator and the rounded corners,
+ * with a margin of its own inside them.
+ *
+ * The box is capped at this frame's height, so the frame has to stop at the hardware's edges: a
+ * frame that ran under them let a long dialog put its title and close control under the notch.
+ */
+export function AlertFrame({
+  children,
+  pointerEvents,
+}: {
+  children: ReactNode
+  pointerEvents: 'box-none' | 'none'
+}) {
+  const insets = useScreenInsets()
+  return (
+    <YStack
+      fullscreen
+      alignItems="center"
+      justifyContent="center"
+      paddingTop={insets.top + FRAME_MARGIN}
+      paddingBottom={insets.bottom + FRAME_MARGIN}
+      paddingLeft={insets.left + FRAME_MARGIN}
+      paddingRight={insets.right + FRAME_MARGIN}
+      pointerEvents={pointerEvents}
+    >
+      {children}
+    </YStack>
+  )
+}
+
 /**
  * Something asked over the top of the page.
  *
@@ -130,13 +174,7 @@ export function Modal({
       {/* Presses outside land here rather than on a pressable container, which would stop the
           body scrolling. See `ModalStackHost`'s backdrop. */}
       <YStack fullscreen {...(dismiss === undefined ? {} : { onPress: dismiss })} />
-      <YStack
-        fullscreen
-        alignItems="center"
-        justifyContent="center"
-        padding="$xl"
-        pointerEvents="box-none"
-      >
+      <AlertFrame pointerEvents="box-none">
         <AlertBox
           title={title}
           closeLabel={closeLabel}
@@ -150,7 +188,7 @@ export function Modal({
         >
           {children}
         </AlertBox>
-      </YStack>
+      </AlertFrame>
     </NativeModal>
   )
 }
@@ -168,7 +206,13 @@ interface AlertBoxProps {
   bottomInset?: number
 }
 
-/** The dialog without its window, so `Modal` and the modal stack draw the same alert. */
+/**
+ * The dialog without its window, so `Modal` and the modal stack draw the same alert.
+ *
+ * **No taller than its frame, whatever the text size.** The title row and the actions stay put and
+ * the body scrolls between them: at the largest sizes a body that pushes the box past the screen
+ * takes the close control and the buttons with it, leaving nothing to answer the dialog with.
+ */
 export function AlertBox({
   title,
   closeLabel,
@@ -186,6 +230,7 @@ export function AlertBox({
     <YStack
       width="100%"
       maxWidth={360}
+      maxHeight="100%"
       gap={CONTENT_GAP}
       paddingTop={TOP_INSET}
       paddingHorizontal={sideInset}
@@ -201,7 +246,14 @@ export function AlertBox({
       <XStack alignItems="flex-start" gap="$xs">
         {/* Centred across the full width, with the cross overlaid rather than taking a column,
             so the title is centred on the dialog and not on what is left of it. */}
-        <Text flex={1} size="$bodyLarge" weight="bold" textAlign="center" userSelect="none">
+        <Text
+          flex={1}
+          size="$bodyLarge"
+          weight="bold"
+          textAlign="center"
+          userSelect="none"
+          maxFontSizeMultiplier={LABEL_MAX_SCALE}
+        >
           {title}
         </Text>
         {!showClose ? null : (
@@ -225,7 +277,9 @@ export function AlertBox({
         )}
       </XStack>
 
-      {children}
+      <ScrollView style={BODY_SCROLL} contentContainerStyle={BODY_GAP} alwaysBounceVertical={false}>
+        {children}
+      </ScrollView>
 
       {actions === undefined ? null : (
         /* Full width, no gap, equal shares. Clipped so a held cell's fill stops

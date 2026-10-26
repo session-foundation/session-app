@@ -1,7 +1,9 @@
 import { expect, test } from '@playwright/test'
 import { ELEMENT } from '@session/test-ids'
 
+import { openFirstConversation } from '../harness/attachments'
 import { DesktopApp } from '../harness/DesktopApp'
+import { SEEDED_LIST, SEEDED_RTL_NAME } from '../harness/fixtures'
 
 /** Arabic, which `isRtlLocale` answers true for and which the catalogue ships. */
 const RTL_LOCALE = 'ar'
@@ -48,6 +50,26 @@ test('choosing a right-to-left language mirrors the layout', async () => {
     await expect.poll(async () => app.isLeftOf(trigger, neighbour)).toBe(false)
 
     await app.screenshot('right-to-left')
+  } finally {
+    await app.close()
+  }
+})
+
+/**
+ * A filename reads in its own script's direction, whatever the layout's.
+ *
+ * In the default locale, where an Arabic name drawn left to right reads its tail first.
+ */
+test('reads each filename in its own script’s direction', async () => {
+  const app = await DesktopApp.launch('alice')
+
+  try {
+    await openFirstConversation(app)
+    const names = await app.readAllText(ELEMENT.conversation.attachmentName)
+    const directions = await app.directions(ELEMENT.conversation.attachmentName)
+    expect(names).toContain(SEEDED_RTL_NAME)
+    expect(directions[names.indexOf(SEEDED_RTL_NAME)]).toBe('rtl')
+    expect(directions[names.indexOf(SEEDED_LIST[0])]).toBe('ltr')
   } finally {
     await app.close()
   }

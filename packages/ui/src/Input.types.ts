@@ -41,6 +41,11 @@ export interface InputProps {
    */
   grow?: boolean
   /**
+   * A list field's height rather than a form's: a search box above a list, where every row the
+   * field gives back is another row of the list on screen.
+   */
+  compact?: boolean | undefined
+  /**
    * Drawn inside the field, against its trailing edge.
    *
    * Inside rather than beside, because everything that goes here is *about* the field -- a

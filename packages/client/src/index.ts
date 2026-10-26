@@ -1,11 +1,13 @@
 export { createSessionClient } from './createSessionClient'
 export { discoverSeedNodes, seedNodesFrom } from './discoverSeedNodes'
 export type { FetchLike } from './discoverSeedNodes'
+export { serveNativeMediaFrom } from './nativeMedia'
 export { createNativeBridgeTransport } from './nativeTransport'
 export { BRIDGE_UNAVAILABLE, createRefusingTransport } from './refusingTransport'
 export {
   ATTACHMENT_FILE_MISSING,
   ATTACHMENT_NOT_FOUND,
+  FILE_DOWNLOAD_CANCELLED,
   FILE_DOWNLOAD_FAILED,
   FILE_NOT_FOUND,
   FILE_SAVE_FAILED,
@@ -42,7 +44,10 @@ export type {
 } from '@session/bridge-types'
 export { BridgeClosedError, SessionClientError } from './errors'
 export type {
+  AttachmentMedia,
+  AttachmentThumbhash,
   BridgeTransport,
+  MediaSource,
   MessagePage,
   OutgoingMessage,
   SessionClient,

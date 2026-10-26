@@ -1,7 +1,7 @@
-import type { AutoDownload, ConversationId } from '@session/client'
+import type { ConversationId } from '@session/client'
 import { createContext, useContext } from 'react'
 
-import type { AttachmentView } from './attachmentView'
+import type { ViewChoices } from './viewChoices'
 
 /**
  * What a conversation's messages ask of the screen around them.
@@ -11,13 +11,10 @@ import type { AttachmentView } from './attachmentView'
  */
 export interface ConversationUi {
   conversationId: ConversationId
-  /** What this conversation fetches unasked. Undefined means nobody has been asked. */
-  autoDownload: AutoDownload | undefined
   /** Puts the question to the reader the first time anything is fetched, and never again. */
   requestAutoDownloadPrompt: () => void
-  /** The shape the reader chose for a message's attachments, where they chose one. */
-  viewFor: (messageId: number) => AttachmentView | undefined
-  chooseView: (messageId: number, view: AttachmentView) => void
+  /** The shape the reader chose for each message's attachments, where they chose one. */
+  views: ViewChoices
   /** `index` is the attachment's index in the message, not its place among the viewable ones. */
   openViewer: (messageId: number, index: number) => void
   openSheet: (messageId: number) => void

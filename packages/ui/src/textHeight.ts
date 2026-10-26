@@ -10,7 +10,9 @@ import { FONT_SIZE, LINE_HEIGHT_RATIO } from '@session/theme-tokens'
  *
  * Here rather than in whoever needs it because the type scale is `@session/ui`'s to know: nothing
  * outside this package may reach for the tokens.
+ *
+ * `fontScale` is the OS text-size setting, from `useFontScale`; native text grows with it.
  */
-export function textHeight(size: keyof typeof FONT_SIZE, lines: number): number {
-  return Math.round(FONT_SIZE[size] * LINE_HEIGHT_RATIO * lines)
+export function textHeight(size: keyof typeof FONT_SIZE, lines: number, fontScale = 1): number {
+  return Math.round(FONT_SIZE[size] * LINE_HEIGHT_RATIO * lines * fontScale)
 }

@@ -46,6 +46,30 @@ describeAddon('attachNetwork with no account yet', () => {
         }),
       ).rejects.toThrow(/IPv4/)
 
+      // The devnet compose's file server, named by the X25519 key it prints beside the Ed25519
+      // one: libsession would read it as Ed25519 and fail every upload.
+      const seedNodes = [
+        { ed25519PubkeyHex: 'a'.repeat(64), ip: '127.0.0.1', httpsPort: 1300, omqPort: 1305 },
+      ]
+      const fileServer = { scheme: 'http' as const, host: '127.0.0.1', port: 8000 }
+      await expect(
+        client.attachNetwork({
+          netid: 'devnet',
+          seedNodes,
+          fileServer: {
+            ...fileServer,
+            ed25519PubkeyHex: '51bda59019c34e34c1dfcdf279b1c4e4da5cfc8c2cbb1e2942d443890ac8c43e',
+          },
+        }),
+      ).rejects.toThrow(/not an Ed25519 key/)
+      await expect(
+        client.attachNetwork({
+          netid: 'devnet',
+          seedNodes,
+          fileServer: { ...fileServer, ed25519PubkeyHex: 'a'.repeat(63) },
+        }),
+      ).rejects.toThrow(/64 hex characters/)
+
       // The refusal has to leave nothing behind. A netid kept here is one the next call that
       // brings an account into being throws on - onboarding failing at the step after the one
       // the user got wrong, naming a network nobody asked that screen about.

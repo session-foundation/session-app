@@ -3,7 +3,7 @@
  *
  * Every other word a person reads comes from `@session/localization`, and
  * `tests/copy.contract.test.ts` enforces that across every screen. These do not: the attachment
- * cache section, the set's own count, the gallery/list toggle, the export verb and the
+ * cache section, the set's own count, the gallery/list switch, the export verb and the
  * auto-download prompt's choice need them and the Crowdin set has nothing that fits, so they ship
  * as English in every locale until the keys land.
  *
@@ -26,8 +26,8 @@ export const PENDING_COPY = {
    */
   attachmentCount: (count: number): string =>
     count === 1 ? '1 attachment' : `${String(count)} attachments`,
-  attachmentViewGallery: 'Gallery',
-  attachmentViewList: 'List',
+  attachmentViewGallery: 'Show as gallery',
+  attachmentViewList: 'Show as list',
   /**
    * Writing a file we already hold out to a folder somebody chose.
    *
@@ -40,6 +40,18 @@ export const PENDING_COPY = {
   exporting: 'Exporting',
   exportFailed: 'Export failed',
   previous: 'Previous',
+  /**
+   * An album's picture with no filename, by its place among the album's pictures. Counts in
+   * English only, as `attachmentCount` does.
+   */
+  attachmentImagePosition: (position: number, count: number): string =>
+    `Image ${String(position)} of ${String(count)}`,
+  /**
+   * What a screen reader calls the tile under "+N": its own name and the count it stands for. One
+   * string, so each locale orders and punctuates both parts itself; `andMore` is only the "+N".
+   */
+  attachmentNameAndMore: (name: string, count: number): string =>
+    `${name}, and ${String(count)} more`,
   /** The auto-download prompt's two answers to what Yes fetches. */
   autoDownloadAllFiles: 'All files',
   autoDownloadImagesOnly: 'Images only',

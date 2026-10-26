@@ -30,4 +30,5 @@ either compiler.
 | `include/session_bridge/client_bridge.hpp` | the whole public surface: construct, `call`, `close` |
 | `src/client_bridge.cpp`                    | callback wiring and command dispatch                 |
 | `src/convert.cpp`                          | libsession's value types as the protocol's structs   |
+| `include/session_bridge/media_url.hpp`     | the media scheme's parser and the servable check     |
 | `include/session_bridge/gen/`              | the protocol in C++, generated; never edited by hand |

@@ -18,6 +18,11 @@ export interface MessageBubbleProps {
   outgoing?: boolean
   /** The widest it may be, which its container decides -- see `bubbleMaxWidth`. */
   maxWidth?: number
+  /**
+   * How far the text grows with the system text size, for a bubble that illustrates rather than
+   * carries a message: onboarding's conversation. A real message grows with the text size in full.
+   */
+  maxFontSizeMultiplier?: number | undefined
   children: ReactNode
   testID?: string
 }
@@ -35,6 +40,7 @@ export interface MessageBubbleProps {
 export function MessageBubble({
   outgoing = false,
   maxWidth,
+  maxFontSizeMultiplier,
   children,
   testID,
 }: MessageBubbleProps) {
@@ -47,7 +53,11 @@ export function MessageBubble({
       backgroundColor={outgoing ? '$primaryColor' : '$messageBubbleIncomingBg'}
       testID={testID}
     >
-      <Text size="$bodyLarge" color={outgoing ? '$onAccent' : '$messageBubbleIncomingText'}>
+      <Text
+        size="$bodyLarge"
+        color={outgoing ? '$onAccent' : '$messageBubbleIncomingText'}
+        maxFontSizeMultiplier={maxFontSizeMultiplier}
+      >
         {children}
       </Text>
     </YStack>

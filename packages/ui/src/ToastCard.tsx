@@ -38,7 +38,7 @@ export function ToastCard({ text, onPress, closeLabel, testID, closeTestID }: To
       backgroundColor="$backgroundSecondary"
       borderRadius={RADIUS}
       boxShadow={`0px 4px 12px 0px ${shadow}`}
-      cursor="pointer"
+      $platform-web={{ cursor: 'pointer' }}
       userSelect="none"
       pointerEvents="auto"
       role="status"

@@ -155,39 +155,12 @@ for slice in $slices; do
         -DSESSION_BRIDGE_LIBSESSION_BUNDLE="$built/$slice/libsession-util.a"
     cmake --build "$build" --target session-bridge-core --parallel
 
-    # The pieces STATIC_BUNDLE leaves out despite being "a single static .a containing
-    # everything". bridge-core's CMake names them on its link line, which is enough for the addon
-    # and for Android but cannot travel into a vendored static library, so on iOS the pod has to
-    # carry them. The same ten, in the same order, as the list in
-    # packages/bridge-core/CMakeLists.txt, which is where the grouping is explained.
-    #
-    # All ten are load-bearing: resolving the bundle's undefined symbols and then the ones each
-    # archive brings with it pulls in every one, from SQLite::Transaction::commit to blake2b_final.
-    # A missing one is fatal here rather than skipped, because skipping it only defers the failure
-    # to an undefined symbol in a later Xcode build.
-    ls="$built/$slice"
-    archives="$build/libsession-bridge-core.a"
-    for lib in \
-        "$ls/external/session-sqlite/libsession_sqlite.a" \
-        "$ls/external/session-sqlite/libsession_secure_buffer.a" \
-        "$ls/external/session-sqlite/SQLiteCpp/libSQLiteCpp.a" \
-        "$ls/static-deps/lib/libsqlite3mc.a" \
-        "$ls/static-deps/lib/libutf8proc.a" \
-        "$ls/static-deps/lib/libhogweed.a" \
-        "$ls/static-deps/lib/libtasn1.a" \
-        "$ls/static-deps/lib/libidn2.a" \
-        "$ls/static-deps/lib/libunistring.a" \
-        "$ls/static-deps/lib/libgmp.a"; do
-        [ -f "$lib" ] || { echo "the libsession build did not produce $lib" >&2; exit 1; }
-        archives="$archives $lib"
-    done
-
-    # Merged into one archive per slice, because an xcframework holds a single library per slice
-    # and the pod has to be able to carry both a device and a simulator one. The eleven cannot
-    # simply be vendored as files any more: `vendored_libraries` has no per-SDK form, so a
-    # directory of archives is a directory for exactly one slice.
+    # One library per slice in an xcframework, because `vendored_libraries` has no per-SDK form:
+    # a directory of archives is a directory for exactly one slice. libsession's bundle carries
+    # every library it links, so the shim's own archive is all this one holds.
     mkdir -p "$staging/$slice"
-    libtool -static -no_warning_for_no_symbols -o "$staging/$slice/libSessionBridgeCore.a" $archives
+    libtool -static -no_warning_for_no_symbols -o "$staging/$slice/libSessionBridgeCore.a" \
+        "$build/libsession-bridge-core.a"
 done
 
 # One library per platform: the simulator arches are a single fat archive, the device its own.

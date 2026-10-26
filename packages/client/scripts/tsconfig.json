@@ -1,0 +1,8 @@
+{
+  "extends": "@session/typescript-config/bundler.json",
+  "compilerOptions": {
+    // Only the scripts run under node: `src` ships to platforms without it and stays typed for none.
+    "types": ["node"]
+  },
+  "include": ["*.ts"]
+}

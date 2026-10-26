@@ -13,11 +13,11 @@ Pod::Spec.new do |s|
   s.platforms    = { :ios => "15.1" }
   s.source       = { :path => "." }
 
-  # Only the HybridObject. The shim itself is a CMake project on every platform - cmake-js for
-  # the addon, the Android Gradle plugin for Android, and the iOS build script here - because
-  # CocoaPods compiles only what lives inside the pod directory and drops a glob that reaches
-  # out of it without saying so.
-  s.source_files = "cpp/**/*.{hpp,cpp}"
+  # The HybridObject and the image loader. The shim itself is a CMake project on every platform -
+  # cmake-js for the addon, the Android Gradle plugin for Android, and the iOS build script here -
+  # because CocoaPods compiles only what lives inside the pod directory and drops a glob that
+  # reaches out of it without saying so.
+  s.source_files = "cpp/**/*.{hpp,cpp}", "ios/*.{h,mm}"
 
   # libsession, and the shim built against it. Both produced by
   # `pnpm --filter @session/bridge-rn build:libsession:ios`, neither committed.
@@ -25,8 +25,8 @@ Pod::Spec.new do |s|
   # Both are xcframeworks rather than plain archives so the pod can carry a device slice and a
   # simulator one at once: `vendored_libraries` has no per-SDK form, so a directory of archives
   # is a directory for exactly one slice -- and the iOS build running on an Apple silicon Mac is
-  # the device slice, so the two have to coexist. The shim's xcframework holds one merged archive
-  # per slice; see the build script for what goes into it.
+  # the device slice, so the two have to coexist. The shim's xcframework holds the shim's own
+  # archive per slice; see the build script for what goes into it.
   s.vendored_frameworks = "ios/libsession-util.xcframework", "ios/SessionBridgeCore.xcframework"
 
   # System libraries the vendored archives expect to find. libunistring wants iconv, which the
@@ -48,4 +48,8 @@ Pod::Spec.new do |s|
   s.dependency "React-jsi"
   s.dependency "React-callinvoker"
   s.dependency "NitroModules"
+
+  # React's own headers and pods, for the image loader in ios/. Last, because it adds to the
+  # xcconfig above rather than setting it.
+  install_modules_dependencies(s)
 end

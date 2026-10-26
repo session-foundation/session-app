@@ -85,6 +85,22 @@ export const RADII = {
   full: 9999,
 } as const
 
+/**
+ * How far a control fades while a pointer is over it or it is held, where the state is shown by
+ * fading rather than by a new fill.
+ *
+ * Named here so every platform draws the same step: the web reads these through `hoverStyle` and
+ * `pressStyle`, and native applies them itself from the same values, so they can only agree.
+ */
+export const INTERACTION_OPACITY = {
+  /** A frameless label under a pointer: it dims, since there is no surface to light. */
+  dimHover: 0.7,
+  /** The same label held down: a step further than hover, so a click on a hovered label shows. */
+  dimPressed: 0.55,
+  /** A filled control held down: the fill fades a little toward what is behind it. */
+  filledPressed: 0.82,
+} as const
+
 // All durations in milliseconds.
 export const DURATION = {
   default: 250,

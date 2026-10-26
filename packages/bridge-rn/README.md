@@ -41,4 +41,16 @@ Each of these builds and then fails at runtime, which is the expensive kind:
 
 ## iOS
 
-Written, unbuilt: this work has been on Linux, where there is no Xcode. See `ios/README.md`.
+```
+packages/bridge-rn/scripts/build-libsession-ios.sh all   # or both; slow
+cd apps/mobile && npx expo prebuild --platform ios
+cd ios && pod install
+```
+
+Then build and run from Xcode or `pnpm ios`; it runs on the iOS and iPadOS simulators.
+
+Rebuild the xcframeworks whenever `bridge-core` or the libsession pin changes: their `Headers/`
+sit ahead of the source on the search path, and neither `turbo build:native` nor `pod install`
+refreshes them. Use `all` or `both`, not `simulator`, which renames the simulator slice and breaks
+the next build. Run `pod install` again after a codegen that adds a header, since the nitrogen
+output is copied into `Pods/`. See `ios/README.md` for what the two xcframeworks hold.

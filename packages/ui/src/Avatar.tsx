@@ -2,7 +2,10 @@ import { COLORS, PRIMARY_COLOR_HEX } from '@session/theme-tokens'
 import { XStack } from 'tamagui'
 
 import { avatarInitials } from './avatarInitials'
+import { avatarPairLayout } from './avatarPair'
+import { logical } from './logicalEdges'
 import { rampSizeAtMost } from './rampSize'
+import { SIZE_SCALE } from './scales'
 import { Text } from './Text'
 
 /**
@@ -22,30 +25,94 @@ function colorFor(id: string): string {
 /** Initials scale with the diameter; one letter gets more room. */
 const INITIALS_RATIO = { one: 0.5, more: 0.4 } as const
 
-export interface AvatarProps {
+const DEFAULT_SIZE_PX = SIZE_SCALE['2xl']
+
+/** A rung of the size ladder, so a caller outside this package can name one without the scale. */
+type AvatarSize = Exclude<keyof typeof SIZE_SCALE, 'none' | 'true'>
+
+/** Whose avatar: the account the colour and the initials are read from. */
+interface AvatarMember {
   id: string
   name: string
-  size?: number
-  testID?: string
 }
 
-export function Avatar({ id, name, size = 40, testID }: AvatarProps) {
+type WithAvatarFrame = {
+  /**
+   * The diameter, or for a pair the square both discs sit in: a rung of the size ladder, or
+   * points.
+   */
+  size?: AvatarSize | number | undefined
+  testID?: string | undefined
+}
+
+type SingleAvatarProps = AvatarMember & WithAvatarFrame
+
+/** Two members of a group, the first drawn in front. */
+type AvatarPairProps = { members: readonly [AvatarMember, AvatarMember] } & WithAvatarFrame
+
+export type AvatarProps = SingleAvatarProps | AvatarPairProps
+
+interface DiscProps extends AvatarMember {
+  sizePx: number
+  ringPx?: number | undefined
+  testID?: string | undefined
+}
+
+function Disc({ id, name, sizePx, ringPx, testID }: DiscProps) {
   const letters = avatarInitials(name, id)
-  const initialsSize = rampSizeAtMost(size * INITIALS_RATIO[letters.length > 1 ? 'more' : 'one'])
+  // The ring is inside the box on both platforms, so the initials fit what is left of it.
+  const innerPx = sizePx - 2 * (ringPx ?? 0)
+  const initialsSize = rampSizeAtMost(innerPx * INITIALS_RATIO[letters.length > 1 ? 'more' : 'one'])
   return (
     <XStack
-      width={size}
-      height={size}
-      borderRadius={size / 2}
+      width={sizePx}
+      height={sizePx}
+      borderRadius={sizePx / 2}
       backgroundColor={colorFor(id)}
       alignItems="center"
       justifyContent="center"
+      borderWidth={ringPx ?? 0}
+      borderColor="$backgroundPrimary"
       testID={testID}
     >
-      {/* White: the circle is the account's colour, not the theme's, so no theme role fits. */}
-      <Text size={`$${initialsSize}`} weight="bold" color={COLORS.WHITE}>
+      {/* White: the circle is the account's colour, not the theme's, so no theme role fits. The
+          initials are sized off the disc, so the system text size must not scale them a second
+          time: a disc that grows with the text already carries them with it. */}
+      <Text size={`$${initialsSize}`} weight="bold" color={COLORS.WHITE} allowFontScaling={false}>
         {letters}
       </Text>
+    </XStack>
+  )
+}
+
+/**
+ * One account's disc, or two members of a group overlapping in one square.
+ *
+ * A pair's ring is the page colour, which is the ground a conversation list row sits on; on a row
+ * that is hovered or pressed the ring keeps the page colour rather than following the state.
+ */
+export function Avatar(props: AvatarProps) {
+  const sizePx =
+    props.size === undefined
+      ? DEFAULT_SIZE_PX
+      : typeof props.size === 'number'
+        ? props.size
+        : SIZE_SCALE[props.size]
+  if (!('members' in props))
+    return <Disc id={props.id} name={props.name} sizePx={sizePx} testID={props.testID} />
+
+  const [front, back] = props.members
+  const { backPx, frontPx, ringPx } = avatarPairLayout(sizePx)
+  return (
+    // `position="relative"`: the web makes no containing block by default, so the absolute discs
+    // would otherwise place themselves against whichever ancestor happens to be positioned.
+    <XStack width={sizePx} height={sizePx} position="relative" testID={props.testID}>
+      <XStack position="absolute" top={0} {...logical({ insetStart: 0 })}>
+        <Disc id={back.id} name={back.name} sizePx={backPx} />
+      </XStack>
+      <XStack position="absolute" bottom={0} {...logical({ insetEnd: 0 })}>
+        <Disc id={front.id} name={front.name} sizePx={frontPx} ringPx={ringPx} />
+      </XStack>
     </XStack>
   )
 }

@@ -27,7 +27,8 @@ const ARRIVING_IMAGE: Attachment = {
   voiceMessage: false,
   width: 1200,
   height: 900,
-  hasPreview: false,
+  hasThumbhash: false,
+  hasThumbnail: false,
   uploaded: true,
   availability: 'absent',
   fetchDoneBytes: 0,
@@ -105,6 +106,27 @@ const harness: ContractHarness = {
         Promise.resolve(
           account.deliverFrom(world.account('Bob'), 'One more', world.now(), [ARRIVING_IMAGE]).id,
         ),
+    })
+  },
+
+  receivesAttachments() {
+    const { world, clients } = friends(['Alice', 'Bob'])
+    const alice = clients['Alice']
+    if (!alice) throw new Error('fixture did not produce a client')
+    const bob = world.account('Bob')
+    return Promise.resolve({
+      async receive(contentTypes: readonly string[]) {
+        const attachments = contentTypes.map((contentType, index): Attachment => ({
+          ...ARRIVING_IMAGE,
+          index,
+          contentType,
+        }))
+        const { id } = world.account('Alice').deliverFrom(bob, '', world.now(), attachments)
+        const page = await alice.getMessages(bob.sessionId, { limit: 1 })
+        const message = page.messages.find((m) => m.id === id)
+        if (!message) throw new Error('the delivered message is not the newest')
+        return message
+      },
     })
   },
 

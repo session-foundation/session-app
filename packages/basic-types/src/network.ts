@@ -60,7 +60,7 @@ export interface DevnetConfig {
 export interface DevnetEnv {
   seedUrl: string | undefined
   fileServerUrl: string | undefined
-  fileServerX25519Pubkey: string | undefined
+  fileServerEd25519Pubkey: string | undefined
 }
 
 const DEFAULT_SEED_RPC_PORT = 1280
@@ -157,7 +157,7 @@ function fileServer(url: string, key: string, variable: string): FileServerConfi
     scheme: scheme === 'https' ? 'https' : 'http',
     host,
     port,
-    x25519PubkeyHex: key,
+    ed25519PubkeyHex: key,
   }
 }
 
@@ -186,16 +186,16 @@ export function parseDevnetConfig(env: DevnetEnv, prefix: string): DevnetConfig 
   // Both or neither, because half of it silently leaves the *mainnet* file server in place: only
   // testnet has one of its own, so a devnet uploads to production storage and says nothing.
   const fsUrl = set(env.fileServerUrl)
-  const fsKey = set(env.fileServerX25519Pubkey)
+  const fsKey = set(env.fileServerEd25519Pubkey)
   if ((fsUrl === undefined) !== (fsKey === undefined))
     throw new Error(
-      `${prefix}FILE_SERVER_URL and ${prefix}FILE_SERVER_X25519_PUBKEY go together: with one ` +
+      `${prefix}FILE_SERVER_URL and ${prefix}FILE_SERVER_ED25519_PUBKEY go together: with one ` +
         `missing, uploads would go to the mainnet file server instead of the devnet's.`,
     )
   if (fsUrl !== undefined && fsKey !== undefined)
     config.fileServer = fileServer(
       fsUrl,
-      pubkey(fsKey, `${prefix}FILE_SERVER_X25519_PUBKEY`),
+      pubkey(fsKey, `${prefix}FILE_SERVER_ED25519_PUBKEY`),
       `${prefix}FILE_SERVER_URL`,
     )
 

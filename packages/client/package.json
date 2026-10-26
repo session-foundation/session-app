@@ -18,7 +18,7 @@
   },
   "scripts": {
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p scripts",
     "test": "vitest run"
   },
   "dependencies": {
@@ -29,7 +29,9 @@
     "@session/bridge-rn": "workspace:*",
     "@session/eslint-config": "workspace:*",
     "@session/typescript-config": "workspace:*",
+    "@types/node": "catalog:",
     "eslint": "catalog:",
+    "jpeg-js": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

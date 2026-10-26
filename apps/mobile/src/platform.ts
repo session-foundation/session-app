@@ -1,4 +1,5 @@
-import { memoryPorts, setPorts, type NotificationsPort } from '@session/app'
+import { memoryPorts, setPorts, type MediaPort, type NotificationsPort } from '@session/app'
+import { mediaUrl } from '@session/app/mediaUrl'
 import { parseNetworkName } from '@session/basic-types'
 import { isExportName, logSpan, type DiagnosticsSnapshot } from '@session/logging'
 import * as Clipboard from 'expo-clipboard'
@@ -6,6 +7,7 @@ import Constants from 'expo-constants'
 import * as Sharing from 'expo-sharing'
 import { Linking, Platform, Share } from 'react-native'
 
+import { exportFiles, sweepStagedExports } from './files'
 import { flagOverride } from './flagOverrides'
 import { endingRun, logDirectory, logFiles, logWriter, lowPowerRows, osName } from './logs'
 import { restartProcess, terminateProcess } from './processExit'
@@ -33,6 +35,13 @@ const PUSH_SERVICE: NotificationsPort['pushService'] = ((): NotificationsPort['p
   const named = process.env['EXPO_PUBLIC_SESSION_PUSH_SERVICE']
   return named === 'huawei' || named === 'google' ? named : 'google'
 })()
+
+/** The scheme, which a native image loader resolves on each platform: Fresco's, and React's. */
+const MEDIA: MediaPort = {
+  urlFor: (ref) => mediaUrl('attachment', ref),
+  thumbhashUrlFor: (ref) => mediaUrl('thumbhash', ref),
+  thumbnailUrlFor: (ref) => mediaUrl('thumbnail', ref),
+}
 
 // Hex rather than base64: the keychain stores strings, and hex needs no polyfill on either
 // platform's JavaScript engine.
@@ -98,10 +107,7 @@ async function diagnosticsSnapshot(): Promise<DiagnosticsSnapshot> {
  * screen depends on it reaching the OS.
  */
 const ports = memoryPorts({
-  // No resolver yet: React Native's image loaders take a native plug-in per platform - an
-  // RCTImageURLLoader on iOS, a Fresco fetcher on Android - and neither is written. Saying so
-  // draws the file form, which works, rather than an image that never loads.
-  media: { urlFor: () => null, previewUrlFor: () => null },
+  media: MEDIA,
   // The same variable and the same parser store.ts gives the transport, so the overlay cannot
   // name a network libsession never attached to. EXPO_PUBLIC_ for the reason store.ts gives.
   network: {
@@ -219,8 +225,12 @@ const ports = memoryPorts({
   },
 })
 
+sweepStagedExports()
+
 setPorts({
   ...ports,
+  // The pickers stay the memory ones until the composer can attach.
+  files: { ...ports.files, ...exportFiles },
   window: {
     ...ports.window,
     close: endingRun('quit', terminateProcess),

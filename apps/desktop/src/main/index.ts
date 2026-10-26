@@ -10,6 +10,7 @@ const { app, BrowserWindow, Menu, MessageChannelMain, clipboard, session, shell 
 import { createRefusingTransport, type Request } from '@session/client'
 import { isCrowdinLocale, setLocale } from '@session/localization'
 
+import { appMenuTemplate } from './appMenu'
 import { createBridge } from './bridge'
 import { editMenuItems } from './editMenu'
 import { serveFiles } from './files'
@@ -26,6 +27,14 @@ import {
   refuseNewContents,
 } from './security'
 import { excludeUserData, placeUserData } from './userData'
+import {
+  gestureStepGate,
+  readZoom,
+  steppedZoom,
+  writeZoom,
+  ZOOM_SAVE_DELAY_MS,
+  type ZoomStep,
+} from './zoom'
 
 /**
  * What the app calls itself, which decides where its data lives.
@@ -52,10 +61,59 @@ const here = fileURLToPath(new URL('.', import.meta.url))
 // Before whenReady, which is the only point Electron accepts a privileged scheme.
 registerMediaScheme()
 
+/** The content's zoom, which the View menu sets and every window draws at. See `appMenu.ts`. */
+let zoom = 1
+
+function zoomFile(): string {
+  return join(app.getPath('userData'), 'zoom.json')
+}
+
+/** A save waiting for the zoom to settle; see `saveZoomSoon`. */
+let zoomSave: ReturnType<typeof setTimeout> | undefined
+
+/** Saves the zoom once it has stopped changing, so a burst of steps is one write, not one each. */
+function saveZoomSoon(): void {
+  clearTimeout(zoomSave)
+  zoomSave = setTimeout(saveZoomNow, ZOOM_SAVE_DELAY_MS)
+}
+
+function saveZoomNow(): void {
+  if (zoomSave === undefined) return
+  clearTimeout(zoomSave)
+  zoomSave = undefined
+  writeZoom(zoomFile(), zoom)
+}
+
+function stepZoom(step: ZoomStep): void {
+  const next = steppedZoom(zoom, step)
+  if (next === zoom) return
+  zoom = next
+  saveZoomSoon()
+  for (const window of BrowserWindow.getAllWindows()) window.webContents.send('zoom', zoom)
+}
+
+/** Wheel and pinch steps, which come in bursts, at most one each interval. */
+const takeGestureStep = gestureStepGate()
+
+/** Rebuilt when the language changes, since its labels are drawn here rather than by the page. */
+function installAppMenu(): void {
+  const template = appMenuTemplate({
+    platform: process.platform,
+    dev: !app.isPackaged,
+    onZoom: stepZoom,
+  })
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template))
+}
+
 /** A bridge that could not be made, standing in for one: see `createRefusingTransport`. */
 function refusingBridge(reason: string): Awaited<ReturnType<typeof createBridge>> {
   const refuse = () => Promise.reject(new Error(`the bridge could not start: ${reason}`))
-  return { ...createRefusingTransport(reason), fetchMedia: refuse, fetchPreview: refuse }
+  return {
+    ...createRefusingTransport(reason),
+    fetchMedia: refuse,
+    fetchThumbhash: refuse,
+    fetchThumbnail: refuse,
+  }
 }
 
 /**
@@ -185,10 +243,30 @@ async function createWindow(): Promise<Electron.BrowserWindow> {
       })
   })
 
-  // The menu below is drawn here, so it follows the language the person chose in the app.
+  // The menus are drawn here, so they follow the language the person chose in the app.
   ipc.on('locale', (event, locale: unknown) => {
     if (!isFromAppFrame(event.senderFrame, appUrl)) return
-    if (typeof locale === 'string' && isCrowdinLocale(locale)) setLocale(locale)
+    if (typeof locale === 'string' && isCrowdinLocale(locale)) {
+      setLocale(locale)
+      installAppMenu()
+    }
+  })
+
+  // **The browser's zoom stays at 100%, and the page zooms its content.** See `appMenu.ts`. The
+  // browser's is pinned on each load because Chromium remembers it per page, and a pinch or a
+  // remembered zoom would otherwise shrink the CSS width and flip the layout.
+  window.webContents.setVisualZoomLevelLimits(1, 1).catch(() => undefined)
+  window.webContents.on('dom-ready', () => {
+    window.webContents.setZoomFactor(1)
+    window.webContents.send('zoom', zoom)
+  })
+  // Asked once by the preload, before the page renders, so a saved zoom is the first frame's.
+  ipc.on('zoom:current', (event) => {
+    event.returnValue = isFromAppFrame(event.senderFrame, appUrl) ? zoom : 1
+  })
+  // Control and the scroll wheel, or a pinch, which Electron reports rather than acting on.
+  window.webContents.on('zoom-changed', (_event, direction) => {
+    if (takeGestureStep(Date.now())) stepZoom(direction)
   })
 
   window.webContents.on('context-menu', (_event, params) => {
@@ -277,6 +355,8 @@ app.on('web-contents-created', (_event, contents) => {
 
 void app.whenReady().then(async () => {
   denyAllPermissions(session.defaultSession)
+  zoom = readZoom(zoomFile())
+  installAppMenu()
 
   await createWindow()
 
@@ -320,6 +400,8 @@ app.on('before-quit', () => {
   stopServingMedia()
   bridge?.close()
   bridge = null
+  // A zoom changed in the last moment is still waiting to be saved
+  saveZoomNow()
 })
 
 /** The longest quitting waits for the log, so a write that never finishes cannot keep it open. */

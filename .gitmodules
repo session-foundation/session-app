@@ -3,5 +3,5 @@
 	url = https://github.com/session-foundation/session-localization
 [submodule "libsession-util"]
 	path = libsession-util
-	url = https://github.com/session-foundation/libsession-util.git
-	branch = client
+	url = https://github.com/Bilb/libsession-util.git
+	branch = attachments/all

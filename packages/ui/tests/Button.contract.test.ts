@@ -51,8 +51,28 @@ function variants(): Map<string, string> {
   return out
 }
 
+/**
+ * Each variant's entry in `PRESS_STYLE`, keyed by name: the one table both the web's `pressStyle`
+ * and native's `PRESSED` are taken from.
+ */
+function pressStyles(): Map<string, string> {
+  const block = /const PRESS_STYLE = \{\n([\s\S]*?)\n\} as const/.exec(source)?.[1] ?? ''
+  const out = new Map<string, string>()
+  for (const m of block.matchAll(/^ {2}(\w+): \{([\s\S]*?)\},$/gm))
+    out.set(m[1] as string, m[2] as string)
+  return out
+}
+
 describe('every Button variant', () => {
   const found = variants()
+  const presses = pressStyles()
+
+  /** A state's declared style: the press from the shared table, the hover from the variant. */
+  function declaredState(name: string, body: string, state: 'hoverStyle' | 'pressStyle') {
+    return state === 'pressStyle'
+      ? presses.get(name)
+      : new RegExp(`${state}: \\{([^}]*)\\}`).exec(body)?.[1]
+  }
 
   it('is found by this test at all, so a rename cannot make it vacuous', () => {
     expect([...found.keys()]).toEqual([
@@ -62,8 +82,17 @@ describe('every Button variant', () => {
       'ghost',
       'ghostAccent',
       'simple',
+      'tonal',
       'danger',
     ])
+  })
+
+  it('takes its web press style from the shared table, so native cannot differ', () => {
+    expect([...presses.keys()]).toEqual([...found.keys()])
+    const inline = [...found].filter(
+      ([name, body]) => !body.includes(`pressStyle: PRESS_STYLE.${name},`),
+    )
+    expect(inline.map(([name]) => name)).toEqual([])
   })
 
   it('declares its resting label colour on the frame, which is what the web label inherits', () => {
@@ -81,7 +110,7 @@ describe('every Button variant', () => {
     const offenders: string[] = []
     for (const [name, body] of found) {
       for (const state of ['hoverStyle', 'pressStyle'] as const) {
-        const declared = new RegExp(`${state}: \\{([^}]*)\\}`).exec(body)?.[1]
+        const declared = declaredState(name, body, state)
         if (declared === undefined || !leavesTheLadder(declared)) continue
         if (!/color: '\$/.test(declared)) offenders.push(`${name}.${state}`)
       }
@@ -98,8 +127,8 @@ describe('every Button variant', () => {
    */
   it('has a native pressed-label entry wherever the press inverts', () => {
     const pressedLabel = /const PRESSED_LABEL[\s\S]*?\n\}/.exec(source)?.[0] ?? ''
-    const inverts = [...found]
-      .filter(([, body]) => leavesTheLadder(/pressStyle: \{([^}]*)\}/.exec(body)?.[1] ?? ''))
+    const inverts = [...presses]
+      .filter(([, declared]) => leavesTheLadder(declared))
       .map(([name]) => name)
 
     expect(inverts.length).toBeGreaterThan(0)
@@ -109,22 +138,20 @@ describe('every Button variant', () => {
   })
 
   /**
-   * And that native fills where the web fills. `PRESSED` restates each `pressStyle` for the phones,
-   * and a variant whose web press fills while its native press only dims has a label coloured for
-   * a fill that never arrives -- which is what `danger` had.
+   * And that native presses with the same table. `PRESSED` is what native applies while held, and a
+   * variant restated there by hand can drift from its web press -- `simple` pressed at 0.7 on
+   * native against 0.55 on the web, so a click on a hovered label showed nothing.
    */
-  it('fills on a native press with the same colour its web press fills with', () => {
+  it('presses on native with its entry in the shared table, less only the label colour', () => {
     const pressed = /const PRESSED = \{[\s\S]*?\n\} as const/.exec(source)?.[0] ?? ''
-    const mismatched: string[] = []
-    for (const [name, body] of found) {
-      const web = /pressStyle: \{[^}]*backgroundColor: '(\$\w+)'/.exec(body)?.[1]
-      if (web === undefined || !leavesTheLadder(`backgroundColor: '${web}'`)) continue
-      const native = new RegExp(`^\\s+${name}: \\{[^}]*backgroundColor: '(\\$\\w+)'`, 'm').exec(
-        pressed,
-      )?.[1]
-      if (native !== web) mismatched.push(`${name}: web ${web}, native ${String(native)}`)
-    }
-    expect(mismatched).toEqual([])
+    const restated = [...found.keys()].filter(
+      (name) =>
+        !new RegExp(
+          `^\\s+${name}: (withoutColor\\(PRESS_STYLE\\.${name}\\)|PRESS_STYLE\\.${name}),$`,
+          'm',
+        ).test(pressed),
+    )
+    expect(restated).toEqual([])
   })
 })
 

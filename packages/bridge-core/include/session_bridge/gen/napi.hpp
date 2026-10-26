@@ -374,7 +374,8 @@ struct Codec<::session_bridge::Attachment> {
             obj.Set("width", Codec<double>::to(env, *value.width));
         if (value.height)
             obj.Set("height", Codec<double>::to(env, *value.height));
-        obj.Set("hasPreview", Codec<bool>::to(env, value.has_preview));
+        obj.Set("hasThumbhash", Codec<bool>::to(env, value.has_thumbhash));
+        obj.Set("hasThumbnail", Codec<bool>::to(env, value.has_thumbnail));
         obj.Set("uploaded", Codec<bool>::to(env, value.uploaded));
         obj.Set("availability", Codec<::session_bridge::AttachmentAvailability>::to(env, value.availability));
         obj.Set("fetchDoneBytes", Codec<double>::to(env, value.fetch_done_bytes));
@@ -393,7 +394,8 @@ struct Codec<::session_bridge::Attachment> {
                 Codec<bool>::from(obj.Get("voiceMessage"), "Attachment.voiceMessage"),
                 optional<double>(obj.Get("width"), "Attachment.width"),
                 optional<double>(obj.Get("height"), "Attachment.height"),
-                Codec<bool>::from(obj.Get("hasPreview"), "Attachment.hasPreview"),
+                Codec<bool>::from(obj.Get("hasThumbhash"), "Attachment.hasThumbhash"),
+                Codec<bool>::from(obj.Get("hasThumbnail"), "Attachment.hasThumbnail"),
                 Codec<bool>::from(obj.Get("uploaded"), "Attachment.uploaded"),
                 Codec<::session_bridge::AttachmentAvailability>::from(obj.Get("availability"), "Attachment.availability"),
                 Codec<double>::from(obj.Get("fetchDoneBytes"), "Attachment.fetchDoneBytes"),
@@ -596,6 +598,22 @@ struct Codec<::session_bridge::ByteCountResult> {
 };
 
 template <>
+struct Codec<::session_bridge::EdgeResult> {
+    static constexpr std::string_view name = "EdgeResult";
+    static Napi::Value to(Napi::Env env, const ::session_bridge::EdgeResult& value) {
+        Napi::Object obj = Napi::Object::New(env);
+        obj.Set("type", Napi::String::New(env, ::session_bridge::EdgeResult::type_tag.data(), ::session_bridge::EdgeResult::type_tag.size()));
+        obj.Set("edgePx", Codec<double>::to(env, value.edge_px));
+        return obj;
+    }
+    static ::session_bridge::EdgeResult from(const Napi::Value& value, std::string_view where) {
+        Napi::Object obj = object(value, where);
+        return ::session_bridge::EdgeResult(
+                Codec<double>::from(obj.Get("edgePx"), "EdgeResult.edgePx"));
+    }
+};
+
+template <>
 struct Codec<::session_bridge::ConfigSize> {
     static constexpr std::string_view name = "ConfigSize";
     static Napi::Value to(Napi::Env env, const ::session_bridge::ConfigSize& value) {
@@ -665,6 +683,8 @@ struct Codec<::session_bridge::Result> {
             return Codec<::session_bridge::PathResult>::from(value, where);
         if (tag == "byteCount")
             return Codec<::session_bridge::ByteCountResult>::from(value, where);
+        if (tag == "edge")
+            return Codec<::session_bridge::EdgeResult>::from(value, where);
         if (tag == "configSizes")
             return Codec<::session_bridge::ConfigSizesResult>::from(value, where);
         throw std::invalid_argument(std::string{where} + ": unknown type \"" + tag + "\"");
@@ -1186,7 +1206,7 @@ struct Codec<::session_bridge::FileServerConfig> {
         obj.Set("scheme", Codec<::session_bridge::UrlScheme>::to(env, value.scheme));
         obj.Set("host", Codec<std::string>::to(env, value.host));
         obj.Set("port", Codec<double>::to(env, value.port));
-        obj.Set("x25519PubkeyHex", Codec<std::string>::to(env, value.x25519_pubkey_hex));
+        obj.Set("ed25519PubkeyHex", Codec<std::string>::to(env, value.ed25519_pubkey_hex));
         return obj;
     }
     static ::session_bridge::FileServerConfig from(const Napi::Value& value, std::string_view where) {
@@ -1195,7 +1215,7 @@ struct Codec<::session_bridge::FileServerConfig> {
                 Codec<::session_bridge::UrlScheme>::from(obj.Get("scheme"), "FileServerConfig.scheme"),
                 Codec<std::string>::from(obj.Get("host"), "FileServerConfig.host"),
                 Codec<double>::from(obj.Get("port"), "FileServerConfig.port"),
-                Codec<std::string>::from(obj.Get("x25519PubkeyHex"), "FileServerConfig.x25519PubkeyHex"));
+                Codec<std::string>::from(obj.Get("ed25519PubkeyHex"), "FileServerConfig.ed25519PubkeyHex"));
     }
 };
 
@@ -1708,6 +1728,38 @@ struct Codec<::session_bridge::GetAttachmentCacheSizeCommand> {
 };
 
 template <>
+struct Codec<::session_bridge::GetThumbnailEdgeCommand> {
+    static constexpr std::string_view name = "GetThumbnailEdgeCommand";
+    static Napi::Value to(Napi::Env env, const ::session_bridge::GetThumbnailEdgeCommand& value) {
+        (void)value;
+        Napi::Object obj = Napi::Object::New(env);
+        obj.Set("type", Napi::String::New(env, ::session_bridge::GetThumbnailEdgeCommand::type_tag.data(), ::session_bridge::GetThumbnailEdgeCommand::type_tag.size()));
+        return obj;
+    }
+    static ::session_bridge::GetThumbnailEdgeCommand from(const Napi::Value& value, std::string_view where) {
+        object(value, where);
+        return ::session_bridge::GetThumbnailEdgeCommand{};
+    }
+};
+
+template <>
+struct Codec<::session_bridge::SetThumbnailEdgeCommand> {
+    static constexpr std::string_view name = "SetThumbnailEdgeCommand";
+    static Napi::Value to(Napi::Env env, const ::session_bridge::SetThumbnailEdgeCommand& value) {
+        Napi::Object obj = Napi::Object::New(env);
+        obj.Set("type", Napi::String::New(env, ::session_bridge::SetThumbnailEdgeCommand::type_tag.data(), ::session_bridge::SetThumbnailEdgeCommand::type_tag.size()));
+        if (value.edge_px)
+            obj.Set("edgePx", Codec<double>::to(env, *value.edge_px));
+        return obj;
+    }
+    static ::session_bridge::SetThumbnailEdgeCommand from(const Napi::Value& value, std::string_view where) {
+        Napi::Object obj = object(value, where);
+        return ::session_bridge::SetThumbnailEdgeCommand(
+                optional<double>(obj.Get("edgePx"), "SetThumbnailEdgeCommand.edgePx"));
+    }
+};
+
+template <>
 struct Codec<::session_bridge::GetConfigSizesCommand> {
     static constexpr std::string_view name = "GetConfigSizesCommand";
     static Napi::Value to(Napi::Env env, const ::session_bridge::GetConfigSizesCommand& value) {
@@ -1757,6 +1809,24 @@ struct Codec<::session_bridge::SetPrefCommand> {
 };
 
 template <>
+struct Codec<::session_bridge::TestAttachment> {
+    static constexpr std::string_view name = "TestAttachment";
+    static Napi::Value to(Napi::Env env, const ::session_bridge::TestAttachment& value) {
+        Napi::Object obj = Napi::Object::New(env);
+        obj.Set("contentType", Codec<std::string>::to(env, value.content_type));
+        if (value.thumbhash)
+            obj.Set("thumbhash", Codec<std::vector<std::byte>>::to(env, *value.thumbhash));
+        return obj;
+    }
+    static ::session_bridge::TestAttachment from(const Napi::Value& value, std::string_view where) {
+        Napi::Object obj = object(value, where);
+        return ::session_bridge::TestAttachment(
+                Codec<std::string>::from(obj.Get("contentType"), "TestAttachment.contentType"),
+                optional<std::vector<std::byte>>(obj.Get("thumbhash"), "TestAttachment.thumbhash"));
+    }
+};
+
+template <>
 struct Codec<::session_bridge::DeliverTestMessageCommand> {
     static constexpr std::string_view name = "DeliverTestMessageCommand";
     static Napi::Value to(Napi::Env env, const ::session_bridge::DeliverTestMessageCommand& value) {
@@ -1765,6 +1835,8 @@ struct Codec<::session_bridge::DeliverTestMessageCommand> {
         obj.Set("senderSeedHex", Codec<std::string>::to(env, value.sender_seed_hex));
         obj.Set("body", Codec<std::string>::to(env, value.body));
         obj.Set("timestamp", Codec<double>::to(env, value.timestamp));
+        if (value.attachments)
+            obj.Set("attachments", Codec<std::vector<::session_bridge::TestAttachment>>::to(env, *value.attachments));
         return obj;
     }
     static ::session_bridge::DeliverTestMessageCommand from(const Napi::Value& value, std::string_view where) {
@@ -1772,7 +1844,8 @@ struct Codec<::session_bridge::DeliverTestMessageCommand> {
         return ::session_bridge::DeliverTestMessageCommand(
                 Codec<std::string>::from(obj.Get("senderSeedHex"), "DeliverTestMessageCommand.senderSeedHex"),
                 Codec<std::string>::from(obj.Get("body"), "DeliverTestMessageCommand.body"),
-                Codec<double>::from(obj.Get("timestamp"), "DeliverTestMessageCommand.timestamp"));
+                Codec<double>::from(obj.Get("timestamp"), "DeliverTestMessageCommand.timestamp"),
+                optional<std::vector<::session_bridge::TestAttachment>>(obj.Get("attachments"), "DeliverTestMessageCommand.attachments"));
     }
 };
 
@@ -1908,6 +1981,10 @@ struct Codec<::session_bridge::Command> {
             return Codec<::session_bridge::SetAttachmentCacheLimitCommand>::from(value, where);
         if (tag == "getAttachmentCacheSize")
             return Codec<::session_bridge::GetAttachmentCacheSizeCommand>::from(value, where);
+        if (tag == "getThumbnailEdge")
+            return Codec<::session_bridge::GetThumbnailEdgeCommand>::from(value, where);
+        if (tag == "setThumbnailEdge")
+            return Codec<::session_bridge::SetThumbnailEdgeCommand>::from(value, where);
         if (tag == "getConfigSizes")
             return Codec<::session_bridge::GetConfigSizesCommand>::from(value, where);
         if (tag == "getPref")

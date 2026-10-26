@@ -64,7 +64,19 @@ Bridge capability → state projection → screen → route wiring in both apps 
 
 Each step is testable before the next exists, and the fake means none of them need a network.
 
-## 6. Before opening the pull request
+## 6. Compare it side by side with all three legacy clients
+
+Run it next to iOS, Android and Desktop before calling it done. Where they differ, pick the best
+of the three for 2.0 rather than whichever was read first. Onboarding is the exception: Desktop's
+is a different design, so the mobile pair is the reference there.
+
+Reading the legacy source is not the same check: a screen whose flow completes can still have the
+wrong background, the wrong button filled, missing chrome, wrong type sizes and a control nobody
+can hit. Walk the list deliberately: colours, which button is primary, chrome present in one and
+not the other, type sizes, control sizes and hit areas, spacing, transitions. An already-ported
+sibling counts as a reference; the tablet layout catches most of a phone layout's mistakes.
+
+## 7. Before opening the pull request
 
 - The screen takes route params as props and imports no router.
 - Every interactive element has an id in `@session/test-ids`.

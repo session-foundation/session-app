@@ -18,6 +18,8 @@ export interface ISessionApp {
 
   waitForVisible(id: ElementId, options?: { timeoutMs?: number }): Promise<void>
   isVisible(id: ElementId): Promise<boolean>
+  /** Whether the control says it is disabled, which is what a reader announces. */
+  isDisabled(id: ElementId): Promise<boolean>
   tap(id: ElementId): Promise<void>
   type(id: ElementId, text: string): Promise<void>
   readText(id: ElementId): Promise<string>

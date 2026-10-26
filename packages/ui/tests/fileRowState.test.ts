@@ -5,10 +5,14 @@ import {
   FILE_GLYPH_SIDE,
   FILE_LEAD_WIDTH,
   FILE_ROW_CONTROL,
+  fileLeadHeight,
   fileRowControl,
+  fileRowHeight,
   fileRowTone,
 } from '#src/fileRowState'
+import { SPACING } from '@session/theme-tokens'
 import { TILE_RADIUS_STEP } from '#src/attachmentTileStyle'
+import { textHeight } from '#src/textHeight'
 
 describe('a file row’s one control', () => {
   it('follows from the state, and says which verb it is', () => {
@@ -68,5 +72,24 @@ describe('a file row’s colours', () => {
         caption: 'secondary',
         control: 'primary',
       })
+  })
+})
+
+describe('a file row’s height', () => {
+  it('is the lead with its format line, inside the row’s padding, and holds the control', () => {
+    expect(fileLeadHeight(1)).toBe(FILE_GLYPH_SIDE + SPACING['3xs'] + textHeight('caption', 1))
+    expect(fileRowHeight(1)).toBe(2 * SPACING.xs + fileLeadHeight(1))
+    expect(fileRowHeight(1) - 2 * SPACING.xs).toBeGreaterThanOrEqual(FILE_ROW_CONTROL)
+  })
+
+  it('grows the format line with the OS font scale', () => {
+    expect(fileLeadHeight(2)).toBe(FILE_GLYPH_SIDE + SPACING['3xs'] + textHeight('caption', 1, 2))
+    expect(fileRowHeight(1.5)).toBe(2 * SPACING.xs + fileLeadHeight(1.5))
+  })
+
+  it('holds the name and caption once they outgrow the lead', () => {
+    const name = textHeight('body', 1, 3) + SPACING['3xs'] + textHeight('caption', 1, 3)
+    expect(name).toBeGreaterThan(fileLeadHeight(3))
+    expect(fileRowHeight(3)).toBe(2 * SPACING.xs + name)
   })
 })

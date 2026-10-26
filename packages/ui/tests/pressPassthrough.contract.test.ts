@@ -12,11 +12,12 @@ const wrappers = readdirSync(SRC)
   .filter(({ source }) => source.includes('<PressArea'))
 
 /**
- * On native, tamagui gives any view declaring a `pressStyle` its own press handling, so the frame
- * claims the touch and the `Pressable` around it never fires; the web is unaffected. A grep because
- * this package has no native renderer to press with.
+ * On native, tamagui gives any view declaring a `pressStyle`, or naming a `group` its children
+ * style the press of, its own press handling, so the frame claims the touch and the `Pressable`
+ * around it never fires; the web is unaffected. A grep because this package has no native renderer
+ * to press with.
  */
-describe('a PressArea frame with a press style', () => {
+describe('a PressArea frame that styles its own press', () => {
   it('is found by this test at all, so a move cannot make it vacuous', () => {
     expect(wrappers.map(({ file }) => file)).toEqual(
       expect.arrayContaining(['Button.tsx', 'SettingsRow.tsx']),
@@ -25,7 +26,10 @@ describe('a PressArea frame with a press style', () => {
 
   it('spreads PRESS_PASSTHROUGH', () => {
     const missing = wrappers
-      .filter(({ source }) => /pressStyle/.test(source) && !/\.\.\.PRESS_PASSTHROUGH/.test(source))
+      .filter(
+        ({ source }) =>
+          /\b(pressStyle|group)[=:]/.test(source) && !/\.\.\.PRESS_PASSTHROUGH/.test(source),
+      )
       .map(({ file }) => file)
     expect(missing).toEqual([])
   })

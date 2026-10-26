@@ -1,17 +1,24 @@
-import type { ConversationId, Message } from '@session/client'
+import type { Attachment, ConversationId, Message } from '@session/client'
 import { tr } from '@session/localization'
 import { useMessage } from '@session/state'
 import { ELEMENT } from '@session/test-ids'
-import { Sheet } from '@session/ui'
-import { useRef, type ReactNode } from 'react'
+import { fileRowHeight, List, Sheet, useFontScale, YStack } from '@session/ui'
+import { useCallback, useRef, type ReactNode } from 'react'
 
-import { AttachmentFooter } from './AttachmentFooter'
-import { AttachmentList } from './AttachmentList'
+import { AttachmentFooter, ROW_OVERHANG } from './AttachmentFooter'
+import { AttachmentRow } from './AttachmentRow'
 import { useAttachmentSet } from './useAttachmentSet'
+
+const attachmentKey = (attachment: Attachment): string => String(attachment.index)
 
 function SheetFooter({ message }: { message: Message }) {
   const { set, act } = useAttachmentSet(message)
-  return <AttachmentFooter set={set} onAction={act} />
+  // Inside the sheet's footer, so the overhang lies over this padding and not over the rows.
+  return (
+    <YStack paddingTop={ROW_OVERHANG}>
+      <AttachmentFooter set={set} onAction={act} />
+    </YStack>
+  )
 }
 
 function MessageSheet({
@@ -29,6 +36,12 @@ function MessageSheet({
 }) {
   const message = useMessage(conversationId, messageId)
   const shown = open && message !== undefined
+  const rowHeight = fileRowHeight(useFontScale())
+  const renderRow = useCallback(
+    (attachment: Attachment) =>
+      message === undefined ? null : <AttachmentRow message={message} attachment={attachment} />,
+    [message],
+  )
   return (
     <>
       {shown ? null : overlay}
@@ -41,8 +54,22 @@ function MessageSheet({
         footer={message === undefined ? undefined : <SheetFooter message={message} />}
         testID={ELEMENT.conversation.attachmentSheet}
         closeTestID={ELEMENT.conversation.attachmentSheetClose}
+        scrimTestID={ELEMENT.conversation.attachmentSheetScrim}
+        bodyIsList
       >
-        {message === undefined ? null : <AttachmentList message={message} />}
+        {message === undefined ? null : (
+          // Windowed: a set this long mounted all at once is a pause between the tap and the sheet.
+          // With the row height given, the sheet opens at its full height rather than growing as
+          // the rows measure.
+          <List
+            data={message.attachments}
+            keyExtractor={attachmentKey}
+            renderItem={renderRow}
+            itemHeight={rowHeight}
+            fitsContent
+            paddingHorizontal="md"
+          />
+        )}
       </Sheet>
     </>
   )

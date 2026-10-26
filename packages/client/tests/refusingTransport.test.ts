@@ -13,6 +13,13 @@ describe('a refusing transport', () => {
     await expect(client.discardAccount()).rejects.toThrow(/the bridge could not start/)
   })
 
+  it('does not prefix the refusal with the command that met it', async () => {
+    const client = createSessionClient(createRefusingTransport('no native module'))
+    await expect(client.getAccountInfo()).rejects.toThrow(
+      /^the bridge could not start: no native module$/,
+    )
+  })
+
   it('marks each refusal as one with no bridge behind it', async () => {
     const client = createSessionClient(createRefusingTransport('no native module'))
     await expect(client.getAccountInfo()).rejects.toMatchObject({ code: BRIDGE_UNAVAILABLE })

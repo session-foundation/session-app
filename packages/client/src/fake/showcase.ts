@@ -40,7 +40,7 @@ export function showcase(names: readonly [FixtureName, FixtureName] = ['Alice', 
     ['Three with no hash to draw', set(image(3), { hashed: false })],
     ['Five with no hash to draw', set(image(5), { hashed: false })],
 
-    // A video is a tile too, so these stay galleries.
+    // A video is a file row until libsession has a still for it, so each of these is a list.
     ['A clip on its own', set(['video'])],
     ['Pictures and a clip', set(['image', 'image', 'video'])],
     ['Clips only', set(['video', 'video'])],

@@ -20,6 +20,11 @@ interface ScanQrPaneProps {
   showing?: boolean
   /** Shown under the frame. The bridge's refusal of whatever was scanned. */
   error?: string | null
+  /**
+   * Whether the pane sits in a column that scrolls, which has no height for the preview to fill,
+   * so the preview is square instead.
+   */
+  fitsPage?: boolean
 }
 
 /**
@@ -29,7 +34,12 @@ interface ScanQrPaneProps {
  * for access while the platform will still ask; once it is refused for good, asking does nothing,
  * so Continue explains where it can be changed and offers the app's settings page instead.
  */
-export function ScanQrPane({ onScan, showing = true, error = null }: ScanQrPaneProps) {
+export function ScanQrPane({
+  onScan,
+  showing = true,
+  error = null,
+  fitsPage = false,
+}: ScanQrPaneProps) {
   const camera = useCamera()
   const [settingsPrompt, setSettingsPrompt] = useState(false)
   const insets = useScreenInsets()
@@ -73,7 +83,8 @@ export function ScanQrPane({ onScan, showing = true, error = null }: ScanQrPaneP
        * says deliberate rather than clipped.
        */
       <YStack
-        flex={1}
+        // Square where it sets its own height, which is the shape of the frame drawn over it.
+        {...(fitsPage ? { aspectRatio: 1 } : { flex: 1 })}
         overflow="hidden"
         {...(wide ? { borderRadius: '$lg' as const } : { marginBottom: -insets.bottom })}
         testID={ELEMENT.onboarding.scanQrPane}

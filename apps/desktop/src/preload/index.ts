@@ -17,6 +17,25 @@ ipcRenderer.on('session-bridge-port', (event) => {
 })
 
 /**
+ * The content zoom main last sent, and whoever is listening for the next.
+ *
+ * Asked for synchronously, once, before the page's script runs, so a saved zoom is how the page
+ * first draws; later changes arrive on `zoom`. Kept here because main can send one before the page
+ * has subscribed, and a message to a channel with no listener is dropped.
+ */
+const initialZoom: unknown = ipcRenderer.sendSync('zoom:current')
+let zoom =
+  typeof initialZoom === 'number' && Number.isFinite(initialZoom) && initialZoom > 0
+    ? initialZoom
+    : 1
+let zoomListener: ((zoom: number) => void) | null = null
+ipcRenderer.on('zoom', (_event, next: unknown) => {
+  if (typeof next !== 'number' || !Number.isFinite(next) || next <= 0) return
+  zoom = next
+  zoomListener?.(next)
+})
+
+/**
  * The whole of what the page may ask for: one argument each, checked by the main process.
  *
  * `openExternal` exists because the window-open handler refuses everything, so the app needs a way
@@ -44,6 +63,11 @@ contextBridge.exposeInMainWorld('sessionDesktop', {
   },
   restart: () => {
     ipcRenderer.send('restart')
+  },
+  /** The content zoom from the View menu: the current one at once, then each change. */
+  onZoom: (listener: (zoom: number) => void) => {
+    zoomListener = listener
+    listener(zoom)
   },
   /**
    * The log: one call to learn main's clock, and one to hand over lines as records, which main

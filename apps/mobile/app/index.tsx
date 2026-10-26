@@ -1,44 +1,14 @@
-import {
-  ConversationListScreen,
-  OnboardingFlow,
-  StartingScreen,
-  StartupFailedScreen,
-  useLocale,
-  usePersistedLocale,
-} from '@session/screens'
-import { useAccount, useHydrated, useStartupError } from '@session/state'
-import { useState } from 'react'
+import { ConversationListScreen, NoSelectionPane, useLocale } from '@session/screens'
+import { useMedia } from '@session/ui'
 
 /**
- * The list, or onboarding when there is no account to list anything for.
+ * The list on a phone, where it is the whole screen. On a tablet the shell keeps the list beside
+ * the routes (see `src/shell.tsx`), so this pane is the one beside it, with nothing open yet.
  *
- * Chosen here rather than by navigating, because there is nothing to navigate back to: until an
- * identity exists the app has exactly one screen, and a redirect would put an empty list in the
- * history behind it.
- *
- * Nothing is chosen until the first state arrives. Drawing the list while `hydrated` is still
- * false shows a new account an empty conversation list for as long as the database takes to
- * answer, and then replaces it with onboarding.
- *
- * On a phone the list is the whole screen and a conversation pushes over it; on a tablet
- * AdaptiveShell keeps it beside the detail. Neither is decided here.
+ * The launch screen, onboarding and a failed start are the shell's, ahead of every route.
  */
 export default function IndexRoute() {
   useLocale()
-  const hydrated = useHydrated()
-  const startupError = useStartupError()
-  const account = useAccount()
-  const [onboarding, setOnboarding] = useState(false)
-  // Here rather than in the layout, which creates the store provider and so cannot read from it.
-  usePersistedLocale()
-
-  // Asked before `hydrated`, because both are false when a start has failed and only one of them
-  // says so. The other order leaves the launch screen up over a failure that is already known.
-  if (startupError !== null) return <StartupFailedScreen error={startupError} />
-  if (!hydrated) return <StartingScreen />
-  // `|| onboarding` because an account appearing is not the same as onboarding being over: a
-  // restore mints one the moment the phrase is accepted and still has a wait to sit through.
-  if (account?.haveAccount !== true || onboarding)
-    return <OnboardingFlow onRunningChange={setOnboarding} />
-  return <ConversationListScreen />
+  const media = useMedia()
+  return media.gtSm ? <NoSelectionPane /> : <ConversationListScreen />
 }

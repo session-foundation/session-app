@@ -3,6 +3,8 @@ import { tr } from '@session/localization'
 import type { ElementId } from '@session/test-ids'
 import { backChevron, Button, Icon } from '@session/ui'
 
+import { useShowsBack } from './shell/pane'
+
 /**
  * The way back, drawn the same way everywhere.
  *
@@ -17,7 +19,9 @@ import { backChevron, Button, Icon } from '@session/ui'
  */
 export function BackButton({ testID }: { testID: ElementId }) {
   const nav = useNav()
+  const showsBack = useShowsBack()
 
+  if (!showsBack) return null
   return (
     <Button
       variant="ghost"

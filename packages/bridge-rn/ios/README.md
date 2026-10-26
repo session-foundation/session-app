@@ -6,8 +6,8 @@ of megabytes of per-architecture static libraries, and they are reproducible fro
 pin.
 
 - `libsession-util.xcframework` — libsession itself, from its own `utils/ios.sh`.
-- `SessionBridgeCore.xcframework` — the shim, plus the ten archives `STATIC_BUNDLE` leaves out of
-  libsession's own bundle, merged into one library per slice.
+- `SessionBridgeCore.xcframework` — the shim alone, one library per slice: libsession's bundle
+  carries every library it links.
 
 **Both carry a device slice as well as a simulator one**, which is the default. The device
 slice is not only for a phone: an iOS app running on an Apple silicon Mac — "Designed for iPad" —

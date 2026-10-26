@@ -9,15 +9,16 @@ import { friends, type FakeSetup, type FixtureName } from './fixtures'
  * Dimensions are the sender's and are what the placeholder is laid out from, so they are set:
  * without them a transcript jumps as each one lands.
  *
- * `hasPreview` is set so the placeholder is drawn. The fake's preview door answers these with a
- * flat colour: what it exercises is the route, not the decoder.
+ * `hasThumbhash` is set so the placeholder is drawn. The fake's thumbhash door answers these with
+ * the real hash of the dev photograph each is drawn as.
  */
 const SEEDED_PICTURES: Attachment[] = [
   {
     index: 0,
     contentType: 'image/jpeg',
     filename: 'harbour.jpg',
-    hasPreview: true,
+    hasThumbhash: true,
+    hasThumbnail: false,
     sizeBytes: 2_411_724,
     voiceMessage: false,
     width: 1600,
@@ -31,7 +32,8 @@ const SEEDED_PICTURES: Attachment[] = [
     index: 1,
     contentType: 'image/png',
     filename: 'ferry.png',
-    hasPreview: true,
+    hasThumbhash: true,
+    hasThumbnail: false,
     sizeBytes: 812_004,
     voiceMessage: false,
     width: 1200,
@@ -44,15 +46,17 @@ const SEEDED_PICTURES: Attachment[] = [
 ]
 
 /**
- * One picture and one file, which libsession's rule makes *not* gallery-viewable: a message is
- * only shown as pictures when every attachment is one. This is what draws the file form.
+ * Two pictures and two files, which libsession's rule makes *not* gallery-viewable: a message is
+ * only shown as pictures when every attachment is one. This is what draws the file form. The AVIF
+ * is a row that draws libsession's thumbnail though the viewer cannot open the file.
  */
 const SEEDED_FILES: Attachment[] = [
   {
     index: 0,
     contentType: 'image/jpeg',
     filename: 'receipt.jpg',
-    hasPreview: true,
+    hasThumbhash: true,
+    hasThumbnail: false,
     sizeBytes: 96_500,
     voiceMessage: false,
     width: 900,
@@ -68,7 +72,36 @@ const SEEDED_FILES: Attachment[] = [
     filename: 'itinerary.pdf',
     sizeBytes: 184_320,
     voiceMessage: false,
-    hasPreview: false,
+    hasThumbhash: false,
+    hasThumbnail: false,
+    uploaded: true,
+    availability: 'absent',
+    fetchDoneBytes: 0,
+    fetchTotalBytes: 0,
+  }, // Named in Arabic, so a right-to-left name is on screen in every locale.
+  {
+    index: 2,
+    contentType: 'application/pdf',
+    filename: 'تقرير-الرحلة.pdf',
+    sizeBytes: 52_480,
+    voiceMessage: false,
+    hasThumbhash: false,
+    hasThumbnail: false,
+    uploaded: true,
+    availability: 'absent',
+    fetchDoneBytes: 0,
+    fetchTotalBytes: 0,
+  },
+  {
+    index: 3,
+    contentType: 'image/avif',
+    filename: 'boarding-gate.avif',
+    sizeBytes: 141_312,
+    voiceMessage: false,
+    width: 1600,
+    height: 1200,
+    hasThumbhash: true,
+    hasThumbnail: false,
     uploaded: true,
     availability: 'absent',
     fetchDoneBytes: 0,
@@ -91,7 +124,8 @@ const SEEDED_MANY: Attachment[] = Array.from({ length: 13 }, (_, at) => ({
         width: 1200,
         height: 900,
       }),
-  hasPreview: at !== 12,
+  hasThumbhash: at !== 12,
+  hasThumbnail: false,
   sizeBytes: 120_000 + at * 4_000,
   voiceMessage: false,
   uploaded: true,
@@ -141,7 +175,7 @@ export const PHOTO_THUMBHASHES: readonly string[] = [
   '61491a15846579787f878889788888777692700709', // 29
   '90e7050d82488745976a77508a5767994795600309', // 30
 ]
-type Kind = MediaKind | 'pdf' | 'zip' | 'sheet' | 'audio'
+export type Kind = MediaKind | 'pdf' | 'zip' | 'sheet' | 'audio'
 
 const TYPES: Record<Kind, { contentType: string; extension: string }> = {
   image: { contentType: 'image/jpeg', extension: 'jpg' },
@@ -181,7 +215,8 @@ function showpiece(
     sizeBytes: 180_000 + index * 420_000,
     voiceMessage: false,
     ...(picture ? { width: 1600, height: 1200 } : {}),
-    hasPreview: picture && options.hashed !== false,
+    hasThumbhash: picture && options.hashed !== false,
+    hasThumbnail: false,
     uploaded: true,
     availability: options.expired === true ? 'notFound' : 'absent',
     fetchDoneBytes: 0,
@@ -227,7 +262,8 @@ const SEEDED_EXPIRED: Attachment[] = [
     filename: 'boarding-pass.pdf',
     sizeBytes: 64_000,
     voiceMessage: false,
-    hasPreview: false,
+    hasThumbhash: false,
+    hasThumbnail: false,
     uploaded: true,
     availability: 'notFound',
     fetchDoneBytes: 0,

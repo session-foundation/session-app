@@ -34,7 +34,7 @@ function ScopeOption({
       alignItems="center"
       gap="$sm"
       paddingVertical="$xs"
-      cursor="pointer"
+      $platform-web={{ cursor: 'pointer' }}
       onPress={onSelect}
       testID={testID}
     >

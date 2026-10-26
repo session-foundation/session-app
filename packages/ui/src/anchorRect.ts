@@ -1,3 +1,5 @@
+import { currentPageZoom } from './pageZoom'
+
 /** Where an element sits in the window, in the coordinates a full-screen overlay is laid out in. */
 export interface AnchorRect {
   x: number
@@ -29,6 +31,16 @@ interface MeasurableNode {
  */
 export function measureAnchor(node: unknown, onMeasured: (rect: AnchorRect | null) => void): void {
   const measurable = node as MeasurableNode | null
+  // Both measurements answer in the window's pixels, and the panel is placed inside the page,
+  // whose pixels the desktop zoom has scaled: unscaled, a panel at 200% would open twice as far
+  // from the corner as its trigger.
+  const zoom = currentPageZoom()
+  const unzoomed = (x: number, y: number, width: number, height: number): AnchorRect => ({
+    x: x / zoom,
+    y: y / zoom,
+    width: width / zoom,
+    height: height / zoom,
+  })
   if (measurable === null || measurable === undefined) {
     onMeasured(null)
     return
@@ -36,14 +48,14 @@ export function measureAnchor(node: unknown, onMeasured: (rect: AnchorRect | nul
 
   if (typeof measurable.measureInWindow === 'function') {
     measurable.measureInWindow((x, y, width, height) => {
-      onMeasured({ x, y, width, height })
+      onMeasured(unzoomed(x, y, width, height))
     })
     return
   }
 
   if (typeof measurable.getBoundingClientRect === 'function') {
     const rect = measurable.getBoundingClientRect()
-    onMeasured({ x: rect.left, y: rect.top, width: rect.width, height: rect.height })
+    onMeasured(unzoomed(rect.left, rect.top, rect.width, rect.height))
     return
   }
 
@@ -85,6 +97,8 @@ export interface PanelPlacement {
   offset: number
   /** How tall the panel may grow on that side. */
   available: number
+  /** Whether it covers the window, trigger included, because neither side could hold it. */
+  covers: boolean
 }
 
 /**
@@ -93,6 +107,11 @@ export interface PanelPlacement {
  * Below by default, because that is what a chevron pointing down promises. It flips above only
  * when below genuinely cannot hold the panel and above can hold more of it -- not merely when
  * above is roomier, since a flip that buys nothing is just a control that moves unpredictably.
+ *
+ * **Over the trigger when neither side can hold it.** A short window -- desktop zoomed in, a phone
+ * in landscape -- left the panel a strip on either side with room for a row or two of the list.
+ * There it takes the whole window inside the margins instead, covering the trigger; its own close
+ * control and a press outside still dismiss it.
  *
  * `available` is what the caller caps the list at, so a panel near an edge scrolls internally
  * rather than running off the screen. The trigger's own position is the thing that varies here:
@@ -104,11 +123,26 @@ export function panelPlacement(
   gap: number,
   margin: number,
   minHeight: number,
+  /** The margin when covering, smaller than `margin`: a window this short needs every row. */
+  coverMargin: number = margin,
 ): PanelPlacement {
   const below = windowHeight - anchor.y - anchor.height - gap - margin
   const above = anchor.y - gap - margin
-  if (below >= minHeight || below >= above) {
-    return { side: 'below', offset: anchor.y + anchor.height + gap, available: below }
+  if (below < minHeight && above < minHeight) {
+    return {
+      side: 'below',
+      offset: coverMargin,
+      available: windowHeight - 2 * coverMargin,
+      covers: true,
+    }
   }
-  return { side: 'above', offset: windowHeight - anchor.y + gap, available: above }
+  if (below >= minHeight || below >= above) {
+    return {
+      side: 'below',
+      offset: anchor.y + anchor.height + gap,
+      available: below,
+      covers: false,
+    }
+  }
+  return { side: 'above', offset: windowHeight - anchor.y + gap, available: above, covers: false }
 }

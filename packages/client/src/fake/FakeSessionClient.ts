@@ -44,8 +44,8 @@ function networkRefusal(config: NetworkAttachment): string | undefined {
 
   if (config.fileServer) {
     if (config.fileServer.host.length === 0) return 'fileServer.host must not be empty'
-    if (!isHex64(config.fileServer.x25519PubkeyHex))
-      return 'fileServer.x25519PubkeyHex must be 64 hex characters'
+    if (!isHex64(config.fileServer.ed25519PubkeyHex))
+      return 'fileServer.ed25519PubkeyHex must be 64 hex characters'
     if (!isPort(config.fileServer.port)) return 'fileServer.port must be a port'
   }
 
@@ -343,11 +343,21 @@ export class FakeSessionClient implements SessionClient {
     return this.account.exportAttachment({ messageId, index }, destination, options?.replace)
   }
 
+  /** Whether libsession would hold a thumbnail of this attachment: `Attachment.hasThumbnail`. */
+  hasThumbnail(ref: AttachmentRef): boolean {
+    return this.account.hasThumbnail(ref)
+  }
+
   /**
    * Fake-only: finds an attachment in memory, where paging every conversation would miss old ones.
    */
   locate(ref: AttachmentRef): LocatedAttachment | undefined {
     return this.account.locate(ref)
+  }
+
+  /** Fake-only: whether an attachment's bytes have arrived, for a dev loader deciding to draw. */
+  isCached(ref: AttachmentRef): boolean {
+    return this.account.isCached(ref)
   }
 
   setAutoDownload(id: ConversationId, mode: AutoDownload): Promise<void> {
@@ -386,6 +396,28 @@ export class FakeSessionClient implements SessionClient {
     return Promise.resolve(this.account.attachmentCacheSize())
   }
 
+  getThumbnailEdge(): Promise<number> {
+    this.assertOpen()
+    return Promise.resolve(this.account.thumbnailEdge())
+  }
+
+  setThumbnailEdge(edgePx?: number): Promise<void> {
+    this.assertOpen()
+    // The shim carries it as a uint32.
+    if (
+      edgePx !== undefined &&
+      !(Number.isInteger(edgePx) && edgePx >= 0 && edgePx <= 0xffffffff)
+    ) {
+      return Promise.reject(
+        new SessionClientError(
+          'setThumbnailEdge.edgePx must be a whole number this bridge can carry',
+        ),
+      )
+    }
+    this.account.setThumbnailEdge(edgePx)
+    return Promise.resolve()
+  }
+
   getConfigSizes(): Promise<ConfigSize[]> {
     this.assertOpen()
     return Promise.resolve(this.account.configSizes())
@@ -403,13 +435,7 @@ export class FakeSessionClient implements SessionClient {
 
   deleteMessage(messageId: number, scope: Deletion): Promise<void> {
     this.assertOpen()
-    for (const conversation of [...this.account.list(), ...this.account.requests()]) {
-      const found = this.account.messages(conversation.id).find((m) => m.id === messageId)
-      if (found) {
-        this.account.updateMessage(conversation.id, messageId, { deleted: scope, body: '' })
-        break
-      }
-    }
+    this.account.deleteMessage(messageId, scope)
     return Promise.resolve()
   }
 

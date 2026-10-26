@@ -14,6 +14,8 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
+    "./exportFileName": "./src/exportFileName.ts",
+    "./mediaUrl": "./src/mediaUrl.ts",
     "./flags": "./src/flags.ts"
   },
   "scripts": {
@@ -27,6 +29,7 @@
     "react": "catalog:"
   },
   "devDependencies": {
+    "@session/client-contract": "workspace:*",
     "@session/eslint-config": "workspace:*",
     "@session/typescript-config": "workspace:*",
     "@types/node": "catalog:",

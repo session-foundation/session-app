@@ -295,7 +295,14 @@ struct Attachment {
     /// A flag rather than the pixels: a placeholder is an image, and an image is resolved through the
     /// media port like any other rather than riding the frame stream. What it names is the second
     /// path on that scheme.
-    bool has_preview;
+    bool has_thumbhash;
+    /// Whether libsession holds a thumbnail of this attachment: a square JPEG of the picture, cropped
+    /// to cover, at most the client's thumbnail edge on a side. Made only of a displayable image whose
+    /// bytes are cached, and after them, so it turns true in a later `messages-updated` than the one
+    /// reporting `cached`; false again once the cache evicts the file, which takes the thumbnail too.
+    ///
+    /// What a tile draws, through the media scheme's `thumbnail` path; a viewer draws the file.
+    bool has_thumbnail;
     /// On the file server: an outgoing attachment's upload finished, and always true for an incoming
     /// one. Deliberately not "the bytes are here" - libsession records no local path, because the
     /// application chose it and a stored copy would go stale the moment the file moved.
@@ -315,8 +322,8 @@ struct Attachment {
     /// depends on the other end volunteering a notification.
     std::optional<double> saved_at_ms;
 
-    Attachment(double index_, std::optional<std::string> content_type_, std::optional<std::string> filename_, std::optional<double> size_bytes_, bool voice_message_, std::optional<double> width_, std::optional<double> height_, bool has_preview_, bool uploaded_, ::session_bridge::AttachmentAvailability availability_, double fetch_done_bytes_, double fetch_total_bytes_, std::optional<double> saved_at_ms_) :
-            index{std::move(index_)}, content_type{std::move(content_type_)}, filename{std::move(filename_)}, size_bytes{std::move(size_bytes_)}, voice_message{std::move(voice_message_)}, width{std::move(width_)}, height{std::move(height_)}, has_preview{std::move(has_preview_)}, uploaded{std::move(uploaded_)}, availability{std::move(availability_)}, fetch_done_bytes{std::move(fetch_done_bytes_)}, fetch_total_bytes{std::move(fetch_total_bytes_)}, saved_at_ms{std::move(saved_at_ms_)} {}
+    Attachment(double index_, std::optional<std::string> content_type_, std::optional<std::string> filename_, std::optional<double> size_bytes_, bool voice_message_, std::optional<double> width_, std::optional<double> height_, bool has_thumbhash_, bool has_thumbnail_, bool uploaded_, ::session_bridge::AttachmentAvailability availability_, double fetch_done_bytes_, double fetch_total_bytes_, std::optional<double> saved_at_ms_) :
+            index{std::move(index_)}, content_type{std::move(content_type_)}, filename{std::move(filename_)}, size_bytes{std::move(size_bytes_)}, voice_message{std::move(voice_message_)}, width{std::move(width_)}, height{std::move(height_)}, has_thumbhash{std::move(has_thumbhash_)}, has_thumbnail{std::move(has_thumbnail_)}, uploaded{std::move(uploaded_)}, availability{std::move(availability_)}, fetch_done_bytes{std::move(fetch_done_bytes_)}, fetch_total_bytes{std::move(fetch_total_bytes_)}, saved_at_ms{std::move(saved_at_ms_)} {}
 };
 
 /// The message a reply points at, resolved one level deep only: a reply to a reply shows its own
@@ -375,7 +382,8 @@ struct Message {
     std::optional<::session_bridge::SendState> sync_state;
     std::vector<::session_bridge::Attachment> attachments;
     /// libsession's answer to whether this message's attachments could be shown as pictures rather
-    /// than listed as files: "has attachments, and every one is `image/*`". It does not say whether
+    /// than listed as files: "has attachments, and every one is a type libsession displays as an
+    /// image" (JPEG, PNG, WebP, GIF, AVIF, `image/pjpeg`, case-insensitive). It does not say whether
     /// this client can draw them, which is the screens' decision to make.
     bool gallery_viewable;
     std::optional<::session_bridge::Reply> reply_to;
@@ -457,6 +465,16 @@ struct ByteCountResult {
             bytes{std::move(bytes_)} {}
 };
 
+/// A thumbnail's side in device pixels, as libsession clamped it.
+struct EdgeResult {
+    static constexpr std::string_view type_tag = "edge";
+
+    double edge_px;
+
+    explicit EdgeResult(double edge_px_) :
+            edge_px{std::move(edge_px_)} {}
+};
+
 /// One of the account's configs and how large it is: the size of the dump it would write now.
 /// For diagnostics - the header of an exported log - and nothing else.
 struct ConfigSize {
@@ -491,6 +509,7 @@ using Result = std::variant<
         BoolResult,
         PathResult,
         ByteCountResult,
+        EdgeResult,
         ConfigSizesResult>;
 
 struct Response {
@@ -598,11 +617,12 @@ struct HistoryReplacedSessionEvent {
             conversation_id{std::move(conversation_id_)} {}
 };
 
-/// Which kind of transfer a progress report belongs to.
+/// Which request a progress report belongs to.
 ///
-/// libsession joins concurrent downloads of one file with each other but never joins an export, so
-/// one attachment can have two live transfers at once. Keyed without this they interleave, and a bar
-/// jumps backwards.
+/// libsession fetches a file once for every download and export of it, but reports to each request
+/// separately and ends each with its own outcome, so one attachment can be downloading and exporting
+/// at once. An export of a file over libsession's `requested_cache_max_size` runs a transfer of its
+/// own that nothing joins; the bridge leaves that size unset.
 enum class AttachmentTransfer {
     download,
     export_,
@@ -889,12 +909,12 @@ struct FileServerConfig {
     ::session_bridge::UrlScheme scheme;
     std::string host;
     double port;
-    /// The server's **X25519** pubkey, which is what onion requests to it are encrypted with, and a
-    /// different key from the Ed25519 one its QUIC endpoint is identified by.
-    std::string x25519_pubkey_hex;
+    /// The server's **Ed25519** pubkey, which its QUIC endpoint is identified by. libsession derives
+    /// the X25519 key onion requests to it are encrypted with from this, so that one is wrong here.
+    std::string ed25519_pubkey_hex;
 
-    FileServerConfig(::session_bridge::UrlScheme scheme_, std::string host_, double port_, std::string x25519_pubkey_hex_) :
-            scheme{std::move(scheme_)}, host{std::move(host_)}, port{std::move(port_)}, x25519_pubkey_hex{std::move(x25519_pubkey_hex_)} {}
+    FileServerConfig(::session_bridge::UrlScheme scheme_, std::string host_, double port_, std::string ed25519_pubkey_hex_) :
+            scheme{std::move(scheme_)}, host{std::move(host_)}, port{std::move(port_)}, ed25519_pubkey_hex{std::move(ed25519_pubkey_hex_)} {}
 };
 
 /// How requests reach the network.
@@ -1166,7 +1186,8 @@ struct DownloadAttachmentCommand {
 };
 
 /// Write an attachment out to a path the person chose, fetching it first if the cache does not
-/// hold it. Reads the cache but never fills it, so this is not a way to pre-fetch.
+/// hold it. Reads the cache first and fills it as the file arrives, within the cache's size limit,
+/// as `downloadAttachment` does.
 struct ExportAttachmentCommand {
     static constexpr std::string_view type_tag = "exportAttachment";
 
@@ -1222,6 +1243,22 @@ struct GetAttachmentCacheSizeCommand {
     static constexpr std::string_view type_tag = "getAttachmentCacheSize";
 };
 
+struct GetThumbnailEdgeCommand {
+    static constexpr std::string_view type_tag = "getThumbnailEdge";
+};
+
+/// The side of the thumbnails made from now on, in device pixels, kept on this device. libsession
+/// clamps it to 64 to 1024. Unset forgets the stored value, which puts the edge back to what the
+/// app opened the bridge with. Thumbnails already made keep the size they were made at.
+struct SetThumbnailEdgeCommand {
+    static constexpr std::string_view type_tag = "setThumbnailEdge";
+
+    std::optional<double> edge_px;
+
+    explicit SetThumbnailEdgeCommand(std::optional<double> edge_px_) :
+            edge_px{std::move(edge_px_)} {}
+};
+
 /// How large each of the account's configs is, for an exported log's header, listed by name.
 /// Empty before there is an account: the configs are built from it.
 struct GetConfigSizesCommand {
@@ -1247,6 +1284,16 @@ struct SetPrefCommand {
             key{std::move(key_)}, value{std::move(value_)} {}
 };
 
+/// A file a forged message says it carries: a pointer to nothing, so it never downloads.
+struct TestAttachment {
+    std::string content_type;
+    /// Unset is a sender who sent no ThumbHash, which is what leaves `hasThumbhash` false.
+    std::optional<std::vector<std::byte>> thumbhash;
+
+    TestAttachment(std::string content_type_, std::optional<std::vector<std::byte>> thumbhash_) :
+            content_type{std::move(content_type_)}, thumbhash{std::move(thumbhash_)} {}
+};
+
 /// Builds, encrypts and delivers a v1 DM as if it had arrived from the swarm. The sender is
 /// whoever holds `senderSeedHex`, a 32-byte account seed; the recipient is always the client
 /// the command is sent to, since that is the only account it can decrypt for.
@@ -1256,9 +1303,10 @@ struct DeliverTestMessageCommand {
     std::string sender_seed_hex;
     std::string body;
     double timestamp;
+    std::optional<std::vector<::session_bridge::TestAttachment>> attachments;
 
-    DeliverTestMessageCommand(std::string sender_seed_hex_, std::string body_, double timestamp_) :
-            sender_seed_hex{std::move(sender_seed_hex_)}, body{std::move(body_)}, timestamp{std::move(timestamp_)} {}
+    DeliverTestMessageCommand(std::string sender_seed_hex_, std::string body_, double timestamp_, std::optional<std::vector<::session_bridge::TestAttachment>> attachments_) :
+            sender_seed_hex{std::move(sender_seed_hex_)}, body{std::move(body_)}, timestamp{std::move(timestamp_)}, attachments{std::move(attachments_)} {}
 };
 
 /// This client's own account seed, so the harness can forge messages from it to another.
@@ -1344,6 +1392,8 @@ using Command = std::variant<
         GetAttachmentCacheLimitCommand,
         SetAttachmentCacheLimitCommand,
         GetAttachmentCacheSizeCommand,
+        GetThumbnailEdgeCommand,
+        SetThumbnailEdgeCommand,
         GetConfigSizesCommand,
         GetPrefCommand,
         SetPrefCommand,

@@ -1,14 +1,15 @@
-import { existsSync, readFileSync } from 'node:fs'
-import { mkdir, mkdtemp, rm } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
+import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import type { Command, Frame, Response } from '@session/bridge-types'
-import { createSessionClient, type BridgeTransport, type SessionClient } from '@session/client'
+import { createSessionClient, type SessionClient } from '@session/client'
 import { runSessionClientContract, type ContractHarness } from '@session/client-contract'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { createNodeBridgeTransport } from '#src/index'
+
+import { builtForTesting, openPeer, type Peer } from './peer'
 
 /**
  * The contract, run against the real addon with no network - mode B.
@@ -25,99 +26,6 @@ import { createNodeBridgeTransport } from '#src/index'
  */
 
 const addon = join(import.meta.dirname, '../build/Release/session_bridge_node.node')
-
-/**
- * Splits one frame stream in two: the facade's, and the harness's own.
- *
- * The test-only commands must not go through SessionClient - they are not things the app can
- * do, and putting them on that interface would be the first crack in it. So they ride the same
- * transport on request ids the facade will not reach, and their responses are taken off the
- * stream before the facade ever sees them.
- */
-function tap(transport: BridgeTransport): {
-  forFacade: BridgeTransport
-  ask: (command: Command) => Promise<Response>
-} {
-  let facadeSink: ((frame: Frame) => void) | null = null
-  const buffered: Frame[] = []
-  const waiting = new Map<number, (response: Response) => void>()
-  let nextId = 1_000_000
-
-  transport.setSink((frame) => {
-    if (frame.type === 'response') {
-      const resolve = waiting.get(frame.response.id)
-      if (resolve) {
-        waiting.delete(frame.response.id)
-        resolve(frame.response)
-        return
-      }
-    }
-    if (facadeSink) facadeSink(frame)
-    else buffered.push(frame)
-  })
-
-  return {
-    forFacade: {
-      send: (request) => {
-        transport.send(request)
-      },
-      setSink: (onFrame) => {
-        facadeSink = onFrame
-        for (const frame of buffered.splice(0, buffered.length)) onFrame(frame)
-      },
-      close: () => {
-        transport.close()
-      },
-    },
-    ask: (command) =>
-      new Promise<Response>((resolve) => {
-        const id = nextId++
-        waiting.set(id, resolve)
-        transport.send({ id, command })
-      }),
-  }
-}
-
-interface Peer {
-  client: SessionClient
-  ask: (command: Command) => Promise<Response>
-  sessionId: string
-  seed: string
-  dir: string
-  /** How this peer was opened, so a restart opens it the same way. */
-  deferred: boolean
-}
-
-async function openPeer(dir: string, { deferred = false } = {}): Promise<Peer> {
-  await mkdir(join(dir, 'cache'), { recursive: true })
-  const transport = createNodeBridgeTransport({
-    dbPath: join(dir, 'session.db'),
-    cacheDir: join(dir, 'cache'),
-    rawKey: new Uint8Array(32).fill(11),
-    // Eagerly, because a peer is only useful once it has an identity to send from -- except a
-    // newcomer, which exists precisely to have none.
-    deferAccount: deferred,
-  })
-  const { forFacade, ask } = tap(transport)
-  const client = createSessionClient(forFacade)
-
-  const info = await client.getAccountInfo()
-  if (deferred)
-    // No account, so no seed to ask for: the test-only command answers off one.
-    return { client, ask, sessionId: '', seed: '', dir, deferred }
-
-  const seed = await ask({ type: 'getTestAccountSeed' })
-  if (seed.result?.type !== 'hex') throw new Error(seed.error ?? 'no seed: build with testing on')
-
-  return {
-    client,
-    ask,
-    sessionId: info.sessionId ?? '',
-    seed: seed.result.hex,
-    dir,
-    deferred,
-  }
-}
 
 /** Carries everything `from` has written that `to` has not been given yet. */
 function carrier(a: Peer, b: Peer): () => Promise<void> {
@@ -149,26 +57,10 @@ function carrier(a: Peer, b: Peer): () => Promise<void> {
   }
 }
 
-/**
- * Whether the addon that exists was built with the test commands in it.
- *
- * Read from the CMake cache beside it rather than by asking the addon, because a build without
- * them answers "the bridge does not implement this command yet" - which is indistinguishable
- * from a real regression, and would be reported as one.
- */
-function builtForTesting(): boolean {
-  try {
-    const cache = readFileSync(join(import.meta.dirname, '../build/CMakeCache.txt'), 'utf8')
-    return /^SESSION_BRIDGE_TESTING:BOOL=ON$/m.test(cache)
-  } catch {
-    return false
-  }
-}
-
 const describeAddon = existsSync(addon) && builtForTesting() ? describe : describe.skip
 
 const OFFLINE_ATTACHMENTS =
-  'needs an incoming attachment and a file server to fetch it from; the harness forges bodies only'
+  'needs a file server to fetch an incoming attachment from; the harness forges pointers only'
 
 describeAddon('addon', () => {
   let root: string
@@ -245,12 +137,35 @@ describeAddon('addon', () => {
     },
 
     withAttachment() {
-      // deliverTestMessage forges a body-only DM, which is the whole of what the harness can
-      // put into a database with no network: there is no attachment to fetch, and no file
-      // server to fetch it from. The scenarios that need one are skipped below.
+      // No file server here, so an attachment deliverTestMessage forges can never download; the
+      // scenarios built on this are skipped below.
       return Promise.reject(
         new Error('the offline addon harness cannot produce an incoming attachment'),
       )
+    },
+
+    async receivesAttachments() {
+      const { alice, bob } = await pair()
+      await alice.ask({ type: 'approveTestContact', sessionId: bob.sessionId })
+      let sent = 0
+      return {
+        async receive(contentTypes: readonly string[]) {
+          sent += 1
+          const body = `attachments ${String(sent)}`
+          const delivered = await alice.ask({
+            type: 'deliverTestMessage',
+            senderSeedHex: bob.seed,
+            body,
+            timestamp: Date.now() + sent,
+            attachments: contentTypes.map((contentType) => ({ contentType })),
+          })
+          if (delivered.error !== undefined) throw new Error(delivered.error)
+          const page = await alice.client.getMessages(bob.sessionId, { limit: 5 })
+          const message = page.messages.find((m) => m.body === body)
+          if (!message) throw new Error('the forged message did not arrive')
+          return message
+        },
+      }
     },
 
     async unopenable() {
@@ -306,6 +221,11 @@ describeAddon('addon', () => {
         'fetches an arriving image unasked once told to fetch images': OFFLINE_ATTACHMENTS,
         'exports beside a file already written rather than over it, unless told to replace':
           OFFLINE_ATTACHMENTS,
+        'fetches an uncached export into the cache, reading as fetching meanwhile':
+          OFFLINE_ATTACHMENTS,
+        'joins an export to a running download': OFFLINE_ATTACHMENTS,
+        'joins a download to a running export': OFFLINE_ATTACHMENTS,
+        'withdraws what was asked of an attachment once it is deleted': OFFLINE_ATTACHMENTS,
       },
     },
   )

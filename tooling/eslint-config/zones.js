@@ -8,9 +8,9 @@
  * exists for whoever has the editor plugin installed.
  */
 
-/** @type {(patterns: Array<{group: string[], message: string}>) => import('eslint').Linter.Config['rules']} */
-const restrict = (patterns) => ({
-  'no-restricted-imports': ['error', { patterns }],
+/** @type {(patterns: Array<{group: string[], message: string}>, paths?: Array<{name: string, importNames: string[], message: string}>) => import('eslint').Linter.Config['rules']} */
+const restrict = (patterns, paths = []) => ({
+  'no-restricted-imports': ['error', { patterns, paths }],
 })
 
 const NO_TAMAGUI = {
@@ -79,6 +79,15 @@ export const uiZone = restrict([
   NO_BRIDGE_NODE,
 ])
 
+// dependency-cruiser sees modules, not the names imported from them, so only this rule holds it.
+const ONLY_GATED_MOBILE_CLIENT = {
+  name: '@session/client',
+  importNames: ['createSessionClient'],
+  message:
+    'Build the client with mobileClient() from src/client.ts, which refuses an export to a ' +
+    'destination the files port did not stage.',
+}
+
 const NO_FILE_SYSTEM = {
   group: ['expo-file-system', 'expo-file-system/*'],
   message:
@@ -90,20 +99,20 @@ const NO_FILE_SYSTEM = {
  * apps/mobile - Expo and react-native are its own; electron and the node addon are not, and the
  * file system is reached only through `src/storage/`.
  */
-export const mobileAppZone = restrict([
-  NO_DEEP,
-  NO_ELECTRON,
-  NO_ROUTER,
-  NO_BRIDGE_NODE,
-  NO_FILE_SYSTEM,
-])
+export const mobileAppZone = restrict(
+  [NO_DEEP, NO_ELECTRON, NO_ROUTER, NO_BRIDGE_NODE, NO_FILE_SYSTEM],
+  [ONLY_GATED_MOBILE_CLIENT],
+)
 
 /**
  * apps/mobile/src/storage - the mobile zone less the file-system rule, which it exists to
  * honour. A whole zone rather than an exemption, because a later `no-restricted-imports` replaces
  * an earlier one instead of merging with it.
  */
-export const mobileStorageZone = restrict([NO_DEEP, NO_ELECTRON, NO_ROUTER, NO_BRIDGE_NODE])
+export const mobileStorageZone = restrict(
+  [NO_DEEP, NO_ELECTRON, NO_ROUTER, NO_BRIDGE_NODE],
+  [ONLY_GATED_MOBILE_CLIENT],
+)
 
 /** The desktop renderer: DOM + react-router, but never electron or the addon directly. */
 export const desktopRendererZone = restrict([

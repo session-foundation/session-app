@@ -1,96 +1,113 @@
 import { useEffect, useRef, useState } from 'react'
-import { Animated, Easing, View } from 'react-native'
+import { Keyboard, ScrollView, View, type ScrollViewInstance } from 'react-native'
 
 import { isLayoutRtl } from './layoutDirection'
+import { pageOffset, settledPage } from './pagerOffset'
 import type { SlidePagerProps } from './SlidePager.types'
 
 export type { SlidePagerProps }
 
-/**
- * How long a page takes to slide. Android's own tab transition.
- *
- * Shorter than a navigation push, and deliberately: moving between tabs is not moving between
- * screens, and a tab bar that takes as long as a stack does reads as heavier than it is.
- */
-const DURATION_MS = 250
+const FILL = { flex: 1 } as const
 
 /**
- * The pages of a tabbed screen, laid side by side and slid across.
- *
- * **Both pages move together, at the same rate**, which is what makes it a pager rather than a
- * push: a push has the arriving screen cover the one it is leaving, and the two travel different
- * distances. Here the pages are one strip that slides, because they are two views of the same
- * screen rather than two screens.
- *
- * Every page stays mounted at its own offset. That is what keeps a half-typed recovery phrase
- * there after a look at the other tab, and it is why the pages are positioned rather than swapped:
- * a page taken out of the tree loses everything it was holding.
+ * Where the pager is the whole width, its neighbours are off screen anyway, and a page may draw
+ * past the pager's box: the camera preview runs under the home indicator.
  */
-export function SlidePager({ index, instant = false, clip = false, children }: SlidePagerProps) {
+const UNCLIPPED = { overflow: 'visible' } as const
+
+/**
+ * The pages of a tabbed screen, laid side by side and swiped or slid across.
+ *
+ * **A native paging scroll view, so a swipe moves between the pages.** That is also what settles
+ * the swipe against the stack's: from iOS 26 the stack goes back on a swipe from anywhere on the
+ * screen, and it waits for a horizontally scrolling view under the finger to decline first. So a
+ * swipe towards the previous page goes to it, and only a swipe from the screen's edge -- which
+ * always wins -- or one on the first page's leading side leaves the screen.
+ *
+ * Every page stays mounted. That is what keeps a half-typed recovery phrase there after a look at
+ * the other tab: a page taken out of the tree loses everything it was holding.
+ */
+export function SlidePager({
+  index,
+  onIndexChange,
+  instant = false,
+  clip = false,
+  children,
+}: SlidePagerProps) {
   /**
-   * The pager's own width, which is how far a page travels.
+   * The pager's own width, which is each page's.
    *
    * **Measured rather than read off the window.** The two are the same on a phone, where the pager
-   * is the screen, and are not on a tablet, where it is a column inside one -- and a page that
-   * travels a window's width crosses its own column and keeps going, over whatever sits beside it.
+   * is the screen, and are not on a tablet, where it is a column inside one.
    */
   const [width, setWidth] = useState(0)
+  const scroller = useRef<ScrollViewInstance>(null)
+  /** Where the scroll view is, so a page the person swiped to is not scrolled to again. */
+  const showing = useRef(index)
+  // Whether the keyboard has been dismissed for the move in progress; cleared when a page settles.
+  const dismissedThisMove = useRef(false)
+  const count = children.length
   const rtl = isLayoutRtl()
-  const at = useRef(new Animated.Value(index)).current
 
+  // A tab chosen from the bar: slide to it.
   useEffect(() => {
-    if (instant) {
-      at.setValue(index)
-      return
-    }
-    const run = Animated.timing(at, {
-      toValue: index,
-      duration: DURATION_MS,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
+    if (width === 0 || showing.current === index) return
+    showing.current = index
+    scroller.current?.scrollTo({ x: pageOffset(index, count, width, rtl), animated: !instant })
+    // A new width alone returns above, as the page is already showing; it is placed below.
+  }, [index, count, width, rtl, instant])
+
+  // The page showing, placed again at a new width -- the first, or one after a rotation or a
+  // resize -- or in a new direction, which mirrors where every page sits. After the pages have
+  // been laid out: placed from `onLayout`, the offset is clamped to the old, narrower content and
+  // the pager is left between two pages.
+  useEffect(() => {
+    if (width === 0) return
+    scroller.current?.scrollTo({
+      x: pageOffset(showing.current, count, width, rtl),
+      animated: false,
     })
-    run.start()
-    return () => {
-      run.stop()
-    }
-  }, [index, instant, at])
+  }, [count, width, rtl])
 
   return (
-    // Anything a page means to draw outside this box -- the wide back control hangs off the
-    // column's leading edge -- belongs to whatever lays the pager out, not inside a page.
-    <View
-      style={{ flex: 1, ...(clip ? { overflow: 'hidden' as const } : {}) }}
+    <ScrollView
+      ref={scroller}
+      horizontal
+      pagingEnabled
+      showsHorizontalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      // Anything a page means to draw outside this box -- the wide back control hangs off the
+      // column's leading edge -- belongs to whatever lays the pager out, not inside a page.
+      style={[FILL, clip ? null : UNCLIPPED]}
       onLayout={(event) => {
         setWidth(event.nativeEvent.layout.width)
       }}
+      // Every scroll rather than the end of a fling: VoiceOver's page swipe moves the view without
+      // one, and the tab bar would be left on the old page.
+      scrollEventThrottle={16}
+      onScroll={(event) => {
+        const page = settledPage(event.nativeEvent.contentOffset.x, count, width, rtl)
+        // Leaving a page with the keyboard up leaves the field it belongs to. Once the offset has
+        // moved, not on `keyboardDismissMode`'s drag: iOS starts a horizontal scroll view's drag on
+        // a vertical one too, so scrolling the column it sits in closed the keyboard. Once a move,
+        // on its first frame, rather than on every frame until it settles.
+        if (page === null) {
+          if (!dismissedThisMove.current) Keyboard.dismiss()
+          dismissedThisMove.current = true
+          return
+        }
+        dismissedThisMove.current = false
+        if (page === showing.current) return
+        showing.current = page
+        onIndexChange?.(page)
+      }}
     >
-      {children.map((page, at_) => (
-        <Animated.View
-          // The pages are a fixed list in source order, so their position is what identifies them.
-          key={String(at_)}
-          style={{
-            position: 'absolute',
-            top: 0,
-            right: 0,
-            bottom: 0,
-            left: 0,
-            transform: [
-              {
-                // Mirrored, because a transform is not. The next page arrives from the trailing
-                // edge -- the right in English, the left in Arabic -- and `translateX` is pixels
-                // along the screen whichever way the reading goes.
-                translateX: at.interpolate({
-                  inputRange: [at_ - 1, at_, at_ + 1],
-                  outputRange: rtl ? [-width, 0, width] : [width, 0, -width],
-                }),
-              },
-            ],
-          }}
-          pointerEvents={at_ === index ? 'auto' : 'none'}
-        >
+      {children.map((page, at) => (
+        // The pages are a fixed list in source order, so their position is what identifies them.
+        <View key={String(at)} style={{ width }}>
           {page}
-        </Animated.View>
+        </View>
       ))}
-    </View>
+    </ScrollView>
   )
 }

@@ -73,7 +73,7 @@ const KEY_A = 'a'.repeat(64)
 const nothing: DevnetEnv = {
   seedUrl: undefined,
   fileServerUrl: undefined,
-  fileServerX25519Pubkey: undefined,
+  fileServerEd25519Pubkey: undefined,
 }
 
 const env = (over: Partial<DevnetEnv>): DevnetEnv => ({ ...nothing, ...over })
@@ -125,10 +125,10 @@ describe('parseDevnetConfig', () => {
         env({ seedUrl: '10.0.0.1', fileServerUrl: 'http://10.0.0.1:8000' }),
         'EXPO_PUBLIC_SESSION_',
       ),
-    ).toThrow(/FILE_SERVER_X25519_PUBKEY/)
+    ).toThrow(/FILE_SERVER_ED25519_PUBKEY/)
     expect(() =>
       parseDevnetConfig(
-        env({ seedUrl: '10.0.0.1', fileServerX25519Pubkey: KEY_A }),
+        env({ seedUrl: '10.0.0.1', fileServerEd25519Pubkey: KEY_A }),
         'EXPO_PUBLIC_SESSION_',
       ),
     ).toThrow(/FILE_SERVER_URL/)
@@ -139,7 +139,7 @@ describe('parseDevnetConfig', () => {
       env({
         seedUrl: '10.0.0.1',
         fileServerUrl: 'http://10.0.0.1:8000',
-        fileServerX25519Pubkey: KEY_A.toUpperCase(),
+        fileServerEd25519Pubkey: KEY_A.toUpperCase(),
       }),
       'EXPO_PUBLIC_SESSION_',
     )
@@ -147,7 +147,7 @@ describe('parseDevnetConfig', () => {
       scheme: 'http',
       host: '10.0.0.1',
       port: 8000,
-      x25519PubkeyHex: KEY_A,
+      ed25519PubkeyHex: KEY_A,
     })
   })
 
@@ -157,7 +157,7 @@ describe('parseDevnetConfig', () => {
         env({
           seedUrl: '10.0.0.1',
           fileServerUrl: 'http://10.0.0.1',
-          fileServerX25519Pubkey: KEY_A,
+          fileServerEd25519Pubkey: KEY_A,
         }),
         'EXPO_PUBLIC_SESSION_',
       ),
@@ -171,11 +171,11 @@ describe('parseDevnetConfig', () => {
           env({
             seedUrl: '10.0.0.1',
             fileServerUrl: 'http://10.0.0.1:8000',
-            fileServerX25519Pubkey: bad,
+            fileServerEd25519Pubkey: bad,
           }),
           'EXPO_PUBLIC_SESSION_',
         ),
-      ).toThrow(/EXPO_PUBLIC_SESSION_FILE_SERVER_X25519_PUBKEY must be 64 hex characters/)
+      ).toThrow(/EXPO_PUBLIC_SESSION_FILE_SERVER_ED25519_PUBKEY must be 64 hex characters/)
   })
 
   it('leaves the file server out when it is not configured', () => {

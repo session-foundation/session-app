@@ -64,7 +64,7 @@ function NotificationOption({
       alignItems="center"
       gap={ROW_GAP}
       pointerEvents={disabled ? 'none' : 'auto'}
-      cursor="pointer"
+      $platform-web={{ cursor: 'pointer' }}
       onPress={() => {
         onSelect(value)
       }}

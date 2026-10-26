@@ -1,4 +1,4 @@
-import { RADII, SPACING } from '@session/theme-tokens'
+import { RADII } from '@session/theme-tokens'
 
 /**
  * Where a tile stops taking the larger corner.
@@ -25,8 +25,8 @@ export function tileRadius(side: number): number {
 export const TILE_SCRIM = 'rgba(0, 0, 0, 0.55)'
 
 /** How much of `TILE_SCRIM` a tile takes under a pointer and while pressed. */
-export const TILE_HOVER_OPACITY = 0.35
-export const TILE_PRESS_OPACITY = 0.6
+export const TILE_HOVER_OPACITY = 0.7
+export const TILE_PRESS_OPACITY = 1
 
 /**
  * The hairline round a tile with no picture in it yet.
@@ -39,23 +39,24 @@ export const TILE_PRESS_OPACITY = 0.6
 export const TILE_HAIRLINE_WIDTH = 1
 
 /**
- * How far the duration badge sits from the tile's bottom and leading edges.
- *
- * `$2xs`, as a number because `logical()` takes lengths rather than tokens - the inline inset has
- * to be written as a CSS logical property or it does not mirror, which is what that helper is for.
- */
-export const TILE_BADGE_INSET = SPACING['2xs']
-
-/**
  * The sender's placeholder a tile draws under its picture, or null for the glyph.
  *
  * A placeholder that failed to load draws nothing, so it counts as none: the tile then says what
  * it holds with the glyph and the hairline. Keyed on the url, so a new one gets its own attempt.
  */
 export function tilePlaceholder(
-  preview: string | null | undefined,
-  failedPreview: string | null,
+  thumbhash: string | null | undefined,
+  failedThumbhash: string | null,
 ): string | null {
-  if (preview === undefined || preview === null) return null
-  return preview === failedPreview ? null : preview
+  if (thumbhash === undefined || thumbhash === null) return null
+  return thumbhash === failedThumbhash ? null : thumbhash
+}
+
+/**
+ * Whether a tile shows its picture rather than its placeholder: once the image has reported in for
+ * this very url. Keyed on the url, so a new one starts hidden rather than inheriting the last one's
+ * load. A url that never loads leaves the placeholder, which is what a tile without one draws too.
+ */
+export function showsPicture(uri: string | null | undefined, loadedUri: string | null): boolean {
+  return uri !== undefined && uri !== null && uri === loadedUri
 }

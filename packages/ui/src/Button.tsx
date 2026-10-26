@@ -1,22 +1,63 @@
+import { INTERACTION_OPACITY } from '@session/theme-tokens'
 import type { ComponentProps, ReactNode } from 'react'
-import { Spinner, styled, XStack, YStack } from 'tamagui'
+import { isWeb, Spinner, styled, XStack, YStack } from 'tamagui'
 
 import { INHERITED_LABEL } from './labelColor'
 import { hitSlopFor } from './buttonHitTarget'
+import type { FocusRingShape } from './keyboardPress'
 import { PRESS_PASSTHROUGH } from './pressPassthrough'
 import { PressArea } from './PressArea'
 import { Concealed } from './Concealed'
 import { Text } from './Text'
+import { LABEL_MAX_SCALE } from './fontScaleCaps'
+
+/**
+ * What each variant looks like while it is held down: the web's `pressStyle`, and on native the
+ * frame's style while `PressArea` reports a press (see `PRESSED`). One table, so the two can only
+ * agree.
+ *
+ * Hover has no such table because native needs no copy of it: while `PressArea` reports a pointer
+ * over the button, the frame is given `forceStyle="hover"`, and tamagui applies the variant's own
+ * `hoverStyle`. So each `hoverStyle` is written once, in its variant.
+ */
+const PRESS_STYLE = {
+  solid: {
+    backgroundColor: '$accentPressed',
+    borderColor: '$accentPressed',
+    color: '$onAccent',
+  },
+  outline: {
+    backgroundColor: '$textPrimary',
+    borderColor: '$textPrimary',
+    color: '$backgroundPrimary',
+    opacity: INTERACTION_OPACITY.filledPressed,
+  },
+  outlineAccent: {
+    backgroundColor: '$primaryColor',
+    borderColor: '$primaryColor',
+    color: '$onAccent',
+    opacity: INTERACTION_OPACITY.filledPressed,
+  },
+  ghost: { backgroundColor: '$pressedOverlay' },
+  ghostAccent: { backgroundColor: '$pressedOverlay' },
+  simple: { opacity: INTERACTION_OPACITY.dimPressed },
+  tonal: { opacity: 0.7 },
+  danger: {
+    backgroundColor: '$dangerColor',
+    borderColor: '$dangerColor',
+    color: '$onDanger',
+    opacity: INTERACTION_OPACITY.filledPressed,
+  },
+} as const
 
 const Frame = styled(XStack, {
   name: 'Button',
-  role: 'button',
   alignItems: 'center',
   justifyContent: 'center',
   gap: '$xs',
   borderRadius: '$full',
   borderWidth: 1,
-  cursor: 'pointer',
+  '$platform-web': { cursor: 'pointer' },
   // A label is not text you select; dragging across a control should do nothing. The desktop
   // client sets the same thing on its button for the same reason.
   userSelect: 'none',
@@ -39,11 +80,7 @@ const Frame = styled(XStack, {
           borderColor: '$accentHover',
           color: '$onAccent',
         },
-        pressStyle: {
-          backgroundColor: '$accentPressed',
-          borderColor: '$accentPressed',
-          color: '$onAccent',
-        },
+        pressStyle: PRESS_STYLE.solid,
       },
       /**
        * Hover **inverts** rather than tinting: the outline fills with the text colour and the label
@@ -61,12 +98,7 @@ const Frame = styled(XStack, {
           borderColor: '$textPrimary',
           color: '$backgroundPrimary',
         },
-        pressStyle: {
-          backgroundColor: '$textPrimary',
-          borderColor: '$textPrimary',
-          color: '$backgroundPrimary',
-          opacity: 0.82,
-        },
+        pressStyle: PRESS_STYLE.outline,
       },
       /**
        * The outline, in the accent rather than in the text colour.
@@ -85,12 +117,7 @@ const Frame = styled(XStack, {
           borderColor: '$primaryColor',
           color: '$onAccent',
         },
-        pressStyle: {
-          backgroundColor: '$primaryColor',
-          borderColor: '$primaryColor',
-          color: '$onAccent',
-          opacity: 0.82,
-        },
+        pressStyle: PRESS_STYLE.outlineAccent,
       },
       /** Overlays rather than surfaces, so the step shows on any ground, even a hovered row. */
       ghost: {
@@ -98,7 +125,7 @@ const Frame = styled(XStack, {
         borderColor: 'transparent',
         color: '$textPrimary',
         hoverStyle: { backgroundColor: '$hoverOverlay' },
-        pressStyle: { backgroundColor: '$pressedOverlay' },
+        pressStyle: PRESS_STYLE.ghost,
       },
       /**
        * `ghost`, in the accent.
@@ -113,7 +140,7 @@ const Frame = styled(XStack, {
         borderColor: 'transparent',
         color: '$primaryColor',
         hoverStyle: { backgroundColor: '$hoverOverlay' },
-        pressStyle: { backgroundColor: '$pressedOverlay' },
+        pressStyle: PRESS_STYLE.ghostAccent,
       },
       /**
        * Text on its own, no frame -- what the desktop client calls Simple and uses for every modal
@@ -124,8 +151,23 @@ const Frame = styled(XStack, {
         backgroundColor: 'transparent',
         borderColor: 'transparent',
         color: '$textPrimary',
-        hoverStyle: { opacity: 0.7 },
-        pressStyle: { opacity: 0.55 },
+        hoverStyle: { opacity: INTERACTION_OPACITY.dimHover },
+        pressStyle: PRESS_STYLE.simple,
+      },
+      /**
+       * A quiet fill: the nested surface under a plain label, in a rounded rect rather than a pill.
+       *
+       * Legacy iOS's non-primary rounded rect, for a control among content -- an attachment's
+       * Download -- where a bare label does not read as something to press and an outline is louder
+       * than what it sits in. The nested surface steps off both message bubbles in every theme.
+       */
+      tonal: {
+        backgroundColor: '$backgroundNested',
+        borderColor: '$backgroundNested',
+        borderRadius: '$sm',
+        color: '$textPrimary',
+        hoverStyle: { opacity: 0.8 },
+        pressStyle: PRESS_STYLE.tonal,
       },
       /** Danger text on a transparent ground, filling on hover. The table's destructive row. */
       danger: {
@@ -137,12 +179,7 @@ const Frame = styled(XStack, {
           borderColor: '$dangerColor',
           color: '$onDanger',
         },
-        pressStyle: {
-          backgroundColor: '$dangerColor',
-          borderColor: '$dangerColor',
-          color: '$onDanger',
-          opacity: 0.82,
-        },
+        pressStyle: PRESS_STYLE.danger,
       },
     },
     size: {
@@ -200,26 +237,30 @@ const Frame = styled(XStack, {
   defaultVariants: { variant: 'solid', size: 'md' },
 })
 
+/** A press style without its label colour, which native hands to the label instead. */
+function withoutColor<T extends object>(style: T): Omit<T, 'color'> {
+  const { color: _color, ...rest } = style as T & { color?: unknown }
+  return rest
+}
+
 /**
- * What a variant looks like while it is held down, as plain values.
+ * The frame's style while `PressArea` reports a press, on native.
  *
- * The same styles the `pressStyle` above declares, restated here because **native cannot use
- * those**: the frame no longer owns the press -- `PressArea` does, so that a finger sliding off
- * the control clears the highlight the way the platform does -- and tamagui only applies
- * `pressStyle` for presses it handled itself. On the web nothing reads this; the pseudo-class
- * still does the work.
- *
- * Kept next to the variants rather than derived from them, so the pair is visible in one screen
- * and a change to one is an obvious prompt to change the other.
+ * **Native cannot use `pressStyle`**: the frame no longer owns the press -- `PressArea` does, so
+ * that a finger sliding off the control clears the highlight the way the platform does -- and
+ * tamagui only applies `pressStyle` for presses it handled itself. So the same table is applied
+ * by hand, less the colour: a native label inherits nothing from its frame, and `PRESSED_LABEL`
+ * colours it. On the web nothing reads this; the pseudo-class still does the work.
  */
 const PRESSED = {
-  solid: { backgroundColor: '$accentPressed', borderColor: '$accentPressed' },
-  outline: { backgroundColor: '$textPrimary', borderColor: '$textPrimary', opacity: 0.82 },
-  outlineAccent: { backgroundColor: '$primaryColor', borderColor: '$primaryColor', opacity: 0.82 },
-  ghost: { backgroundColor: '$pressedOverlay' },
-  ghostAccent: { backgroundColor: '$pressedOverlay' },
-  simple: { opacity: 0.7 },
-  danger: { backgroundColor: '$dangerColor', borderColor: '$dangerColor', opacity: 0.82 },
+  solid: withoutColor(PRESS_STYLE.solid),
+  outline: withoutColor(PRESS_STYLE.outline),
+  outlineAccent: withoutColor(PRESS_STYLE.outlineAccent),
+  ghost: PRESS_STYLE.ghost,
+  ghostAccent: PRESS_STYLE.ghostAccent,
+  simple: PRESS_STYLE.simple,
+  tonal: PRESS_STYLE.tonal,
+  danger: withoutColor(PRESS_STYLE.danger),
 } as const
 
 /**
@@ -245,6 +286,7 @@ const LABEL_TONE = {
   ghost: '$textPrimary',
   ghostAccent: '$primaryColor',
   simple: '$textPrimary',
+  tonal: '$textPrimary',
   danger: '$dangerColor',
 } as const
 
@@ -262,12 +304,24 @@ const PRESSED_LABEL: Partial<Record<keyof typeof LABEL_TONE, string>> = {
   danger: '$onDanger',
 }
 
+/** On the web the `PressArea` round the frame is the button; a second role inside it is noise. */
+const FRAME_ROLE = isWeb ? {} : ({ role: 'button' } as const)
+
+/** Outside the frame, so the ring reads against a fill in the ring's own colour. */
+const RING_OFFSET = 2
+
+/** A cell shares its edges with what holds it, which would clip a ring drawn outside it. */
+const CELL_RING_OFFSET = -2
+
 export interface ButtonProps {
   children?: ReactNode
   onPress?: () => void
   variant?: keyof typeof LABEL_TONE
   size?: 'xs' | 'sm' | 'md' | 'lg'
-  /** For an icon on its own: equal width and height, so the full radius is a circle. */
+  /**
+   * For an icon on its own: equal width and height, so a full radius draws a circle and `tonal`'s
+   * rounded rect a rounded square.
+   */
   circular?: boolean
   /** Takes an equal share of the row it is in. What a dialog's actions do. */
   fill?: boolean
@@ -290,6 +344,11 @@ export interface ButtonProps {
    */
   borderRadius?: ComponentProps<typeof Frame>['borderRadius']
   /**
+   * Overrides how far the touch target reaches past each side, which is otherwise just enough to
+   * reach `MIN_HIT_TARGET`. For a button in a row that offers more, so the whole row takes the tap.
+   */
+  hitSlop?: number | undefined
+  /**
    * Colour the label danger without filling the button.
    *
    * Every destructive action in a modal is drawn this way in the desktop client -- red text beside
@@ -297,6 +356,11 @@ export interface ButtonProps {
    * because it is the one that looks like a primary action.
    */
   destructive?: boolean
+  /**
+   * Drawn on an accent fill, a bubble you sent. Only the web focus ring reads it, since the
+   * ring falls on the fill round the button.
+   */
+  onAccent?: boolean | undefined
   disabled?: boolean
   loading?: boolean
   icon?: ReactNode
@@ -313,6 +377,13 @@ export interface ButtonProps {
   testID?: string
 }
 
+/**
+ * Each size's height, as a floor for a text button: at a large system text size the label outgrows
+ * it, and a fixed height cuts the label's second line or the bottom of its first. A circular
+ * button keeps the variant's fixed height, since its width is taken from it.
+ */
+const SIZE_MIN_HEIGHT = { xs: '$lg', sm: '$xl', md: '$2xl', lg: '$3xl' } as const
+
 export function Button({
   children,
   onPress,
@@ -325,6 +396,8 @@ export function Button({
   fill = false,
   paddingHorizontal,
   borderRadius,
+  hitSlop,
+  onAccent = false,
   icon,
   accessibilityLabel,
   testID,
@@ -354,7 +427,6 @@ export function Button({
   const pressedLabel =
     destructive && !INVERTS_ON_PRESS.has(variant) ? '$dangerColor' : PRESSED_LABEL[variant]
 
-  const hitSlop = hitSlopFor(size)
   const inert = disabled || loading
   /**
    * The name a screen reader gives the button. While loading the label is hidden, and Android
@@ -364,32 +436,44 @@ export function Button({
   const name =
     accessibilityLabel ?? (loading && typeof children === 'string' ? children : undefined)
 
+  const ring: FocusRingShape =
+    borderRadius === undefined
+      ? { onAccent, offset: RING_OFFSET, radius: variant === 'tonal' ? '$sm' : '$full' }
+      : { onAccent, offset: CELL_RING_OFFSET, radius: 0 }
+
   return (
     <PressArea
       fill={fill}
+      ring={ring}
       {...(inert || onPress === undefined ? {} : { onPress })}
       disabled={inert}
       // Grown outwards rather than drawn larger: the control keeps the size the designs give it and
       // the target reaches the floor. Ignored on the web, where a pointer does not need it.
-      hitSlop={hitSlop}
+      hitSlop={hitSlop ?? hitSlopFor(size)}
       {...(name === undefined ? {} : { accessibilityLabel: name })}
       busy={loading}
       {...(testID === undefined ? {} : { testID })}
     >
-      {(pressed) => (
+      {(pressed, hovered) => (
         <Frame
           // The loading spinner's containing block: on the web a stack is static, and the
           // spinner's absolute offsets would otherwise resolve against the page.
           position="relative"
           {...(fill ? { flex: 1 } : {})}
+          {...FRAME_ROLE}
           variant={variant}
           size={size}
           circular={circular}
+          {...(circular
+            ? {}
+            : { height: 'auto', minHeight: SIZE_MIN_HEIGHT[size], paddingVertical: '$2xs' })}
           destructive={destructive}
           {...(paddingHorizontal === undefined ? {} : { paddingHorizontal })}
           {...(borderRadius === undefined ? {} : { borderRadius })}
           disabled={inert}
           {...PRESS_PASSTHROUGH}
+          // The variant's own `hoverStyle`, applied from the wrapper's hover: see `PressArea`.
+          {...(hovered && !pressed && !inert ? { forceStyle: 'hover' as const } : {})}
           {...(pressed && !inert ? PRESSED[variant] : {})}
         >
           {/* Loading hides the content but keeps its room, so the button keeps its size and
@@ -403,7 +487,13 @@ export function Button({
                 // Bold, which is what the desktop client's button is: `font-weight: 700` unless a
                 // caller says otherwise, and none of the onboarding callers do.
                 weight="bold"
-                color={INHERITED_LABEL ?? (pressed && !inert ? pressedLabel : nativeLabel)}
+                // Centred line by line, so a label that wraps stays centred in the button.
+                textAlign="center"
+                maxFontSizeMultiplier={LABEL_MAX_SCALE}
+                color={
+                  INHERITED_LABEL ??
+                  ((pressed || hovered) && !inert ? (pressedLabel ?? nativeLabel) : nativeLabel)
+                }
               >
                 {children}
               </Text>

@@ -1,7 +1,16 @@
 import { flag } from '@session/app'
 import { tr } from '@session/localization'
 import { ELEMENT } from '@session/test-ids'
-import { Button, MessageBubble, Reveal, Text, useMedia, YStack } from '@session/ui'
+import {
+  Button,
+  EndPinnedScroll,
+  LABEL_MAX_SCALE,
+  MessageBubble,
+  Reveal,
+  Text,
+  useMedia,
+  YStack,
+} from '@session/ui'
 import { useEffect, useState } from 'react'
 
 import { BUBBLE_MIN_WIDTH, bubbleMaxWidth } from './landingBubble'
@@ -53,6 +62,10 @@ const BUBBLE_INTERVAL_MS = 1500
  * arrives pushes the ones above it upward. Ours grew downward from a centred stack instead, which
  * is why the conversation read as a list filling in rather than as messages arriving -- the
  * movement is most of the effect, and it belongs to the container rather than to the bubble.
+ *
+ * The height it takes where there is room. At a large text size there is not, and the box gives
+ * way and scrolls rather than pushing the buttons and the terms off the screen: the terms are what
+ * creating an account commits somebody to, so they stay in view whatever the text size.
  */
 const CONVERSATION_HEIGHT = 320
 
@@ -131,33 +144,45 @@ function PhoneOpening() {
   }, [shown])
 
   return (
-    <YStack flex={1} gap="$xl">
-      <Text size="$headingLarge" weight="bold" textAlign="center">
+    // Padded at the bottom so a conversation squeezed by a large text size still stands clear of
+    // the buttons under it.
+    <YStack flex={1} gap="$xl" minHeight={0} paddingBottom="$md">
+      <Text
+        size="$headingLarge"
+        weight="bold"
+        textAlign="center"
+        maxFontSizeMultiplier={LABEL_MAX_SCALE}
+      >
         {tr('onboardingBubblePrivacyInYourPocket')}
       </Text>
 
       <YStack
         height={CONVERSATION_HEIGHT}
-        justifyContent="flex-end"
-        gap={BUBBLE_GAP}
+        flexShrink={1}
+        minHeight={0}
+        overflow="hidden"
         onLayout={(event) => {
           setChatWidth(event.nativeEvent.layout.width)
         }}
       >
-        {bubbles()
-          .slice(0, shown)
-          .map((bubble) => (
-            <Reveal key={bubble.key} instant={flag('disableAnimations')}>
-              <MessageBubble
-                outgoing={bubble.outgoing}
-                // The floor until the container has been measured, which is one frame and is over
-                // long before the first bubble is due.
-                maxWidth={chatWidth === 0 ? BUBBLE_MIN_WIDTH : bubbleMaxWidth(chatWidth)}
-              >
-                {bubble.text}
-              </MessageBubble>
-            </Reveal>
-          ))}
+        <EndPinnedScroll gap={BUBBLE_GAP}>
+          {bubbles()
+            .slice(0, shown)
+            .map((bubble) => (
+              <Reveal key={bubble.key} instant={flag('disableAnimations')}>
+                <MessageBubble
+                  outgoing={bubble.outgoing}
+                  // The conversation shows what Session is like rather than being read for itself.
+                  maxFontSizeMultiplier={LABEL_MAX_SCALE}
+                  // The floor until the container has been measured, which is one frame and is over
+                  // long before the first bubble is due.
+                  maxWidth={chatWidth === 0 ? BUBBLE_MIN_WIDTH : bubbleMaxWidth(chatWidth)}
+                >
+                  {bubble.text}
+                </MessageBubble>
+              </Reveal>
+            ))}
+        </EndPinnedScroll>
       </YStack>
     </YStack>
   )

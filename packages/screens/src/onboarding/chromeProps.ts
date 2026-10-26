@@ -10,7 +10,7 @@ import type { ReactNode } from 'react'
 export interface ChromeProps {
   children: ReactNode
   testID: string
-  onBack?: () => void
+  onBack?: (() => void) | undefined
   /**
    * Refuses back without taking the control away.
    *

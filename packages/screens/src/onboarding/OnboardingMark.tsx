@@ -1,4 +1,4 @@
-import { SessionBrand, Text } from '@session/ui'
+import { LABEL_MAX_SCALE, SessionBrand, Text } from '@session/ui'
 
 import { NetworkOverlay } from '../NetworkOverlay'
 
@@ -20,7 +20,14 @@ export function OnboardingMark({ size, title }: { size: number; title?: string }
       {title === undefined ? (
         <SessionBrand size={size} color="$primaryColor" />
       ) : (
-        <Text size="$bodyLarge" weight="bold">
+        // One line, so past what fits beside the back control and the language button it
+        // truncates rather than running into them.
+        <Text
+          size="$bodyLarge"
+          weight="bold"
+          numberOfLines={1}
+          maxFontSizeMultiplier={LABEL_MAX_SCALE}
+        >
           {title}
         </Text>
       )}

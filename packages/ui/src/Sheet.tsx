@@ -18,6 +18,11 @@ export interface SheetProps {
   closeLabel: string
   /** The scrolling part. As tall as it needs to be, up to what the surface allows. */
   children: ReactNode
+  /**
+   * The body is a `List`, which scrolls and windows itself, so the sheet adds no scroller of its
+   * own. For a body long enough that mounting every row at once is felt as a pause on opening.
+   */
+  bodyIsList?: boolean | undefined
   /** Held at the bottom edge, outside the scroll, so it is reachable from anywhere in the body. */
   footer?: ReactNode | undefined
   /**
@@ -28,6 +33,7 @@ export interface SheetProps {
   overlay?: ReactNode | undefined
   testID: ElementId
   closeTestID: ElementId
+  scrimTestID: ElementId
 }
 
 /**
@@ -48,10 +54,12 @@ export function Sheet({
   title,
   closeLabel,
   children,
+  bodyIsList = false,
   footer,
   overlay,
   testID,
   closeTestID,
+  scrimTestID,
 }: SheetProps) {
   const wide = useMedia().gtSm
   const insets = useScreenInsets()
@@ -63,13 +71,23 @@ export function Sheet({
       animationType={wide ? 'fade' : 'slide'}
       onRequestClose={onClose}
     >
-      <YStack fullscreen backgroundColor="$scrim" />
+      {/* The scrim is what closes, as a sibling behind the sheet rather than an ancestor of it: a
+          press handler on an ancestor claims every touch that starts in the sheet, and the list
+          inside then cannot start a scroll from a slow drag. */}
+      <YStack
+        fullscreen
+        backgroundColor="$scrim"
+        // Hidden from a reader: it is a second way to close, and Close is already announced.
+        aria-hidden
+        onPress={onClose}
+        testID={scrimTestID}
+      />
       <YStack
         fullscreen
         alignItems="center"
         justifyContent={wide ? 'center' : 'flex-end'}
         {...(wide ? { padding: '$xl' } : {})}
-        onPress={onClose}
+        pointerEvents="box-none"
       >
         <YStack
           width="100%"
@@ -83,10 +101,6 @@ export function Sheet({
             ? { borderBottomLeftRadius: SHEET_RADIUS, borderBottomRightRadius: SHEET_RADIUS }
             : { paddingBottom: insets.bottom })}
           backgroundColor="$backgroundSecondary"
-          // Swallows the press, so a tap inside the sheet does not reach the backdrop.
-          onPress={(event) => {
-            event.stopPropagation()
-          }}
           testID={testID}
         >
           <XStack alignItems="center" gap="$xs" paddingHorizontal="$md" paddingVertical="$sm">
@@ -110,11 +124,15 @@ export function Sheet({
               Chrome makes a scroller with no tab-focusable children focusable itself, and the
               rows are `role="button"` without a tabindex - so the body took focus and drew the
               UA's ring round all of it. */}
-          <ScrollView outlineStyle="none">
-            <YStack paddingHorizontal="$md" paddingBottom="$sm">
-              {children}
-            </YStack>
-          </ScrollView>
+          {bodyIsList ? (
+            children
+          ) : (
+            <ScrollView outlineStyle="none">
+              <YStack paddingHorizontal="$md" paddingBottom="$sm">
+                {children}
+              </YStack>
+            </ScrollView>
+          )}
 
           {footer === undefined ? null : (
             // A rule above it, because the body scrolls under: without one the row cut off at the

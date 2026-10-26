@@ -15,6 +15,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
+    "test:native": "bash tests/cpp/run.sh",
     "build:libsession:android": "./scripts/build-libsession-android.sh",
     "build:libsession:ios": "./scripts/build-libsession-ios.sh"
   },
@@ -30,5 +31,20 @@
     "react-native": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
+  },
+  "codegenConfig": {
+    "name": "SessionBridgeRNSpec",
+    "type": "modules",
+    "jsSrcsDir": "src",
+    "android": {
+      "javaPackageName": "session.bridge.rn"
+    },
+    "ios": {
+      "modulesConformingToProtocol": {
+        "RCTImageURLLoader": [
+          "SessionMediaImageLoader"
+        ]
+      }
+    }
   }
 }

@@ -103,6 +103,10 @@ struct InitOptions {
     /// one, and `close()` takes its logger back off again.
     std::string log_level;
 
+    /// The side of the square thumbnails libsession makes, in device pixels, or unset for
+    /// libsession's own default. A default only: a value stored by `setThumbnailEdge` wins.
+    std::optional<double> thumbnail_edge_px;
+
     /// Per-category overrides, applied after `log_level` has been given to every category.
     ///
     /// A single level is unusable: `quic` and `session-router` produce thousands of lines a second
@@ -110,6 +114,14 @@ struct InitOptions {
     /// created rather than refused - libsession's `Cat()` makes one on demand - so it matches
     /// nothing and costs nothing, which is why the names are checked before they get here.
     std::vector<LogCategoryLevel> log_categories;
+
+    /// Runs once a discard has replaced the database, the startup sweep's included, on the thread
+    /// that called into the bridge.
+    ///
+    /// A new database numbers messages from 1 again, so a `session-media://` URL cached before it
+    /// names a different message. Mobile empties its image loaders' caches here; desktop leaves
+    /// Blink's to the relaunch after a clear. See docs/ARCHITECTURE.md, 2026-10-09.
+    std::function<void()> on_database_replaced;
 };
 
 /// Receives one `Frame` per call, in the order libsession produced them.
@@ -132,21 +144,21 @@ struct Media {
 
 using MediaHandler = std::function<void(Media)>;
 
-/// The answer to one preview request: a decoded ThumbHash, or why there is none.
+/// The answer to one thumbhash request: a decoded ThumbHash, or why there is none.
 ///
 /// Raw pixels rather than an encoded image, because nothing here is the right place to pick a
 /// format: the only consumer is whatever serves the media scheme on this platform, and it hands
 /// them to that platform's own image pipeline.
 ///
 /// RGBA8, row-major, not alpha-premultiplied, and `width * height * 4` long.
-struct Preview {
+struct Thumbhash {
     std::optional<std::string> error;
     double width = 0;
     double height = 0;
     std::vector<std::byte> rgba;
 };
 
-using PreviewHandler = std::function<void(Preview)>;
+using ThumbhashHandler = std::function<void(Thumbhash)>;
 
 /// One libsession Client behind one ordered frame stream.
 ///
@@ -185,15 +197,15 @@ class ClientBridge {
     /// payload that no event can contradict anyway. So this answers its own caller, and what
     /// reaches a renderer is a URL its platform resolves natively rather than a frame.
     ///
-    /// Progress still goes to the sink, as `attachment-progress` with `transfer: "download"`, so
-    /// a picture loading draws the same bar as a tap does and a row that mounts halfway through
-    /// reads the same state. A file already cached reports nothing and answers at once.
+    /// **From the cache only, never the network**: nothing drawn on screen spends data. A file
+    /// libsession does not hold is refused with "attachment <i> of message <id> is not
+    /// downloaded", the sentence the fake says too; `downloadAttachment` is how it gets here.
     ///
     /// `cb` runs on whichever thread libsession finished on, which is Core's loop. It must only
     /// hand the bytes on, for the same reason `Sink` must only enqueue.
     ///
-    /// A native image loader calling this or `fetch_preview` is invoked by the OS with no bridge
-    /// in hand, and must obtain one in a way that cannot race `close()`.
+    /// A native image loader calling this, `fetch_thumbhash` or `fetch_thumbnail` is invoked by the
+    /// OS with no bridge in hand, and must obtain one in a way that cannot race `close()`.
     void fetch_media(double message_id, double index, MediaHandler cb);
 
     /// A blurred stand-in for an attachment, decoded from the ThumbHash its sender supplied.
@@ -207,7 +219,13 @@ class ClientBridge {
     /// fetches a URL caches what came back.
     ///
     /// Reports no progress and touches no network: the bytes it needs arrived with the message.
-    void fetch_preview(double message_id, double index, PreviewHandler cb);
+    void fetch_thumbhash(double message_id, double index, ThumbhashHandler cb);
+
+    /// The JPEG thumbnail libsession made of an attachment, as `Media` typed `image/jpeg`.
+    ///
+    /// From libsession's cache only: never a download, and so no progress. Answers its own caller
+    /// for the same reason `fetch_media` does.
+    void fetch_thumbnail(double message_id, double index, MediaHandler cb);
 
     /// Stops delivering frames and destroys the Client, which joins Core's loop. Idempotent, and
     /// implied by the destructor. Handlers for calls still in flight are dropped rather than

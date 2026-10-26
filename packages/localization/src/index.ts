@@ -9,3 +9,10 @@ export {
   setLocale,
   subscribeLocale,
 } from './localeStore'
+export { formatConversationTime } from './conversationTime'
+export type {
+  ConversationTimeOptions,
+  DateFormat,
+  ExplicitDateFormat,
+  TimeFormat,
+} from './conversationTime'

@@ -44,11 +44,11 @@ namespace margelo::nitro::session::bridge::rn {
     UrlScheme scheme     SWIFT_PRIVATE;
     std::string host     SWIFT_PRIVATE;
     double port     SWIFT_PRIVATE;
-    std::string x25519PubkeyHex     SWIFT_PRIVATE;
+    std::string ed25519PubkeyHex     SWIFT_PRIVATE;
 
   public:
     FileServerConfig() = default;
-    explicit FileServerConfig(UrlScheme scheme, std::string host, double port, std::string x25519PubkeyHex): scheme(scheme), host(host), port(port), x25519PubkeyHex(x25519PubkeyHex) {}
+    explicit FileServerConfig(UrlScheme scheme, std::string host, double port, std::string ed25519PubkeyHex): scheme(scheme), host(host), port(port), ed25519PubkeyHex(ed25519PubkeyHex) {}
 
   public:
     friend bool operator==(const FileServerConfig& lhs, const FileServerConfig& rhs) = default;
@@ -67,7 +67,7 @@ namespace margelo::nitro {
         JSIConverter<margelo::nitro::session::bridge::rn::UrlScheme>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "scheme"))),
         JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "host"))),
         JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "port"))),
-        JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "x25519PubkeyHex")))
+        JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "ed25519PubkeyHex")))
       );
     }
     static inline jsi::Value toJSI(jsi::Runtime& runtime, const margelo::nitro::session::bridge::rn::FileServerConfig& arg) {
@@ -75,7 +75,7 @@ namespace margelo::nitro {
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "scheme"), JSIConverter<margelo::nitro::session::bridge::rn::UrlScheme>::toJSI(runtime, arg.scheme));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "host"), JSIConverter<std::string>::toJSI(runtime, arg.host));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "port"), JSIConverter<double>::toJSI(runtime, arg.port));
-      obj.setProperty(runtime, PropNameIDCache::get(runtime, "x25519PubkeyHex"), JSIConverter<std::string>::toJSI(runtime, arg.x25519PubkeyHex));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "ed25519PubkeyHex"), JSIConverter<std::string>::toJSI(runtime, arg.ed25519PubkeyHex));
       return obj;
     }
     static inline bool canConvert(jsi::Runtime& runtime, const jsi::Value& value) {
@@ -89,7 +89,7 @@ namespace margelo::nitro {
       if (!JSIConverter<margelo::nitro::session::bridge::rn::UrlScheme>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "scheme")))) return false;
       if (!JSIConverter<std::string>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "host")))) return false;
       if (!JSIConverter<double>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "port")))) return false;
-      if (!JSIConverter<std::string>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "x25519PubkeyHex")))) return false;
+      if (!JSIConverter<std::string>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "ed25519PubkeyHex")))) return false;
       return true;
     }
   };

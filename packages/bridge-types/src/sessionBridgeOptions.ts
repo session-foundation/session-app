@@ -40,10 +40,10 @@ export interface FileServerConfig {
   port: number
 
   /**
-   * The server's **X25519** pubkey, which is what onion requests to it are encrypted with, and a
-   * different key from the Ed25519 one its QUIC endpoint is identified by.
+   * The server's **Ed25519** pubkey, which its QUIC endpoint is identified by. libsession derives
+   * the X25519 key onion requests to it are encrypted with from this, so that one is wrong here.
    */
-  x25519PubkeyHex: string
+  ed25519PubkeyHex: string
 }
 
 /**
@@ -149,6 +149,15 @@ export interface SessionBridgeOptions {
 
   /** Left out, this device is not published to the account's device list. */
   deviceType?: DeviceType
+
+  /**
+   * The side of the square thumbnails libsession makes, in device pixels: what an album is drawn
+   * at, times the display density. Clamped by libsession to 64 to 1024, which keeps a decoded one
+   * within 4 MiB. Left out, libsession's own default.
+   *
+   * A default only: a value stored by `setThumbnailEdge` wins over it at every open.
+   */
+  thumbnailEdgePx?: number
 
   /**
    * Left out, none of it is forwarded. Worth turning up when something fails for no visible

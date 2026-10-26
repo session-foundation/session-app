@@ -27,10 +27,10 @@ Message to_bridge(::session::client::Message&& from);
 std::vector<Message> to_bridge(std::vector<::session::client::Message>&& from);
 Conversation to_bridge(::session::client::AnyConversation&& from);
 
-/// Whether `fetch_preview` can decode a placeholder for this attachment: what `hasPreview` says.
-bool previewable(const ::session::client::Attachment& a);
+/// Whether `fetch_thumbhash` can decode this attachment's ThumbHash: what `hasThumbhash` says.
+bool thumbhash_decodable(const ::session::client::Attachment& a);
 
-/// A sender-supplied side worth scaling by: JPEG's ceiling, which also keeps a preview's
+/// A sender-supplied side worth scaling by: JPEG's ceiling, which also keeps a thumbhash's
 /// `long_edge * side` well inside 32 bits.
 constexpr bool plausible_side(uint32_t side) {
     return side > 0 && side <= 65535;

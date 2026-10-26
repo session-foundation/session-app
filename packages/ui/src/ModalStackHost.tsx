@@ -5,7 +5,7 @@ import { ScrollView, useMedia, XStack, YStack } from 'tamagui'
 import { useBackdropBlur } from './backdropBlur'
 import { backChevron } from './backChevron'
 import { BarButton } from './BarButton'
-import { AlertBox } from './Modal'
+import { AlertBox, AlertFrame } from './Modal'
 import {
   ACTION_HEIGHT,
   HEADER_HEIGHT,
@@ -16,6 +16,7 @@ import {
 } from './modalPanelMetrics'
 import { useModalEntries, useModals, type OpenModal } from './ModalsProvider'
 import { Text } from './Text'
+import { LABEL_MAX_SCALE } from './fontScaleCaps'
 import { useThemeIsDark } from './UIProvider'
 import { useScreenInsets } from './screenInsets'
 import { useTokenColor } from './useTokenColor'
@@ -122,13 +123,7 @@ export function ModalStackHost({
             <Fragment key={entry.id}>
               {layerScrim}
               {backdrop}
-              <YStack
-                fullscreen
-                alignItems="center"
-                justifyContent="center"
-                padding="$xl"
-                pointerEvents={frontmost ? 'box-none' : 'none'}
-              >
+              <AlertFrame pointerEvents={frontmost ? 'box-none' : 'none'}>
                 <AlertBox
                   title={screen?.title ?? ''}
                   closeLabel={closeLabel}
@@ -143,7 +138,7 @@ export function ModalStackHost({
                 >
                   {screen?.render() ?? null}
                 </AlertBox>
-              </YStack>
+              </AlertFrame>
             </Fragment>
           )
 
@@ -211,12 +206,16 @@ export function ModalStackHost({
                     )}
                   </YStack>
 
+                  {/* Held to the label cap and one line, since the bar is a fixed height: past it
+                      a large system text size cuts the title off at the top. */}
                   <Text
                     flex={1}
                     size="$title"
                     weight="semibold"
                     textAlign="center"
                     userSelect="none"
+                    numberOfLines={1}
+                    maxFontSizeMultiplier={LABEL_MAX_SCALE}
                   >
                     {screen?.title ?? ''}
                   </Text>

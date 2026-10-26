@@ -48,6 +48,7 @@ export function HelpPage() {
                 ? 'helpReportABugExportLogsSaveToDesktopDescription'
                 : 'helpReportABugExportLogsDescription',
             )}
+            wideTrailing
             trailing={
               <Button
                 variant="outline"

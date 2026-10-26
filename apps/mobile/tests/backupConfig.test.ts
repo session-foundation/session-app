@@ -55,24 +55,19 @@ describe('the app config keeps everything on the device', () => {
 
   it('excludes every domain from cloud backup and device transfer', async () => {
     const config = resolved()
-    const manifest = { manifest: { application: [{ $: { 'android:name': '.MainApplication' } }] } }
+    const manifest = {
+      manifest: { $: {}, application: [{ $: { 'android:name': '.MainApplication' } }] },
+    }
     const modded = await config.mods?.android?.['manifest']?.({
       ...config,
       modResults: manifest,
       modRequest: { platform: 'android', modName: 'manifest' },
     })
-    expect(modded?.['modResults']).toEqual({
-      manifest: {
-        application: [
-          {
-            $: {
-              'android:name': '.MainApplication',
-              'android:dataExtractionRules': '@xml/session_data_extraction_rules',
-              'android:fullBackupContent': '@xml/session_backup_rules',
-            },
-          },
-        ],
-      },
+    const results = modded?.['modResults'] as typeof manifest | undefined
+    expect(results?.manifest.application[0]?.$).toEqual({
+      'android:name': '.MainApplication',
+      'android:dataExtractionRules': '@xml/session_data_extraction_rules',
+      'android:fullBackupContent': '@xml/session_backup_rules',
     })
 
     const project = mkdtempSync(join(tmpdir(), 'backup-rules-'))

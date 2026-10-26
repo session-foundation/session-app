@@ -1,5 +1,7 @@
-import { useCallback } from 'react'
+import { useCallback, useMemo } from 'react'
 import { FlatList } from 'react-native'
+
+import { SPACING } from '@session/theme-tokens'
 
 /**
  * A long list, drawn a screenful at a time.
@@ -32,7 +34,17 @@ export interface ListProps<T> {
   inverted?: boolean
   testID?: string
   onEndReached?: () => void
+  /**
+   * As tall as its rows, up to what its container allows, rather than filling the container. For
+   * a list in a surface that sizes itself to its content, such as a sheet.
+   */
+  fitsContent?: boolean
+  /** Around the rows, inside the scroller. */
+  paddingHorizontal?: keyof typeof SPACING
 }
+
+const FILLS = { flex: 1 } as const
+const FITS_CONTENT = { flexGrow: 0, flexShrink: 1 } as const
 
 export function List<T>({
   data,
@@ -44,10 +56,20 @@ export function List<T>({
   inverted,
   testID,
   onEndReached,
+  fitsContent = false,
+  paddingHorizontal,
 }: ListProps<T>) {
   const renderRow = useCallback(
     ({ item, index }: { item: T; index: number }) => renderItem(item, index),
     [renderItem],
+  )
+
+  const contentContainerStyle = useMemo(
+    () =>
+      paddingHorizontal === undefined
+        ? undefined
+        : { paddingHorizontal: SPACING[paddingHorizontal] },
+    [paddingHorizontal],
   )
 
   const getItemLayout = useCallback(
@@ -61,14 +83,21 @@ export function List<T>({
 
   return (
     <FlatList
-      style={{ flex: 1 }}
+      style={fitsContent ? FITS_CONTENT : FILLS}
+      {...(contentContainerStyle === undefined ? {} : { contentContainerStyle })}
       data={data}
       renderItem={renderRow}
       keyExtractor={keyExtractor}
       {...(itemHeight === undefined ? {} : { getItemLayout })}
-      {...(empty === undefined ? {} : { ListEmptyComponent: empty })}
-      {...(header === undefined ? {} : { ListHeaderComponent: header })}
+      {...(empty == null ? {} : { ListEmptyComponent: empty })}
+      {...(header == null ? {} : { ListHeaderComponent: header })}
       {...(inverted === undefined ? {} : { inverted })}
+      // A sheet shows a few rows; FlatList's default 21-screen window renders a long set whole.
+      {...(fitsContent ? { windowSize: 3, maxToRenderPerBatch: 5 } : {})}
+      // With the keyboard up, a tap on the list's own background puts it away and a drag does
+      // too, while a tap on a control inside still reaches the control.
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
       {...(testID === undefined ? {} : { testID })}
       {...(onEndReached === undefined ? {} : { onEndReached, onEndReachedThreshold: 0.5 })}
     />

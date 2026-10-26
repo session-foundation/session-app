@@ -15,6 +15,11 @@ export type ImageProps = WithTestID & {
    */
   fit?: 'cover' | 'contain' | undefined
   borderRadius?: number | undefined
+  /**
+   * Android only: Fresco decodes towards the view's pixel size times this, 1 by default. iOS and
+   * desktop ignore it.
+   */
+  resizeMultiplier?: number | undefined
   /** Fires when the bytes are decoded and on screen, which is the only honest "it is here". */
   onLoad?: (() => void) | undefined
   /** Fires when the bytes could not be fetched or decoded. Nothing retries on its own. */
@@ -34,6 +39,7 @@ export function Image({
   height,
   fit = 'cover',
   borderRadius,
+  resizeMultiplier,
   onLoad,
   onError,
   testID,
@@ -45,6 +51,11 @@ export function Image({
     <RNImage
       source={{ uri }}
       resizeMode={fit}
+      // Fresco only downsamples towards a target size, and `session-media://` is not one of the
+      // local schemes react-native sizes by default: without this the viewer's original decodes at
+      // 2048 px, and a file row's glyph decodes a tile-sized thumbnail.
+      resizeMethod="resize"
+      resizeMultiplier={resizeMultiplier}
       style={{ width, height, borderRadius }}
       onLoad={onLoad}
       onError={onError}

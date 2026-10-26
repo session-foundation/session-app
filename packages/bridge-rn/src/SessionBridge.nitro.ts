@@ -23,17 +23,40 @@ export type NativeRequest = CustomType<
   { include: 'session_bridge/gen/jsi.hpp'; canBePassedByReference: true }
 >
 
+/** An attachment's bytes, as an ArrayBuffer because that is how Nitro carries bytes. */
+interface NativeMedia {
+  contentType: string
+  bytes: ArrayBuffer
+}
+
+/** A decoded ThumbHash: RGBA8, row-major, not alpha-premultiplied, `width * height * 4` long. */
+interface NativeThumbhash {
+  width: number
+  height: number
+  rgba: ArrayBuffer
+}
+
 /**
  * The bridge, as nitrogen sees it.
  *
  * The same surface the N-API addon exposes, because both are transports in front of the same
- * shim and neither is allowed an opinion of its own - minus `setSink`, which
- * `HybridSessionBridge` registers by hand as a raw JSI method. Nitro's typed callback wrapper
+ * shim and neither is allowed an opinion of its own - minus `setSink` and `serveMediaFrom`, which
+ * `HybridSessionBridge` registers by hand as raw JSI methods. Nitro's typed callback wrapper
  * copies every argument once before the hop to the JS thread, and the frame is the one thing
  * this module exists not to copy; `index.ts` puts the method back on the exported type.
  */
 export interface SessionBridge extends HybridObject<{ ios: 'c++'; android: 'c++' }> {
   init(options: SessionBridgeOptions): void
   call(request: NativeRequest): void
+  /**
+   * The same answers the addon gives, so the transport has one shape on both platforms and a
+   * contract run on a device can assert bytes. Nothing in the app calls them: pictures reach the
+   * screen as URLs the native image loaders resolve, and a JavaScript caller reading a file this
+   * way is the multi-megabyte copy those loaders exist to avoid.
+   */
+  fetchMedia(messageId: number, index: number): Promise<NativeMedia>
+  fetchThumbhash(messageId: number, index: number): Promise<NativeThumbhash>
+  /** The thumbnail's JPEG bytes. */
+  fetchThumbnail(messageId: number, index: number): Promise<ArrayBuffer>
   close(): void
 }

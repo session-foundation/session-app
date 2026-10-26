@@ -1,7 +1,11 @@
+import { BellOff } from '@tamagui/lucide-icons-2/icons/BellOff'
+import { Bookmark } from '@tamagui/lucide-icons-2/icons/Bookmark'
 import { Check } from '@tamagui/lucide-icons-2/icons/Check'
 import { ChevronDown } from '@tamagui/lucide-icons-2/icons/ChevronDown'
 import { ChevronLeft } from '@tamagui/lucide-icons-2/icons/ChevronLeft'
 import { ChevronRight } from '@tamagui/lucide-icons-2/icons/ChevronRight'
+import { CircleCheck } from '@tamagui/lucide-icons-2/icons/CircleCheck'
+import { CircleEllipsis } from '@tamagui/lucide-icons-2/icons/CircleEllipsis'
 import { CircleHelp } from '@tamagui/lucide-icons-2/icons/CircleHelp'
 import { Clock } from '@tamagui/lucide-icons-2/icons/Clock'
 import { CloudDownload } from '@tamagui/lucide-icons-2/icons/CloudDownload'
@@ -20,6 +24,7 @@ import { FileSpreadsheet } from '@tamagui/lucide-icons-2/icons/FileSpreadsheet'
 import { FileText } from '@tamagui/lucide-icons-2/icons/FileText'
 import { FileVideo } from '@tamagui/lucide-icons-2/icons/FileVideo'
 import { FolderOpen } from '@tamagui/lucide-icons-2/icons/FolderOpen'
+import { Globe } from '@tamagui/lucide-icons-2/icons/Globe'
 import { HardDriveDownload } from '@tamagui/lucide-icons-2/icons/HardDriveDownload'
 import { Heart } from '@tamagui/lucide-icons-2/icons/Heart'
 import { Image } from '@tamagui/lucide-icons-2/icons/Image'
@@ -29,9 +34,11 @@ import { LayoutGrid } from '@tamagui/lucide-icons-2/icons/LayoutGrid'
 import { Link } from '@tamagui/lucide-icons-2/icons/Link'
 import { List } from '@tamagui/lucide-icons-2/icons/List'
 import { LockKeyhole } from '@tamagui/lucide-icons-2/icons/LockKeyhole'
+import { Mail } from '@tamagui/lucide-icons-2/icons/Mail'
 import { MessageSquare } from '@tamagui/lucide-icons-2/icons/MessageSquare'
 import { MessageSquareWarning } from '@tamagui/lucide-icons-2/icons/MessageSquareWarning'
 import { PaintbrushVertical } from '@tamagui/lucide-icons-2/icons/PaintbrushVertical'
+import { Pin } from '@tamagui/lucide-icons-2/icons/Pin'
 import { Play } from '@tamagui/lucide-icons-2/icons/Play'
 import { Plus } from '@tamagui/lucide-icons-2/icons/Plus'
 import { RotateCw } from '@tamagui/lucide-icons-2/icons/RotateCw'
@@ -41,8 +48,10 @@ import { Share2 } from '@tamagui/lucide-icons-2/icons/Share2'
 import { Trash2 } from '@tamagui/lucide-icons-2/icons/Trash2'
 import { TriangleAlert } from '@tamagui/lucide-icons-2/icons/TriangleAlert'
 import { UserRoundPlus } from '@tamagui/lucide-icons-2/icons/UserRoundPlus'
+import { UsersRound } from '@tamagui/lucide-icons-2/icons/UsersRound'
 import { Video } from '@tamagui/lucide-icons-2/icons/Video'
 import { Volume2 } from '@tamagui/lucide-icons-2/icons/Volume2'
+import { VolumeX } from '@tamagui/lucide-icons-2/icons/VolumeX'
 import { X } from '@tamagui/lucide-icons-2/icons/X'
 
 import type { IconName, IconProps, IconSize } from './Icon.types'
@@ -60,10 +69,14 @@ import { isLayoutRtl } from './layoutDirection'
  * the values are: every name has a glyph, and a glyph nobody named does not compile.
  */
 const GLYPHS = {
+  bellOff: BellOff,
+  bookmark: Bookmark,
   check: Check,
   chevronDown: ChevronDown,
   chevronLeft: ChevronLeft,
   chevronRight: ChevronRight,
+  circleCheck: CircleCheck,
+  circleEllipsis: CircleEllipsis,
   circleHelp: CircleHelp,
   clock: Clock,
   cloudDownload: CloudDownload,
@@ -82,6 +95,7 @@ const GLYPHS = {
   fileText: FileText,
   fileVideo: FileVideo,
   folderOpen: FolderOpen,
+  globe: Globe,
   hardDriveDownload: HardDriveDownload,
   heart: Heart,
   image: Image,
@@ -91,9 +105,11 @@ const GLYPHS = {
   link: Link,
   list: List,
   lockKeyhole: LockKeyhole,
+  mail: Mail,
   messageSquare: MessageSquare,
   messageSquareWarning: MessageSquareWarning,
   paintbrush: PaintbrushVertical,
+  pin: Pin,
   play: Play,
   plus: Plus,
   rotateCw: RotateCw,
@@ -103,8 +119,10 @@ const GLYPHS = {
   trash: Trash2,
   triangleAlert: TriangleAlert,
   userRoundPlus: UserRoundPlus,
+  usersRound: UsersRound,
   video: Video,
   volume: Volume2,
+  volumeX: VolumeX,
   x: X,
 } satisfies Record<IconName, typeof Plus>
 

@@ -1,5 +1,6 @@
 /**
- * **The only file in the mobile app that reaches the file system.** Every directory the app
+ * **The only file in the mobile app that reaches the file system**, but for the dev builds'
+ * `devMedia.ts`, which reads what `fake-media:push` copies into Documents. Every directory the app
  * writes into is one of the roots handed out here, which the native `storage-roots` module creates
  * under data protection class C and excludes from backup. A file written anywhere else --
  * Documents, which iCloud backs up -- would escape both, so dependency-cruiser and ESLint refuse
@@ -114,9 +115,42 @@ function directory(path: string): Directory {
  */
 export const logsRoot: Directory = new Directory(fileUri(roots.logs))
 
-/** Where exports are staged for the share sheet, created if missing. */
+/**
+ * Where exports are staged for the share sheet, created if missing. A log export deletes only its
+ * own top-level files here; an attachment's export, under `attachments/`, may still be in flight.
+ */
 export function exportsDirectory(): Directory {
   return directory(roots.exports)
+}
+
+/** A directory inside the exports root, created if missing. */
+export function exportsSubdirectory(name: string): Directory {
+  return directory(`${roots.exports}/${name}`)
+}
+
+/** Deletes a file or directory under the roots; one already gone is not an error. */
+export function removeIfPresent(path: string): void {
+  const target = new ExpoDirectory(fileUri(path))
+  if (target.exists) target.delete()
+  else {
+    const file = new ExpoFile(fileUri(path))
+    if (file.exists) file.delete()
+  }
+}
+
+/** A folder somebody picks, outside the roots; null when they cancel. */
+export async function pickDirectory(): Promise<Directory | null> {
+  try {
+    return await ExpoDirectory.pickDirectoryAsync()
+  } catch {
+    // The picker rejects on cancel, which is the one answer this has for "nothing chosen".
+    return null
+  }
+}
+
+/** Copies `file` out of the roots into a folder somebody picked, which is theirs to protect. */
+export async function copyOut(file: File, folder: Directory): Promise<void> {
+  await (file as unknown as ExpoFile).copy(folder as unknown as ExpoDirectory)
 }
 
 /**

@@ -51,9 +51,12 @@ dev entries. When a rule fires, fix the design - not the config.
   flipped by editing source cannot be used to bisect a bug on someone else's device, which is most
   of what a flag is for. The default belongs in the shared flag table; reading the override is a
   port, because each platform exposes the environment differently.
+- An environment variable that means the same on every platform has one name on all of them,
+  `EXPO_PUBLIC_SESSION_<AREA>_<NAME>`, desktop included - the shape `envVarFor` derives for flags.
+  One whose value only makes sense on the machine running it (a host path) stays unprefixed.
 - Types compose from small `With*` pieces in `packages/basic-types/src/with.ts`. A shape declared
   inline twice gets a `With*`. A discriminated union is one shared piece plus one piece per variant
-  (`AlbumImage | AlbumVideo`), never an optional field only one variant uses.
+  (`Shared & (TextVariant | IconVariant)`), never an optional field only one variant uses.
 - `exactOptionalPropertyTypes` is on. Our optional props are `x?: T | undefined`, so a caller
   writes `x={x}`; the `{...(x === undefined ? {} : { x })}` spread is only for a third-party prop.
 - A numeric name carries its unit (`sizeBytes`, `timeoutMs`) unless it is already a count.
@@ -70,16 +73,8 @@ dev entries. When a rule fires, fix the design - not the config.
 
 ## Porting a screen
 
-**Put it side by side with the legacy clients — all three of them — and compare, before calling
-it done.** Most UI exists on iOS, Android and Desktop, and where they differ the point is to pick
-the best of the three for 2.0 rather than to follow whichever one was read first. Onboarding is the
-exception that proves it: Desktop's is a different design, so there the mobile pair is the
-reference. Reading the legacy source and reasoning about what it should look like is not the same
-check and does not catch the same things: a screen whose flow completes can still have the wrong background, the
-wrong button filled, missing chrome, wrong type sizes and a control nobody can hit. Walk the list
-deliberately — colours, which button is primary, chrome present in one and not the other, type
-sizes, control sizes and hit areas, spacing, transitions. An already-ported sibling counts as a
-reference: the tablet layout will catch most of a phone layout's mistakes.
+Compare it side by side with all three legacy clients before calling it done; the `port-feature`
+skill has the checklist.
 
 ## Tests required, in the same PR
 
@@ -116,26 +111,9 @@ finds tests wherever they sit, so an unchecked one still runs and nothing compla
 
 ## Native rebuild triggers
 
-- `packages/bridge-types` changed → `turbo codegen && turbo build:native` (the generated C++
-  under `packages/bridge-core/include/session_bridge/gen` is committed; CI's `codegen:check`
-  fails otherwise)
-- shim C++ changed → `turbo build:native`
-- `*.nitro.ts` changed → `turbo codegen`, then rebuild the mobile dev client
-- `libsession-util/` submodule bumped → the `build-native` skill's procedure: rebuild all three
-  targets and run the contract suite against the real addon before committing
-
-**`turbo build:native` only rebuilds the node addon.** iOS reads `bridge-core`'s headers from a
-vendored binary, `packages/bridge-rn/ios/SessionBridgeCore.xcframework`, whose `Headers/` sit ahead
-of the source on the search path — so editing `bridge-core` and rebuilding the addon leaves iOS
-compiling against whatever that artefact was built from, however old. `pod install` does not
-refresh it either. Rebuild it with `packages/bridge-rn/scripts/build-libsession-ios.sh`, and use
-`all` or `both` rather than `simulator`: the one-slice modes also rename the simulator slice, which
-breaks the next build with an `rsync … ios-arm64_x86_64-simulator: No such file or directory` a
-long way from its cause.
-
-**Regenerating also needs `pod install` before iOS will build.** The nitrogen output is _copied_
-into `Pods/Headers/Public/SessionBridgeRN`, so a regeneration that adds a header — a new type in
-the spec — leaves that copy missing it.
+Changed `packages/bridge-types`, the shim C++, a `*.nitro.ts` spec or the `libsession-util/`
+submodule → the `build-native` skill, before running anything. `turbo build:native` alone leaves
+iOS on stale headers.
 
 ## Commands
 

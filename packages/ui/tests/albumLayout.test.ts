@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { ALBUM_MAX_TILES, ALBUM_SEAM, albumLayout, lastCell } from '#src/albumLayout'
+import { ALBUM_MAX_TILES, ALBUM_SEAM, albumLayout, cellPlace, lastCell } from '#src/albumLayout'
 
 /** A desktop bubble, and a phone one. Every shape has to hold at both. */
 const WIDE = 420
@@ -92,5 +92,23 @@ describe('an album at a phone’s width', () => {
         for (const side of sides(width, count)) expect(side).toBeGreaterThan(0)
       }
     }
+  })
+})
+
+describe('where a cell sits', () => {
+  it('places the three-up’s smalls beside the big tile, one under the other', () => {
+    const l = albumLayout(3, WIDE)
+    expect(cellPlace(l, 0)).toEqual({ side: 278, start: 0, top: 0 })
+    expect(cellPlace(l, 1)).toEqual({ side: 137, start: 278 + ALBUM_SEAM, top: 0 })
+    expect(cellPlace(l, 2)).toEqual({ side: 137, start: 278 + ALBUM_SEAM, top: 137 + ALBUM_SEAM })
+  })
+
+  it('places a grid’s cells by row and column', () => {
+    const l = albumLayout(4, WIDE)
+    expect(cellPlace(l, 3)).toEqual({ side: 208, start: 208 + ALBUM_SEAM, top: 208 + ALBUM_SEAM })
+  })
+
+  it('knows no place for an attachment the album does not draw', () => {
+    expect(cellPlace(albumLayout(8, WIDE), 6)).toBeUndefined()
   })
 })

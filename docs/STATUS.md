@@ -13,13 +13,21 @@ a time, via the `port-feature` skill.
 
 - **Push.** `setPushToken` and `handlePushPayload` are in the protocol and the shim answers both
   with an error naming itself.
-- **Sending an attachment.** Receiving one works: metadata, a download with progress, exporting to
-  a chosen path, and the per-conversation auto-download setting. `sendMessage` still takes a body
+- **Sending an attachment.** Receiving one works: metadata, a download with progress, exporting
+  (desktop to a chosen path, mobile where the legacy clients put it), and the per-conversation
+  auto-download setting. `sendMessage` still takes a body
   and nothing else, so `SendState::uploading` is a state nothing here can reach.
-- **Showing an attachment on mobile.** Desktop draws pictures inline over the `session-media`
-  scheme; React Native needs a native image loader per platform - an `RCTImageURLLoader` on iOS, a
-  Fresco fetcher on Android - and neither is written, so `MediaPort.urlFor` returns null there and
-  the file form is what mobile shows.
+- **A video is a file row.** It downloads and exports, but nothing draws a frame of it:
+  libsession makes no thumbnail of one, and its `gallery_viewable` admits only images.
+- **A GIF tile shows a still.** libsession's thumbnail is the first frame; only the viewer animates.
+- **A picture shows only its placeholder until it is downloaded.** libsession makes a thumbnail of
+  what it has cached, so a tile shows the sender's ThumbHash, or the flat tile, until then. A
+  picture outside libsession's displayable list (BMP, say) never gets one and opens in the viewer
+  from its placeholder.
+- **No setting for the thumbnail edge.** `setThumbnailEdge` stores one; nothing in Settings
+  offers it yet.
+- **Pictures with a video draw as a list**, where legacy draws them as one grid. The follow-up is
+  widening libsession's `gallery_viewable` to video once a still exists.
 - **The media viewer is one picture at a time.** It pages through a message's pictures and
   nothing more: no zoom, no video playback, no swipe to dismiss, no filmstrip.
 - **Returning to a conversation starts at the newest page.** A window is dropped when its screen
@@ -31,10 +39,9 @@ a time, via the `port-feature` skill.
 - **A devnet cannot have its own Pro backend.** The key libsession verifies proofs against is a
   `constexpr` read at one call site in `core.cpp`, so pointing a build at another deployment needs
   a libsession change. Nothing here configures one, and nothing here has Pro code to configure.
-- **Android has not been run against a devnet.** iOS has - it discovered 15 seed nodes, built its
-  paths and polled its swarm - and the two share everything above the Nitro module, so what is
-  untried is the Android side of that module rather than any of the logic. A dev client built
-  since the shim last changed is what it needs.
+- **Android needs an `android/` regenerated since the media loader landed.** `pnpm android`
+  prebuilds only when that directory is absent, and a stale one refuses to start in debug and says
+  so.
 - **No contact list, and the QR scanner only restores an account.** Starting a conversation means
   pasting an account ID.
 - **iOS device builds and a release-shaped xcframework.** The simulator works; nothing has been
@@ -57,11 +64,8 @@ a time, via the `port-feature` skill.
   can be designed: a supported one-shot poll entry point; decrypting a push envelope without
   opening the database, for the notification service extension; and whether an extension and the
   app can hold the same database at once.
-- **Thumbnails.** A transcript fetches whole attachments to draw them, which is what libsession
-  offers today. They should be generated locally from whatever can produce one rather than fetched
-  as a second file from the server, and that needs an image decoder wherever it happens.
 - **Attachment strings have no catalogue key.** The cache section's heading and labels, a set's
-  count, the gallery/list toggle, Export with its two states, and the viewer's Previous have
+  count, the gallery/list switch, Export with its two states, and the viewer's Previous have
   nothing in the Crowdin set that fits, so they sit in `packages/screens/src/pendingCopy.ts` and
   ship as English in every locale - the count with English plurals. Each is named for the token it
   is destined for; `copy.contract.test.ts` pins the list so another cannot join quietly. They want
@@ -85,9 +89,9 @@ a time, via the `port-feature` skill.
 - **CI compiles no C++.** `ci.yml` and `e2e-fast` initialise only the localization submodule, so
   every addon test guards itself on the built artifact and skips when it is absent. `e2e-full`
   does check out submodules recursively, and is manual dispatch only.
-- **Two npm patches are carried in `patches/npm/`** and applied by `pnpm install`: nitrogen, and
-  expo-modules-jsi, which does not compile under Xcode 26. Each goes away when an upstream release
-  fixes it, and nothing checks whether one has - the `run` skill's traps table has the symptoms.
+- **One npm patch is carried in `patches/npm/`** and applied by `pnpm install`: nitrogen. It goes
+  away when an upstream release fixes it, and nothing checks whether one has - the `run` skill's
+  traps table has the symptoms.
 - **There is no macOS runner.** The iOS build is verified by hand on a Mac and nothing else.
 - **A send in the first seconds after launch fails.** The router bootstraps for about ten seconds
   after the bridge attaches, and a QUIC handshake started before then times out. Retry is the

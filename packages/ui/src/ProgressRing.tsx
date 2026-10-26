@@ -31,6 +31,8 @@ interface ProgressRingProps {
    * legible.
    */
   thickness?: number
+  /** The fill's token; the accent unless the ring sits on an accent fill. */
+  color?: string | undefined
 }
 
 /**
@@ -44,9 +46,14 @@ interface ProgressRingProps {
  * in SVG, which is the same convention SwiftUI and Compose use, so the angles above are the
  * clients' own numbers rather than a translation of them.
  */
-export function ProgressRing({ progress, size, thickness = 4 }: ProgressRingProps) {
+export function ProgressRing({
+  progress,
+  size,
+  thickness = 4,
+  color = '$primaryColor',
+}: ProgressRingProps) {
   const track = useTokenColor('$bordersColor')
-  const fill = useTokenColor('$primaryColor')
+  const fill = useTokenColor(color)
   const radius = (size - thickness) / 2
   const circumference = 2 * Math.PI * radius
   const fraction = Math.min(1, Math.max(0, progress))

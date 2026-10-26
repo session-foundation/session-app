@@ -9,6 +9,14 @@ export interface GlassProps {
   size: number
   /** Whether the app is showing a dark theme, which the platform's own appearance may not match. */
   dark: boolean
+  /**
+   * The colour to light the button with while a pointer is over it, or null when none is.
+   *
+   * Drawn by the caller because interactive glass reacts to a touch but has no hover state of its
+   * own, which an iPad's pointer and the iPad app on a Mac both expect of a bar button. A colour
+   * rather than a flag so the theme decides it; this side has no tokens.
+   */
+  highlight: string | null
   children: ReactNode
 }
 

@@ -7,12 +7,14 @@ export type AttachmentView = 'gallery' | 'list'
 /**
  * Whether the reader gets to choose the shape.
  *
- * A plain file makes the gallery impossible, not unwanted - so the choice exists exactly when
- * every attachment is one a tile can draw. The list can hold any set, which is why this asks
- * about the gallery.
+ * A plain file makes the gallery impossible, not unwanted. libsession says which messages can be
+ * a gallery, and its whitelist takes AVIF and `image/pjpeg`, which the viewer here cannot open, so
+ * each one must also be viewable. The list can hold any set, which is why this asks about the
+ * gallery.
  */
 export function canChooseView(message: Message): boolean {
-  return message.attachments.every(isViewable)
+  // TODO: draw a video as a tile once libsession has a still for it and galleryViewable admits it.
+  return message.galleryViewable && message.attachments.every(isViewable)
 }
 
 /**
@@ -25,9 +27,6 @@ export function canChooseView(message: Message): boolean {
  * The list is also the only shape with room for a per-item state, a per-item control and a
  * per-item retry - and libsession has been reporting per `(message_id, index)` all along. A set
  * that cannot be drawn as a gallery is exactly the set most likely to need them.
- *
- * Not `Message.galleryViewable`: that means *every* attachment is an `image/`, so it sends a
- * message mixing photographs with a video to the list, which the album draws perfectly well.
  *
  * `chosen` is the reader's answer where they have given one. The default is the gallery wherever
  * one is possible, so the only choice that changes anything is the list; a choice on a set that

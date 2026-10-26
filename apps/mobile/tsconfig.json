@@ -16,6 +16,15 @@
   },
   // The last two are expo prebuild's, and it rewrites this file to add them - losing every
   // comment above in the process. Check the diff after a prebuild.
-  "include": ["index.ts", "app", "src", "tests", "*.js", ".expo/types/**/*.ts", "expo-env.d.ts"],
+  "include": [
+    "index.ts",
+    "app",
+    "src",
+    "plugins",
+    "tests",
+    "*.js",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts"
+  ],
   "exclude": ["node_modules", ".expo", "android", "ios"]
 }

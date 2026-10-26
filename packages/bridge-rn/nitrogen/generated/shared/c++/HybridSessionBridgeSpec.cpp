@@ -16,6 +16,9 @@ namespace margelo::nitro::session::bridge::rn {
     registerHybrids(this, [](Prototype& prototype) {
       prototype.registerHybridMethod("init", &HybridSessionBridgeSpec::init);
       prototype.registerHybridMethod("call", &HybridSessionBridgeSpec::call);
+      prototype.registerHybridMethod("fetchMedia", &HybridSessionBridgeSpec::fetchMedia);
+      prototype.registerHybridMethod("fetchThumbhash", &HybridSessionBridgeSpec::fetchThumbhash);
+      prototype.registerHybridMethod("fetchThumbnail", &HybridSessionBridgeSpec::fetchThumbnail);
       prototype.registerHybridMethod("close", &HybridSessionBridgeSpec::close);
     });
   }

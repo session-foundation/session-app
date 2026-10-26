@@ -1,4 +1,4 @@
-import { formatBytes, mediaKindOf } from '@session/basic-types'
+import { formatBytes } from '@session/basic-types'
 import { requirePorts } from '@session/app'
 import type { Attachment, Message } from '@session/client'
 import { tr } from '@session/localization'
@@ -11,11 +11,12 @@ import { ELEMENT } from '@session/test-ids'
 import { FileRow, type FileRowState, type FileRowThumbnail } from '@session/ui'
 
 import { fetchOf, type Fetch } from './attachmentFetch'
-import { mayResolve } from './autoDownload'
+import { controlVerb, rowVerb, verbLabel, type AttachmentVerb } from './attachmentPress'
 import { useConversationUi } from './conversationUi'
 import { PENDING_COPY } from './pendingCopy'
 import { exportOne } from './exportAttachment'
-import { isViewable } from './viewableAttachments'
+import { useExportFeedback } from './useExportFeedback'
+import { isViewable, leadUri, leadsWithPicture } from './viewableAttachments'
 
 function caption(
   attachment: Attachment,
@@ -39,17 +40,6 @@ function caption(
 }
 
 /**
- * What a screen reader announces the one control as. The glyph is what everyone else reads.
- *
- * Two verbs, and the state settles which with no further rule: Download moves bytes from the
- * network into the cache, Export writes a file we already hold out to a folder somebody chose.
- */
-function actionLabel(state: FileRowState): string {
-  if (state === 'failed') return tr('retry')
-  return state === 'ready' ? PENDING_COPY.export : tr('download')
-}
-
-/**
  * One attachment on one message, as a row.
  *
  * Everything drawn is `FileRow`'s; everything said is this side of the boundary, because the
@@ -59,11 +49,15 @@ function actionLabel(state: FileRowState): string {
 export function AttachmentRow({
   message,
   attachment,
+  onAccent,
 }: {
   message: Message
   attachment: Attachment
+  /** Drawn on a bubble you sent; absent in the sheet, which draws its rows on the page. */
+  onAccent?: boolean | undefined
 }) {
   const actions = useSessionActions()
+  const feedback = useExportFeedback()
   const ui = useConversationUi()
   // The report is the live half; `attachment.availability` is the resting one. See `fetchOf`.
   const ref = { messageId: message.id, index: attachment.index }
@@ -73,25 +67,19 @@ export function AttachmentRow({
   const fetched = fetchOf(attachment, report)
   const state: FileRowState = fetched.state
 
-  // A picture fetches itself as it draws: the url *is* the request, and the same call reads the
-  // cache, joins a transfer already running, or starts one. Absent once expired, where asking
-  // would only fail.
+  const opens = isViewable(attachment)
+  // Absent once expired: there is nothing to show and nothing a tap could fetch.
   const thumbnail: FileRowThumbnail | undefined =
-    state === 'unavailable' || !isViewable(attachment)
+    state === 'unavailable' || !leadsWithPicture(attachment)
       ? undefined
       : {
-          // Left off where this is not ours to fetch: a url is the request, so handing one over
-          // would spend the data the person was about to be asked about. Left off after a failure
-          // too, so a retry hands it over afresh and the image tries again.
-          uri:
-            mayResolve(attachment, ui.autoDownload) && state !== 'failed'
-              ? requirePorts().media.urlFor(ref)
-              : undefined,
-          kind: mediaKindOf(attachment.contentType),
+          uri: leadUri(message.id, attachment, state),
           fetchesOnOpen: state === 'idle' || state === 'failed',
           // Its own URL rather than pixels on the frame stream, so a placeholder reaches the
           // screen by the route a picture does. Null where the platform has no resolver.
-          preview: attachment.hasPreview ? requirePorts().media.previewUrlFor(ref) : undefined,
+          thumbhash: attachment.hasThumbhash
+            ? requirePorts().media.thumbhashUrlFor(ref)
+            : undefined,
         }
 
   function start(): void {
@@ -100,39 +88,55 @@ export function AttachmentRow({
     void actions.downloadAttachment(ref).catch(() => undefined)
   }
 
-  const act = state === 'ready' ? () => void exportOne(message, attachment.index, actions) : start
-  const offersAction = state !== 'unavailable' && state !== 'fetching'
+  const perform: Record<AttachmentVerb, () => void> = {
+    download: start,
+    retry: start,
+    export: () => void exportOne(message, attachment.index, actions, feedback),
+    open: () => {
+      ui.openViewer(message.id, attachment.index)
+    },
+  }
+  const control = controlVerb(state)
+  const press = rowVerb(state, opens)
+  const pressLabel = press === null ? undefined : verbLabel(press)
 
   return (
     <FileRow
       filename={attachment.filename ?? tr('attachment')}
       contentType={attachment.contentType}
       thumbnail={thumbnail}
-      // Opens only a picture that is here, as the legacy clients do; otherwise the tap fetches it.
+      // Held while fetching, when it does nothing, so the tile is not remounted as the state moves.
       onOpen={
-        thumbnail === undefined
+        thumbnail === undefined || !opens
           ? undefined
           : () => {
-              if (state === 'ready') ui.openViewer(message.id, attachment.index)
-              else if (state === 'idle' || state === 'failed') start()
+              if (press !== null) perform[press]()
             }
       }
+      // The lead square does what the row does and says so: the row is no stop on the web.
+      openLabel={pressLabel}
       caption={caption(attachment, state, fetched, exporting?.state)}
       state={state}
       // Absent while the server has not said how big the file is, which is what the first report
       // of every transfer means: an empty ring rather than a full one.
       progress={fetched.totalBytes > 0 ? fetched.doneBytes / fetched.totalBytes : undefined}
-      actionLabel={offersAction ? actionLabel(state) : undefined}
-      onAction={offersAction ? act : undefined}
+      onPress={press === null ? undefined : perform[press]}
+      pressLabel={pressLabel}
+      actionLabel={
+        state === 'fetching' ? tr('downloading') : control === null ? undefined : verbLabel(control)
+      }
+      onAction={control === null ? undefined : perform[control]}
+      onAccent={onAccent}
       testIDs={{
         row: ELEMENT.conversation.attachment,
         name: ELEMENT.conversation.attachmentName,
         caption: ELEMENT.conversation.attachmentState,
+        lead: ELEMENT.conversation.attachmentLead,
         thumbnail: ELEMENT.conversation.attachmentImage,
         // The id names what the control currently means rather than where it sits, which is the
         // only thing a test can ask about now that the two verbs share one button.
         action:
-          state === 'ready'
+          control === 'export'
             ? ELEMENT.conversation.attachmentExport
             : ELEMENT.conversation.attachmentDownload,
       }}

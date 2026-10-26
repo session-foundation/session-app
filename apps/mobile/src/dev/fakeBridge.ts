@@ -1,40 +1,65 @@
-import type { BridgeTransport } from '@session/client'
+import { serveNativeMediaFrom, type BridgeTransport } from '@session/client'
 import {
+  createFakeMediaSource,
   createFakeTransport,
-  friendsWithAttachments,
-  newcomer,
-  unopenable,
+  startDevFake,
+  type FakeDevEnv,
+  type FakeSessionClient,
 } from '@session/client/fake'
+
+import { pushedPhotos, readPushedPhoto, writeFakeExport } from '../storage/devMedia'
+import { fakeExportSource } from './fakeMedia'
+
+/**
+ * The fake's export, plus the file it stands for.
+ *
+ * The fake has no disk, and on mobile the export is not finished when libsession answers: the
+ * files port still has to hand the file to the photo library or a folder, which needs one there.
+ */
+function writingExports(client: FakeSessionClient, photos: ReadonlyMap<string, string>): void {
+  const exportAttachment = client.exportAttachment.bind(client)
+  client.exportAttachment = async (messageId, index, destination, options) => {
+    const landed = await exportAttachment(messageId, index, destination, options)
+    writeFakeExport(landed, fakeExportSource(client, { messageId, index }, photos))
+    return landed
+  }
+}
 
 /**
  * The bridge, backed by the fake - the same arrangement the desktop app uses, so both
  * platforms show the same seeded conversations while the real bridge is being built.
+ *
+ * Every variable is spelled out: Expo inlines `process.env.EXPO_PUBLIC_*` only where the name is
+ * written literally. They are the same names desktop reads.
  */
 export function createFakeBridge(): BridgeTransport {
-  // No identity yet, which is the only way to reach onboarding: everywhere else the app sees an
-  // account and goes straight past it -- and mobile is where most of the onboarding screens are.
-  const fresh = process.env['EXPO_PUBLIC_SESSION_NO_ACCOUNT'] === '1'
-  const { world, clients } = fresh
-    ? newcomer()
-    : friendsWithAttachments(['Alice', 'Bob'], { history: 4 })
-  const alice = clients['Alice']
-  if (!alice) throw new Error('the fixture did not produce a client')
+  const photos = pushedPhotos()
+  const env: Required<FakeDevEnv> = {
+    EXPO_PUBLIC_SESSION_FAKE_FIXTURE: process.env['EXPO_PUBLIC_SESSION_FAKE_FIXTURE'],
+    EXPO_PUBLIC_SESSION_NO_ACCOUNT: process.env['EXPO_PUBLIC_SESSION_NO_ACCOUNT'],
+    EXPO_PUBLIC_SESSION_FAKE_ROWS: process.env['EXPO_PUBLIC_SESSION_FAKE_ROWS'],
+    EXPO_PUBLIC_SESSION_FAKE_CROWD_PEERS: process.env['EXPO_PUBLIC_SESSION_FAKE_CROWD_PEERS'],
+    EXPO_PUBLIC_SESSION_FAKE_CROWD_HISTORY: process.env['EXPO_PUBLIC_SESSION_FAKE_CROWD_HISTORY'],
+    EXPO_PUBLIC_SESSION_FAKE_SLOWDOWN: process.env['EXPO_PUBLIC_SESSION_FAKE_SLOWDOWN'],
+    // TODO: a Developer Settings switch that fails the next launch, once that screen exists, so a
+    // build without this variable can reach the failure screen too.
+    EXPO_PUBLIC_SESSION_FAKE_FAILED_START: process.env['EXPO_PUBLIC_SESSION_FAKE_FAILED_START'],
+  }
+  const { alice, served } = startDevFake(env, {
+    has: (fileName) => photos.has(fileName),
+    where: 'on the device',
+    fix: 'pnpm fake-media:fetch && pnpm --filter @session/mobile fake-media:push',
+  })
 
-  setInterval(() => {
-    world.settle()
-  }, 50)
-
-  // A database that will not open, as the desktop's `SESSION_FAKE_FAILED_START` does: the failure
-  // screen is otherwise reachable only with one somebody has already broken. `unopenable` refuses
-  // as the real bridge does, with libsession's own reason, and lets a discard through -- so the
-  // screen's Clear Device works here too.
-  //
-  // TODO: a Developer Settings switch that fails the next launch, once that screen exists, so a
-  // build without this variable can reach it too.
-  const served =
-    process.env['EXPO_PUBLIC_SESSION_FAKE_FAILED_START'] === '1'
-      ? unopenable(alice, 'file is not a database')
-      : alice
+  writingExports(alice, photos)
+  // Through the real loaders: the port is platform.ts's, and only the bytes are the fake's.
+  serveNativeMediaFrom(
+    createFakeMediaSource(alice, async (photo) => {
+      const uri = photos.get(photo)
+      if (uri === undefined) throw new Error(`no dev photograph ${photo}`)
+      return readPushedPhoto(uri)
+    }),
+  )
 
   return createFakeTransport(served)
 }

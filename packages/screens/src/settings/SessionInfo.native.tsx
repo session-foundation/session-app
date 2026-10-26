@@ -1,11 +1,20 @@
 import { requirePorts, URLS } from '@session/app'
 import { tr } from '@session/localization'
 import { ELEMENT } from '@session/test-ids'
-import { PressArea, SessionTokenLogo, Text, useModals, YStack } from '@session/ui'
+import {
+  LABEL_MAX_SCALE,
+  PressArea,
+  SessionTokenLogo,
+  Text,
+  useGlyphScale,
+  useModals,
+  YStack,
+} from '@session/ui'
 
 import { confirmLink } from './confirmLink'
 import { useDebugModePresses } from './debugModePresses'
 
+/** At the default text size; it grows with the text as the settings icons do, to XXX Large. */
 const LOGO_HEIGHT = 24
 
 /**
@@ -16,6 +25,7 @@ const LOGO_HEIGHT = 24
 export function SessionInfo() {
   const modals = useModals()
   const onVersionPress = useDebugModePresses()
+  const glyphScale = useGlyphScale()
   const { version, commit, buildNumber } = requirePorts().build
   const detail = [buildNumber, commit].filter((part) => part !== null).join(' - ')
 
@@ -28,11 +38,20 @@ export function SessionInfo() {
           confirmLink(modals, URLS.token)
         }}
       >
-        {() => <SessionTokenLogo size={LOGO_HEIGHT} color="$textSecondary" />}
+        {() => (
+          <SessionTokenLogo size={Math.round(LOGO_HEIGHT * glyphScale)} color="$textSecondary" />
+        )}
       </PressArea>
       <PressArea testID={ELEMENT.settings.version} onPress={onVersionPress}>
         {() => (
-          <Text size="$label" tone="secondary" textAlign="center">
+          // Held at the label cap so it stays in proportion with the logo above it, which stops
+          // growing sooner; a version line three times its size reads as unrelated to it.
+          <Text
+            size="$label"
+            tone="secondary"
+            textAlign="center"
+            maxFontSizeMultiplier={LABEL_MAX_SCALE}
+          >
             {tr('updateVersion', { version: detail === '' ? version : `${version} (${detail})` })}
           </Text>
         )}

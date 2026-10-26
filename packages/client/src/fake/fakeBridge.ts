@@ -228,6 +228,11 @@ const handlers: { [K in Command['type']]: Handler<K> } = {
     bytes: await client.getAttachmentCacheSize(),
   }),
 
+  getThumbnailEdge: async (client) => ({ type: 'edge', edgePx: await client.getThumbnailEdge() }),
+  setThumbnailEdge: async (client, cmd) => {
+    await client.setThumbnailEdge(cmd.edgePx)
+    return empty
+  },
   getConfigSizes: async (client) => ({
     type: 'configSizes',
     sizes: await client.getConfigSizes(),

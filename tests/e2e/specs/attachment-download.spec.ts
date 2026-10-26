@@ -22,10 +22,10 @@ sessionTest({
 
     await openFirstConversation(alice)
 
-    // Nothing fetches itself. Resolving a media url *is* a download - the url is the request -
-    // so a tile handed one has spent somebody's data before anyone was asked, and unset means
-    // nobody has been. A short wait rather than the default: this is asserting that something
-    // never happens, so the only cost of the timeout is how long the suite sits here.
+    // Nothing fetches itself. A tile draws libsession's thumbnail, which is never a download, so
+    // only a tap or libsession's own rule on arrival spends data, and unset means nobody has been
+    // asked. A short wait rather than the default: this is asserting that something never
+    // happens, so the only cost of the timeout is how long the suite sits here.
     expect(
       await alice.imageLoaded(ELEMENT.conversation.attachmentImage, { timeoutMs: 2_000 }),
     ).toBe(false)
@@ -50,7 +50,10 @@ sessionTest({
     // Left and come back. The window is dropped when a screen stops showing it, so the store has
     // nothing to remember this by: what redraws it as downloaded is the page saying so, which is
     // the only thing that can - no event ever announces a file that is simply already here.
-    await alice.tap(ELEMENT.conversation.back)
+    // Left by opening another screen in its place: the desktop window shows the list beside the
+    // conversation, where there is no back control, and tapping the open row again changes
+    // nothing, so neither would unmount it.
+    await alice.tap(ELEMENT.conversationList.newConversation)
     await openFirstConversation(alice)
     await expect
       .poll(async () => alice.isVisible(ELEMENT.conversation.attachmentExport), { timeout: 10_000 })

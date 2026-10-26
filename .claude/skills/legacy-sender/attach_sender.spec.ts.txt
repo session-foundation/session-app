@@ -23,6 +23,9 @@ const TARGETS = (process.env.ATTACH_TARGETS ?? '')
 
 // A first message on mainnet, or an upload, can take well past the helpers' 20 s.
 const SENT_TIMEOUT_MS = 180_000;
+// A message leaves the persisted send queue only once its sync copy is stored, after the sent tick;
+// a close before that makes the next launch store it again, and libsession keeps both copies.
+const QUEUE_SETTLE_MS = 15_000;
 
 const samples = join(__dirname, '../../sample_files');
 const devMedia = join(homedir(), '.cache/session-app/dev-media');
@@ -48,6 +51,18 @@ async function launch() {
   });
   const window = await app.firstWindow();
   await window.waitForLoadState('domcontentloaded');
+  // A `devprod` instance docks DevTools over the window, and opens them only after the load.
+  await app.evaluate(({ BrowserWindow }) => {
+    for (const w of BrowserWindow.getAllWindows()) {
+      w.webContents.on('devtools-opened', () => w.webContents.closeDevTools());
+      w.webContents.closeDevTools();
+    }
+  });
+  // An account over a week old gets a Donate appeal some time after launch, over the composer.
+  // Its close button has no test id; Escape closes the top modal.
+  await window.addLocatorHandler(window.getByTestId('cta-heading'), () =>
+    window.keyboard.press('Escape'),
+  );
   return { app, window };
 }
 
@@ -120,6 +135,9 @@ test('legacy sender', async () => {
       await sendFiles(window, [join(samples, 'test-video.mp4')], `a video ${tag}`);
     }
   } finally {
+    if (ACTION !== 'create') {
+      await window.waitForTimeout(QUEUE_SETTLE_MS);
+    }
     await app.close();
   }
 });

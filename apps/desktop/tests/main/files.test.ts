@@ -4,13 +4,13 @@ import { join } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
+import { MAX_SUGGESTED_NAME_CHARS } from '@session/app/exportFileName'
 import type { Frame, Request } from '@session/client'
 
 import {
   dialogDefaultPath,
   ExportGate,
   MAX_PATH_CHARS,
-  MAX_SUGGESTED_NAME_CHARS,
   readLastFolder,
   sanitiseSuggestedName,
   writeLastFolder,
@@ -168,21 +168,9 @@ describe('the name a save dialog is pre-filled with', () => {
     expect(sanitiseSuggestedName('itinerary (final).pdf')).toBe('itinerary (final).pdf')
   })
 
-  it('drops any directory the sender put in front of it', () => {
+  it('is the bare name, as every platform starts from', () => {
     expect(sanitiseSuggestedName('../../.ssh/authorized_keys')).toBe('authorized_keys')
-    expect(sanitiseSuggestedName('/etc/passwd')).toBe('passwd')
-    expect(sanitiseSuggestedName('C:\\Windows\\x.dll')).toBe('x.dll')
-    expect(sanitiseSuggestedName('..\\..\\startup/run.bat')).toBe('run.bat')
-  })
-
-  it('drops control characters', () => {
-    expect(sanitiseSuggestedName('in\u0000voice\u001b[31m.pdf\u007f\n')).toBe('invoice[31m.pdf')
-  })
-
-  it('drops C1 and the controls that reorder text', () => {
-    // Shown as `invoiceexe.pdf` while it would save as an executable.
     expect(sanitiseSuggestedName('invoice\u202efdp.exe')).toBe('invoicefdp.exe')
-    expect(sanitiseSuggestedName('a\u2066b\u2069\u200e\u200f\u061c\u0085c.txt')).toBe('abc.txt')
   })
 
   it('falls back rather than trimming a name longer than a filesystem allows', () => {

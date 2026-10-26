@@ -5,6 +5,7 @@ import { ELEMENT } from '@session/test-ids'
 import { Button, Input, Screen, Text, XStack, YStack } from '@session/ui'
 
 import { BackButton } from './BackButton'
+import { useTopBarInsets } from './shell/pane'
 import { useState } from 'react'
 
 /**
@@ -18,6 +19,7 @@ import { useState } from 'react'
  * this screen could invent.
  */
 export function NewConversationScreen() {
+  const topBarInsets = useTopBarInsets()
   const actions = useSessionActions()
   const nav = useNav()
   const [accountId, setAccountId] = useState('')
@@ -44,10 +46,9 @@ export function NewConversationScreen() {
   return (
     <Screen padded testID={ELEMENT.newConversation.screen}>
       <YStack gap="$sm">
-        {/* The way out. Pushed rather than replaced onto the list, so back is where it came from;
-            on a two-pane window that is the placeholder, which is still the right answer - the
-            list never left. */}
-        <XStack alignItems="center" gap="$sm">
+        {/* The way out in one pane, where this screen covers the list. Beside the list the list
+            is the way out, and the back control draws nothing. */}
+        <XStack alignItems="center" gap="$sm" {...topBarInsets}>
           <BackButton testID={ELEMENT.newConversation.back} />
           <Text size="$title" weight="bold">
             {tr('conversationsNew')}

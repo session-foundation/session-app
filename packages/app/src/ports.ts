@@ -36,9 +36,22 @@ export interface PickedFile {
 export interface FilesPort {
   pickFiles(options?: { multiple?: boolean }): Promise<PickedFile[]>
   pickImages(options?: { multiple?: boolean }): Promise<PickedFile[]>
-  /** Where to export a file to; null when the person cancelled. */
-  chooseExportLocation(suggestedName: string): Promise<string | null>
+  /**
+   * Where to export a file to; null when the person cancelled.
+   *
+   * `contentType` is the sender's claim, for a platform whose destination depends on the kind of
+   * file: mobile sends a picture to the photo library and anything else to a folder.
+   *
+   * Rejects with `ExportAccessRefused` when that destination needs access that was refused.
+   */
+  chooseExportLocation(suggestedName: string, contentType?: string): Promise<string | null>
   openPath(path: string): Promise<void>
+  /**
+   * Shows the person where an export landed.
+   *
+   * On mobile this is also where the file reaches its destination: libsession writes to a real
+   * path, and neither a photo library nor a picked folder is one.
+   */
   revealInFolder(path: string): Promise<void>
 }
 
@@ -59,9 +72,15 @@ export interface MediaPort {
    *
    * A second URL rather than a second kind of value, so a placeholder reaches the screen by the
    * same route a picture does and nothing has to hold pixels to show one. Only worth asking for
-   * when `Attachment.hasPreview` says there is one.
+   * when `Attachment.hasThumbhash` says there is one.
    */
-  previewUrlFor(ref: AttachmentRef): string | null
+  thumbhashUrlFor(ref: AttachmentRef): string | null
+  /**
+   * The square JPEG libsession made of a picture it holds, which is what a tile draws: a viewer
+   * draws `urlFor`. Never a download, so only worth asking for when `Attachment.hasThumbnail`
+   * says there is one.
+   */
+  thumbnailUrlFor(ref: AttachmentRef): string | null
 }
 
 export interface MediaProbePort {

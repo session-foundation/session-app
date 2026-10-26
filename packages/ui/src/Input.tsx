@@ -26,6 +26,7 @@ export function Input({
   disabled,
   onSubmit,
   grow = false,
+  compact = false,
   end,
   endWidth = 0,
   error = false,
@@ -78,8 +79,8 @@ export function Input({
       borderRadius="$lg"
       // Taller and more generously padded than a list field: the desktop client pads its
       // onboarding input by 20px on every side, which is most of why its fields read as roomy.
-      height="$5xl"
-      paddingHorizontal="$lg"
+      height={compact ? '$3xl' : '$5xl'}
+      paddingHorizontal={compact ? '$md' : '$lg'}
       // Room for whatever sits against the trailing edge, so the text does not run under it.
       {...logical({ paddingEnd: endWidth === 0 ? SLOT_INSET : endWidth })}
     />

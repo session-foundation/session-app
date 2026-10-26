@@ -78,6 +78,9 @@ export function PhoneModalStack({
             onPop(screen.key)
           }}
           contentStyle={[styles.fill, { backgroundColor: background }]}
+          // Pinned to the stack's frame, as onboarding's steps are: left to the item's own
+          // `flex: 1`, a pushed screen measures a screen height lower than it is drawn.
+          style={StyleSheet.absoluteFill}
           headerConfig={{
             title: screen.title,
             titleFontSize: FONT_SIZE.headingLarge,

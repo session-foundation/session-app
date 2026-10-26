@@ -41,11 +41,12 @@ export type Deletion = 'here' | 'everywhere'
 export type AutoDownload = 'none' | 'image-attachments' | 'all'
 
 /**
- * Which kind of transfer a progress report belongs to.
+ * Which request a progress report belongs to.
  *
- * libsession joins concurrent downloads of one file with each other but never joins an export, so
- * one attachment can have two live transfers at once. Keyed without this they interleave, and a bar
- * jumps backwards.
+ * libsession fetches a file once for every download and export of it, but reports to each request
+ * separately and ends each with its own outcome, so one attachment can be downloading and exporting
+ * at once. An export of a file over libsession's `requested_cache_max_size` runs a transfer of its
+ * own that nothing joins; the bridge leaves that size unset.
  */
 export type AttachmentTransfer = 'download' | 'export'
 
@@ -101,6 +102,8 @@ export const FILE_NOT_FOUND: AttachmentError = 'file.not_found'
 export const FILE_UNREADABLE: AttachmentError = 'file.unreadable'
 /** This attempt failed for a reason that may not recur, so retrying is reasonable. */
 export const FILE_DOWNLOAD_FAILED: AttachmentError = 'file.download_failed'
+/** The request was withdrawn, or the attachment was deleted while it was being fetched. */
+export const FILE_DOWNLOAD_CANCELLED: AttachmentError = 'file.download_cancelled'
 /** An export could not be written to its destination. */
 export const FILE_SAVE_FAILED: AttachmentError = 'file.save_failed'
 
@@ -147,7 +150,16 @@ export interface Attachment {
    * media port like any other rather than riding the frame stream. What it names is the second
    * path on that scheme.
    */
-  hasPreview: boolean
+  hasThumbhash: boolean
+  /**
+   * Whether libsession holds a thumbnail of this attachment: a square JPEG of the picture, cropped
+   * to cover, at most the client's thumbnail edge on a side. Made only of a displayable image whose
+   * bytes are cached, and after them, so it turns true in a later `messages-updated` than the one
+   * reporting `cached`; false again once the cache evicts the file, which takes the thumbnail too.
+   *
+   * What a tile draws, through the media scheme's `thumbnail` path; a viewer draws the file.
+   */
+  hasThumbnail: boolean
   /**
    * On the file server: an outgoing attachment's upload finished, and always true for an incoming
    * one. Deliberately not "the bytes are here" - libsession records no local path, because the
@@ -254,7 +266,8 @@ export interface Message {
   attachments: Attachment[]
   /**
    * libsession's answer to whether this message's attachments could be shown as pictures rather
-   * than listed as files: "has attachments, and every one is `image/*`". It does not say whether
+   * than listed as files: "has attachments, and every one is a type libsession displays as an
+   * image" (JPEG, PNG, WebP, GIF, AVIF, `image/pjpeg`, case-insensitive). It does not say whether
    * this client can draw them, which is the screens' decision to make.
    */
   galleryViewable: boolean

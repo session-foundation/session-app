@@ -15,6 +15,8 @@ export {
   SessionTokenLogo,
   SessionTokenMark,
   SessionWordmark,
+  sessionBrandWidth,
+  sessionWordmarkWidth,
   type MarkProps,
 } from './Brand'
 export { HeroImage } from './HeroImage'
@@ -24,6 +26,18 @@ export { RadioIndicator } from './RadioIndicator'
 export { Reveal } from './Reveal'
 export { ScannerFrame } from './ScannerFrame'
 export { textHeight } from './textHeight'
+export { useFontScale } from './useFontScale'
+export { EndPinnedScroll } from './EndPinnedScroll'
+export { EndAboveKeyboardScroll } from './EndAboveKeyboardScroll'
+export {
+  GLYPH_MAX_SCALE,
+  LABEL_MAX_SCALE,
+  useCappedFontScale,
+  useGlyphScale,
+} from './fontScaleCaps'
+export { FitText } from './FitText'
+export { MIN_FIT_SCALE } from './fittedFontSize'
+export { setPageZoom, usePageZoom } from './pageZoom'
 export { useScreenInsets } from './screenInsets'
 export type { ScreenInsets } from './screenInsets.types'
 export { SlidePager } from './SlidePager'
@@ -37,6 +51,7 @@ export { SafeArea, type SafeAreaProps } from './SafeArea'
 export { useTokenColor } from './useTokenColor'
 export { useWindowSize } from './useWindowSize'
 export { ProgressRing } from './ProgressRing'
+export { inkFor, ON_ACCENT_SECONDARY_OPACITY, type InkTone } from './ink'
 export type { AvatarProps } from './Avatar'
 export { BarButton, type BarButtonProps } from './BarButton'
 export { Button } from './Button'
@@ -56,8 +71,8 @@ export type {
 export { List } from './List'
 export { MessageBubble, type MessageBubbleProps } from './MessageBubble'
 export { Modal } from './Modal'
-export { SegmentedToggle } from './SegmentedToggle'
-export type { Segment, SegmentedToggleProps } from './SegmentedToggle'
+/** What a row of small controls grows to on touch, and 0 with a pointer. */
+export { ROW_TOUCH_TARGET } from './rowTouchTarget'
 export { Sheet } from './Sheet'
 export type { SheetProps } from './Sheet'
 export { ModalStackProvider, useModalNavigation, useModals } from './ModalsProvider'
@@ -76,6 +91,11 @@ export { UIProvider } from './UIProvider'
 export type { UIProviderProps } from './UIProvider'
 export type { BackdropBlur, BackdropBlurProps } from './backdropBlur'
 export type { Glass, GlassProps } from './glass'
+export {
+  useTopBarControlsPadding,
+  WindowControlsInsetProvider,
+  type WindowControlsInset,
+} from './windowControls'
 
 export { config, tokens } from './config'
 // The numbers behind the named scales, for a raw style that tamagui does not resolve.
@@ -113,11 +133,11 @@ export type { LogicalEdges } from './logicalEdges.types'
 export { AttachmentTile } from './AttachmentTile'
 export type { AttachmentTileProps } from './AttachmentTile'
 export { TILE_RADIUS_STEP, TILE_SCRIM, tileRadius } from './attachmentTileStyle'
-export { MIN_HIT_TARGET } from './buttonHitTarget'
+export { MIN_HIT_TARGET, buttonHeight } from './buttonHitTarget'
 export { MediaViewer } from './MediaViewer'
 export type { MediaViewerItem, MediaViewerProps } from './MediaViewer'
 export { AttachmentAlbum } from './AttachmentAlbum'
-export type { AlbumImage, AlbumItem, AlbumVideo, AttachmentAlbumProps } from './AttachmentAlbum'
+export type { AlbumItem, AttachmentAlbumProps } from './AttachmentAlbum'
 export { ALBUM_MAX_TILES, ALBUM_SEAM, albumLayout, lastCell } from './albumLayout'
 export type { AlbumCell, AlbumLayout } from './albumLayout'
 export { FileRow } from './FileRow'
@@ -128,6 +148,7 @@ export {
   FILE_ROW_CONTROL,
   FILE_ROW_GAP,
   fileRowControl,
+  fileRowHeight,
   fileRowTone,
 } from './fileRowState'
 export type { FileRowState, FileRowTone } from './fileRowState'

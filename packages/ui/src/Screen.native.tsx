@@ -1,8 +1,9 @@
-import { Keyboard, TouchableWithoutFeedback } from 'react-native'
+import { Keyboard, View } from 'react-native'
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { YStack } from 'tamagui'
 
+import { backgroundDismissResponder } from './backgroundDismiss'
 import type { ScreenProps } from './Screen.types'
 
 export type { ScreenProps }
@@ -10,6 +11,13 @@ export type { ScreenProps }
 const ALL_EDGES = ['top', 'bottom', 'left', 'right'] as const
 
 const FILL = { flex: 1 } as const
+
+const DISMISS_ON_BACKGROUND = backgroundDismissResponder(
+  () => Keyboard.isVisible(),
+  () => {
+    Keyboard.dismiss()
+  },
+)
 
 /**
  * The native flavour: the same frame, held clear of the hardware and of the keyboard.
@@ -63,24 +71,26 @@ export function Screen({
       */}
       {/*
         Tapping anywhere that is not a control puts the keyboard away, which is the convention on
-        both platforms and costs nothing here. `TouchableWithoutFeedback` rather than a Pressable
-        because there is deliberately no feedback: this is the background, not a button, and
-        `accessible={false}` stops the whole screen announcing itself to a screen reader as one
-        control.
+        both platforms. A bare responder rather than a Touchable: no feedback, no role for a
+        screen reader to announce, and no claim at all while the keyboard is down - see
+        `backgroundDismissResponder`. A list inside dismisses on its own, `List` says how.
+
+        On the avoiding view itself, never a wrapper: it measures its offset from its parent, and
+        a wrapper at the frame's top hides the top inset, leaving the composer under the keyboard.
       */}
-      <TouchableWithoutFeedback accessible={false} onPress={() => Keyboard.dismiss()}>
-        {avoidsKeyboard ? (
-          <KeyboardAvoidingView style={FILL} behavior="padding">
-            <YStack flex={1} {...(padded ? { padding: '$md' } : {})}>
-              {children}
-            </YStack>
-          </KeyboardAvoidingView>
-        ) : (
+      {avoidsKeyboard ? (
+        <KeyboardAvoidingView style={FILL} behavior="padding" {...DISMISS_ON_BACKGROUND}>
           <YStack flex={1} {...(padded ? { padding: '$md' } : {})}>
             {children}
           </YStack>
-        )}
-      </TouchableWithoutFeedback>
+        </KeyboardAvoidingView>
+      ) : (
+        <View style={FILL} {...DISMISS_ON_BACKGROUND}>
+          <YStack flex={1} {...(padded ? { padding: '$md' } : {})}>
+            {children}
+          </YStack>
+        </View>
+      )}
     </YStack>
   )
 }

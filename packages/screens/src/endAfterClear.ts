@@ -13,3 +13,15 @@ export function endAfterClear(): void {
   const end = restart ?? close
   end?.()
 }
+
+/**
+ * The startup-failure screen's clear. Where an account had been loaded, which is where a failed
+ * Settings > Clear data lands, it ends the process as that does; otherwise the store starts again
+ * in place, on onboarding.
+ */
+export function clearAfterStartupFailure(
+  clear: () => Promise<void>,
+  accountLoaded: boolean,
+): Promise<void> {
+  return accountLoaded ? clear().then(endAfterClear) : clear()
+}

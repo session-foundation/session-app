@@ -1,21 +1,10 @@
 import { protocol } from 'electron'
 
 import { isViewableContentType, mediaKindOf } from '@session/basic-types'
-import type { Preview } from '@session/bridge-node'
-import type { AttachmentRef } from '@session/client'
+import type { MediaSource } from '@session/client'
 
-import { MEDIA_SCHEME, type MediaUrlKind } from '../shared/mediaUrl'
+import { MEDIA_SCHEME, parseMediaUrl } from '@session/app/mediaUrl'
 import { encodePng } from './png'
-
-/**
- * Whatever can answer with an attachment's bytes: the addon, or the fake behind the same door.
- *
- * Narrower than the transport on purpose: serving the scheme has no business with frames.
- */
-export interface MediaSource {
-  fetchMedia(ref: AttachmentRef): Promise<{ contentType: string; bytes: Uint8Array }>
-  fetchPreview(ref: AttachmentRef): Promise<Preview>
-}
 
 /**
  * Registered before `app.whenReady()`, which is the only time Electron accepts it.
@@ -30,37 +19,6 @@ export function registerMediaScheme(): void {
   protocol.registerSchemesAsPrivileged([
     { scheme: MEDIA_SCHEME, privileges: { standard: true, secure: true } },
   ])
-}
-
-// Number() alone would also take '', '0x2A', '1e1', '+42' and '-0'.
-const ID_SEGMENT = /^(0|[1-9]\d{0,15})$/
-
-function parseId(segment: string | undefined): number | null {
-  if (segment === undefined || !ID_SEGMENT.test(segment)) return null
-  const id = Number(segment)
-  return Number.isSafeInteger(id) ? id : null
-}
-
-/** `session-media://<attachment|preview>/<messageId>/<index>` split back up, or null. */
-export function parseMediaUrl(url: string): { kind: MediaUrlKind; ref: AttachmentRef } | null {
-  let parsed: URL
-  try {
-    parsed = new URL(url)
-  } catch {
-    return null
-  }
-  if (parsed.protocol !== `${MEDIA_SCHEME}:`) return null
-  if (parsed.search !== '' || parsed.hash !== '') return null
-  const kind = parsed.hostname
-  if (kind !== 'attachment' && kind !== 'preview') return null
-
-  const [message, index, ...rest] = parsed.pathname.replace(/^\//, '').split('/')
-  if (rest.length > 0) return null
-
-  const messageId = parseId(message)
-  const at = parseId(index)
-  if (messageId === null || messageId === 0 || at === null) return null
-  return { kind, ref: { messageId, index: at } }
 }
 
 /**
@@ -120,9 +78,8 @@ function mediaHeaders(contentType: string): Record<string, string> {
  * Serves the scheme from the bridge, in the main process, where the addon already is.
  *
  * Bytes never touch the frame stream and never cross as a message: Chromium fetches them for the
- * element that asked, decodes off the main thread, and caches the result itself. A transfer that
- * has to happen still reports progress as `attachment-progress` events, so the row draws the same
- * bar it would for a tap.
+ * element that asked, decodes off the main thread, and caches the result itself. Every kind is
+ * served from libsession's cache only, so drawing a URL never downloads anything.
  */
 export function serveMedia(bridge: MediaSource): void {
   protocol.handle(MEDIA_SCHEME, async (request) => {
@@ -130,12 +87,20 @@ export function serveMedia(bridge: MediaSource): void {
     if (!target) return new Response(null, { status: 400 })
 
     try {
-      if (target.kind === 'preview') {
-        const preview = await bridge.fetchPreview(target.ref)
-        return new Response(encodePng(preview.width, preview.height, preview.rgba), {
+      if (target.kind === 'thumbhash') {
+        const thumbhash = await bridge.fetchThumbhash(target.ref)
+        return new Response(encodePng(thumbhash.width, thumbhash.height, thumbhash.rgba), {
           status: 200,
           headers: mediaHeaders('image/png'),
         })
+      }
+
+      if (target.kind === 'thumbnail') {
+        const jpeg = await bridge.fetchThumbnail(target.ref)
+        if (servableContentType('image/jpeg', jpeg) !== 'image/jpeg') {
+          return new Response(null, { status: 415 })
+        }
+        return new Response(jpeg, { status: 200, headers: mediaHeaders('image/jpeg') })
       }
 
       const media = await bridge.fetchMedia(target.ref)
@@ -146,9 +111,9 @@ export function serveMedia(bridge: MediaSource): void {
         headers: mediaHeaders(contentType),
       })
     } catch {
-      // Only a failure after a transfer started is on the frame stream too. A verdict, a missing
-      // message or a failed preview is known from this status alone, so whoever draws the url
-      // has to handle the image failing. Not stored, so the url is asked again after a retry.
+      // A file not downloaded, a missing message, a failed thumbhash or a missing thumbnail is
+      // known from this status alone, so whoever draws the url has to handle the image failing.
+      // Not stored, so the url is asked again once the file is here.
       // TODO: once sending exists, serve a sender's own attachment from its local copy while it
       // uploads; libsession refuses a file not uploaded yet, so that picture is a 404 here.
       return new Response(null, { status: 404, headers: { 'cache-control': 'no-store' } })

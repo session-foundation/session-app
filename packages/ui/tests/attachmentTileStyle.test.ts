@@ -1,7 +1,12 @@
 import { RADII } from '@session/theme-tokens'
 import { describe, expect, it } from 'vitest'
 
-import { TILE_RADIUS_STEP, tilePlaceholder, tileRadius } from '#src/attachmentTileStyle'
+import {
+  showsPicture,
+  TILE_RADIUS_STEP,
+  tilePlaceholder,
+  tileRadius,
+} from '#src/attachmentTileStyle'
 
 describe('a tile’s corner', () => {
   it('takes the larger radius at the sizes an album draws', () => {
@@ -28,22 +33,44 @@ describe('a tile’s corner', () => {
 })
 
 describe('a tile’s placeholder', () => {
-  it('is the sender’s preview where there is one', () => {
-    expect(tilePlaceholder('session-media://preview/1/0', null)).toBe('session-media://preview/1/0')
+  it('is the sender’s thumbhash where there is one', () => {
+    expect(tilePlaceholder('session-media://thumbhash/1/0', null)).toBe(
+      'session-media://thumbhash/1/0',
+    )
   })
 
-  it('is none without a preview, so the glyph is drawn', () => {
+  it('is none without a thumbhash, so the glyph is drawn', () => {
     expect(tilePlaceholder(undefined, null)).toBeNull()
     expect(tilePlaceholder(null, null)).toBeNull()
   })
 
-  it('is none once that preview failed to load, so the tile is not left blank', () => {
-    expect(tilePlaceholder('session-media://preview/1/0', 'session-media://preview/1/0')).toBeNull()
+  it('is none once that thumbhash failed to load, so the tile is not left blank', () => {
+    expect(
+      tilePlaceholder('session-media://thumbhash/1/0', 'session-media://thumbhash/1/0'),
+    ).toBeNull()
   })
 
-  it('gives a new preview url its own attempt', () => {
-    expect(tilePlaceholder('session-media://preview/2/0', 'session-media://preview/1/0')).toBe(
-      'session-media://preview/2/0',
+  it('gives a new thumbhash url its own attempt', () => {
+    expect(tilePlaceholder('session-media://thumbhash/2/0', 'session-media://thumbhash/1/0')).toBe(
+      'session-media://thumbhash/2/0',
     )
+  })
+})
+
+describe('whether a tile shows its picture', () => {
+  const url = 'session-media://thumbnail/1/0'
+
+  it('does not with no url, and not until the picture reports in', () => {
+    expect(showsPicture(undefined, null)).toBe(false)
+    expect(showsPicture(null, null)).toBe(false)
+    expect(showsPicture(url, null)).toBe(false)
+  })
+
+  it('does once it loaded', () => {
+    expect(showsPicture(url, url)).toBe(true)
+  })
+
+  it('starts over for a new url rather than inheriting the last one’s load', () => {
+    expect(showsPicture('session-media://thumbnail/2/0', url)).toBe(false)
   })
 })

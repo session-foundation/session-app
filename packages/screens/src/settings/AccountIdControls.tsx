@@ -19,7 +19,7 @@ export function AccountIdControls({ sessionId }: AccountIdControlsProps) {
     <XStack alignItems="center" gap="$xs">
       <PressArea accessibilityLabel={tr('copy')} onPress={copy}>
         {() => (
-          <YStack cursor="pointer">
+          <YStack $platform-web={{ cursor: 'pointer' }}>
             <AccountIdText sessionId={sessionId} />
           </YStack>
         )}

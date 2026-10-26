@@ -1,3 +1,5 @@
+import { contentTypeEssence } from '@session/basic-types'
+
 import type { IconName } from './Icon.types'
 
 /** A suffix longer than this is not an extension, whatever the last dot suggests. */
@@ -19,6 +21,18 @@ function parts(name: string): { stem: string; ext: string } {
   return dot > 0 && name.length - dot <= MAX_EXTENSION
     ? { stem: name.slice(0, dot), ext: name.slice(dot) }
     : { stem: name, ext: '' }
+}
+
+/** Hebrew, Arabic, Syriac, Thaana, N'Ko, Samaritan, Mandaic and their presentation forms. */
+const RTL_LETTER = /[\u0590-\u08FF\uFB1D-\uFDFF\uFE70-\uFEFF]/
+
+/**
+ * The direction a name reads in, from its first letter rather than the layout around it: a
+ * filename is in whatever script its author wrote it, whatever language the app is in.
+ */
+export function nameDirection(name: string): 'ltr' | 'rtl' {
+  const first = /\p{Letter}/u.exec(name)?.[0]
+  return first !== undefined && RTL_LETTER.test(first) ? 'rtl' : 'ltr'
 }
 
 /**
@@ -89,6 +103,6 @@ const BY_FAMILY: Readonly<Record<string, IconName>> = {
  */
 export function fileGlyph(name: string, contentType?: string): IconName {
   const ext = parts(name).ext.slice(1).toLowerCase()
-  const family = contentType?.split('/')[0]?.toLowerCase()
+  const family = contentTypeEssence(contentType)?.split('/')[0]
   return BY_EXTENSION.get(ext) ?? (family === undefined ? undefined : BY_FAMILY[family]) ?? 'file'
 }

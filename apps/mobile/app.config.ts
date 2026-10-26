@@ -6,6 +6,10 @@ import { fileURLToPath } from 'node:url'
 import type * as ConfigPlugins from '@expo/config-plugins'
 import type { ConfigContext, ExpoConfig } from 'expo/config'
 
+// Through the package's imports map: Expo evaluates this file with node's ESM resolver, which
+// needs an extension on a relative path and finds one in the map.
+import { withSessionMedia } from '#plugins/withSessionMedia'
+
 /**
  * Required rather than imported, because node cannot see half of this module's exports.
  *
@@ -88,6 +92,16 @@ const PERMISSION_STRINGS: Record<string, string> = {
   NSLocalNetworkUsageDescription: 'permissionsLocalNetworkAccessRequiredIos',
 }
 
+/**
+ * The purpose strings a plugin writes, from `englishPermission` below, so the Android permission
+ * each one comes with is declared by the same entry. `ios.infoPlist` writes every other one.
+ */
+const PLUGIN_WRITTEN_KEYS = new Set([
+  'NSCameraUsageDescription',
+  'NSPhotoLibraryUsageDescription',
+  'NSPhotoLibraryAddUsageDescription',
+])
+
 /** The English of one of them, which is what the plist itself carries. */
 function englishPermission(plistKey: string): string {
   const key = PERMISSION_STRINGS[plistKey]
@@ -154,6 +168,34 @@ const withPermissionStrings: ConfigPlugins.ConfigPlugin = (config) =>
       { projectRoot: ios.modRequest.projectRoot, project: ios.modResults },
     )
     return ios
+  })
+
+/**
+ * Android storage access cut to what exporting uses: WRITE_EXTERNAL_STORAGE on 9 and below, and
+ * nothing from 10, where MediaStore takes the save. expo-media-library, there for iOS, declares it
+ * up to 32 with `requestLegacyExternalStorage`. Wraps the config rather than sitting in `plugins`,
+ * so it runs after theirs.
+ *
+ * The entry is written whether or not a plugin declared it: absent, the merged manifest takes
+ * WRITE up to 32 from expo-file-system's library manifest, which only `tools:replace` overrides.
+ */
+const withExportStorageAccess: ConfigPlugins.ConfigPlugin = (config) =>
+  withAndroidManifest(config, (android) => {
+    const manifest = AndroidConfig.Manifest.ensureToolsAvailable(android.modResults)
+    delete AndroidConfig.Manifest.getMainApplicationOrThrow(manifest).$[
+      'android:requestLegacyExternalStorage'
+    ]
+    const capped = {
+      'android:name': 'android.permission.WRITE_EXTERNAL_STORAGE',
+      'android:maxSdkVersion': '28',
+      'tools:replace': 'android:maxSdkVersion',
+    }
+    const permissions = (manifest.manifest['uses-permission'] ??= [])
+    const write = permissions.find(({ $ }) => $['android:name'] === capped['android:name'])
+    if (write === undefined) permissions.push({ $: capped })
+    else Object.assign(write.$, capped)
+    android.modResults = manifest
+    return android
   })
 
 /**
@@ -258,7 +300,7 @@ function appGroup(config: ConfigContext['config']): string {
 
 /** The plugins written in this file, which take the computed config rather than a plugin entry. */
 const withLocalPlugins: ConfigPlugins.ConfigPlugin = (config) =>
-  withNoBackups(withPermissionStrings(config))
+  withSessionMedia(withExportStorageAccess(withNoBackups(withPermissionStrings(config))))
 
 /**
  * `app.json` plus the things that have to be computed.
@@ -270,10 +312,9 @@ export default ({ config }: ConfigContext): ExpoConfig =>
     ...config,
     name: config.name ?? 'Session',
     slug: config.slug ?? 'session-app',
-    // The camera is the scanner behind the restore screen's QR tab. Declared through the plugin
-    // rather than by writing the plist key directly, so the Android permission comes with it.
     plugins: [
       ...(config.plugins ?? []),
+      // The camera is the scanner behind the restore screen's QR tab.
       [
         'expo-camera',
         {
@@ -284,6 +325,21 @@ export default ({ config }: ConfigContext): ExpoConfig =>
           recordAudioAndroid: false,
         },
       ],
+      // iOS saves an exported picture or video to Photos through this. The plugin's own strings
+      // would replace the catalogue's, and `false` deletes the key from the plist outright. On
+      // Android `modules/media-store` does the saving, and `withExportStorageAccess` trims what
+      // this declares there.
+      [
+        'expo-media-library',
+        {
+          photosPermission: englishPermission('NSPhotoLibraryUsageDescription'),
+          savePhotosPermission: englishPermission('NSPhotoLibraryAddUsageDescription'),
+          // Unset, the plugin declares audio too. Images and video are blocked below.
+          granularPermissions: ['photo', 'video'],
+        },
+      ],
+      // Legacy Android's floor.
+      ['expo-build-properties', { android: { minSdkVersion: 26 } }],
       [
         'expo-splash-screen',
         {
@@ -307,6 +363,15 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       ...config.android,
       // Cloud backup off; withNoBackups closes device-to-device transfer, which this does not.
       allowBackup: false,
+      // The media-library plugin declares reading the library, which saving to it never does;
+      // Play asks every app declaring them to justify it. On 9 and below WRITE grants READ.
+      blockedPermissions: [
+        ...(config.android?.blockedPermissions ?? []),
+        'android.permission.READ_MEDIA_IMAGES',
+        'android.permission.READ_MEDIA_VIDEO',
+        'android.permission.READ_MEDIA_VISUAL_USER_SELECTED',
+        'android.permission.READ_EXTERNAL_STORAGE',
+      ],
     },
     ios: {
       ...config.ios,
@@ -324,12 +389,12 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       },
       infoPlist: {
         ...config.ios?.infoPlist,
-        // Every purpose string but the camera's, which the plugin above writes so that the Android
-        // permission comes with it. English only here; `permissionLocales` puts each of the other
-        // languages into its own `.lproj`, keyed off this same map.
+        // Every purpose string the plugins above do not write. English only here;
+        // `permissionLocales` puts each of the other languages into its own `.lproj`, keyed off
+        // this same map.
         ...Object.fromEntries(
           Object.keys(PERMISSION_STRINGS)
-            .filter((plistKey) => plistKey !== 'NSCameraUsageDescription')
+            .filter((plistKey) => !PLUGIN_WRITTEN_KEYS.has(plistKey))
             .map((plistKey) => [plistKey, englishPermission(plistKey)]),
         ),
         // The service the local-network prompt is triggered by. The client's own name, and not a

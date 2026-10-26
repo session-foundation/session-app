@@ -17,6 +17,9 @@ def getExtOrDefault(name, fallback) {
   return rootProject.ext.has(name) ? rootProject.ext.get(name) : fallback
 }
 
+// Codegen, because package.json's codegenConfig registers the iOS image loader, and autolinking then
+// links a codegen library on Android too. There are no TurboModule specs, so it generates an empty one.
+apply plugin: "com.facebook.react"
 apply plugin: "com.android.library"
 apply plugin: "org.jetbrains.kotlin.android"
 apply from: "../nitrogen/generated/android/SessionBridgeRN+autolinking.gradle"

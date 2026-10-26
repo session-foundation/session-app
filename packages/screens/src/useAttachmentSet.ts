@@ -5,6 +5,7 @@ import { fetchOf, type Fetch } from './attachmentFetch'
 import { summarise, type AttachmentSet } from './attachmentSet'
 import { useConversationUi } from './conversationUi'
 import { exportOne } from './exportAttachment'
+import { useExportFeedback } from './useExportFeedback'
 
 /**
  * One message's attachments as a set, and what the set's controls do.
@@ -23,6 +24,7 @@ export function useAttachmentSet(message: Message): {
   act: () => void
 } {
   const actions = useSessionActions()
+  const feedback = useExportFeedback()
   const { requestAutoDownloadPrompt } = useConversationUi()
   const transfers = useMessageTransfers(message.id)
   const reportFor = (attachment: Attachment) => transfers[transferKey('download', attachment.index)]
@@ -49,7 +51,7 @@ export function useAttachmentSet(message: Message): {
     if (set.state === 'ready') {
       // Exactly one, or the footer would not have offered this - see its `verb`.
       const only = message.attachments[0]
-      if (only !== undefined) void exportOne(message, only.index, actions)
+      if (only !== undefined) void exportOne(message, only.index, actions, feedback)
       return
     }
     downloadMissing()

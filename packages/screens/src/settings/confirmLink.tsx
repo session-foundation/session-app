@@ -1,16 +1,9 @@
 import { openExternalUrl, requirePorts } from '@session/app'
 import { tr } from '@session/localization'
 import { ELEMENT } from '@session/test-ids'
-import { Button, ScrollView, textHeight, type Modals } from '@session/ui'
+import { Button, type Modals } from '@session/ui'
 
-import { LocalizedText } from '../LocalizedText'
-
-/**
- * In lines, so the last visible one is never cut in half. The URL scrolls rather than truncates:
- * a deceptive address hides what it is at its end.
- */
-const MAX_LINES = 5
-const MAX_URL_HEIGHT = textHeight('body', MAX_LINES)
+import { LinkAddress } from '../LinkAddress'
 
 /**
  * Asks before handing an address to the browser. Every external link must go through this.
@@ -23,12 +16,7 @@ export function confirmLink(modals: Modals, url: string): void {
     closeTestID: ELEMENT.onboarding.openUrlCancel,
     initial: {
       title: tr('urlOpen'),
-      render: () => (
-        <ScrollView maxHeight={MAX_URL_HEIGHT}>
-          {/* The catalogue string includes the URL, bold and on its own lines. */}
-          <LocalizedText text={tr('urlOpenDescription', { url })} size="$body" textAlign="center" />
-        </ScrollView>
-      ),
+      render: () => <LinkAddress url={url} />,
       footer: () => (
         <>
           <Button

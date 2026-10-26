@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ScrollView, XStack, YStack } from 'tamagui'
-import type { ElementRef } from 'react'
+import { ScrollView, type ScrollViewInstance } from 'react-native'
+import { XStack, YStack } from 'tamagui'
 
 import { Icon } from './Icon'
 import { filterLanguages } from './languageFilter'
 import { Input } from './Input'
 import { Text } from './Text'
+import { GLYPH_MAX_SCALE, LABEL_MAX_SCALE } from './fontScaleCaps'
 import type { LanguageChoice, LanguagePickerTestIDs } from './LanguagePicker.types'
 
 interface LanguageChoiceListProps {
@@ -18,8 +19,10 @@ interface LanguageChoiceListProps {
 }
 
 /**
- * Fixed, so the selected row can be scrolled to by arithmetic rather than by measuring every row
- * above it. Tall enough for a comfortable target and for the scripts with tall ascenders.
+ * A row's height at the default text size, and its floor: a larger system text size grows a row
+ * whose name wraps. The selected row is scrolled to by arithmetic on this rather than by measuring
+ * every row above it, so at a large text size it lands near the row rather than on it. Tall enough
+ * for a comfortable target and for the scripts with tall ascenders.
  */
 const ROW_HEIGHT = 40
 
@@ -40,7 +43,9 @@ export function LanguageChoiceList({
   testIDs,
 }: LanguageChoiceListProps) {
   const [query, setQuery] = useState('')
-  const scroller = useRef<ElementRef<typeof ScrollView>>(null)
+  // React Native's ScrollView rather than tamagui's: tamagui types its ref as the component rather
+  // than the instance, so `scrollTo` is not on it.
+  const scroller = useRef<ScrollViewInstance>(null)
 
   const matches = useMemo(() => filterLanguages(options, query), [options, query])
 
@@ -72,6 +77,7 @@ export function LanguageChoiceList({
         <Icon name="search" size="md" color="$textSecondary" />
         <Input
           grow
+          compact
           value={query}
           onChangeText={setQuery}
           placeholder={searchPlaceholder}
@@ -87,7 +93,7 @@ export function LanguageChoiceList({
           </Text>
         </YStack>
       ) : (
-        <ScrollView ref={scroller} flexShrink={1} keyboardShouldPersistTaps="handled">
+        <ScrollView ref={scroller} style={{ flexShrink: 1 }} keyboardShouldPersistTaps="handled">
           <YStack>
             {matches.map((option) => {
               const selected = option.value === value
@@ -97,10 +103,10 @@ export function LanguageChoiceList({
                   role="button"
                   alignItems="center"
                   gap="$sm"
-                  height={ROW_HEIGHT}
+                  minHeight={ROW_HEIGHT}
                   paddingHorizontal="$sm"
                   borderRadius="$sm"
-                  cursor="pointer"
+                  $platform-web={{ cursor: 'pointer' }}
                   backgroundColor={selected ? '$backgroundTertiary' : 'transparent'}
                   pressStyle={{ backgroundColor: '$backgroundTertiary' }}
                   onPress={() => {
@@ -111,10 +117,15 @@ export function LanguageChoiceList({
                 >
                   {/* The flag is decoration: it repeats across rows and is absent on three of
                       them, so it is hidden from screen readers and the name carries the row. */}
-                  <Text size="$title" aria-hidden>
+                  <Text size="$title" aria-hidden maxFontSizeMultiplier={GLYPH_MAX_SCALE}>
                     {option.flag}
                   </Text>
-                  <Text flex={1} size="$body" weight={selected ? 'semibold' : 'regular'}>
+                  <Text
+                    flex={1}
+                    size="$body"
+                    weight={selected ? 'semibold' : 'regular'}
+                    maxFontSizeMultiplier={LABEL_MAX_SCALE}
+                  >
                     {option.label}
                   </Text>
                   {selected ? <Icon name="check" size="md" color="$primaryColor" /> : null}

@@ -10,7 +10,13 @@ import { MARKER } from './logger'
  */
 export interface LogDirectory {
   list(): Promise<LogFileInfo[]>
-  append(name: string, text: string): Promise<void>
+  /**
+   * `urgent` asks for the text to be written before this returns, even if that blocks: an
+   * urgent line, or the flush as a phone app is backgrounded and may be suspended any moment.
+   * Otherwise it may be written in the background. A directory whose writes never block anything
+   * that matters is free to ignore it.
+   */
+  append(name: string, text: string, urgent: boolean): Promise<void>
   remove(name: string): Promise<void>
   read(name: string): Promise<string>
   /**
@@ -275,7 +281,7 @@ export class LogWriter implements LogSink {
   write(lines: readonly string[], urgent: boolean): void {
     this.#pending.push(...lines)
     if (urgent) {
-      void this.flush()
+      void this.flush(true)
     } else if (this.#timer === null) {
       this.#timer = this.#timers.setTimeout(() => {
         this.#timer = null
@@ -284,8 +290,11 @@ export class LogWriter implements LogSink {
     }
   }
 
-  /** Everything written so far, on disk, when this settles. */
-  flush(): Promise<void> {
+  /**
+   * Everything written so far, on disk, when this settles. `urgent` passes on to the directory:
+   * see `LogDirectory.append`.
+   */
+  flush(urgent = false): Promise<void> {
     if (this.#timer !== null) {
       this.#timers.clearTimeout(this.#timer)
       this.#timer = null
@@ -294,7 +303,7 @@ export class LogWriter implements LogSink {
     this.#pending = []
     if (lines.length > 0) {
       this.#chain = this.#chain
-        .then(() => this.#append(lines))
+        .then(() => this.#append(lines, urgent))
         .catch((error: unknown) => {
           this.#onError(error)
         })
@@ -302,7 +311,7 @@ export class LogWriter implements LogSink {
     return this.#chain
   }
 
-  async #append(lines: string[]): Promise<void> {
+  async #append(lines: string[], urgent: boolean): Promise<void> {
     // Line by line into files, so a file closes at a line boundary and never mid-record.
     let chunk = ''
     let chunkBytes = 0
@@ -313,7 +322,7 @@ export class LogWriter implements LogSink {
         this.#currentBytes + chunkBytes + bytes > this.#maxFileBytes &&
         this.#currentBytes + chunkBytes > 0
       ) {
-        await this.#commit(chunk, chunkBytes)
+        await this.#commit(chunk, chunkBytes, urgent)
         chunk = ''
         chunkBytes = 0
         this.#index += 1
@@ -322,13 +331,13 @@ export class LogWriter implements LogSink {
       chunk += text
       chunkBytes += bytes
     }
-    if (chunk !== '') await this.#commit(chunk, chunkBytes)
+    if (chunk !== '') await this.#commit(chunk, chunkBytes, urgent)
   }
 
-  async #commit(text: string, bytes: number): Promise<void> {
+  async #commit(text: string, bytes: number, urgent: boolean): Promise<void> {
     const name = this.currentFile
     await this.#prune(bytes)
-    await this.#dir.append(name, text)
+    await this.#dir.append(name, text, urgent)
     this.#currentBytes += bytes
     const existing = this.#files.find((file) => file.name === name)
     if (existing === undefined) this.#files.push({ name, sizeBytes: bytes })

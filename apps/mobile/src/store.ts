@@ -1,19 +1,16 @@
 import {
+  ALBUM_WIDTH,
   netidForTransport,
   parseDevnetConfig,
   parseLogSpec,
   parseNetworkName,
   parseRouterKind,
 } from '@session/basic-types'
-import {
-  createRefusingTransport,
-  createSessionClient,
-  type BridgeTransport,
-  type FetchLike,
-} from '@session/client'
+import { createRefusingTransport, type BridgeTransport, type FetchLike } from '@session/client'
 import { createSessionStore } from '@session/state'
-import { Platform } from 'react-native'
+import { PixelRatio, Platform } from 'react-native'
 
+import { mobileClient } from './client'
 import { libsessionLog, storeLog, watchStore } from './logs'
 import { resolveDatabaseKey } from './storage/databaseKey'
 import { protectDatabase, sessionPaths } from './storage/roots'
@@ -55,7 +52,7 @@ async function openTransport(): Promise<BridgeTransport> {
           {
             seedUrl: process.env['EXPO_PUBLIC_SESSION_DEVNET_SEED_URL'],
             fileServerUrl: process.env['EXPO_PUBLIC_SESSION_FILE_SERVER_URL'],
-            fileServerX25519Pubkey: process.env['EXPO_PUBLIC_SESSION_FILE_SERVER_X25519_PUBKEY'],
+            fileServerEd25519Pubkey: process.env['EXPO_PUBLIC_SESSION_FILE_SERVER_ED25519_PUBKEY'],
           },
           'EXPO_PUBLIC_SESSION_',
         )
@@ -93,6 +90,8 @@ async function openTransport(): Promise<BridgeTransport> {
     // devnet, which is the only thing a devnet can use.
     ...(router === undefined ? {} : { router }),
     deviceType: Platform.OS === 'ios' ? 'ios' : 'android',
+    // A default: a stored edge (setThumbnailEdge) wins over this at every open.
+    thumbnailEdgePx: Math.round(ALBUM_WIDTH * PixelRatio.get()),
     // Off unless asked for, as on desktop: libsession is chatty below warn, and the reason to turn
     // it up is always a specific failure. It is also the only place the network and the transport
     // actually chosen are reported, which no screen shows.
@@ -130,7 +129,7 @@ async function openTransportOrRefusal(): Promise<BridgeTransport> {
 }
 
 export const storePromise = openTransportOrRefusal().then((transport) => {
-  const store = createSessionStore(createSessionClient(transport), {
+  const store = createSessionStore(mobileClient(transport), {
     attachmentCacheLimitBytes: ATTACHMENT_CACHE_LIMIT_BYTES,
     log: storeLog,
     libsessionLog,

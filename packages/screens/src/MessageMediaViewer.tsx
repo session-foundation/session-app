@@ -1,5 +1,3 @@
-import { mediaKindOf } from '@session/basic-types'
-import { requirePorts } from '@session/app'
 import type { ConversationId } from '@session/client'
 import { tr } from '@session/localization'
 import { transferKey, useMessage, useMessageTransfers, useSessionActions } from '@session/state'
@@ -9,8 +7,9 @@ import { useMemo, useRef } from 'react'
 
 import { fetchOf } from './attachmentFetch'
 import { exportOne } from './exportAttachment'
+import { useExportFeedback } from './useExportFeedback'
 import { PENDING_COPY } from './pendingCopy'
-import { viewableAttachments } from './viewableAttachments'
+import { viewableAttachments, viewerUri } from './viewableAttachments'
 
 /** An open viewer: which message, and the attachment's index in that message. */
 export interface ViewerTarget {
@@ -32,10 +31,11 @@ function MessageViewer({
   onClose: () => void
 }) {
   const actions = useSessionActions()
+  const feedback = useExportFeedback()
   const message = useMessage(conversationId, target.messageId)
   const transfers = useMessageTransfers(target.messageId)
-  // Only what is here, as the legacy clients' galleries: the url is the request, so an item that
-  // is not would start a download nobody asked for, and paging stops at what has arrived.
+  // Only what is here, as the legacy clients' galleries: the file is served from the cache only,
+  // so an item that is not here could not be drawn, and paging stops at what has arrived.
   const viewable = useMemo(
     () =>
       message === undefined
@@ -50,8 +50,7 @@ function MessageViewer({
       viewable.map((attachment) => ({
         // Null where the platform has no resolver. The viewer says so rather than drawing a broken
         // picture, which is the one thing it must not do with somebody's photograph.
-        uri: requirePorts().media.urlFor({ messageId: target.messageId, index: attachment.index }),
-        kind: mediaKindOf(attachment.contentType),
+        uri: viewerUri(target.messageId, attachment),
       })),
     [viewable, target.messageId],
   )
@@ -74,21 +73,21 @@ function MessageViewer({
       }}
       onClose={onClose}
       onExport={() => {
-        if (attachment !== undefined) void exportOne(message, attachment.index, actions)
+        if (attachment !== undefined) void exportOne(message, attachment.index, actions, feedback)
       }}
-      // Nothing behind it yet: the row's own menu is where these live, and a second copy of it
-      // belongs with that work rather than ahead of it.
-      onMore={() => undefined}
       positionLabel={`${String(at + 1)} / ${String(items.length)}`}
       unavailableLabel={tr('attachmentsErrorNotSupported')}
       failedLabel={tr('attachmentsErrorOpen')}
       closeLabel={tr('close')}
       exportLabel={PENDING_COPY.export}
-      moreLabel={tr('openMessageContextMenu')}
       previousLabel={PENDING_COPY.previous}
       nextLabel={tr('next')}
       testID={ELEMENT.conversation.mediaViewer}
       closeTestID={ELEMENT.conversation.mediaViewerClose}
+      exportTestID={ELEMENT.conversation.mediaViewerExport}
+      previousTestID={ELEMENT.conversation.mediaViewerPrevious}
+      nextTestID={ELEMENT.conversation.mediaViewerNext}
+      imageTestID={ELEMENT.conversation.mediaViewerImage}
     />
   )
 }

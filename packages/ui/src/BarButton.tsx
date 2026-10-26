@@ -5,6 +5,7 @@ import type { IconName } from './Icon.types'
 import { PressArea } from './PressArea'
 import { SIZE_SCALE } from './scales'
 import { useThemeIsDark } from './UIProvider'
+import { useTokenColor } from './useTokenColor'
 
 export interface BarButtonProps {
   icon: IconName
@@ -31,6 +32,7 @@ export function BarButton({
 }: BarButtonProps) {
   const Glass = useGlass()
   const dark = useThemeIsDark()
+  const hoverColor = useTokenColor('$hoverOverlay')
   const glyph = <Icon name={icon} size="lg" color={disabled ? '$textDisabled' : '$textPrimary'} />
 
   if (Glass === null)
@@ -54,8 +56,8 @@ export function BarButton({
       onPress={onPress}
       disabled={disabled}
     >
-      {() => (
-        <Glass size={DIAMETER} dark={dark}>
+      {(_pressed, hovered) => (
+        <Glass size={DIAMETER} dark={dark} highlight={hovered ? hoverColor : null}>
           {glyph}
         </Glass>
       )}

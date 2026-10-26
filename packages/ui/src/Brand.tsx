@@ -10,6 +10,19 @@ export interface MarkProps {
   color: string
 }
 
+/** The wordmark's artwork, in its own units. */
+const WORDMARK = { width: 766.2, height: 102.3 } as const
+
+/** How wide `SessionBrand` draws at a height of `size`, for a layout that sets it beside others. */
+export function sessionBrandWidth(size: number): number {
+  return (size * SESSION_BRAND.width) / SESSION_BRAND.height
+}
+
+/** How wide `SessionWordmark` draws at a height of `size`. */
+export function sessionWordmarkWidth(size: number): number {
+  return (size * WORDMARK.width) / WORDMARK.height
+}
+
 /**
  * The looping glyph. Drawn in the accent colour, which is what makes it the brand mark.
  *
@@ -24,7 +37,7 @@ export function SessionBrand({ size, color }: MarkProps) {
   const { width, height, path } = SESSION_BRAND
   return (
     <Svg
-      width={(size * width) / height}
+      width={sessionBrandWidth(size)}
       height={size}
       viewBox={`0 0 ${width} ${height}`}
       fill={fill}
@@ -130,7 +143,12 @@ export function SessionTokenLogo({ size, color }: MarkProps) {
 export function SessionWordmark({ size, color }: MarkProps) {
   const fill = useTokenColor(color)
   return (
-    <Svg width={(size * 766.2) / 102.3} height={size} viewBox="0 0 766.2 102.3" fill={fill}>
+    <Svg
+      width={sessionWordmarkWidth(size)}
+      height={size}
+      viewBox={`0 0 ${String(WORDMARK.width)} ${String(WORDMARK.height)}`}
+      fill={fill}
+    >
       <Path d="M0 68h26c-1 7 8 13 28 14 19 0 33-3 33-11 0-19-85 3-85-39C2 12 23 0 54 0c32 0 54 13 54 34H82c0-7-7-14-26-14-17 0-30 3-30 11 0 18 85-2 85 39 0 20-22 32-55 32-34 0-56-13-56-34M126 2h95v21h-71v18h70v19h-70v20h71v20h-95V2zm108 66h26c0 7 8 13 28 14 19 0 33-3 33-11 0-19-84 3-84-39 0-20 20-32 51-32 32 0 54 13 54 34h-25c0-7-7-14-27-14-17 0-29 3-29 11 0 18 84-2 84 39 0 20-22 32-55 32-34 0-56-13-56-34m120 0h26c0 7 8 13 28 14 19 0 33-3 33-11 0-19-85 3-85-39 0-20 21-32 52-32 32 0 54 13 54 34h-26c1-7-7-14-26-14-17 0-29 3-29 11 0 18 84-2 84 39 0 20-22 32-55 32-34 0-56-13-56-34M480 2h24v98h-24V2zm136 49c0-20-14-31-37-31-24 0-38 11-38 31s14 31 38 31c23 0 37-11 37-31m-99 0c0-31 24-51 62-51s61 20 61 51-23 51-61 51-62-20-62-51M654 2h20l68 62V2h24v98h-20l-69-62v62h-24V2z" />
     </Svg>
   )

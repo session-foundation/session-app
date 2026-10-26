@@ -1,7 +1,7 @@
 import { URLS } from '@session/app'
 import { tr } from '@session/localization'
 import { ELEMENT } from '@session/test-ids'
-import { Button, Icon, Modal, Text, XStack, YStack } from '@session/ui'
+import { Button, Icon, LABEL_MAX_SCALE, Modal, Text, XStack, YStack } from '@session/ui'
 import { Fragment, useState } from 'react'
 
 import { LocalizedText } from '../LocalizedText'
@@ -60,6 +60,9 @@ export function TermsAndPrivacy() {
           size="$label"
           textAlign="center"
           userSelect="none"
+          // A footer, so it stops growing with the labels around it; it must stay on screen with
+          // the buttons above it whatever the text size.
+          maxFontSizeMultiplier={LABEL_MAX_SCALE}
         />
       </Button>
 
@@ -77,7 +80,9 @@ export function TermsAndPrivacy() {
         sideInset={20}
         bottomInset={20}
       >
-        <Text size="$body" textAlign="center">
+        {/* Capped like a label: past twice the default the addresses wrap a few letters to a
+            line, and the dialog becomes something to scroll through rather than read. */}
+        <Text size="$body" textAlign="center" maxFontSizeMultiplier={LABEL_MAX_SCALE}>
           {tr('urlOpenDescriptionAlternative')}
         </Text>
 
@@ -102,7 +107,7 @@ export function TermsAndPrivacy() {
               <XStack
                 role="button"
                 alignItems="center"
-                cursor="pointer"
+                $platform-web={{ cursor: 'pointer' }}
                 testID={link.testID}
                 onPress={() => {
                   setOpen(false)
@@ -113,7 +118,13 @@ export function TermsAndPrivacy() {
                     deceptive one hides what it really is, so it is the view that gives way. The
                     text takes the width and pushes the icon to the trailing edge, which is why
                     there is no gap between them to set. */}
-                <Text flex={1} size="$bodyLarge" weight="bold" userSelect="none">
+                <Text
+                  flex={1}
+                  size="$bodyLarge"
+                  weight="bold"
+                  userSelect="none"
+                  maxFontSizeMultiplier={LABEL_MAX_SCALE}
+                >
                   {link.url}
                 </Text>
                 <Icon name="externalLink" size="md" color="$textPrimary" />

@@ -1,6 +1,6 @@
 import { SPACING } from '@session/theme-tokens'
 import { useRef, useState } from 'react'
-import { Modal, useWindowDimensions } from 'react-native'
+import { Modal } from 'react-native'
 import { XStack, YStack, type TamaguiElement } from 'tamagui'
 
 import { measureAnchor, panelInset, panelPlacement, type AnchorRect } from './anchorRect'
@@ -11,15 +11,20 @@ import { Button } from './Button'
 import { Icon } from './Icon'
 import { LanguageChoiceList } from './LanguageChoiceList'
 import { Text } from './Text'
+import { GLYPH_MAX_SCALE, LABEL_MAX_SCALE } from './fontScaleCaps'
 import { useScreenInsets } from './screenInsets'
+import { useWindowSize } from './useWindowSize'
 import type { LanguagePickerProps } from './LanguagePicker.types'
 
 /** Wide enough for the longest language name, narrow enough for a phone. */
 const PANEL_WIDTH = 320
 /** The smallest gap worth keeping between the panel and the window's edge. */
-const MARGIN = 12
+const MARGIN = SPACING.sm
 /** Clear of the trigger, close enough to read as hanging from it. */
-const GAP = 6
+const GAP = SPACING.xs
+/** The margin when the panel covers the window rather than hanging from the trigger. */
+const COVER_MARGIN = SPACING['2xs']
+
 /** Below this the panel is not worth opening downwards, and it flips above the trigger instead. */
 const MIN_PANEL_HEIGHT = 260
 
@@ -50,7 +55,7 @@ export function LanguagePicker({
   // has been measured, so a separate `open` flag would have a frame where the two disagree.
   const [anchor, setAnchor] = useState<AnchorRect | null>(null)
   const trigger = useRef<TamaguiElement>(null)
-  const window = useWindowDimensions()
+  const window = useWindowSize()
   const keyboard = useKeyboardHeight()
   const insets = useScreenInsets()
 
@@ -59,7 +64,7 @@ export function LanguagePicker({
   /**
    * What is left of the window once the hardware and the keyboard have taken their share.
    *
-   * **The keyboard comes out of the window, not out of nothing.** `useWindowDimensions` reports the
+   * **The keyboard comes out of the window, not out of nothing.** `useWindowSize` reports the
    * whole window whether or not a keyboard is over it, so a panel sized from it puts the bottom of
    * the list under the keys, unscrollable -- the list believes it is already fully visible.
    *
@@ -70,7 +75,12 @@ export function LanguagePicker({
   const placement =
     anchor === null
       ? null
-      : panelPlacement(anchor, window.height - taken, GAP, MARGIN, MIN_PANEL_HEIGHT)
+      : panelPlacement(anchor, window.height - taken, GAP, MARGIN, MIN_PANEL_HEIGHT, COVER_MARGIN)
+  // Covering the window means the window is short, so the frame gives its padding to the list.
+  const covering = placement?.covers === true
+  // Never wider than the window inside its margins: a narrow window zoomed in on desktop can be
+  // under the panel's own width, and the overflow would run off the edge the names start from.
+  const panelWidth = Math.min(PANEL_WIDTH, window.width - 2 * MARGIN)
 
   return (
     <>
@@ -102,7 +112,7 @@ export function LanguagePicker({
           <XStack alignItems="center" gap="$2xs">
             {/* The flag is not the label: it repeats across languages and three have none, so it
                 stays out of the accessibility tree and `accessibilityLabel` names the control. */}
-            <Text size="$title" aria-hidden>
+            <Text size="$title" aria-hidden maxFontSizeMultiplier={GLYPH_MAX_SCALE}>
               {selected?.flag ?? ''}
             </Text>
             <Icon name="chevronDown" size="md" color="$textPrimary" />
@@ -138,17 +148,17 @@ export function LanguagePicker({
                 ? { top: placement.offset }
                 : { bottom: placement.offset })}
               {...logical({
-                insetStart: panelInset(anchor, PANEL_WIDTH, window.width, MARGIN, isLayoutRtl()),
+                insetStart: panelInset(anchor, panelWidth, window.width, MARGIN, isLayoutRtl()),
               })}
-              width={PANEL_WIDTH}
+              width={panelWidth}
               // **The panel is what is capped, and the list takes what is left of it.** Capping
               // the list instead means subtracting the chrome as a constant, and a constant that
               // guesses the height of a heading, a search box, two gaps and the padding is wrong:
               // the last row ends up under the keyboard. Nothing is estimated here -- the chrome
               // takes what it needs and the list shrinks into the remainder.
               maxHeight={placement.available}
-              gap="$sm"
-              padding="$md"
+              gap={covering ? '$xs' : '$sm'}
+              padding={covering ? '$sm' : '$md'}
               borderRadius="$md"
               borderWidth={1}
               borderColor="$bordersColor"
@@ -164,7 +174,7 @@ export function LanguagePicker({
               testID={testIDs.panel}
             >
               <XStack alignItems="center" justifyContent="space-between" gap="$xs">
-                <Text size="$title" weight="bold">
+                <Text size="$title" weight="bold" maxFontSizeMultiplier={LABEL_MAX_SCALE}>
                   {title}
                 </Text>
                 {/* A cross rather than the word: it is the corner of a panel, where a cross is

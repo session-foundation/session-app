@@ -1,7 +1,7 @@
 import type { Attachment, Message } from '@session/client'
 import { tr } from '@session/localization'
 import { ELEMENT } from '@session/test-ids'
-import { forwardChevron, Icon, PressArea, Text, XStack, YStack } from '@session/ui'
+import { forwardChevron, Icon, inkFor, PressArea, Text, XStack, YStack } from '@session/ui'
 
 import { AttachmentRow } from './AttachmentRow'
 
@@ -20,18 +20,30 @@ export const LIST_MAX_ROWS = 5
  * It says how many there are in total rather than how many are hidden: somebody deciding whether
  * to open it wants the size of the thing they are opening, and "6 more" makes them add.
  */
-function ShowAll({ count, onPress }: { count: number; onPress: () => void }) {
+function ShowAll({
+  count,
+  onPress,
+  onAccent,
+}: {
+  count: number
+  onPress: () => void
+  onAccent: boolean
+}) {
   return (
-    <PressArea onPress={onPress} testID={ELEMENT.conversation.attachmentShowAll}>
+    <PressArea
+      onPress={onPress}
+      ring={{ onAccent, offset: 2, radius: '$sm' }}
+      testID={ELEMENT.conversation.attachmentShowAll}
+    >
       {() => (
         <XStack alignItems="center" gap="$xs" paddingVertical="$xs">
-          <Text size="$label" weight="semibold" color="$accentText" flex={1}>
+          <Text size="$label" weight="semibold" {...inkFor('link', onAccent)} flex={1}>
             {tr('showAll')}
           </Text>
-          <Text size="$label" tone="secondary">
+          <Text size="$label" {...inkFor('secondary', onAccent)}>
             {count}
           </Text>
-          <Icon name={forwardChevron()} size="sm" color="$textSecondary" />
+          <Icon name={forwardChevron()} size="sm" {...inkFor('secondary', onAccent)} />
         </XStack>
       )}
     </PressArea>
@@ -50,15 +62,18 @@ function ShowAll({ count, onPress }: { count: number; onPress: () => void }) {
 export function AttachmentList({
   message,
   onShowAll,
+  onAccent,
 }: {
   message: Message
   /**
    * Opens the rest.
    *
-   * Absent in the sheet itself, which is where "the rest" already is - so the same component
-   * draws both, capped in the transcript and whole inside the sheet.
+   * Absent, every row is drawn and none is capped. The sheet draws the same `AttachmentRow`s
+   * through a windowed list instead, since it is where a set too long to mount at once goes.
    */
   onShowAll?: (() => void) | undefined
+  /** Drawn on a bubble you sent. */
+  onAccent: boolean
 }) {
   const capped =
     onShowAll === undefined ? message.attachments : message.attachments.slice(0, LIST_MAX_ROWS)
@@ -67,10 +82,15 @@ export function AttachmentList({
   return (
     <YStack>
       {capped.map((attachment: Attachment) => (
-        <AttachmentRow key={attachment.index} message={message} attachment={attachment} />
+        <AttachmentRow
+          key={attachment.index}
+          message={message}
+          attachment={attachment}
+          onAccent={onAccent}
+        />
       ))}
       {hidden === 0 || onShowAll === undefined ? null : (
-        <ShowAll count={message.attachments.length} onPress={onShowAll} />
+        <ShowAll count={message.attachments.length} onPress={onShowAll} onAccent={onAccent} />
       )}
     </YStack>
   )

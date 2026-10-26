@@ -1,6 +1,15 @@
 import { getLocale, tr } from '@session/localization'
 import { ELEMENT } from '@session/test-ids'
-import { ProgressRing, Screen, Text, useMedia, useWindowSize, XStack, YStack } from '@session/ui'
+import {
+  LABEL_MAX_SCALE,
+  ProgressRing,
+  Screen,
+  Text,
+  useMedia,
+  useWindowSize,
+  XStack,
+  YStack,
+} from '@session/ui'
 import { useEffect, useRef, useState } from 'react'
 
 import { OnboardingBackButton, WideBackButton } from './OnboardingBackButton'
@@ -139,14 +148,26 @@ export function LoadingScreen({ onGaveUp, onBack, backDisabled = false }: Loadin
             <ProgressRing progress={fraction} size={ringSize} thickness={RING_THICKNESS} />
             <YStack fullscreen alignItems="center" justifyContent="center" pointerEvents="none">
               {/* 32, the size Android draws this at; iOS's is 33. Ours reached past the rung to
-                  36 because the ladder was missing it. */}
-              <Text size="$displayMedium" weight="bold" fontVariant={['tabular-nums']}>
+                  36 because the ladder was missing it. Sized to the ring, which keeps its size
+                  whatever the system text size, so the number does too: scaled, it outgrew the
+                  ring. */}
+              <Text
+                size="$displayMedium"
+                weight="bold"
+                fontVariant={['tabular-nums']}
+                allowFontScaling={false}
+              >
                 {percent}
               </Text>
             </YStack>
           </YStack>
           {/* 18 on Android, 19 on iOS. Ours was 20. */}
-          <Text size="$title" weight="bold" textAlign="center">
+          <Text
+            size="$title"
+            weight="bold"
+            textAlign="center"
+            maxFontSizeMultiplier={LABEL_MAX_SCALE}
+          >
             {tr('waitOneMoment')}
           </Text>
           <Text textAlign="center">{tr('loadAccountProgressMessage')}</Text>

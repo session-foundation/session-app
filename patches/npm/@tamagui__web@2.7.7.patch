@@ -1,0 +1,257 @@
+diff --git a/dist/cjs/createComponent.native.js b/dist/cjs/createComponent.native.js
+index 12e4d302c525312b6d214388d28610cd8a7971e1..08670f6fe12e92dce53cccc543c6039dc801bd03 100644
+--- a/dist/cjs/createComponent.native.js
++++ b/dist/cjs/createComponent.native.js
+@@ -750,7 +750,7 @@ If you meant to do this, you can disable this warning - either change untilMeasu
+     var attachPress = Boolean(hasDynamicGroupChildren || runtimePressStyle || onPress || onPressOut || onPressIn || onMouseDown || onMouseUp || onLongPress || onClick || (pseudos === null || pseudos === void 0 ? void 0 : pseudos.focusVisibleStyle));
+     var runtimeHoverStyle = !disabled && noClass && (pseudos === null || pseudos === void 0 ? void 0 : pseudos.hoverStyle);
+     var needsHoverState = Boolean(hasDynamicGroupChildren || runtimeHoverStyle && !platformPseudo);
+-    var attachHover = (import_constants.isWeb || import_constants.isNativeDesktop) && !!(hasDynamicGroupChildren || needsHoverState || onMouseEnter || onMouseLeave);
++    var attachHover = (import_constants.isWeb || import_constants.isNativeDesktop || (require("react-native").Platform.OS === "ios" && require("react-native").Platform.isPad)) && !!(hasDynamicGroupChildren || needsHoverState || onMouseEnter || onMouseLeave);
+     var shouldAttach = !disabled && !props.asChild && Boolean(attachFocus || attachPress || attachHover || runtimePressStyle || runtimeHoverStyle || runtimeFocusStyle);
+     var needsPressState = Boolean(hasDynamicGroupChildren || runtimePressStyle);
+     if (process.env.NODE_ENV === "development" && time) time`events-setup`;
+diff --git a/dist/cjs/eventHandling.native.js b/dist/cjs/eventHandling.native.js
+index e6ac652e9335e82a1bd411ccd1c5fab54cad8072..b100bb578166e2ada123b1b64e4c677961efc78b 100644
+--- a/dist/cjs/eventHandling.native.js
++++ b/dist/cjs/eventHandling.native.js
+@@ -85,6 +85,88 @@ function useEvents(events, viewProps, stateRef, staticConfig, isHOC, isInsideNat
+         viewProps["onMouseLeave"] = events.onMouseLeave;
+       }
+     }
++    if (require("react-native").Platform.OS === "ios" && require("react-native").Platform.isPad) {
++      // Session patch: iPadOS, and the Mac's iPad apps, report a mouse or trackpad as pointer
++      // events, never mouse events. A touch is not a hover.
++      // Pressing the button ends UIKit's hover, and React Native reports that as the pointer
++      // leaving -- at (0, 0), since an ended hover has no position. Acted on, the control drops
++      // its hover style for a frame before the press styles it, and tamagui's leave also ends a
++      // press. So a leave at (0, 0) is held: the press that follows wins over hover, as on the
++      // web, and a short timer clears it if none does (the pointer left the window). A leave with
++      // a position is the pointer moving off, and clears at once. One during a press waits for the
++      // press to end.
++      var pointer = stateRef.current;
++      var hoverEnded = function (e) {
++        return e.nativeEvent.clientX === 0 && e.nativeEvent.clientY === 0;
++      };
++      // Where a press ended, against where the control was when the pointer entered it: UIKit
++      // resumes hover only once the mouse moves again, so a release over the control keeps its
++      // hover rather than dropping to rest under a pointer that has not moved.
++      var releasedOver = function (e) {
++        var n = e && e.nativeEvent;
++        var x = n && n.pageX, y = n && n.pageY, r = pointer.hoverRect;
++        if (typeof x !== "number" || typeof y !== "number" || !r) return undefined;
++        return x >= r.left && x < r.right && y >= r.top && y < r.bottom;
++      };
++      if (events.onMouseEnter) {
++        var onEnter = events.onMouseEnter;
++        viewProps["onPointerEnter"] = function (e) {
++          if (e.nativeEvent.pointerType === "touch") return;
++          clearTimeout(pointer.pendingPointerLeave);
++          pointer.pendingPointerLeave = undefined;
++          pointer.pointerLeftDuringPress = undefined;
++          var target = e.currentTarget;
++          pointer.hoverRect = target && typeof target.getBoundingClientRect === "function" ? target.getBoundingClientRect() : undefined;
++          onEnter(e);
++        };
++      }
++      if (events.onMouseLeave) {
++        var onLeave = events.onMouseLeave;
++        var leaveNow = function (e) {
++          clearTimeout(pointer.pendingPointerLeave);
++          pointer.pendingPointerLeave = undefined;
++          onLeave(e);
++        };
++        var leaveUnlessPressed = function (e, delayMs) {
++          clearTimeout(pointer.pendingPointerLeave);
++          pointer.pendingPointerLeave = setTimeout(function () {
++            pointer.pendingPointerLeave = undefined;
++            onLeave(e);
++          }, delayMs);
++        };
++        viewProps["onPointerLeave"] = function (e) {
++          if (e.nativeEvent.pointerType === "touch") return;
++          if (pointer.pressing) pointer.pointerLeftDuringPress = e;
++          else if (hoverEnded(e)) leaveUnlessPressed(e, 250);
++          else leaveNow(e);
++        };
++        if (events.onPressIn) {
++          var pressIn = events.onPressIn;
++          events.onPressIn = function (e) {
++            pointer.pressing = true;
++            if (pointer.pendingPointerLeave !== undefined) {
++              clearTimeout(pointer.pendingPointerLeave);
++              pointer.pendingPointerLeave = undefined;
++              pointer.pointerLeftDuringPress = e;
++            }
++            pressIn(e);
++          };
++        }
++        if (events.onPressOut) {
++          var pressOut = events.onPressOut;
++          events.onPressOut = function (e) {
++            pointer.pressing = false;
++            pressOut(e);
++            var left = pointer.pointerLeftDuringPress;
++            pointer.pointerLeftDuringPress = undefined;
++            if (left === undefined) return;
++            var over = releasedOver(e);
++            if (over === false) leaveNow(left);
++            else if (over === undefined) leaveUnlessPressed(left, 32);
++          };
++        }
++      }
++    }
+   }
+   var hasPressEvents = events === null || events === void 0 ? void 0 : events.onPress;
+   var gh = (0, import_native.getGestureHandler)();
+diff --git a/dist/cjs/helpers/getSplitStyles.native.js b/dist/cjs/helpers/getSplitStyles.native.js
+index e359b6d7cc6198b33bcd7721caff27b8eb758d82..deea4a3777b122e4a0083a8b5a1cda8996341550 100644
+--- a/dist/cjs/helpers/getSplitStyles.native.js
++++ b/dist/cjs/helpers/getSplitStyles.native.js
+@@ -93,6 +93,9 @@ function isValidStyleKey(key, validStyles, accept) {
+ function shouldSkipNativeHoverProp(key, isMedia) {
+   var _getPlatformDriver;
+   if ((_getPlatformDriver = (0, import_constants.getPlatformDriver)()) === null || _getPlatformDriver === void 0 ? void 0 : _getPlatformDriver.pseudo) return false;
++  // Session patch: iPadOS, and the Mac's iPad apps, deliver a mouse or trackpad as pointer
++  // events, so hover styles apply there as on the web. Not on a phone, which has no pointer.
++  if (import_constants.isIos && require("react-native").Platform.isPad) return false;
+   if (key === "hoverStyle") return true;
+   if (isMedia === "group") return (0, import_getGroupPropParts.getGroupPropParts)(key.slice(1)).pseudo === "hover";
+   return false;
+diff --git a/dist/esm/createComponent.native.js b/dist/esm/createComponent.native.js
+index 10f06bd4f0d72e55014711c7eb2f3646508ea7f6..366cf5fb60f8c3bf49dc6bf45bacad19dca0cf2e 100644
+--- a/dist/esm/createComponent.native.js
++++ b/dist/esm/createComponent.native.js
+@@ -1,6 +1,7 @@
+ import { jsx } from "react/jsx-runtime";
+ import { composeRefs } from "@tamagui/compose-refs";
+ import { getPlatformDriver, isAndroid, isClient, isNativeDesktop, isServer, isWeb, useIsomorphicLayoutEffect } from "@tamagui/constants";
++import { Platform } from "react-native";
+ import { NativeMenuContext } from "@tamagui/native";
+ import { composeEventHandlers } from "@tamagui/helpers";
+ import { isEqualShallow } from "@tamagui/is-equal-shallow";
+@@ -712,7 +713,7 @@ If you meant to do this, you can disable this warning - either change untilMeasu
+     var attachPress = Boolean(hasDynamicGroupChildren || runtimePressStyle || onPress || onPressOut || onPressIn || onMouseDown || onMouseUp || onLongPress || onClick || (pseudos === null || pseudos === void 0 ? void 0 : pseudos.focusVisibleStyle));
+     var runtimeHoverStyle = !disabled && noClass && (pseudos === null || pseudos === void 0 ? void 0 : pseudos.hoverStyle);
+     var needsHoverState = Boolean(hasDynamicGroupChildren || runtimeHoverStyle && !platformPseudo);
+-    var attachHover = (isWeb || isNativeDesktop) && !!(hasDynamicGroupChildren || needsHoverState || onMouseEnter || onMouseLeave);
++    var attachHover = (isWeb || isNativeDesktop || Platform.OS === "ios" && Platform.isPad) && !!(hasDynamicGroupChildren || needsHoverState || onMouseEnter || onMouseLeave);
+     var shouldAttach = !disabled && !props.asChild && Boolean(attachFocus || attachPress || attachHover || runtimePressStyle || runtimeHoverStyle || runtimeFocusStyle);
+     var needsPressState = Boolean(hasDynamicGroupChildren || runtimePressStyle);
+     if (process.env.NODE_ENV === "development" && time) time`events-setup`;
+diff --git a/dist/esm/eventHandling.native.js b/dist/esm/eventHandling.native.js
+index bc07b3f4214807c8cba259edeb29c004af57557c..23670ba3dbaa5ea88d7c8d523ff48abe90047f3a 100644
+--- a/dist/esm/eventHandling.native.js
++++ b/dist/esm/eventHandling.native.js
+@@ -43,6 +43,88 @@ function useEvents(events, viewProps, stateRef, staticConfig, isHOC, isInsideNat
+         viewProps["onMouseLeave"] = events.onMouseLeave;
+       }
+     }
++    if (Platform.OS === "ios" && Platform.isPad) {
++      // Session patch: iPadOS, and the Mac's iPad apps, report a mouse or trackpad as pointer
++      // events, never mouse events. A touch is not a hover.
++      // Pressing the button ends UIKit's hover, and React Native reports that as the pointer
++      // leaving -- at (0, 0), since an ended hover has no position. Acted on, the control drops
++      // its hover style for a frame before the press styles it, and tamagui's leave also ends a
++      // press. So a leave at (0, 0) is held: the press that follows wins over hover, as on the
++      // web, and a short timer clears it if none does (the pointer left the window). A leave with
++      // a position is the pointer moving off, and clears at once. One during a press waits for the
++      // press to end.
++      var pointer = stateRef.current;
++      var hoverEnded = function (e) {
++        return e.nativeEvent.clientX === 0 && e.nativeEvent.clientY === 0;
++      };
++      // Where a press ended, against where the control was when the pointer entered it: UIKit
++      // resumes hover only once the mouse moves again, so a release over the control keeps its
++      // hover rather than dropping to rest under a pointer that has not moved.
++      var releasedOver = function (e) {
++        var n = e && e.nativeEvent;
++        var x = n && n.pageX, y = n && n.pageY, r = pointer.hoverRect;
++        if (typeof x !== "number" || typeof y !== "number" || !r) return undefined;
++        return x >= r.left && x < r.right && y >= r.top && y < r.bottom;
++      };
++      if (events.onMouseEnter) {
++        var onEnter = events.onMouseEnter;
++        viewProps["onPointerEnter"] = function (e) {
++          if (e.nativeEvent.pointerType === "touch") return;
++          clearTimeout(pointer.pendingPointerLeave);
++          pointer.pendingPointerLeave = undefined;
++          pointer.pointerLeftDuringPress = undefined;
++          var target = e.currentTarget;
++          pointer.hoverRect = target && typeof target.getBoundingClientRect === "function" ? target.getBoundingClientRect() : undefined;
++          onEnter(e);
++        };
++      }
++      if (events.onMouseLeave) {
++        var onLeave = events.onMouseLeave;
++        var leaveNow = function (e) {
++          clearTimeout(pointer.pendingPointerLeave);
++          pointer.pendingPointerLeave = undefined;
++          onLeave(e);
++        };
++        var leaveUnlessPressed = function (e, delayMs) {
++          clearTimeout(pointer.pendingPointerLeave);
++          pointer.pendingPointerLeave = setTimeout(function () {
++            pointer.pendingPointerLeave = undefined;
++            onLeave(e);
++          }, delayMs);
++        };
++        viewProps["onPointerLeave"] = function (e) {
++          if (e.nativeEvent.pointerType === "touch") return;
++          if (pointer.pressing) pointer.pointerLeftDuringPress = e;
++          else if (hoverEnded(e)) leaveUnlessPressed(e, 250);
++          else leaveNow(e);
++        };
++        if (events.onPressIn) {
++          var pressIn = events.onPressIn;
++          events.onPressIn = function (e) {
++            pointer.pressing = true;
++            if (pointer.pendingPointerLeave !== undefined) {
++              clearTimeout(pointer.pendingPointerLeave);
++              pointer.pendingPointerLeave = undefined;
++              pointer.pointerLeftDuringPress = e;
++            }
++            pressIn(e);
++          };
++        }
++        if (events.onPressOut) {
++          var pressOut = events.onPressOut;
++          events.onPressOut = function (e) {
++            pointer.pressing = false;
++            pressOut(e);
++            var left = pointer.pointerLeftDuringPress;
++            pointer.pointerLeftDuringPress = undefined;
++            if (left === undefined) return;
++            var over = releasedOver(e);
++            if (over === false) leaveNow(left);
++            else if (over === undefined) leaveUnlessPressed(left, 32);
++          };
++        }
++      }
++    }
+   }
+   var hasPressEvents = events === null || events === void 0 ? void 0 : events.onPress;
+   var gh = getGestureHandler();
+diff --git a/dist/esm/helpers/getSplitStyles.native.js b/dist/esm/helpers/getSplitStyles.native.js
+index 108c0e7cbf0db823f78c8c0fe88307f4a73fdadf..3bf06e5d8279e9ea026ec6f115905a0ff0008f19 100644
+--- a/dist/esm/helpers/getSplitStyles.native.js
++++ b/dist/esm/helpers/getSplitStyles.native.js
+@@ -1,6 +1,7 @@
+-import { getPlatformDriver, isAndroid, isClient, isWeb, supportsDynamicColorIOS } from "@tamagui/constants";
++import { getPlatformDriver, isAndroid, isClient, isIos, isWeb, supportsDynamicColorIOS } from "@tamagui/constants";
+ import { StyleObjectIdentifier, StyleObjectProperty, StyleObjectPseudo, stylePropsText, stylePropsTransform, tokenCategories, validPseudoKeys, validStyles } from "@tamagui/helpers";
+ import React from "react";
++import { Platform } from "react-native";
+ import { getConfig, getFont, getSetting } from "../config.native.js";
+ import { isDevTools } from "../constants/isDevTools.native.js";
+ import { getMediaImportanceIfMoreImportant, getMediaKey, getMediaKeyImportance, mediaKeyMatch } from "../hooks/useMedia.native.js";
+@@ -45,6 +46,9 @@ function isValidStyleKey(key, validStyles, accept) {
+ function shouldSkipNativeHoverProp(key, isMedia) {
+   var _getPlatformDriver;
+   if ((_getPlatformDriver = getPlatformDriver()) === null || _getPlatformDriver === void 0 ? void 0 : _getPlatformDriver.pseudo) return false;
++  // Session patch: iPadOS, and the Mac's iPad apps, deliver a mouse or trackpad as pointer
++  // events, so hover styles apply there as on the web. Not on a phone, which has no pointer.
++  if (isIos && Platform.isPad) return false;
+   if (key === "hoverStyle") return true;
+   if (isMedia === "group") return getGroupPropParts(key.slice(1)).pseudo === "hover";
+   return false;

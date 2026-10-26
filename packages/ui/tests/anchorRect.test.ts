@@ -47,10 +47,15 @@ describe('choosing a side to open on', () => {
     expect(placed.available).toBe(700 - GAP - MARGIN)
   })
 
-  it('stays below when flipping would buy nothing', () => {
-    // Both sides are too short. Moving the control for no gain is worse than a short panel.
+  it('takes the whole window, over the trigger, when neither side can hold it', () => {
+    // Both sides are too short: below has 110px, above 82. A strip either way shows a row or two.
     const placed = panelPlacement(trigger(600, 100), 260, GAP, MARGIN, MIN)
     expect(placed.side).toBe('below')
+    expect(placed.covers).toBe(true)
+    expect(placed.offset).toBe(MARGIN)
+    expect(placed.available).toBe(260 - 2 * MARGIN)
+    // And at the tighter margin a caller asks for when covering.
+    expect(panelPlacement(trigger(600, 100), 260, GAP, MARGIN, MIN, 4).available).toBe(252)
   })
 })
 

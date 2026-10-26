@@ -5,7 +5,13 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-add_library(SessionBridgeRN SHARED ../cpp/HybridSessionBridge.cpp OnLoad.cpp)
+add_library(SessionBridgeRN SHARED
+    ../cpp/HybridSessionBridge.cpp
+    ../cpp/BridgeMediaSource.cpp
+    ../cpp/JsMediaSource.cpp
+    ../cpp/MediaSource.cpp
+    OnLoad.cpp
+    SessionMediaJni.cpp)
 
 include(${CMAKE_SOURCE_DIR}/../nitrogen/generated/android/SessionBridgeRN+autolinking.cmake)
 

@@ -55,6 +55,33 @@ describe('LogWriter', () => {
     expect(dir.files.get(writer.currentFile)).toBe('now\n')
   })
 
+  it('appends urgently only for an urgent line or an urgent flush', async () => {
+    const dir = memoryDirectory()
+    const timer: { fire: (() => void) | null } = { fire: null }
+    const timers = {
+      setTimeout: (handler: () => void) => {
+        timer.fire = handler
+        return 1
+      },
+      clearTimeout: () => undefined,
+    }
+    const writer = await LogWriter.open(dir, { launchMs: LAUNCH, timers })
+
+    // The two-second flush may be written in the background.
+    writer.write(['routine'], false)
+    expect(timer.fire).not.toBeNull()
+    timer.fire?.()
+    await writer.flush()
+    // An urgent line goes out urgently, and so does a flush asked to.
+    writer.write(['now'], true)
+    await writer.flush()
+    writer.write(['backgrounding'], false)
+    await writer.flush(true)
+
+    expect(dir.appends).toEqual([false, true, true])
+    expect(dir.files.get(writer.currentFile)).toBe('routine\nnow\nbackgrounding\n')
+  })
+
   it('rotates at the size limit, at a line boundary', async () => {
     const dir = memoryDirectory()
     const writer = await LogWriter.open(dir, {
@@ -206,12 +233,12 @@ describe('LogWriter', () => {
     let fail = true
     const flaky = {
       ...dir,
-      append: (name: string, text: string) => {
+      append: (name: string, text: string, urgent: boolean) => {
         if (fail) {
           fail = false
           return Promise.reject(new Error('disk full'))
         }
-        return dir.append(name, text)
+        return dir.append(name, text, urgent)
       },
     }
     const writer = await LogWriter.open(flaky, {

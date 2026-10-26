@@ -44,27 +44,6 @@ if(SESSION_BRIDGE_LIBSESSION_BUNDLE)
         "${_router}/external/oxen-mq/oxen-logging/spdlog/include"
         "${_router}/external/nlohmann/single_include"
         "${_bundle_dir}/static-deps/include")
-    set(_extra)
-    foreach(lib
-            "${_bundle_dir}/external/session-sqlite/libsession_sqlite.a"
-            "${_bundle_dir}/external/session-sqlite/libsession_secure_buffer.a"
-            "${_bundle_dir}/external/session-sqlite/SQLiteCpp/libSQLiteCpp.a"
-            "${_bundle_dir}/static-deps/lib/libsqlite3mc.a"
-            "${_bundle_dir}/static-deps/lib/libutf8proc.a"
-            "${_bundle_dir}/static-deps/lib/libhogweed.a"
-            "${_bundle_dir}/static-deps/lib/libtasn1.a"
-            "${_bundle_dir}/static-deps/lib/libidn2.a"
-            "${_bundle_dir}/static-deps/lib/libunistring.a"
-            "${_bundle_dir}/static-deps/lib/libgmp.a")
-        if(EXISTS "${lib}")
-            list(APPEND _extra "${lib}")
-        endif()
-    endforeach()
-    if(_extra)
-        set_property(TARGET session-libsession-prebuilt APPEND PROPERTY
-            INTERFACE_LINK_LIBRARIES ${_extra})
-    endif()
-
     add_library(libsession::client ALIAS session-libsession-prebuilt)
     add_library(libsession::protos ALIAS session-libsession-prebuilt)
 elseif(NOT TARGET libsession::client)
@@ -98,7 +77,8 @@ endfunction()
 add_library(session-bridge-core STATIC
     src/client_bridge.cpp
     src/convert.cpp
-    src/mark_downloaded.cpp)
+    src/mark_downloaded.cpp
+    src/media_url.cpp)
 
 target_include_directories(session-bridge-core
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include

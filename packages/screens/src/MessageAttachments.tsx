@@ -1,13 +1,15 @@
+import { ALBUM_WIDTH } from '@session/basic-types'
 import type { Message } from '@session/client'
-import { YStack } from '@session/ui'
+import { SPACE_SCALE, YStack } from '@session/ui'
 
-import { AttachmentFooter } from './AttachmentFooter'
+import { AttachmentFooter, ROW_OVERHANG } from './AttachmentFooter'
 import { AttachmentList, LIST_MAX_ROWS } from './AttachmentList'
 import { AttachmentPill } from './AttachmentPill'
 import { attachmentView, canChooseView } from './attachmentView'
 import { useConversationUi } from './conversationUi'
 import { MessageAlbum } from './MessageAlbum'
 import { useAttachmentSet } from './useAttachmentSet'
+import { useViewChoice } from './viewChoices'
 
 /**
  * Everything one message's attachments draw: the album or the list, and the one footer under both.
@@ -18,7 +20,7 @@ import { useAttachmentSet } from './useAttachmentSet'
 export function MessageAttachments({ message }: { message: Message }) {
   const ui = useConversationUi()
   const { set, fetchFor, act, downloadMissing } = useAttachmentSet(message)
-  const view = attachmentView(message, ui.viewFor(message.id))
+  const view = attachmentView(message, useViewChoice(ui.views, message.id))
   const overflows = view === 'list' && message.attachments.length > LIST_MAX_ROWS
 
   // Once rather than per shape: a message with nothing attached would otherwise draw an empty
@@ -26,12 +28,17 @@ export function MessageAttachments({ message }: { message: Message }) {
   if (message.attachments.length === 0) return null
 
   return (
-    <YStack gap="$3xs">
+    // One width in either shape: a bubble fits its content, so a list left to size itself gives
+    // its names and the footer's total no width at all, and the bubble would resize on a toggle.
+    // Capped at the bubble's inside, so where a pane is too narrow the list shrinks instead.
+    // The gap clears the footer's overhang, so a tile or row is never under the footer's targets.
+    <YStack gap={SPACE_SCALE['3xs'] + ROW_OVERHANG} width={ALBUM_WIDTH} maxWidth="100%">
       {view === 'gallery' ? (
         <MessageAlbum
           message={message}
-          autoDownload={ui.autoDownload}
+          onAccent={message.outgoing}
           fetchFor={fetchFor}
+          setState={set.state}
           // Opens only a picture that is here, as the legacy clients do. A tile is the whole set's,
           // so tapping one that is not fetches every attachment the album stands for.
           onOpen={(index) => {
@@ -45,6 +52,7 @@ export function MessageAttachments({ message }: { message: Message }) {
       ) : (
         <AttachmentList
           message={message}
+          onAccent={message.outgoing}
           onShowAll={
             overflows
               ? () => {
@@ -56,10 +64,11 @@ export function MessageAttachments({ message }: { message: Message }) {
       )}
       <AttachmentFooter
         set={set}
+        onAccent={message.outgoing}
         onAction={act}
         view={canChooseView(message) ? view : undefined}
         onView={(chosen) => {
-          ui.chooseView(message.id, chosen)
+          ui.views.choose(message.id, chosen)
         }}
       />
     </YStack>

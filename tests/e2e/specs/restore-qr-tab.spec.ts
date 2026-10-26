@@ -5,6 +5,8 @@ import { join } from 'node:path'
 import { _electron, expect, test } from '@playwright/test'
 import { ELEMENT } from '@session/test-ids'
 
+import { FAKE_LAUNCH_ENV } from '../harness/fakeEnv'
+
 const repoRoot = join(import.meta.dirname, '../../..')
 
 /**
@@ -31,8 +33,7 @@ test('the restore screen offers no QR tab where nothing can scan', async () => {
     ],
     env: {
       ...process.env,
-      ELECTRON_RUN_AS_NODE: '',
-      EXPO_PUBLIC_SESSION_FAKE: '1',
+      ...FAKE_LAUNCH_ENV,
       EXPO_PUBLIC_SESSION_NO_ACCOUNT: '1',
     },
   })

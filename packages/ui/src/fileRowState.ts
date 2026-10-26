@@ -2,6 +2,7 @@ import { SPACING } from '@session/theme-tokens'
 
 import { MIN_HIT_TARGET } from './buttonHitTarget'
 import type { IconName } from './Icon.types'
+import { textHeight } from './textHeight'
 
 /**
  * What a file row can be doing.
@@ -26,12 +27,29 @@ export const FILE_ROW_CONTROL = MIN_HIT_TARGET
 /** Between the lead, the name and the control. */
 export const FILE_ROW_GAP = SPACING.sm
 
+/** The square with a format line under it, held whether or not the file has one, so rows align. */
+export function fileLeadHeight(fontScale: number): number {
+  return FILE_GLYPH_SIDE + SPACING['3xs'] + textHeight('caption', 1, fontScale)
+}
+
+/**
+ * The row's height, for a list's `getItemLayout`: its tallest column inside its padding.
+ *
+ * The text grows with the OS font scale and the glyph and control do not, so past about 2.4 the
+ * name column is the tallest.
+ */
+export function fileRowHeight(fontScale: number): number {
+  const name =
+    textHeight('body', 1, fontScale) + SPACING['3xs'] + textHeight('caption', 1, fontScale)
+  return 2 * SPACING.xs + Math.max(fileLeadHeight(fontScale), name, FILE_ROW_CONTROL)
+}
+
 /**
  * What the row's one control offers, which follows from the state with no further rule.
  *
  * `null` where there is nothing to offer: an unavailable file cannot be fetched, and a running
- * transfer cannot be stopped because the bridge has no cancel. `'progress'` is the ring, which is
- * the one thing here that is not a button.
+ * transfer cannot be stopped because the bridge has no cancel. `'progress'` is the ring, drawn in
+ * a disabled button.
  */
 export function fileRowControl(state: FileRowState): IconName | 'progress' | null {
   switch (state) {

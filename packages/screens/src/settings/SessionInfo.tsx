@@ -35,7 +35,7 @@ export function SessionInfo() {
       >
         {() => (
           <YStack
-            cursor="pointer"
+            $platform-web={{ cursor: 'pointer' }}
             onMouseEnter={() => {
               setLogoHovered(true)
             }}
@@ -59,7 +59,12 @@ export function SessionInfo() {
           }}
         >
           {() => (
-            <Text size="$label" opacity={RESTING} hoverStyle={{ opacity: 1 }} cursor="pointer">
+            <Text
+              size="$label"
+              opacity={RESTING}
+              hoverStyle={{ opacity: 1 }}
+              $platform-web={{ cursor: 'pointer' }}
+            >
               {`v${version}`}
             </Text>
           )}
@@ -67,7 +72,12 @@ export function SessionInfo() {
         {commit === null ? null : (
           <PressArea testID={ELEMENT.settings.commit} onPress={onCommitPress}>
             {() => (
-              <Text size="$label" opacity={RESTING} hoverStyle={{ opacity: 1 }} cursor="pointer">
+              <Text
+                size="$label"
+                opacity={RESTING}
+                hoverStyle={{ opacity: 1 }}
+                $platform-web={{ cursor: 'pointer' }}
+              >
                 {commit}
               </Text>
             )}

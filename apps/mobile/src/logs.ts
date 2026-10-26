@@ -35,10 +35,13 @@ const launchPerfMs = performance.now()
 const uptimeMs = (): number => performance.now() - launchPerfMs
 
 /**
- * The log directory through expo-file-system's synchronous calls.
+ * The log directory through expo-file-system.
  *
- * Synchronous because each is one bridge call that returns at once, and a write that has been
- * handed over cannot then be lost to the app being suspended before an awaited one resolved.
+ * An urgent append is written synchronously, on the JS thread: by the time it returns the text has
+ * been handed over, so it cannot be lost to the app being suspended before an awaited write
+ * resolved. The routine two-second flush is awaited instead, since expo-file-system runs an async
+ * write on a native queue of its own, off the JS thread. The rest stays synchronous: deleting,
+ * checking and creating files are cheap, and the reads happen at start-up and for an export.
  */
 function expoDirectory(dir: Directory): LogDirectory {
   return {
@@ -49,10 +52,11 @@ function expoDirectory(dir: Directory): LogDirectory {
           .filter((entry): entry is File => entry instanceof File)
           .map((file) => ({ name: file.name, sizeBytes: file.size })),
       ),
-    append: (name, text) => {
+    append: (name, text, urgent) => {
       const file = new File(dir, name)
       if (!file.exists) file.create()
-      file.write(text, { append: true })
+      if (!urgent) return file.write(text, { append: true })
+      file.writeSync(text, { append: true })
       return Promise.resolve()
     },
     remove: (name) => {
@@ -67,7 +71,7 @@ function expoDirectory(dir: Directory): LogDirectory {
         const sizeBytes = handle.size ?? 0
         const length = Math.min(bytes, sizeBytes)
         handle.offset = sizeBytes - length
-        return Promise.resolve(handle.readBytes(length))
+        return Promise.resolve(handle.readBytesSync(length))
       } finally {
         handle.close()
       }
@@ -75,7 +79,7 @@ function expoDirectory(dir: Directory): LogDirectory {
     readHead: (name, bytes) => {
       const handle = new File(dir, name).open(FileMode.ReadOnly)
       try {
-        return Promise.resolve(handle.readBytes(Math.min(bytes, handle.size ?? 0)))
+        return Promise.resolve(handle.readBytesSync(Math.min(bytes, handle.size ?? 0)))
       } finally {
         handle.close()
       }
@@ -106,7 +110,7 @@ function readSalt(dir: Directory): { salt: Uint8Array; replaced: boolean } {
   const written = new File(dir, `${SALT_FILE}.tmp`)
   if (written.exists) written.delete()
   written.create()
-  written.write([...salt].map((byte) => byte.toString(16).padStart(2, '0')).join(''))
+  written.writeSync([...salt].map((byte) => byte.toString(16).padStart(2, '0')).join(''))
   moveInto(written, file, { overwrite: true })
   return { salt, replaced }
 }
@@ -274,7 +278,7 @@ const opened = (async (): Promise<LogWriter> => {
     if (state === 'background') {
       appLog.marker('lifecycle', 'background')
       logDatabase('at background')
-      void writer.flush()
+      void writer.flush(true)
     }
   })
   // The OS is about to start killing things to get memory back; this one may be next, and a log

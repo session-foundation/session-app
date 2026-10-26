@@ -109,15 +109,31 @@ pnpm android                # build and install the dev client itself, then star
 The desktop app needs the addon built before any of those will start; see
 `packages/bridge-node/README.md`. On the fake it does not.
 
+`pnpm android` prebuilds only when `apps/mobile/android/` is absent, and the config plugins -
+the media loader's among them - are applied at prebuild. A checkout whose `android/` predates
+one builds an app that, in debug, refuses to start and names the fix:
+`pnpm --filter @session/mobile prebuild --platform android --clean`, then `pnpm android`.
+
 Against the fake:
 
 ```sh
+pnpm fake-media:fetch                          # once: the thirty photographs the fake draws
+pnpm --filter @session/mobile fake-media:push  # once per device or after `pm clear`
 pnpm dev:fake               # both; or dev:desktop:fake / dev:mobile:fake
 ```
 
-Every variable carries `EXPO_PUBLIC_`, desktop's included: Metro inlines one into the bundle only
-when its name does, and it caches the transform - so a Metro started without it keeps serving a
-bundle that ignores it until `expo start --clear`.
+The fake refuses to start without its photographs and names the command that fixes it. Which
+world it opens is `EXPO_PUBLIC_SESSION_FAKE_FIXTURE` - `friends`, `showcase`, `backlog`,
+`newcomer`, `crowd`, `rows` - with `EXPO_PUBLIC_SESSION_FAKE_CROWD_PEERS` and
+`EXPO_PUBLIC_SESSION_FAKE_CROWD_HISTORY` sizing `crowd`, and `EXPO_PUBLIC_SESSION_FAKE_SLOWDOWN=10`
+makes every transfer ten times slower, on both apps.
+
+Every variable an app reads carries `EXPO_PUBLIC_`, desktop's included: Metro inlines one into the
+bundle only when its name does, and it caches the transform - so a Metro started without it keeps
+serving a bundle that ignores it until `expo start --clear`. `SESSION_FAKE_MEDIA_DIR` is the one
+without it: a path on the host, read by the fetch script, desktop main and the push script, never
+by a bundle. turbo hands a task only what `turbo.json` lets through: `dev` and `dev:fake` forward
+`EXPO_PUBLIC_SESSION_*` and `SESSION_*`, so a variable named otherwise needs adding there.
 
 ## Against a local devnet
 

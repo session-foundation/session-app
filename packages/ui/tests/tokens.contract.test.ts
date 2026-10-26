@@ -97,6 +97,9 @@ function known(): Set<string> {
   names.add('heading')
   names.add('mono')
 
+  // Tamagui's platform style keys, which select where a style applies rather than naming a value.
+  for (const platform of ['web', 'native', 'ios', 'android']) names.add(`platform-${platform}`)
+
   return names
 }
 

@@ -1,6 +1,7 @@
-import { Screen, XStack, YStack } from '@session/ui'
+import { Screen, SPACE_SCALE, XStack, YStack } from '@session/ui'
+import { useState } from 'react'
 
-import { OnboardingBackButton } from './OnboardingBackButton'
+import { BACK_WIDTH, OnboardingBackButton } from './OnboardingBackButton'
 import { LanguageButton } from '../LanguageButton'
 import { OnboardingMark } from './OnboardingMark'
 import { BAR_LOGO_SIZE, STEP_PADDING } from './chromeMetrics'
@@ -25,6 +26,10 @@ export function PhoneChrome({
   padContent = true,
   avoidsKeyboard = true,
 }: ChromeProps) {
+  /** The language button's width, which varies with the flag; the back control's is fixed. */
+  const [languageWidth, setLanguageWidth] = useState(0)
+  // The bar's own padding, then the control.
+  const sideInset = SPACE_SCALE.md + Math.max(BACK_WIDTH, languageWidth)
   return (
     // Not `padded`: onboarding has its own inset, which is more than twice the screen default
     // and is the clients' own. See the constants.
@@ -50,13 +55,27 @@ export function PhoneChrome({
               why it looked absent here: there is nothing to add to the screen's body, it belongs
               to the chrome. Absolutely positioned so it is centred on the *bar* rather than on
               whatever space the two controls leave, which is what a title view does. */}
-        <YStack position="absolute" left={0} right={0} alignItems="center" pointerEvents="none">
+        {/* Inset by the wider of the two controls on both sides, so it stays centred and a long
+            title truncates before it reaches either of them rather than drawing under them. */}
+        <YStack
+          position="absolute"
+          left={sideInset}
+          right={sideInset}
+          alignItems="center"
+          pointerEvents="none"
+        >
           <OnboardingMark
             size={BAR_LOGO_SIZE}
             {...(barTitle === undefined ? {} : { title: barTitle })}
           />
         </YStack>
-        <LanguageButton />
+        <YStack
+          onLayout={(event) => {
+            setLanguageWidth(event.nativeEvent.layout.width)
+          }}
+        >
+          <LanguageButton />
+        </YStack>
       </XStack>
       {/* `flex` is load-bearing. Without it this box takes its content's height, and a child
             asking for `flex: 1` inside it resolves against nothing and collapses to zero -- which

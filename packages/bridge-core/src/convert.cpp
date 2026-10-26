@@ -84,7 +84,7 @@ namespace {
 
 }  // namespace
 
-bool previewable(const ::session::client::Attachment& a) {
+bool thumbhash_decodable(const ::session::client::Attachment& a) {
     if (!a.thumbhash || !image::thumbhash::valid(*a.thumbhash))
         return false;
     // Missing dimensions fall back to square; present but implausible ones are refused.
@@ -100,7 +100,8 @@ Attachment to_bridge(::session::client::Attachment&& from) {
             from.voice_message,
             number(from.width),
             number(from.height),
-            previewable(from),
+            thumbhash_decodable(from),
+            from.has_thumbnail,
             from.uploaded,
             availability(from.availability),
             static_cast<double>(from.fetch_done),

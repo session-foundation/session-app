@@ -1,3 +1,4 @@
+import { isDisplayableImage } from '@session/basic-types'
 import type { Attachment, Message } from '@session/client'
 import { describe, expect, it } from 'vitest'
 
@@ -8,7 +9,8 @@ function attachment(index: number, contentType?: string): Attachment {
     index,
     ...(contentType === undefined ? {} : { contentType }),
     voiceMessage: false,
-    hasPreview: false,
+    hasThumbhash: false,
+    hasThumbnail: false,
     uploaded: true,
     availability: 'absent',
     fetchDoneBytes: 0,
@@ -16,7 +18,12 @@ function attachment(index: number, contentType?: string): Attachment {
   }
 }
 
-function message(attachments: Attachment[], galleryViewable = true): Message {
+/** libsession's rule by default: has attachments, and every one is a displayable image type. */
+function message(
+  attachments: Attachment[],
+  galleryViewable = attachments.length > 0 &&
+    attachments.every((a) => isDisplayableImage(a.contentType)),
+): Message {
   return { attachments, galleryViewable } as unknown as Message
 }
 
@@ -25,10 +32,10 @@ describe('which shape a message takes', () => {
     expect(attachmentView(message([attachment(0, 'image/jpeg')]))).toBe('gallery')
   })
 
-  it('draws pictures beside video as a gallery', () => {
-    // A video has a frame to show, so a set of both is still a set of tiles.
+  it('sends pictures beside a video to the list', () => {
+    // A video is a file until libsession exposes a still to draw for it.
     const set = message([attachment(0, 'image/jpeg'), attachment(1, 'video/mp4')])
-    expect(attachmentView(set)).toBe('gallery')
+    expect(attachmentView(set)).toBe('list')
   })
 
   it('sends the whole set to the list when one attachment is a plain file', () => {
@@ -47,11 +54,15 @@ describe('which shape a message takes', () => {
     expect(attachmentView(message([attachment(0)]))).toBe('list')
   })
 
-  it('does not ask libsession, which answers a different question', () => {
-    // `gallery_viewable` means every attachment is an `image/`, so it would send a set of
-    // photographs and one video to the list - a set the album draws perfectly well.
-    const set = message([attachment(0, 'image/jpeg'), attachment(1, 'video/mp4')], false)
-    expect(attachmentView(set)).toBe('gallery')
+  it('draws a list wherever libsession says the set cannot be a gallery', () => {
+    const set = message([attachment(0, 'image/jpeg'), attachment(1, 'image/png')], false)
+    expect(attachmentView(set)).toBe('list')
+  })
+
+  it('draws a list for a picture the viewer here cannot open, whatever libsession says', () => {
+    // libsession's whitelist takes AVIF.
+    const set = message([attachment(0, 'image/jpeg'), attachment(1, 'image/avif')], true)
+    expect(attachmentView(set)).toBe('list')
   })
 })
 

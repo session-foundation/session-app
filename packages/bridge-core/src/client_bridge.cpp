@@ -3,6 +3,7 @@
 #include <session/client.hpp>
 #include <session/client/conversation.hpp>
 #include <session/client/conversation_id.hpp>
+#include <session/client/error_codes.hpp>
 #include <session/core/devices.hpp>
 #include <session/image/thumbhash.hpp>
 #include <session/logging.hpp>
@@ -53,6 +54,29 @@ namespace {
     /// mean different things to a caller. Said once here so every command spells it the same way.
     std::string not_found(std::string_view what, const std::string& id) {
         return std::string{what} + " " + id + " does not exist";
+    }
+
+    /// The fake says the same sentence; the media source contract holds the two to it.
+    std::string no_such_attachment(int64_t id, size_t at) {
+        return not_found("attachment", std::to_string(at) + " of message " + std::to_string(id));
+    }
+
+    /// The fake says the same sentence; the media source contract holds the two to it.
+    std::string no_thumbhash(int64_t id, size_t at) {
+        return "attachment " + std::to_string(at) + " of message " + std::to_string(id) +
+               " has no thumbhash";
+    }
+
+    /// The fake says the same sentence; the media source contract holds the two to it.
+    std::string not_downloaded(int64_t id, size_t at) {
+        return "attachment " + std::to_string(at) + " of message " + std::to_string(id) +
+               " is not downloaded";
+    }
+
+    /// The fake says the same sentence; the media source contract holds the two to it.
+    std::string no_thumbnail(int64_t id, size_t at) {
+        return "attachment " + std::to_string(at) + " of message " + std::to_string(id) +
+               " has no thumbnail";
     }
 
     /// A number from JavaScript as a whole number of type T, or an error naming the field.
@@ -246,17 +270,27 @@ namespace {
             const auto& fs = *network.file_server;
             if (fs.host.empty())
                 throw std::invalid_argument{"fileServer.host must not be empty"};
-            if (fs.x25519_pubkey_hex.size() != 64 || !oxenc::is_hex(fs.x25519_pubkey_hex))
+            auto key = network::ed25519_pubkey::maybe_from_hex(fs.ed25519_pubkey_hex);
+            if (!key)
                 throw std::invalid_argument{
-                        "fileServer.x25519PubkeyHex must be 64 hex characters: the server's "
-                        "X25519 key, not the Ed25519 one its QUIC endpoint is named by"};
+                        "fileServer.ed25519PubkeyHex must be 64 hex characters: the server's "
+                        "Ed25519 key, not the X25519 one"};
+            // libsession converts it at every upload; converted here, a key that is no Ed25519
+            // point fails the start instead. About half of X25519 keys still pass this.
+            try {
+                network::compute_x25519_pubkey(*key);
+            } catch (const std::exception&) {
+                throw std::invalid_argument{
+                        "fileServer.ed25519PubkeyHex is not an Ed25519 key: the X25519 one, "
+                        "perhaps"};
+            }
 
             opts.emplace_back(network::opt::file_server_scheme{
                     std::string{EnumTraits<UrlScheme>::to_string(fs.scheme)}});
             opts.emplace_back(network::opt::file_server_host{fs.host});
             opts.emplace_back(network::opt::file_server_port{
                     whole<uint16_t>(fs.port, "fileServer.port")});
-            opts.emplace_back(network::opt::file_server_pubkey_hex{fs.x25519_pubkey_hex});
+            opts.emplace_back(network::opt::file_server_pubkey_hex{fs.ed25519_pubkey_hex});
         }
 
         // Beside the database rather than in it: freeing space works by unlinking what the
@@ -362,19 +396,26 @@ struct ClientBridge::Impl {
                 // picture yet, so there is nothing a report would feed.
         };
 
-        // The key options are types rather than values, so which one is used has to be a branch
+        // The options are types rather than values, so which ones are used has to be a branch
         // rather than an argument. Only one of these ever runs, which is what makes moving the
         // callbacks in each of them safe.
         auto path = shared_if_in_memory(options.db_path);
+        auto make = [&](auto&&... opts) {
+            return std::make_unique<client::Client>(
+                    path, std::move(cbs), std::forward<decltype(opts)>(opts)...);
+        };
+        auto with_edge = [&](auto&&... opts) {
+            if (options.thumbnail_edge_px)
+                return make(
+                        client::default_thumbnail_edge{
+                                whole<uint32_t>(*options.thumbnail_edge_px, "thumbnailEdgePx")},
+                        std::forward<decltype(opts)>(opts)...);
+            return make(std::forward<decltype(opts)>(opts)...);
+        };
         auto open = [&](auto&&... key) {
             if (options.defer_account)
-                return std::make_unique<client::Client>(
-                        path,
-                        std::move(cbs),
-                        core::defer_account{},
-                        std::forward<decltype(key)>(key)...);
-            return std::make_unique<client::Client>(
-                    path, std::move(cbs), std::forward<decltype(key)>(key)...);
+                return with_edge(core::defer_account{}, std::forward<decltype(key)>(key)...);
+            return with_edge(std::forward<decltype(key)>(key)...);
         };
 
         if (options.raw_key)
@@ -761,6 +802,8 @@ struct ClientBridge::Impl {
             throw;
         }
         open_failure.clear();
+        if (options.on_database_replaced)
+            options.on_database_replaced();
     }
 
     void handle(double id, const DiscardAccountCommand&) {
@@ -1091,6 +1134,19 @@ struct ClientBridge::Impl {
         }));
     }
 
+    void handle(double id, const GetThumbnailEdgeCommand&) {
+        client->thumbnail_edge(on(id, [this, id](uint32_t edge) {
+            respond(id, EdgeResult{static_cast<double>(edge)});
+        }));
+    }
+
+    void handle(double id, const SetThumbnailEdgeCommand& cmd) {
+        std::optional<uint32_t> edge_px;
+        if (cmd.edge_px)
+            edge_px = whole<uint32_t>(*cmd.edge_px, "setThumbnailEdge.edgePx");
+        client->set_thumbnail_edge(edge_px, on(id, [this, id] { ok(id); }));
+    }
+
     void handle(double id, const GetConfigSizesCommand&) {
         client->config_sizes(on(id, [this, id](std::unordered_map<std::string, int> measured) {
             std::vector<ConfigSize> sizes;
@@ -1137,7 +1193,17 @@ struct ClientBridge::Impl {
 
         SessionProtos::Content content;
         content.set_sigtimestamp(static_cast<uint64_t>(timestamp));
-        content.mutable_datamessage()->set_body(cmd.body);
+        auto* data = content.mutable_datamessage();
+        data->set_body(cmd.body);
+        if (cmd.attachments)
+            for (const auto& a : *cmd.attachments) {
+                auto* ptr = data->add_attachments();
+                // Required by the schema, and read only by clients that predate `url`.
+                ptr->set_id(0);
+                ptr->set_contenttype(a.content_type);
+                if (a.thumbhash)
+                    ptr->set_thumbhash(a.thumbhash->data(), a.thumbhash->size());
+            }
         auto plaintext = content.SerializeAsString();
 
         b33 recipient;
@@ -1279,7 +1345,9 @@ void ClientBridge::fetch_media(double message_id, double index, MediaHandler cb)
             if (!msg)
                 return cb(Media{std::string{msg.error().message}, {}, {}});
             if (!*msg || at >= (*msg)->attachments.size())
-                return cb(Media{not_found("attachment", std::to_string(id)), {}, {}});
+                return cb(Media{no_such_attachment(id, at), {}, {}});
+            if (!*bytes && bytes->error().code == client::err::not_cached)
+                return cb(Media{not_downloaded(id, at), {}, {}});
             if (!*bytes)
                 return cb(Media{std::string{bytes->error().message}, {}, {}});
             // The sender's claim, and the only description there is. Whoever renders it is
@@ -1303,10 +1371,9 @@ void ClientBridge::fetch_media(double message_id, double index, MediaHandler cb)
                     if (join->bytes)
                         join->settle();
                 });
-        _impl->client->attachment_data(
+        _impl->client->attachment_data_cached(
                 join->id,
                 join->at,
-                _impl->report(AttachmentTransfer::download),
                 [join](session::Expected<std::vector<std::byte>> r) mutable {
                     std::lock_guard l{join->lock};
                     join->bytes.emplace(std::move(r));
@@ -1323,56 +1390,92 @@ void ClientBridge::fetch_media(double message_id, double index, MediaHandler cb)
 ///
 /// A ThumbHash holds at most 7 cycles across the image, so decoding larger costs time without
 /// carrying more detail; whatever draws it scales this up with a linear filter.
-constexpr uint32_t preview_long_edge = 32;
+constexpr uint32_t thumbhash_long_edge = 32;
 
-void ClientBridge::fetch_preview(double message_id, double index, PreviewHandler cb) {
+void ClientBridge::fetch_thumbhash(double message_id, double index, ThumbhashHandler cb) {
     if (!_impl || !_impl->client) {
-        cb(Preview{"the bridge is closed", 0, 0, {}});
+        cb(Thumbhash{"the bridge is closed", 0, 0, {}});
         return;
     }
 
     try {
-        const int64_t id = whole<int64_t>(message_id, "preview.messageId");
-        const auto at = whole<size_t>(index, "preview.index");
+        const int64_t id = whole<int64_t>(message_id, "thumbhash.messageId");
+        const auto at = whole<size_t>(index, "thumbhash.index");
 
         _impl->client->message(
-                id, [at, cb = std::move(cb)](session::Expected<std::optional<client::Message>> r) mutable {
+                id,
+                [id, at, cb = std::move(cb)](
+                        session::Expected<std::optional<client::Message>> r) mutable {
                     if (!r) {
-                        cb(Preview{std::string{r.error().message}, 0, 0, {}});
+                        cb(Thumbhash{std::string{r.error().message}, 0, 0, {}});
                         return;
                     }
                     auto& msg = *r;
                     if (!msg || at >= msg->attachments.size()) {
-                        cb(Preview{"no such attachment", 0, 0, {}});
+                        cb(Thumbhash{no_such_attachment(id, at), 0, 0, {}});
                         return;
                     }
 
                     const auto& a = msg->attachments[at];
-                    if (!previewable(a)) {
-                        cb(Preview{"no preview", 0, 0, {}});
+                    if (!thumbhash_decodable(a)) {
+                        cb(Thumbhash{no_thumbhash(id, at), 0, 0, {}});
                         return;
                     }
 
                     // A hash carries no usable record of the source's shape, so the aspect ratio
                     // comes from the attachment's own metadata; without it, square is the only
                     // honest guess.
-                    uint32_t w = preview_long_edge, h = preview_long_edge;
+                    uint32_t w = thumbhash_long_edge, h = thumbhash_long_edge;
                     if (a.width && a.height) {
                         if (*a.width >= *a.height)
-                            h = std::max(1u, preview_long_edge * *a.height / *a.width);
+                            h = std::max(1u, thumbhash_long_edge * *a.height / *a.width);
                         else
-                            w = std::max(1u, preview_long_edge * *a.width / *a.height);
+                            w = std::max(1u, thumbhash_long_edge * *a.width / *a.height);
                     }
 
                     auto img = image::thumbhash::decode(*a.thumbhash, w, h);
-                    cb(Preview{
+                    cb(Thumbhash{
                             std::nullopt,
                             static_cast<double>(img.width),
                             static_cast<double>(img.height),
                             std::move(img.rgba)});
                 });
     } catch (const std::exception& e) {
-        cb(Preview{std::string{e.what()}, 0, 0, {}});
+        cb(Thumbhash{std::string{e.what()}, 0, 0, {}});
+    }
+}
+
+void ClientBridge::fetch_thumbnail(double message_id, double index, MediaHandler cb) {
+    if (!_impl || !_impl->client) {
+        cb(Media{"the bridge is closed", {}, {}});
+        return;
+    }
+
+    try {
+        const int64_t id = whole<int64_t>(message_id, "thumbnail.messageId");
+        const auto at = whole<size_t>(index, "thumbnail.index");
+
+        _impl->client->attachment_thumbnail(
+                id,
+                at,
+                [id, at, cb = std::move(cb)](session::Expected<std::vector<std::byte>> r) mutable {
+                    if (r) {
+                        cb(Media{std::nullopt, "image/jpeg", *std::move(r)});
+                        return;
+                    }
+                    // The sentences the fake says too, so a refusal reads the same on both.
+                    const auto code = r.error().code;
+                    if (code == client::err::no_thumbnail)
+                        cb(Media{no_thumbnail(id, at), {}, {}});
+                    else if (
+                            code == client::err::message_not_found ||
+                            code == client::err::attachment_not_found)
+                        cb(Media{no_such_attachment(id, at), {}, {}});
+                    else
+                        cb(Media{std::string{r.error().message}, {}, {}});
+                });
+    } catch (const std::exception& e) {
+        cb(Media{std::string{e.what()}, {}, {}});
     }
 }
 

@@ -3,6 +3,13 @@ import type { ReactNode } from 'react'
 export interface SlidePagerProps {
   /** Which page is showing. Changing it slides. */
   index: number
+  /**
+   * The page the person swiped to, once it has settled.
+   *
+   * The tabs above follow the pager this way. Where nothing swipes -- the desktop app, which shows
+   * one page at a time -- it is never called.
+   */
+  onIndexChange?: ((index: number) => void) | undefined
   /** Cut rather than slide. See the `disableAnimations` flag. */
   instant?: boolean
   /**

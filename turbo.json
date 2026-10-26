@@ -40,12 +40,14 @@
     "dev": {
       "dependsOn": ["^codegen"],
       "cache": false,
-      "persistent": true
+      "persistent": true,
+      "passThroughEnv": ["EXPO_PUBLIC_SESSION_*", "SESSION_*"]
     },
     "dev:fake": {
       "dependsOn": ["^codegen"],
       "cache": false,
-      "persistent": true
+      "persistent": true,
+      "passThroughEnv": ["EXPO_PUBLIC_SESSION_*", "SESSION_*"]
     },
     "typecheck": {
       "dependsOn": ["^codegen", "^build"]

@@ -58,11 +58,12 @@ const STARTUP_BUDGET_MS = 100
 for (const peers of SIZES) {
   test(`a list of ${String(peers)} conversations @desktop @perf`, async () => {
     test.setTimeout(300_000)
-    // Read by apps/desktop's dev entry, which passes it to the fake's crowd fixture.
-    process.env['SESSION_FAKE_CONVERSATIONS'] = String(peers)
-    process.env['SESSION_FAKE_HISTORY'] = '1'
-
-    const app = await DesktopApp.launch('perf')
+    const app = await DesktopApp.launch('perf', {
+      env: {
+        EXPO_PUBLIC_SESSION_FAKE_CROWD_PEERS: String(peers),
+        EXPO_PUBLIC_SESSION_FAKE_CROWD_HISTORY: '1',
+      },
+    })
     try {
       await app.startProbe()
 
@@ -113,8 +114,6 @@ for (const peers of SIZES) {
       ).toEqual([])
     } finally {
       await app.close()
-      delete process.env['SESSION_FAKE_CONVERSATIONS']
-      delete process.env['SESSION_FAKE_HISTORY']
     }
   })
 }

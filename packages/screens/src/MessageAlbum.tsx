@@ -1,23 +1,18 @@
-import { mediaKindOf } from '@session/basic-types'
 import { requirePorts } from '@session/app'
-import { useMemo, type ReactNode } from 'react'
-import type { Attachment, AutoDownload, Message } from '@session/client'
+import { ALBUM_WIDTH } from '@session/basic-types'
+import { useCallback, useLayoutEffect, useMemo, useRef, type ReactNode } from 'react'
+import type { Attachment, Message } from '@session/client'
 import { tr } from '@session/localization'
 import { ELEMENT } from '@session/test-ids'
 import { AttachmentAlbum, type AlbumItem } from '@session/ui'
 
-import type { Fetch } from './attachmentFetch'
-import { mayResolve } from './autoDownload'
-import { viewableAttachments } from './viewableAttachments'
-
-/**
- * As wide as a bubble is allowed to be.
- *
- * A number here and not a constant shared with the bubble, because the bubble's own width is a
- * percentage of the pane and nothing measures it yet. When something does, this takes it as a
- * prop - the album has never been the thing that decides how wide a message is.
- */
-export const ALBUM_WIDTH = 240
+import type { Fetch, FetchState } from './attachmentFetch'
+import type { AttachmentSetState } from './attachmentSet'
+import { rowVerb, verbLabel } from './attachmentPress'
+import { albumTileName } from './albumTileName'
+import { PENDING_COPY } from './pendingCopy'
+import { useLocale } from './useLocale'
+import { leadUri, viewableAttachments } from './viewableAttachments'
 
 /**
  * One message's pictures, as an album.
@@ -29,64 +24,75 @@ export function MessageAlbum({
   message,
   onOpen,
   control,
-  autoDownload,
   fetchFor,
+  setState,
+  onAccent,
 }: {
   message: Message
   /** Takes the attachment's index in the message. */
   onOpen: (index: number) => void
   /** The set's own control, drawn over the box the layout names. */
   control?: ReactNode | undefined
-  /** What this conversation fetches unasked. Undefined means nobody has been asked. */
-  autoDownload?: AutoDownload | undefined
   fetchFor: (attachment: Attachment) => Fetch
+  /** The whole set's state, whose verb the cloud says, as the footer does. */
+  setState: AttachmentSetState
+  /** Drawn on a bubble you sent. */
+  onAccent: boolean
 }) {
   const viewable = useMemo(() => viewableAttachments(message), [message])
-  // A url is withheld while its last fetch has failed: an image that errored does not load again
-  // under the same url, so a retry has to hand it over afresh. Joined into a string so the memo
-  // below sees a change only when which ones failed does.
-  const failedKey = viewable
-    .filter((attachment) => fetchFor(attachment).state === 'failed')
-    .map((attachment) => String(attachment.index))
-    .join()
-  // Which a press would download rather than open: see `MessageAttachments`' `onOpen`.
-  const fetchableKey = viewable
-    .filter((attachment) => ['idle', 'failed'].includes(fetchFor(attachment).state))
-    .map((attachment) => String(attachment.index))
-    .join()
-  // Memoised so the album's memoised tiles keep their items until the message or setting changes.
+  // The labels are the catalogue's, which a memo would otherwise hold in the last language.
+  const locale = useLocale()
+  const statesKey = viewable.map((attachment) => fetchFor(attachment).state).join()
+  // Memoised so the album's memoised tiles keep their items until the message or a state changes.
   const items = useMemo((): AlbumItem[] => {
-    const failed = new Set(failedKey.split(','))
-    const fetchable = new Set(fetchableKey.split(','))
-    return viewable.map((attachment) => ({
-      // Undefined rather than null where this is not ours to fetch: null says the platform has
-      // no resolver, and this says the person has not agreed to spend the data. Both draw the
-      // placeholder, and the set's control is what offers to change it.
-      uri:
-        mayResolve(attachment, autoDownload) && !failed.has(String(attachment.index))
-          ? requirePorts().media.urlFor({ messageId: message.id, index: attachment.index })
+    const states = statesKey.split(',') as FetchState[]
+    return viewable.map((attachment, at) => {
+      const state = states[at] ?? 'idle'
+      // A tile is always a picture the viewer shows, and does what such a row does: see
+      // `MessageAttachments`' `onOpen`.
+      const verb = rowVerb(state, true)
+      return {
+        uri: leadUri(message.id, attachment, state),
+        // Its own URL rather than pixels on the frame stream, so a placeholder reaches the
+        // screen by the route a picture does. Null where the platform has no resolver.
+        thumbhash: attachment.hasThumbhash
+          ? requirePorts().media.thumbhashUrlFor({ messageId: message.id, index: attachment.index })
           : undefined,
-      kind: mediaKindOf(attachment.contentType),
-      // Its own URL rather than pixels on the frame stream, so a placeholder reaches the
-      // screen by the route a picture does. Null where the platform has no resolver.
-      preview: attachment.hasPreview
-        ? requirePorts().media.previewUrlFor({ messageId: message.id, index: attachment.index })
-        : undefined,
-      fetchesOnOpen: fetchable.has(String(attachment.index)),
-      testID: ELEMENT.conversation.attachmentImage,
-    }))
-  }, [viewable, message.id, autoDownload, failedKey, fetchableKey])
+        fetchesOnOpen: state === 'idle' || state === 'failed',
+        testID: ELEMENT.conversation.attachmentImage,
+        label: albumTileName(attachment.filename, at, viewable.length),
+        hint: verb === null ? undefined : verbLabel(verb),
+        transferring: state === 'fetching',
+      }
+    })
+  }, [viewable, message.id, statesKey, locale])
+
+  // The caller's `onOpen` is new on every transfer report; read through a ref, the album's memoised
+  // tiles get one callback until the message changes.
+  const latestOnOpen = useRef(onOpen)
+  useLayoutEffect(() => {
+    latestOnOpen.current = onOpen
+  })
+  const openAt = useCallback(
+    (at: number) => {
+      const attachment = viewable[at]
+      if (attachment !== undefined) latestOnOpen.current(attachment.index)
+    },
+    [viewable],
+  )
 
   return (
     <AttachmentAlbum
       items={items}
       width={ALBUM_WIDTH}
       overflowLabel={(count) => tr('andMore', { count })}
-      onOpen={(at) => {
-        const attachment = viewable[at]
-        if (attachment !== undefined) onOpen(attachment.index)
-      }}
+      overflowName={PENDING_COPY.attachmentNameAndMore}
+      onOpen={openAt}
       control={control}
+      fetchLabel={setState === 'failed' ? tr('retry') : tr('download')}
+      fetchTestID={ELEMENT.conversation.attachmentFetch}
+      tileTestID={ELEMENT.conversation.attachmentTile}
+      onAccent={onAccent}
       testID={ELEMENT.conversation.attachment}
     />
   )

@@ -6,6 +6,8 @@ import { gunzipSync } from 'node:zlib'
 import { _electron, expect, test } from '@playwright/test'
 import { ELEMENT } from '@session/test-ids'
 
+import { FAKE_LAUNCH_ENV } from '../harness/fakeEnv'
+
 const repoRoot = join(import.meta.dirname, '../../..')
 
 /**
@@ -37,9 +39,7 @@ test('settings opens over the list, pushes Help, exports logs from it, and asks 
     ],
     env: {
       ...process.env,
-      ELECTRON_RUN_AS_NODE: '',
-      EXPO_PUBLIC_SESSION_FAKE: '1',
-      SESSION_FAKE: '1',
+      ...FAKE_LAUNCH_ENV,
       SESSION_IDENTITY: 'alice',
       SESSION_DATA_DIR: dataDir,
     },
