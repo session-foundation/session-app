@@ -34,13 +34,14 @@ fi
 _ls_cache="${SESSION_LIBSESSION_CACHE:-$_ls_cache_default}"
 # Bump whenever what an entry holds, or how a tree is laid out, changes.
 _ls_layout=v1
+# Where _ls_hashes records what it hashed; named so that pruning sweeps up an abandoned one.
+_ls_record="$_ls_cache/entries/.incoming-$$-files"
 
-# Prints "<source hash> <build rules hash>". Every tracked path across every submodule, and every
-# untracked one not ignored, hashed by working-tree content, so an uncommitted patch or a new file
-# changes it (libsession globs its schema migrations); tests, docs and markdown cannot change what
-# is linked.
-_ls_hashes() {
-    local files sums
+# Prints, one per line, the libsession paths that can change what is linked: every tracked path
+# across every submodule, and every untracked one not ignored, so a new file counts (libsession
+# globs its schema migrations); tests, docs and markdown cannot change what is linked.
+_ls_files() {
+    local files
     # `--others` cannot be combined with `--recurse-submodules`, hence the foreach.
     files=$(cd "$1" && git ls-files --recurse-submodules \
             && git ls-files --others --exclude-standard \
@@ -52,12 +53,32 @@ _ls_hashes() {
         return 1
     fi
     # A trailing slash is an embedded repository, not a file.
-    sums=$(printf '%s\n' "$files" \
+    printf '%s\n' "$files" \
         | grep -vE '(^|/)(tests?|docs?|examples?)/|\.md$|(^|/)(\.DS_Store|\.gitignore)$|/$' \
-        | LC_ALL=C sort | tr '\n' '\0' | (cd "$1" && _ls_md5))
+        | LC_ALL=C sort
+}
+
+# _ls_hashes <libsession dir> <record>
+#
+# Prints "<source hash> <build rules hash>", by working-tree content, so an uncommitted patch
+# changes it. Writes the paths it hashed to <record> before reading any of them: an edit the hash
+# did not see is then newer than the record, which is what _ls_changed_since looks for.
+_ls_hashes() {
+    local sums
+    mkdir -p "$(dirname "$2")"
+    _ls_files "$1" >"$2" || return
+    sums=$(tr '\n' '\0' <"$2" | (cd "$1" && _ls_md5))
     printf '%s %s\n' \
         "$(awk '{print $1}' <<<"$sums" | _ls_md5_stdin)" \
         "$(awk '$2 == "CMakeLists.txt" || $2 ~ /^cmake\// {print $1}' <<<"$sums" | _ls_md5_stdin)"
+}
+
+# _ls_changed_since <libsession dir> <record>: whether a path was added, removed or written after
+# _ls_hashes recorded it. Written and then restored still counts: the build may have read it.
+_ls_changed_since() {
+    [ "$(_ls_files "$1")" != "$(cat "$2")" ] && return 0
+    [ -n "$(cd "$1" && sed 's|^|./|' "$2" | tr '\n' '\0' \
+        | xargs -0 sh -c 'record=$1; shift; find "$@" -maxdepth 0 -newer "$record"' _ "$2")" ]
 }
 
 # Hard links on Linux and APFS clones on macOS, so a clone's copy costs no space; a plain copy
@@ -65,10 +86,15 @@ _ls_hashes() {
 _ls_place() {
     rm -rf "$2"
     mkdir -p "$(dirname "$2")"
+    # A link or clone that fails has already created $2, and a copy onto an existing $2 nests in it.
     if [ "$(uname -s)" = Darwin ]; then
-        cp -cR "$1" "$2" 2>/dev/null || cp -R "$1" "$2"
+        cp -cR "$1" "$2" 2>/dev/null || { rm -rf "$2"; cp -R "$1" "$2"; }
     else
-        cp -al "$1" "$2" 2>/dev/null || cp -a "$1" "$2"
+        cp -al "$1" "$2" 2>/dev/null || { rm -rf "$2"; cp -a "$1" "$2"; }
+    fi
+    if [ ! -f "$2/libsession-util.a" ]; then
+        echo "placing $1 left no libsession-util.a in $2" >&2
+        return 1
     fi
 }
 
@@ -113,7 +139,7 @@ _ls_prune() {
 # stands for the libsession source directory: a clone's own path there would give every clone a
 # tree of its own.
 libsession_bundle() {
-    local libsession dest key hashes src_hash rules_hash args_hash entry tree status
+    local libsession dest key hashes record src_hash rules_hash args_hash entry tree status
     libsession="$(cd "$1" && pwd -P)"
     key="$2"
     dest="$3"
@@ -124,7 +150,8 @@ libsession_bundle() {
 
     # Set by the iOS script, which has already hashed this tree once for BUILT.json.
     hashes=${_LS_HASHES:-}
-    if [ -z "$hashes" ]; then hashes=$(_ls_hashes "$libsession") || return; fi
+    record=${_LS_RECORD:-$_ls_record}
+    if [ -z "$hashes" ]; then hashes=$(_ls_hashes "$libsession" "$record") || return; fi
     src_hash=${hashes% *}
     rules_hash=${hashes#* }
     args_hash=$(printf '%s\n' "$@" | _ls_md5_stdin | cut -c1-12)
@@ -176,15 +203,25 @@ libsession_bundle() {
             mkdir -p "$incoming/static-deps"
             cp "$tree/build/libsession-util.a" "$incoming/"
             cp -R "$tree/build/static-deps/include" "$incoming/static-deps/"
+            # The build reads the working tree as it goes, so an edit made meanwhile may be in it.
+            if _ls_changed_since "$libsession" "$record"; then
+                echo "libsession changed during the build: using it, but not caching it"
+                _ls_place "$incoming" "$dest"
+                exit 0
+            fi
             mv "$incoming" "$entry"
         )
         # Not `|| return`: that context switches off the subshell's set -e.
         status=$?
+        [ -n "${_LS_HASHES:-}" ] || rm -f "$record"
         [ "$status" = 0 ] || return "$status"
         _ls_prune "$_ls_cache/entries"
         _ls_prune "$_ls_cache/trees"
+        # Already placed by the build, which did not cache it.
+        [ -d "$entry" ] || return 0
     else
         echo "libsession from cache: $entry"
+        [ -n "${_LS_HASHES:-}" ] || rm -f "$record"
     fi
     touch "$entry"
     _ls_place "$entry" "$dest"

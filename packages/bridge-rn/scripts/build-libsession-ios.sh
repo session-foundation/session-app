@@ -57,11 +57,10 @@ esac
 
 . "$here/../../bridge-core/scripts/libsession-cache.sh"
 
-# **The hash is the honest half of BUILT.json**; the commit alone is not. It is the legacy client's
-# own check (`Scripts/build_libSession_util.sh`), and the cache's: every tracked and every
-# untracked, unignored path across every submodule, hashed by working-tree content, so an
-# uncommitted patch or a new file changes it.
-hashes=$(_ls_hashes "$libsession")
+# **The hash is the honest half of BUILT.json**; the commit alone is not. It is the cache's key:
+# every tracked and every untracked, unignored path across every submodule, hashed by
+# working-tree content, so an uncommitted patch or a new file changes it.
+hashes=$(_ls_hashes "$libsession" "$_ls_record")
 source_hash=${hashes% *}
 
 # Each slice through the per-machine cache, with the arguments utils/ios.sh gives
@@ -71,9 +70,10 @@ deployment="${IPHONEOS_DEPLOYMENT_TARGET:-13}"
 toolchain="$libsession/external/ios-cmake/ios.toolchain.cmake"
 target="xcode$(xcodebuild -version | awk '/Build version/ {print $3}')-ios$deployment-$(md5 -q "$toolchain")"
 # ios.sh's `env -i`: what an Xcode build phase exports would otherwise reach every dependency.
-# `_LS_HASHES` spares each slice another walk of the whole tree.
+# `_LS_HASHES` spares each slice another walk of the whole tree. Every slice checks for edits
+# against the one record, since every slice is stored under the one hash.
 clean_env=(env -i PATH="$PATH" HOME="$HOME" SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
-    _LS_HASHES="$hashes")
+    _LS_HASHES="$hashes" _LS_RECORD="$_ls_record")
 for var in SESSION_LIBSESSION_CACHE SESSION_BRIDGE_DEPS_MIRROR; do
     if [ -n "${!var:-}" ]; then clean_env+=("$var=${!var}"); fi
 done
@@ -101,6 +101,7 @@ for slice in $slices; do
         -DSUBMODULE_CHECK=OFF \
         -DCMAKE_BUILD_TYPE=Debug
 done
+rm -f "$_ls_record"
 ( cd "$libsession" && env ARCHS="$archs" PLATFORM_NAME="$platform" CONFIGURATION=Debug \
     IPHONEOS_DEPLOYMENT_TARGET="$deployment" ./utils/ios.sh "" false true true false )
 built="$libsession/build-ios"
