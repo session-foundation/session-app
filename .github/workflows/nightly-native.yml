@@ -40,8 +40,8 @@ jobs:
       - id: libsession
         run: echo "sha=$(git rev-parse HEAD:libsession-util)" >> "$GITHUB_OUTPUT"
 
-      # libsession and its static deps compile on every run: a checkout is newer than any cached
-      # object, and ninja reruns any step its .ninja_log lacks. ccache is what makes that cheap.
+      # libsession and its static deps compile on every run: the per-machine libsession cache
+      # starts empty on a fresh runner. ccache is what makes that cheap.
       - uses: actions/cache@v6
         with:
           path: ${{ runner.temp }}/ccache

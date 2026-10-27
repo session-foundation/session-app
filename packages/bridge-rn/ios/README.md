@@ -34,4 +34,4 @@ this is the file to read when something links and then behaves like an older lib
 **The hash matters more than the commit.** The nested submodules routinely carry uncommitted
 patches, and a commit says nothing about them; the hash is over the working-tree contents of
 every tracked path and every untracked one not ignored, so an uncommitted edit or a new file
-changes it. It is the legacy client's own check, from `Scripts/build_libSession_util.sh`.
+changes it. It is the same hash the per-machine libsession cache keys its builds on.

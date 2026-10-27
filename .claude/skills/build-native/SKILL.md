@@ -26,7 +26,8 @@ binary, `packages/bridge-rn/ios/SessionBridgeCore.xcframework`, whose `Headers/`
 source on the search path, so iOS keeps compiling against whatever that artefact was built from.
 `pod install` does not refresh it.
 
-Rebuild it with `packages/bridge-rn/scripts/build-libsession-ios.sh all` (or `both`), never
+Rebuild it with `packages/bridge-rn/scripts/build-libsession-ios.sh`, whose default `both` mode
+is the one to use; `all` only when an Intel Mac's simulator is the target, and never
 `simulator`: the one-slice modes rename the simulator slice, and the next build fails with
 `rsync … ios-arm64_x86_64-simulator: No such file or directory`.
 
