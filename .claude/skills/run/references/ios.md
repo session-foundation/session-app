@@ -41,8 +41,8 @@ taskpolicy -d throttle nice -n 19 xcodebuild …
 **Never `taskpolicy -b`.** It confines the build to the efficiency cores, a minority of an Apple
 silicon Mac's, and a libsession build takes many times longer under it than under `nice`.
 
-To cap the cores outright, `JOBS=6` limits libsession's build, `CMAKE_BUILD_PARALLEL_LEVEL=6` the
-shim's, and `-jobs 6` xcodebuild's.
+To cap the cores outright, `JOBS=6` limits `build:libsession:ios` (libsession and the shim), and
+`-jobs 6` xcodebuild.
 
 ### Not doing work twice
 

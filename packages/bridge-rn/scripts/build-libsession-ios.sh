@@ -66,10 +66,11 @@ deployment="${IPHONEOS_DEPLOYMENT_TARGET:-13}"
 toolchain="$libsession/external/ios-cmake/ios.toolchain.cmake"
 target="xcode$(xcodebuild -version | awk '/Build version/ {print $3}')-ios$deployment-$(md5 -q "$toolchain")"
 # ios.sh's `env -i`: what an Xcode build phase exports would otherwise reach every dependency.
-# `_LS_HASHES` spares each slice another walk of the whole tree.
+# `_LS_HASHES` spares each slice another walk of the whole tree. `JOBS` is static-bundle.sh's
+# make -j.
 clean_env=(env -i PATH="$PATH" HOME="$HOME" SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
     _LS_HASHES="$hashes")
-for var in SESSION_LIBSESSION_CACHE SESSION_BRIDGE_DEPS_MIRROR; do
+for var in SESSION_LIBSESSION_CACHE SESSION_BRIDGE_DEPS_MIRROR JOBS; do
     if [ -n "${!var:-}" ]; then clean_env+=("$var=${!var}"); fi
 done
 # ios.sh merges every slice directory it finds, so one left by another mode would join this build.
@@ -139,7 +140,8 @@ for slice in $slices; do
         -DENABLE_BITCODE=OFF \
         -DCMAKE_BUILD_TYPE=Release \
         -DSESSION_BRIDGE_LIBSESSION_BUNDLE="$built/$slice/libsession-util.a"
-    cmake --build "$build" --target session-bridge-core --parallel
+    # A bare --parallel overrides CMAKE_BUILD_PARALLEL_LEVEL, so JOBS is the one cap for both builds.
+    cmake --build "$build" --target session-bridge-core --parallel ${JOBS:+"$JOBS"}
 
     # One library per slice in an xcframework, because `vendored_libraries` has no per-SDK form:
     # a directory of archives is a directory for exactly one slice. libsession's bundle carries
