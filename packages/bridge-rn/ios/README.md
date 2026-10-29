@@ -27,13 +27,12 @@ no per-SDK form: a directory of `.a` files is a directory for exactly one slice,
 to coexist.
 
 `BUILT.json` beside them records which slices are present, which libsession commit they came
-from, and a hash of the whole source tree. Neither xcframework carries any of that, and a rebuild
+from, and for each slice a hash of the whole source tree it was built from. Neither xcframework carries any of that, and a rebuild
 of one slice against a submodule that has since moved looks exactly like a complete build -- so
 this is the file to read when something links and then behaves like an older libsession.
 
-**The hash matters more than the commit.** The nested submodules routinely carry uncommitted
-patches, and a commit says nothing about them; the hash is over the working-tree contents of
-every tracked path and every untracked one not ignored, so an uncommitted edit or a new file
-changes it. It is the same hash the per-machine libsession cache keys its builds on.
-It is `null` when libsession changed during the build, since the slices may then hold either side
-of the edit.
+**The hashes matter more than the commit.** The nested submodules routinely carry uncommitted
+patches, and a commit says nothing about them; a hash is over the contents and paths of every
+tracked file and every untracked one not ignored, so an uncommitted edit or a new file changes it.
+It is the key the per-machine libsession cache stored that slice under. Slices with different
+hashes were built either side of an edit to libsession.

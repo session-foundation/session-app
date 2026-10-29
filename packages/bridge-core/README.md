@@ -32,14 +32,19 @@ build libsession's static bundle through
 macOS):
 
 - `entries/`: finished bundles, keyed by a hash of libsession's whole source tree (every tracked
-  file in every submodule and every untracked one not ignored, uncommitted edits included), the
-  target and the cmake arguments. A clone on a cached libsession builds nothing; its copy is hard
+  file in every submodule and every untracked one not ignored, uncommitted edits included, paths
+  and contents), the target and the cmake arguments. A clone on a cached libsession builds nothing; its copy is hard
   links into the entry on Linux and an APFS clone on macOS.
 - `trees/`: one build tree per set of build rules (libsession's top `CMakeLists.txt` and `cmake/`,
   session-deps included), target and cmake arguments, shared by every clone. When libsession's
   sources change and those do not, the dependencies are not configured or built again; only
   libsession compiles, through ccache. A change to any of them starts a new tree, because a
   dependency rebuilt under a finished one is how meson-based builds break.
+
+A tree builds from its own copy of libsession, synced from the clone by content before each
+build: only files whose content changed are copied, and only those look new to make, whichever
+clone the tree last built. An entry is keyed by the hash of that copy, so editing libsession
+during a build changes neither the build nor its entry; the next build picks the edit up.
 
 The target is the ABI, platform level and NDK revision on Android, the OS, architecture,
 compilers and macOS deployment target on desktop, and the slice, deployment target, Xcode build

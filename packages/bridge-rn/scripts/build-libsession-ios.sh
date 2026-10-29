@@ -57,11 +57,7 @@ esac
 
 . "$here/../../bridge-core/scripts/libsession-cache.sh"
 
-# **The hash is the honest half of BUILT.json**; the commit alone is not. It is the cache's key:
-# every tracked and every untracked, unignored path across every submodule, hashed by
-# working-tree content, so an uncommitted patch or a new file changes it.
-hashes=$(_ls_hashes "$libsession" "$_ls_record")
-source_hash=${hashes% *}
+hashes=$(_ls_hashes "$libsession")
 
 # Each slice through the per-machine cache, with the arguments utils/ios.sh gives
 # static-bundle.sh: the cache cannot run ios.sh's own build, which builds every slice in one tree
@@ -70,10 +66,9 @@ deployment="${IPHONEOS_DEPLOYMENT_TARGET:-13}"
 toolchain="$libsession/external/ios-cmake/ios.toolchain.cmake"
 target="xcode$(xcodebuild -version | awk '/Build version/ {print $3}')-ios$deployment-$(md5 -q "$toolchain")"
 # ios.sh's `env -i`: what an Xcode build phase exports would otherwise reach every dependency.
-# `_LS_HASHES` spares each slice another walk of the whole tree. Every slice checks for edits
-# against the one record, since every slice is stored under the one hash.
+# `_LS_HASHES` spares each slice another walk of the whole tree.
 clean_env=(env -i PATH="$PATH" HOME="$HOME" SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
-    _LS_HASHES="$hashes" _LS_RECORD="$_ls_record")
+    _LS_HASHES="$hashes")
 for var in SESSION_LIBSESSION_CACHE SESSION_BRIDGE_DEPS_MIRROR; do
     if [ -n "${!var:-}" ]; then clean_env+=("$var=${!var}"); fi
 done
@@ -98,7 +93,6 @@ for slice in $slices; do
         -DENABLE_VISIBILITY=ON \
         -DSROUTER_FULL=OFF \
         -DSROUTER_DAEMON=OFF \
-        -DSUBMODULE_CHECK=OFF \
         -DCMAKE_BUILD_TYPE=Debug
 done
 ( cd "$libsession" && env ARCHS="$archs" PLATFORM_NAME="$platform" CONFIGURATION=Debug \
@@ -193,18 +187,17 @@ rm -rf "$here/../ios/lib"
 # discoverable by listing the directories -- so a build that is quietly a rebuild of one slice
 # against a submodule that has since moved looks exactly like a complete one. This is what to read
 # when something links and then behaves like an older libsession.
-# An edit made during the build may be in the slices, and then no hash describes them.
-if _ls_changed_since "$libsession" "$_ls_record"; then
-    source_hash_json=null
-else
-    source_hash_json="\"$source_hash\""
-fi
-rm -f "$_ls_record"
+#
+# Each slice's own source hash: libsession edited while the slices built leaves them on different
+# sources.
+source_hashes=$(for slice in $slices; do
+    printf '"%s": "%s", ' "$slice" "$(cat "$libsession/build-ios/$slice/source-hash")"
+done | sed 's/, $//')
 cat > "$here/../ios/BUILT.json" <<MANIFEST
 {
   "slices": [$(for slice in $slices; do printf '"%s",' "$slice"; done | sed 's/,$//')],
   "libsession": "$(git -C "$libsession" rev-parse HEAD)",
-  "sourceHash": $source_hash_json,
+  "sourceHashes": {$source_hashes},
   "built": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 }
 MANIFEST

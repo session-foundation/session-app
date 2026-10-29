@@ -22,5 +22,4 @@ libsession_bundle "$libsession" "$key" \
     "$here/../build-libsession" \
     -DCMAKE_C_COMPILER="$cc" \
     -DCMAKE_CXX_COMPILER="$cxx" \
-    -DUSE_LTO=OFF \
-    -DSUBMODULE_CHECK=OFF
+    -DUSE_LTO=OFF
