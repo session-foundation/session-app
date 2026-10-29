@@ -35,3 +35,5 @@ this is the file to read when something links and then behaves like an older lib
 patches, and a commit says nothing about them; the hash is over the working-tree contents of
 every tracked path and every untracked one not ignored, so an uncommitted edit or a new file
 changes it. It is the same hash the per-machine libsession cache keys its builds on.
+It is `null` when libsession changed during the build, since the slices may then hold either side
+of the edit.

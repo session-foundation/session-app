@@ -101,7 +101,6 @@ for slice in $slices; do
         -DSUBMODULE_CHECK=OFF \
         -DCMAKE_BUILD_TYPE=Debug
 done
-rm -f "$_ls_record"
 ( cd "$libsession" && env ARCHS="$archs" PLATFORM_NAME="$platform" CONFIGURATION=Debug \
     IPHONEOS_DEPLOYMENT_TARGET="$deployment" ./utils/ios.sh "" false true true false )
 built="$libsession/build-ios"
@@ -194,11 +193,18 @@ rm -rf "$here/../ios/lib"
 # discoverable by listing the directories -- so a build that is quietly a rebuild of one slice
 # against a submodule that has since moved looks exactly like a complete one. This is what to read
 # when something links and then behaves like an older libsession.
+# An edit made during the build may be in the slices, and then no hash describes them.
+if _ls_changed_since "$libsession" "$_ls_record"; then
+    source_hash_json=null
+else
+    source_hash_json="\"$source_hash\""
+fi
+rm -f "$_ls_record"
 cat > "$here/../ios/BUILT.json" <<MANIFEST
 {
   "slices": [$(for slice in $slices; do printf '"%s",' "$slice"; done | sed 's/,$//')],
   "libsession": "$(git -C "$libsession" rev-parse HEAD)",
-  "sourceHash": "$source_hash",
+  "sourceHash": $source_hash_json,
   "built": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 }
 MANIFEST

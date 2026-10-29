@@ -165,7 +165,8 @@ libsession_bundle() {
             set -euo pipefail
             _ls_lock "$tree"
             incoming="$_ls_cache/entries/.incoming-$$"
-            trap 'rm -rf "$tree.lock" "$incoming"' EXIT
+            # Expanded now: bash 3.2 runs a subshell's EXIT trap after the function's locals are gone.
+            trap "rm -rf $(printf '%q %q' "$tree.lock" "$incoming")" EXIT
             # Another build may have finished it while this one waited.
             [ -d "$entry" ] && exit 0
 

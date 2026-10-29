@@ -22,6 +22,7 @@ case "\${EDIT_DURING_BUILD:-}" in
     kept) echo edited >>src.cpp ;;
     undone) cp src.cpp src.orig; echo edited >>src.cpp; cp src.orig src.cpp; rm src.orig ;;
 esac
+[ -z "\${FAIL_BUILD:-}" ] || exit 3
 cp src.cpp "$1/libsession-util.a"
 `
 
@@ -77,6 +78,14 @@ describe('libsession-cache.sh', () => {
       expect(placed()).toContain('original\n')
     },
   )
+
+  it('releases the build tree when the build fails', async () => {
+    await expect(bundle({ FAIL_BUILD: '1' })).rejects.toMatchObject({ code: 3 })
+    expect(readdirSync(join(dir, 'cache/trees')).filter((name) => name.endsWith('.lock'))).toEqual(
+      [],
+    )
+    expect(entries()).toEqual([])
+  })
 
   it('places an entry at the top of the destination when linking it fails', async () => {
     const entry = join(dir, 'entry')
