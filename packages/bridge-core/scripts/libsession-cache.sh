@@ -110,7 +110,8 @@ _ls_sync() {
         <(cut -d' ' -f2- "$snap.want" | LC_ALL=C sort) \
         | tr '\n' '\0' | (cd "$snap" && xargs -0 rm -f) || return
     if [ -s "$snap.changed" ]; then
-        echo "libsession: copying $(wc -l <"$snap.changed" | tr -d ' ') changed files to the build tree"
+        echo "libsession: copying $(wc -l <"$snap.changed" | tr -d ' ') changed files" \
+            "to the build tree"
         # -m: extracted files take the current time, not the clone's, so make sees them as new.
         (cd "$1" && tar -cf - -T "$snap.changed") | (cd "$snap" && tar -xmf -) || return
     fi
@@ -174,25 +175,33 @@ _ls_prune() {
     done
 }
 
-# _ls_fit [<protected>...]: with SESSION_LIBSESSION_CACHE_MAX_GB set, removes the least recently
-# used entries, then trees, until the cache fits. Sizes are du's, so an entry still hard-linked
-# from a destination counts in full although removing it frees nothing.
+# _ls_fit: with SESSION_LIBSESSION_CACHE_MAX_GB set, removes the least recently used entries,
+# then trees, until the cache fits, but nothing used in the last day: a run builds each slice or
+# ABI in a tree of its own, and removing an earlier one's would make every run a cold build. Sizes
+# are du's, so an entry still hard-linked from a destination counts in full.
 _ls_fit() {
-    local max_kb candidate protected
-    [ -n "${SESSION_LIBSESSION_CACHE_MAX_GB:-}" ] || return 0
-    if ! max_kb=$(awk -v gb="$SESSION_LIBSESSION_CACHE_MAX_GB" \
+    local max_gb="${SESSION_LIBSESSION_CACHE_MAX_GB:-}" max_kb used_kb used_gb candidate
+    [ -n "$max_gb" ] || return 0
+    if ! max_kb=$(awk -v gb="$max_gb" \
         'BEGIN { if (gb !~ /^[0-9]+(\.[0-9]+)?$/) exit 1; print int(gb * 1048576) }'); then
-        echo "SESSION_LIBSESSION_CACHE_MAX_GB is not a number of gigabytes; not limiting the cache" >&2
+        echo "SESSION_LIBSESSION_CACHE_MAX_GB is not a number of gigabytes; not capping" >&2
         return 0
     fi
+    # Oldest first, every entry before any tree.
     for candidate in $(ls -1trd "$_ls_cache"/entries/v*-* "$_ls_cache"/trees/v*-* 2>/dev/null \
-        | awk '/\/entries\// { print; next } { trees = trees $0 "\n" } END { printf "%s", trees }'); do
+        | awk '/\/entries\// { print; next } { t = t $0 "\n" } END { printf "%s", t }'); do
         [ "$(du -sk "$_ls_cache" | cut -f1)" -gt "$max_kb" ] || return 0
         case "$candidate" in *.lock) continue ;; esac
         [ -e "$candidate.lock" ] && continue
-        for protected in "$@"; do [ "$candidate" != "$protected" ] || continue 2; done
+        if [ -n "$(find "$candidate" -maxdepth 0 -mtime -1)" ]; then continue; fi
         rm -rf "$candidate"
     done
+    used_kb=$(du -sk "$_ls_cache" | cut -f1)
+    if [ "$used_kb" -gt "$max_kb" ]; then
+        used_gb=$(awk -v kb="$used_kb" 'BEGIN { printf "%.1f", kb / 1048576 }')
+        echo "the libsession cache is $used_gb GB, all used in the last day," \
+            "over SESSION_LIBSESSION_CACHE_MAX_GB=$max_gb" >&2
+    fi
 }
 
 # libsession_bundle <libsession dir> <target key> <destination> [cmake args...]
@@ -290,5 +299,5 @@ libsession_bundle() {
     # An entry is one incremental build from a warm tree; a tree is a cold build.
     _ls_prune "$_ls_cache/entries" 10
     _ls_prune "$_ls_cache/trees" 5 14
-    _ls_fit "$tree" "$entry"
+    _ls_fit
 }

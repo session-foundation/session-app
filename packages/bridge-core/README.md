@@ -54,11 +54,14 @@ waits for it. On a self-hosted runner, point `SESSION_LIBSESSION_CACHE` at a dir
 job's workspace.
 
 `entries/` keeps its ten most recently used and `trees/` its five, whatever the target, plus any
-tree used in the last fourteen days. An entry is cheap to lose: a warm tree rebuilds it in under a
-minute. A tree is a cold build, and there is one per target and set of build rules. An entry is
-0.06 to 0.5 GB and a tree 0.9 to 2.4 GB, iOS at the top of both. `SESSION_LIBSESSION_CACHE_MAX_GB`
-caps the whole cache on top of that, removing the least recently used entries and then trees;
-what a clone already took from an entry is a hard link or APFS clone, so removing it breaks
+tree used in the last fourteen days: an entry is a fraction of a tree's size and a warm tree
+rebuilds it, while a tree is a cold build, and there is one per target and set of build rules.
+
+`SESSION_LIBSESSION_CACHE_MAX_GB` caps the whole cache on top of that, removing the least recently
+used entries and then trees, but nothing used in the last day: one run builds each iOS slice or
+Android ABI in a tree of its own, and removing an earlier one's would make every run cold. Set it
+above what one run's trees take, `du -sh` of `trees/` after a build; a cache that cannot fit says
+so. What a clone already took from an entry is a hard link or APFS clone, so removing it breaks
 nothing.
 
 Dependency sources come from `https://builds.session.codes/deps`, libsession's own mirror, before

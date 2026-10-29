@@ -195,30 +195,45 @@ describe('libsession-cache.sh pruning', () => {
     ])
   })
 
+  const fit = (maxGb: string) =>
+    run(cache, '_ls_fit', {
+      SESSION_LIBSESSION_CACHE: cache,
+      SESSION_LIBSESSION_CACHE_MAX_GB: maxGb,
+    })
+
   it('removes the oldest entries, then trees, until the cache fits its limit', async () => {
     make('trees', 'tree', 5, 1)
     make('entries', 'oldest', 4, 1)
-    const used = make('entries', 'used', 3, 1)
+    make('entries', 'older', 3, 1)
     make('entries', 'newer', 2, 1)
-    make('entries', 'newest', 1, 1)
-    // About 2.5 MB: room for two of the five.
-    await run(cache, `_ls_fit "${used}"`, {
-      SESSION_LIBSESSION_CACHE: cache,
-      SESSION_LIBSESSION_CACHE_MAX_GB: '0.0025',
-    })
-    expect(left('entries')).toEqual(['used'])
+    // About 2.5 MB: room for two of the four.
+    await fit('0.0025')
+    expect(left('entries')).toEqual(['newer'])
+    expect(left('trees')).toEqual(['tree'])
+
+    await fit('0.0015')
+    expect(left('entries')).toEqual([])
     expect(left('trees')).toEqual(['tree'])
   })
 
-  it('removes a tree once no unprotected entry is left to remove', async () => {
+  it('removes a tree once no entry is left to remove', async () => {
     make('trees', 'old', 2, 1)
-    const tree = make('trees', 'used', 1, 1)
+    make('trees', 'newer', 1.5, 1)
     make('entries', 'entry', 3, 1)
-    await run(cache, `_ls_fit "${tree}"`, {
-      SESSION_LIBSESSION_CACHE: cache,
-      SESSION_LIBSESSION_CACHE_MAX_GB: '0.0015',
-    })
+    await fit('0.0015')
     expect(left('entries')).toEqual([])
-    expect(left('trees')).toEqual(['used'])
+    expect(left('trees')).toEqual(['newer'])
+  })
+
+  it('keeps what was used in the last day, and says the cache does not fit', async () => {
+    // A run's earlier slices: each its own tree, and the cap below all of them.
+    make('trees', 'sim', 0.1, 1)
+    make('trees', 'device', 0.05, 1)
+    make('entries', 'sim', 0.1, 1)
+    make('entries', 'old', 3, 1)
+    const { stderr } = await fit('0.001')
+    expect(left('entries')).toEqual(['sim'])
+    expect(left('trees')).toEqual(['device', 'sim'])
+    expect(stderr).toContain('all used in the last day, over SESSION_LIBSESSION_CACHE_MAX_GB=0.001')
   })
 })
