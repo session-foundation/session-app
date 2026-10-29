@@ -10,6 +10,7 @@ import {
   rmSync,
   statSync,
   symlinkSync,
+  utimesSync,
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -143,5 +144,81 @@ describe('libsession-cache.sh', () => {
     )
     expect(placed()).toBe('archive')
     expect(readdirSync(dest).sort()).toEqual(['libsession-util.a', 'static-deps'])
+  })
+})
+
+describe('libsession-cache.sh pruning', () => {
+  let cache: string
+
+  const DAY_MS = 24 * 60 * 60 * 1000
+  /** Makes `<kind>/v2-<name>`, last used `ageDays` ago, holding `sizeMb` of data. */
+  const make = (kind: 'entries' | 'trees', name: string, ageDays: number, sizeMb = 0) => {
+    const path = join(cache, kind, `v2-${name}`)
+    mkdirSync(path, { recursive: true })
+    if (sizeMb > 0) writeFileSync(join(path, 'data'), Buffer.alloc(sizeMb * 1024 * 1024, 1))
+    const when = new Date(Date.now() - ageDays * DAY_MS)
+    utimesSync(path, when, when)
+    return path
+  }
+  const left = (kind: 'entries' | 'trees') =>
+    readdirSync(join(cache, kind))
+      .map((name) => name.replace(/^v2-/, ''))
+      .sort()
+
+  beforeEach(() => {
+    cache = mkdtempSync(join(tmpdir(), 'libsession-cache-'))
+    mkdirSync(join(cache, 'entries'))
+    mkdirSync(join(cache, 'trees'))
+  })
+
+  afterEach(() => {
+    rmSync(cache, { recursive: true, force: true })
+  })
+
+  it('keeps the ten newest entries, however recently the others were used', async () => {
+    for (let i = 0; i < 12; i++) make('entries', `e${String(i).padStart(2, '0')}`, i * 0.01)
+    await run(cache, `_ls_prune "${cache}/entries" 10`)
+    expect(left('entries')).toEqual(Array.from({ length: 10 }, (_, i) => `e0${i}`))
+  })
+
+  it('keeps the five newest trees and any used within the fortnight', async () => {
+    for (let i = 0; i < 6; i++) make('trees', `recent${i}`, i)
+    make('trees', 'old', 20)
+    await run(cache, `_ls_prune "${cache}/trees" 5 14`)
+    expect(left('trees')).toEqual([
+      'recent0',
+      'recent1',
+      'recent2',
+      'recent3',
+      'recent4',
+      'recent5',
+    ])
+  })
+
+  it('removes the oldest entries, then trees, until the cache fits its limit', async () => {
+    make('trees', 'tree', 5, 1)
+    make('entries', 'oldest', 4, 1)
+    const used = make('entries', 'used', 3, 1)
+    make('entries', 'newer', 2, 1)
+    make('entries', 'newest', 1, 1)
+    // About 2.5 MB: room for two of the five.
+    await run(cache, `_ls_fit "${used}"`, {
+      SESSION_LIBSESSION_CACHE: cache,
+      SESSION_LIBSESSION_CACHE_MAX_GB: '0.0025',
+    })
+    expect(left('entries')).toEqual(['used'])
+    expect(left('trees')).toEqual(['tree'])
+  })
+
+  it('removes a tree once no unprotected entry is left to remove', async () => {
+    make('trees', 'old', 2, 1)
+    const tree = make('trees', 'used', 1, 1)
+    make('entries', 'entry', 3, 1)
+    await run(cache, `_ls_fit "${tree}"`, {
+      SESSION_LIBSESSION_CACHE: cache,
+      SESSION_LIBSESSION_CACHE_MAX_GB: '0.0015',
+    })
+    expect(left('entries')).toEqual([])
+    expect(left('trees')).toEqual(['used'])
   })
 })

@@ -49,10 +49,17 @@ during a build changes neither the build nor its entry; the next build picks the
 The target is the ABI, platform level and NDK revision on Android, the OS, architecture,
 compilers and macOS deployment target on desktop, and the slice, deployment target, Xcode build
 and ios-cmake toolchain on iOS. `CFLAGS`, `CXXFLAGS`, `CPPFLAGS` and `LDFLAGS` are cleared for the
-build: CMake would keep a tree's first ones for good. `entries/` and `trees/` each keep their five
-most recently used, whatever the target, and anything used in the last fourteen days. One build
-at a time runs in a tree; a second waits for it. On a self-hosted runner, point
-`SESSION_LIBSESSION_CACHE` at a directory outside the job's workspace.
+build: CMake would keep a tree's first ones for good. One build at a time runs in a tree; a second
+waits for it. On a self-hosted runner, point `SESSION_LIBSESSION_CACHE` at a directory outside the
+job's workspace.
+
+`entries/` keeps its ten most recently used and `trees/` its five, whatever the target, plus any
+tree used in the last fourteen days. An entry is cheap to lose: a warm tree rebuilds it in under a
+minute. A tree is a cold build, and there is one per target and set of build rules. An entry is
+0.06 to 0.5 GB and a tree 0.9 to 2.4 GB, iOS at the top of both. `SESSION_LIBSESSION_CACHE_MAX_GB`
+caps the whole cache on top of that, removing the least recently used entries and then trees;
+what a clone already took from an entry is a hard link or APFS clone, so removing it breaks
+nothing.
 
 Dependency sources come from `https://builds.session.codes/deps`, libsession's own mirror, before
 their own URLs, so gmp comes from there and not from gmplib.org, which drops downloads.

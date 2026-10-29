@@ -155,17 +155,43 @@ _ls_lock() {
     echo $$ >"$1.lock/pid"
 }
 
-# Keeps the five most recently used, and anything used in the last fortnight.
+# _ls_prune <dir> <keep> [<days>]: keeps the <keep> most recently used, and with <days>, anything
+# used within that many days.
 _ls_prune() {
-    local dir="$1" n=0 entry
+    local dir="$1" keep="$2" days="${3:-}" n=0 entry
     [ -d "$dir" ] || return 0
     find "$dir" -maxdepth 1 -name '.incoming-*' -mtime +1 -exec rm -rf {} +
     for entry in $(ls -1td "$dir"/v*-* 2>/dev/null); do
+        case "$entry" in *.lock) continue ;; esac
         n=$((n + 1))
-        [ "$n" -le 5 ] && continue
+        [ "$n" -le "$keep" ] && continue
         [ -e "$entry.lock" ] && continue
-        # Not `[ ... ] && rm`: a false test as the loop's last command fails the caller's set -e.
-        if [ -n "$(find "$entry" -maxdepth 0 -mtime +14)" ]; then rm -rf "$entry"; fi
+        # Not `[ ... ] && continue`: a false test as the loop's last command fails set -e.
+        if [ -n "$days" ] && [ -n "$(find "$entry" -maxdepth 0 -mtime -"$days")" ]; then
+            continue
+        fi
+        rm -rf "$entry"
+    done
+}
+
+# _ls_fit [<protected>...]: with SESSION_LIBSESSION_CACHE_MAX_GB set, removes the least recently
+# used entries, then trees, until the cache fits. Sizes are du's, so an entry still hard-linked
+# from a destination counts in full although removing it frees nothing.
+_ls_fit() {
+    local max_kb candidate protected
+    [ -n "${SESSION_LIBSESSION_CACHE_MAX_GB:-}" ] || return 0
+    if ! max_kb=$(awk -v gb="$SESSION_LIBSESSION_CACHE_MAX_GB" \
+        'BEGIN { if (gb !~ /^[0-9]+(\.[0-9]+)?$/) exit 1; print int(gb * 1048576) }'); then
+        echo "SESSION_LIBSESSION_CACHE_MAX_GB is not a number of gigabytes; not limiting the cache" >&2
+        return 0
+    fi
+    for candidate in $(ls -1trd "$_ls_cache"/entries/v*-* "$_ls_cache"/trees/v*-* 2>/dev/null \
+        | awk '/\/entries\// { print; next } { trees = trees $0 "\n" } END { printf "%s", trees }'); do
+        [ "$(du -sk "$_ls_cache" | cut -f1)" -gt "$max_kb" ] || return 0
+        case "$candidate" in *.lock) continue ;; esac
+        [ -e "$candidate.lock" ] && continue
+        for protected in "$@"; do [ "$candidate" != "$protected" ] || continue 2; done
+        rm -rf "$candidate"
     done
 }
 
@@ -261,6 +287,8 @@ libsession_bundle() {
     # Not `|| return`: that context switches off the subshell's set -e.
     status=$?
     [ "$status" = 0 ] || return "$status"
-    _ls_prune "$_ls_cache/entries"
-    _ls_prune "$_ls_cache/trees"
+    # An entry is one incremental build from a warm tree; a tree is a cold build.
+    _ls_prune "$_ls_cache/entries" 10
+    _ls_prune "$_ls_cache/trees" 5 14
+    _ls_fit "$tree" "$entry"
 }

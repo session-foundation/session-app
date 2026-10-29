@@ -70,7 +70,8 @@ target="xcode$(xcodebuild -version | awk '/Build version/ {print $3}')-ios$deplo
 # make -j.
 clean_env=(env -i PATH="$PATH" HOME="$HOME" SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
     _LS_HASHES="$hashes")
-for var in SESSION_LIBSESSION_CACHE SESSION_BRIDGE_DEPS_MIRROR JOBS; do
+for var in SESSION_LIBSESSION_CACHE SESSION_LIBSESSION_CACHE_MAX_GB SESSION_BRIDGE_DEPS_MIRROR \
+    JOBS; do
     if [ -n "${!var:-}" ]; then clean_env+=("$var=${!var}"); fi
 done
 # ios.sh merges every slice directory it finds, so one left by another mode would join this build.
