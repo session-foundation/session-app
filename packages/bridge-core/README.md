@@ -50,7 +50,10 @@ The target is the ABI, platform level and NDK revision on Android, the OS, archi
 compilers and macOS deployment target on desktop, and the slice, deployment target, Xcode build
 and ios-cmake toolchain on iOS. `CFLAGS`, `CXXFLAGS`, `CPPFLAGS` and `LDFLAGS` are cleared for the
 build: CMake would keep a tree's first ones for good. One build at a time runs in a tree; a second
-waits for it. On a self-hosted runner, point `SESSION_LIBSESSION_CACHE` at a directory outside the
+waits for it. A nested submodule at another commit than its parent records stops the build before
+anything is hashed, since it would build and cache the wrong version without a word;
+`git submodule update --init --recursive` fixes it, and `SESSION_LIBSESSION_SUBMODULE_CHECK=0`
+builds it as it is, for work inside a submodule. On a self-hosted runner, point `SESSION_LIBSESSION_CACHE` at a directory outside the
 job's workspace.
 
 `entries/` keeps its ten most recently used and `trees/` its five, whatever the target, plus any

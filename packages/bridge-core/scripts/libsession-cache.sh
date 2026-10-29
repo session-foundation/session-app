@@ -120,6 +120,24 @@ _ls_sync() {
     rm -f "$snap.list" "$snap.want" "$snap.changed"
 }
 
+# libsession's own check needs a .git, which a build tree's copy has none of, so it runs here on the
+# clone: a nested submodule at another commit than its parent records builds and caches without a
+# word, as the wrong version. SESSION_LIBSESSION_SUBMODULE_CHECK=0 builds it as it is.
+_ls_check_submodules() {
+    local status stale
+    [ "${SESSION_LIBSESSION_SUBMODULE_CHECK:-1}" != 0 ] || return 0
+    status=$(git -C "$1" submodule status --recursive) || return
+    stale=$(printf '%s\n' "$status" | grep '^[-+U]' || true)
+    [ -n "$stale" ] || return 0
+    {
+        echo "libsession's submodules are not at the commits their parents record:"
+        printf '%s\n' "$stale" | sed 's/^/    /'
+        echo "Run \`git submodule update --init --recursive\` in $1, or set"
+        echo "SESSION_LIBSESSION_SUBMODULE_CHECK=0 to build them as they are."
+    } >&2
+    return 1
+}
+
 # Hard links on Linux and APFS clones on macOS, so a clone's copy costs no space; a plain copy
 # where the cache is on another filesystem.
 _ls_place() {
@@ -187,16 +205,19 @@ _ls_fit() {
         echo "SESSION_LIBSESSION_CACHE_MAX_GB is not a number of gigabytes; not capping" >&2
         return 0
     fi
+    # Measured once: entries and trees share no hard links inside the cache, so what removing one
+    # frees is its own size.
+    used_kb=$(du -sk "$_ls_cache" | cut -f1)
     # Oldest first, every entry before any tree.
     for candidate in $(ls -1trd "$_ls_cache"/entries/v*-* "$_ls_cache"/trees/v*-* 2>/dev/null \
         | awk '/\/entries\// { print; next } { t = t $0 "\n" } END { printf "%s", t }'); do
-        [ "$(du -sk "$_ls_cache" | cut -f1)" -gt "$max_kb" ] || return 0
+        [ "$used_kb" -gt "$max_kb" ] || return 0
         case "$candidate" in *.lock) continue ;; esac
         [ -e "$candidate.lock" ] && continue
         if [ -n "$(find "$candidate" -maxdepth 0 -mtime -1)" ]; then continue; fi
+        used_kb=$((used_kb - $(du -sk "$candidate" | cut -f1)))
         rm -rf "$candidate"
     done
-    used_kb=$(du -sk "$_ls_cache" | cut -f1)
     if [ "$used_kb" -gt "$max_kb" ]; then
         used_gb=$(awk -v kb="$used_kb" 'BEGIN { printf "%.1f", kb / 1048576 }')
         echo "the libsession cache is $used_gb GB, all used in the last day," \
@@ -219,10 +240,11 @@ libsession_bundle() {
     shift 3
     # Tried before every dependency's own URL, so gmp comes from it and not gmplib.org, which drops
     # the download partway often enough to fail cold builds. Hashes are still checked. The snapshot
-    # has no .git for the submodule check to read, and its hash covers what that check guards.
+    # has no .git for libsession's submodule check, so _ls_check_submodules runs it on the clone.
     set -- "$@" -DLOCAL_MIRROR="${SESSION_BRIDGE_DEPS_MIRROR:-https://builds.session.codes/deps}" \
         -DSUBMODULE_CHECK=OFF
 
+    _ls_check_submodules "$libsession" || return
     # Set by the iOS script, which hashes the tree once for every slice.
     hashes=${_LS_HASHES:-}
     if [ -z "$hashes" ]; then hashes=$(_ls_hashes "$libsession") || return; fi

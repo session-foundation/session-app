@@ -124,6 +124,28 @@ describe('libsession-cache.sh', () => {
     expect(lstatSync(snapshot('tools')).isSymbolicLink()).toBe(true)
   })
 
+  it('stops on a submodule at another commit than libsession records, unless told not to', async () => {
+    const dep = join(dir, 'dep')
+    const commit = (cwd: string, message: string) =>
+      git(cwd, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qam', message)
+    mkdirSync(dep)
+    writeFileSync(join(dep, 'dep.cpp'), 'one\n')
+    await git(dep, 'init', '-q')
+    await git(dep, 'add', '.')
+    await commit(dep, 'one')
+    await git(libsession, '-c', 'protocol.file.allow=always', 'submodule', 'add', '-q', dep, 'dep')
+    await bundle()
+
+    writeFileSync(join(libsession, 'dep/dep.cpp'), 'two\n')
+    await commit(join(libsession, 'dep'), 'two')
+    const stderr = await bundle().then(
+      () => '',
+      (error: { stderr: string }) => error.stderr,
+    )
+    expect(stderr).toContain('SESSION_LIBSESSION_SUBMODULE_CHECK=0')
+    await bundle({ SESSION_LIBSESSION_SUBMODULE_CHECK: '0' })
+  })
+
   it('releases the build tree when the build fails', async () => {
     await expect(bundle({ FAIL_BUILD: '1' })).rejects.toMatchObject({ code: 3 })
     expect(readdirSync(join(dir, 'cache/trees')).filter((name) => name.endsWith('.lock'))).toEqual(
