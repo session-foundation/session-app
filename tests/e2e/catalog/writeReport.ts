@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import {
   copyFileSync,
   linkSync,
@@ -18,7 +19,13 @@ import {
   type PageDiff,
   type PageResult,
 } from '#catalog/diff'
-import { imagePath, renderReport, type ImageKind, type ReportInput } from '#catalog/report'
+import {
+  imagePath,
+  renderReport,
+  type ImageKind,
+  type ReportInput,
+  type ReportPage,
+} from '#catalog/report'
 
 /** The page ids a folder of captures holds: one `<id>.png` each, as catalog.spec.ts writes them. */
 export function pageIdsIn(dir: string): string[] {
@@ -81,11 +88,21 @@ export function writeReport({
     return diff
   }
 
-  const results = classifyPages(pageIdsIn(beforeDir), pageIdsIn(afterDir), diffOf)
-  for (const { id, status } of results) {
-    if (status !== 'added') place(beforeFile(id), reportFile(reportDir, 'before', id))
-    if (status !== 'removed') place(afterFile(id), reportFile(reportDir, 'after', id))
-  }
+  const results = classifyPages(pageIdsIn(beforeDir), pageIdsIn(afterDir), diffOf).map(
+    (result): ReportPage => {
+      const { id, status } = result
+      const hash = createHash('sha256').update(`${id}\0${status}\0`)
+      if (status !== 'added') {
+        place(beforeFile(id), reportFile(reportDir, 'before', id))
+        hash.update(readFileSync(beforeFile(id))).update('\0')
+      }
+      if (status !== 'removed') {
+        place(afterFile(id), reportFile(reportDir, 'after', id))
+        hash.update(readFileSync(afterFile(id)))
+      }
+      return { ...result, pictures: hash.digest('hex').slice(0, 16) }
+    },
+  )
   const file = join(reportDir, 'index.html')
   writeFileSync(file, renderReport({ ...report, sensitivity, results }))
   return { results, file }

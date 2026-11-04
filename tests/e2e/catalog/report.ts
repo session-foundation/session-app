@@ -1,5 +1,11 @@
 import { countByStatus, type PageResult, type PageStatus, type Size } from '#catalog/diff'
 
+/** A page as the report shows it. */
+export interface ReportPage extends PageResult {
+  /** Identifies the pictures both sides drew, so a Seen mark lasts exactly as long as they do. */
+  pictures: string
+}
+
 /** One side of the comparison, as the report names it. */
 interface ReportSide {
   /** What it was asked for as: a ref, or "working tree". */
@@ -16,7 +22,7 @@ export interface ReportInput {
   head: ReportSide
   tier: string
   sensitivity: number
-  results: readonly PageResult[]
+  results: readonly ReportPage[]
   /** Said at the top: a capture that could not be confirmed complete, for instance. */
   warnings: readonly string[]
 }
@@ -94,12 +100,10 @@ function canvasOf(result: PageResult): Size {
   }
 }
 
-const SEEN_TOGGLE =
-  '<label class="seen-toggle"><input type="checkbox" aria-label="Seen: collapse this page"> Seen</label>'
+const seenToggle = (id: string) =>
+  `<label class="seen-toggle"><input type="checkbox" aria-label="Seen: ${escapeHtml(id)}"> Seen</label>`
 
-/** What a card's "seen" mark is kept against: the same page with a different change is new. */
-const cardAttributes = (result: PageResult) =>
-  `data-page="${escapeHtml(result.id)}" data-change="${String(result.differingPixels)}"`
+const cardAttributes = (result: ReportPage) => `data-seen-key="${escapeHtml(result.pictures)}"`
 
 const MODE_BUTTONS = `<span class="modes" role="group" aria-label="View">
       <button type="button" data-mode="slider" aria-pressed="true">Slider</button>
@@ -108,7 +112,7 @@ const MODE_BUTTONS = `<span class="modes" role="group" aria-label="View">
       <button type="button" data-mode="diff" aria-pressed="false">Diff</button>
     </span>`
 
-function changedCard(result: PageResult): string {
+function changedCard(result: ReportPage): string {
   const id = escapeHtml(result.id)
   const canvas = canvasOf(result)
   const side = (kind: 'before' | 'after') =>
@@ -119,7 +123,7 @@ function changedCard(result: PageResult): string {
     : ''
   return `<article class="page" id="page-${id}" ${cardAttributes(result)} data-mode="slider">
   <header>
-    ${SEEN_TOGGLE}
+    ${seenToggle(result.id)}
     <h3>${id}</h3>
     <span class="detail">${escapeHtml(describeChange(result))}</span>
     <button type="button" class="tag" aria-label="Showing after; show before">after</button>
@@ -146,15 +150,15 @@ function changedCard(result: PageResult): string {
 </article>`
 }
 
-function singleCard(result: PageResult, kind: 'before' | 'after'): string {
+function singleCard(result: ReportPage, kind: 'before' | 'after'): string {
   const id = escapeHtml(result.id)
   return `<article class="page single" id="page-${id}" ${cardAttributes(result)}>
-  <header>${SEEN_TOGGLE}<h3>${id}</h3><span class="detail">${kind === 'after' ? 'only in the working side' : 'only in the base'}</span></header>
+  <header>${seenToggle(result.id)}<h3>${id}</h3><span class="detail">${kind === 'after' ? 'only in the working side' : 'only in the base'}</span></header>
   ${image(kind, result.id, `${result.id} ${kind}`)}
 </article>`
 }
 
-function section(status: PageStatus, results: readonly PageResult[]): string {
+function section(status: PageStatus, results: readonly ReportPage[]): string {
   const pages = results.filter((result) => result.status === status)
   if (pages.length === 0) return ''
   const heading = `<h2>${HEADINGS[status]} <span class="count">${String(pages.length)}</span></h2>`
@@ -272,9 +276,8 @@ function keepInPlace(control, change) {
   window.scrollBy(0, control.getBoundingClientRect().top - top);
 }
 const STORED_SEEN = 'catalog-compare-seen';
-const report = document.querySelector('main').dataset.report;
-const cards = [...document.querySelectorAll('.page[data-page]')];
-const seenKey = (card) => report + ' ' + card.dataset.page + ' ' + card.dataset.change;
+const cards = [...document.querySelectorAll('.page[data-seen-key]')];
+const seenKey = (card) => card.dataset.seenKey;
 let seen = new Set();
 try { seen = new Set(JSON.parse(localStorage.getItem(STORED_SEEN) || '[]')); } catch {}
 const progress = document.querySelector('.seen-progress');
@@ -368,7 +371,7 @@ export function renderReport(input: ReportInput): string {
 <style>${STYLE}</style>
 </head>
 <body>
-<main data-report="${escapeHtml(`${input.base.sha} ${input.head.sha}`)}">
+<main>
 <h1>Catalog comparison</h1>
 <p class="meta">${side('Before:', input.base)}<br>${side('After:', input.head)}<br>Tier <code>${escapeHtml(input.tier)}</code>, sensitivity ${String(input.sensitivity)}, both sides captured on this machine.</p>
 <ul class="summary">${statuses

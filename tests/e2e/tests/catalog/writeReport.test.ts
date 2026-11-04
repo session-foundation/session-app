@@ -20,6 +20,13 @@ function captures(dir: string, pages: Record<string, Picture>): string {
   return dir
 }
 
+function seenKeys(html: string): Record<string, string | undefined> {
+  const keys: Record<string, string> = {}
+  for (const [, id = '', key = ''] of html.matchAll(/id="page-([^"]+)" data-seen-key="([^"]+)"/g))
+    keys[id] = key
+  return keys
+}
+
 describe('writing the report from two folders of captures', () => {
   const root = mkdtempSync(join(tmpdir(), 'catalog-report-'))
   const beforeDir = captures(join(root, 'before-pages'), {
@@ -66,5 +73,27 @@ describe('writing the report from two folders of captures', () => {
     expect(has('before/gone.png') && !has('after/gone.png')).toBe(true)
     expect(has('diff/same.png')).toBe(false)
     expect(readFileSync(file, 'utf8')).toContain('src="diff/darker.png"')
+  })
+
+  it('keys a Seen mark on the pictures, so a redrawn page shows again', () => {
+    const before = seenKeys(readFileSync(file, 'utf8'))
+    // The same commits and count of differing pixels, as an uncommitted edit gives on a rerun.
+    captures(afterDir, { new: solid(40, 30, 64), darker: solid(40, 30, 1) })
+    const again = writeReport({
+      beforeDir,
+      afterDir,
+      reportDir: join(root, 'report-again'),
+      base: { label: 'base', sha: 'a'.repeat(40) },
+      head: { label: 'working tree', sha: 'b'.repeat(40) },
+      tier: 'pr',
+      sensitivity: 0.5,
+      warnings: [],
+    })
+    const after = seenKeys(readFileSync(again.file, 'utf8'))
+    expect(again.results.find((result) => result.id === 'darker')?.differingPixels).toBe(1200)
+    expect(after.new).not.toBe(before.new)
+    expect(after.darker).not.toBe(before.darker)
+    expect(after.taller).toBe(before.taller)
+    expect(after.gone).toBe(before.gone)
   })
 })

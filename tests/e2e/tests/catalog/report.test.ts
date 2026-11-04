@@ -1,10 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
-import type { PageResult } from '#catalog/diff'
-import { describeChange, imagePath, renderReport } from '#catalog/report'
+import { describeChange, imagePath, renderReport, type ReportPage } from '#catalog/report'
 
 const size = { width: 100, height: 50 }
-const results: PageResult[] = [
+const results: ReportPage[] = [
   {
     id: 'album-focus',
     status: 'changed',
@@ -12,9 +11,10 @@ const results: PageResult[] = [
     totalPixels: 5000,
     before: size,
     after: size,
+    pictures: 'album-focus-1',
   },
-  { id: 'button-<new>', status: 'added', differingPixels: 0, totalPixels: 0 },
-  { id: 'text-gone', status: 'removed', differingPixels: 0, totalPixels: 0 },
+  { id: 'button-<new>', status: 'added', differingPixels: 0, totalPixels: 0, pictures: 'new-1' },
+  { id: 'text-gone', status: 'removed', differingPixels: 0, totalPixels: 0, pictures: 'gone-1' },
   {
     id: 'settings-row',
     status: 'unchanged',
@@ -22,6 +22,7 @@ const results: PageResult[] = [
     totalPixels: 5000,
     before: size,
     after: size,
+    pictures: 'settings-row-1',
   },
 ]
 
@@ -70,10 +71,10 @@ describe('the report', () => {
     expect(html).toMatch(/<header>[\s\S]*class="tag"[\s\S]*<\/header>/)
   })
 
-  it('lets every changed, added or removed page be marked seen, remembered against its change', () => {
+  it('lets every changed, added or removed page be marked seen, against its pictures', () => {
     expect(html.match(/class="seen-toggle"/g)).toHaveLength(3)
-    expect(html).toContain('data-page="album-focus" data-change="1234"')
-    expect(html).toContain('<main data-report="0123456789abcdef fedcba9876543210">')
+    expect(html).toContain('data-seen-key="album-focus-1"')
+    expect(html).toContain('aria-label="Seen: button-&lt;new&gt;"')
     expect(html).toContain('class="seen-progress"')
   })
 
@@ -96,6 +97,7 @@ describe('a page that changed size', () => {
         totalPixels: 1000,
         before: { width: 200, height: 100 },
         after: { width: 100, height: 150 },
+        pictures: 'grew-1',
       },
     ],
     warnings: [],
@@ -115,7 +117,9 @@ describe('a page that changed size', () => {
       head: { label: 'working tree', sha: 'b'.repeat(40) },
       tier: 'pr',
       sensitivity: 0.5,
-      results: [{ id: 'new', status: 'added', differingPixels: 0, totalPixels: 0 }],
+      results: [
+        { id: 'new', status: 'added', differingPixels: 0, totalPixels: 0, pictures: 'new-1' },
+      ],
       warnings: [],
     })
     expect(quiet).not.toContain('class="view-all"')
