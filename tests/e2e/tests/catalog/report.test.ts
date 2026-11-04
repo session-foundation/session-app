@@ -66,6 +66,10 @@ describe('the report', () => {
     expect(html.match(/<button type="button" data-mode="flip"/g)).toHaveLength(2)
   })
 
+  it('names the side the flip view shows in the card header, where it stays in sight', () => {
+    expect(html).toMatch(/<header>[\s\S]*class="tag"[\s\S]*<\/header>/)
+  })
+
   it('stands alone: no script or style fetched from anywhere', () => {
     expect(html).not.toMatch(/<(script|link)[^>]+(src|href)=/)
   })

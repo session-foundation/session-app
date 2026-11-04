@@ -114,6 +114,7 @@ function changedCard(result: PageResult): string {
   <header>
     <h3>${id}</h3>
     <span class="detail">${escapeHtml(describeChange(result))}</span>
+    <button type="button" class="tag" aria-label="Showing after; show before">after</button>
     ${MODE_BUTTONS}
   </header>
   <div class="view slider">
@@ -122,7 +123,6 @@ function changedCard(result: PageResult): string {
   </div>
   <div class="view flip">
     <button type="button" class="flipper" aria-label="Show the other side">
-      <span class="tag">after</span>
       ${stage(result, [side('before'), side('after')], ' data-showing="after"')}
     </button>
   </div>
@@ -236,8 +236,9 @@ img { display: block; max-width: 100%; height: auto; }
 @media (max-width: 700px) { .page[data-mode="side"] .view.side { grid-template-columns: minmax(0, 1fr); } }
 figure { margin: 0; } figcaption { color: var(--muted); font-size: 13px; }
 .flipper { position: relative; display: block; width: 100%; padding: 0; border: 0; background: none; cursor: pointer; text-align: left; }
-.flipper .tag { position: absolute; z-index: 1; top: 4px; left: 4px; background: var(--accent); color: Canvas;
-  font-size: 12px; padding: 0 6px; border-radius: 4px; }
+.tag { display: none; font: inherit; font-size: 13px; padding: 2px 10px; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--accent); background: var(--accent); color: Canvas; }
+.page[data-mode="flip"] .tag { display: inline-block; }
 .unchanged ul { columns: 3 260px; padding-left: 20px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
 .unchanged summary h2 { display: inline; }
 a { color: var(--accent); }
@@ -269,12 +270,15 @@ for (const page of document.querySelectorAll('.page[data-mode]')) {
   range.addEventListener('input', () => split.style.setProperty('--split', range.value + '%'));
   const flipper = page.querySelector('.flipper');
   const flipped = flipper.querySelector('.stage');
-  const tag = flipper.querySelector('.tag');
-  flipper.addEventListener('click', () => {
+  const tag = page.querySelector('header .tag');
+  const flip = () => {
     const next = flipped.dataset.showing === 'after' ? 'before' : 'after';
     flipped.dataset.showing = next;
     tag.textContent = next;
-  });
+    tag.setAttribute('aria-label', 'Showing ' + next + '; show ' + (next === 'after' ? 'before' : 'after'));
+  };
+  flipper.addEventListener('click', flip);
+  tag.addEventListener('click', flip);
 }
 `
 
