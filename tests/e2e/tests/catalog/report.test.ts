@@ -78,6 +78,11 @@ describe('the report', () => {
     expect(html).toContain('class="seen-progress"')
   })
 
+  it('opens a page full screen on two quick clicks only once that is ticked', () => {
+    expect(html).toMatch(/<label class="full-screen-option"><input type="checkbox">/)
+    expect(html).not.toMatch(/class="full-screen-option"><input type="checkbox" checked/)
+  })
+
   it('stands alone: no script or style fetched from anywhere', () => {
     expect(html).not.toMatch(/<(script|link)[^>]+(src|href)=/)
   })

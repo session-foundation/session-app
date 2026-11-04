@@ -217,6 +217,7 @@ h3 { font-size: 15px; margin: 0; font-family: ui-monospace, SFMono-Regular, Menl
 .view-all { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: var(--muted); margin: 16px 0 0; }
 .view-all .modes { margin-left: 0; }
 .seen-progress { color: var(--muted); margin: 8px 0 0; }
+.full-screen-option { display: flex; align-items: center; gap: 4px; color: var(--muted); margin: 8px 0 0; cursor: pointer; }
 .seen-toggle { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: 13px; cursor: pointer; }
 /* Outranks the per-mode rules that show the current view. */
 .page.seen > :not(header) { display: none !important; }
@@ -300,6 +301,13 @@ for (const card of cards) {
   });
 }
 if (progress) showProgress();
+// Off unless asked for: two quick flips would otherwise take the card full screen.
+const STORED_FULL_SCREEN = 'catalog-compare-full-screen';
+const fullScreenBox = document.querySelector('.full-screen-option input');
+try { fullScreenBox.checked = localStorage.getItem(STORED_FULL_SCREEN) === 'on'; } catch {}
+fullScreenBox?.addEventListener('change', () => {
+  try { localStorage.setItem(STORED_FULL_SCREEN, fullScreenBox.checked ? 'on' : 'off'); } catch {}
+});
 // Tighter than the system's double click, which is usually 400-500 ms and fires on a deliberate
 // pair of flips. Both clicks still act, so a flip card flips twice and is left as it was.
 const FULL_SCREEN_CLICKS_MS = 250;
@@ -307,6 +315,7 @@ for (const card of cards) {
   let lastClickMs = -Infinity;
   card.addEventListener('click', (event) => {
     if (event.target.closest('header, input')) return;
+    if (!fullScreenBox.checked && document.fullscreenElement !== card) return;
     const quick = event.timeStamp - lastClickMs < FULL_SCREEN_CLICKS_MS;
     lastClickMs = quick ? -Infinity : event.timeStamp;
     if (!quick) return;
@@ -379,7 +388,12 @@ export function renderReport(input: ReportInput): string {
     .join('')}</ul>
 ${warnings}
 ${counts.changed === 0 ? '' : `<p class="view-all">View for every changed page ${MODE_BUTTONS}</p>`}
-${counts.changed + counts.added + counts.removed === 0 ? '' : '<p class="seen-progress" aria-live="polite"></p>'}
+${
+  counts.changed + counts.added + counts.removed === 0
+    ? ''
+    : `<p class="seen-progress" aria-live="polite"></p>
+<label class="full-screen-option"><input type="checkbox"> Two clicks within 250 ms open a page full screen</label>`
+}
 ${statuses.map((status) => section(status, input.results)).join('\n')}
 </main>
 <script>${SCRIPT}</script>
