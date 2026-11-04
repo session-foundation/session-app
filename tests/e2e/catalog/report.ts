@@ -297,13 +297,20 @@ for (const card of cards) {
   });
 }
 if (progress) showProgress();
-// A double click is two clicks first, so a flip card flips twice and is left as it was.
-for (const card of cards)
-  card.addEventListener('dblclick', (event) => {
+// Tighter than the system's double click, which is usually 400-500 ms and fires on a deliberate
+// pair of flips. Both clicks still act, so a flip card flips twice and is left as it was.
+const FULL_SCREEN_CLICKS_MS = 250;
+for (const card of cards) {
+  let lastClickMs = -Infinity;
+  card.addEventListener('click', (event) => {
     if (event.target.closest('header, input')) return;
+    const quick = event.timeStamp - lastClickMs < FULL_SCREEN_CLICKS_MS;
+    lastClickMs = quick ? -Infinity : event.timeStamp;
+    if (!quick) return;
     if (document.fullscreenElement === card) document.exitFullscreen();
     else card.requestFullscreen().catch(() => {});
   });
+}
 const MODES = ['slider', 'flip', 'side', 'diff'];
 const STORED_MODE = 'catalog-compare-view';
 function showMode(mode) {
