@@ -94,6 +94,13 @@ function canvasOf(result: PageResult): Size {
   }
 }
 
+const MODE_BUTTONS = `<span class="modes" role="group" aria-label="View">
+      <button type="button" data-mode="slider" aria-pressed="true">Slider</button>
+      <button type="button" data-mode="flip" aria-pressed="false">Flip</button>
+      <button type="button" data-mode="side" aria-pressed="false">Side by side</button>
+      <button type="button" data-mode="diff" aria-pressed="false">Diff</button>
+    </span>`
+
 function changedCard(result: PageResult): string {
   const id = escapeHtml(result.id)
   const canvas = canvasOf(result)
@@ -107,12 +114,7 @@ function changedCard(result: PageResult): string {
   <header>
     <h3>${id}</h3>
     <span class="detail">${escapeHtml(describeChange(result))}</span>
-    <span class="modes" role="group" aria-label="View">
-      <button type="button" data-mode="slider" aria-pressed="true">Slider</button>
-      <button type="button" data-mode="flip" aria-pressed="false">Flip</button>
-      <button type="button" data-mode="side" aria-pressed="false">Side by side</button>
-      <button type="button" data-mode="diff" aria-pressed="false">Diff</button>
-    </span>
+    ${MODE_BUTTONS}
   </header>
   <div class="view slider">
     ${stage(result, [side('before'), side('after')], ' data-split')}
@@ -195,8 +197,13 @@ h3 { font-size: 15px; margin: 0; font-family: ui-monospace, SFMono-Regular, Menl
 .count { color: var(--muted); font-weight: normal; }
 .page { background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
   padding: 12px; margin: 0 0 16px; }
-.page header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-bottom: 12px; }
+/* Sticky so a long card's view can be switched without scrolling back to its title. */
+.page header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: -12px -12px 12px;
+  padding: 12px; position: sticky; top: 0; z-index: 2; background: var(--surface);
+  border-radius: 10px 10px 0 0; border-bottom: 1px solid var(--line); }
 .detail { color: var(--muted); }
+.view-all { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: var(--muted); margin: 16px 0 0; }
+.view-all .modes { margin-left: 0; }
 .modes { display: inline-flex; gap: 4px; margin-left: auto; }
 .modes button { font: inherit; font-size: 13px; padding: 2px 10px; border-radius: 6px; cursor: pointer;
   border: 1px solid var(--line); background: transparent; color: var(--text); }
@@ -237,13 +244,26 @@ a { color: var(--accent); }
 `
 
 const SCRIPT = `
+const MODES = ['slider', 'flip', 'side', 'diff'];
+const STORED_MODE = 'catalog-compare-view';
+function showMode(mode) {
+  for (const page of document.querySelectorAll('.page[data-mode]')) page.dataset.mode = mode;
+  for (const button of document.querySelectorAll('.modes button'))
+    button.setAttribute('aria-pressed', String(button.dataset.mode === mode));
+}
+for (const button of document.querySelectorAll('.modes button'))
+  button.addEventListener('click', () => {
+    // Every card above changes height with the mode; keep the clicked button where it was.
+    const top = button.getBoundingClientRect().top;
+    showMode(button.dataset.mode);
+    window.scrollBy(0, button.getBoundingClientRect().top - top);
+    try { localStorage.setItem(STORED_MODE, button.dataset.mode); } catch {}
+  });
+try {
+  const stored = localStorage.getItem(STORED_MODE);
+  if (MODES.includes(stored)) showMode(stored);
+} catch {}
 for (const page of document.querySelectorAll('.page[data-mode]')) {
-  const buttons = page.querySelectorAll('.modes button');
-  for (const button of buttons)
-    button.addEventListener('click', () => {
-      page.dataset.mode = button.dataset.mode;
-      for (const other of buttons) other.setAttribute('aria-pressed', String(other === button));
-    });
   const range = page.querySelector('.range input');
   const split = page.querySelector('.stage[data-split]');
   range.addEventListener('input', () => split.style.setProperty('--split', range.value + '%'));
@@ -288,6 +308,7 @@ export function renderReport(input: ReportInput): string {
     .map((status) => `<li class="${status}"><b>${String(counts[status])}</b> ${status}</li>`)
     .join('')}</ul>
 ${warnings}
+${counts.changed === 0 ? '' : `<p class="view-all">View for every changed page ${MODE_BUTTONS}</p>`}
 ${statuses.map((status) => section(status, input.results)).join('\n')}
 </main>
 <script>${SCRIPT}</script>

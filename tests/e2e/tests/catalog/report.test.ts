@@ -61,6 +61,11 @@ describe('the report', () => {
     expect(html).toContain('The base capture is from the cache')
   })
 
+  it('offers one view switch for every changed page, as well as one per page', () => {
+    expect(html).toContain('class="view-all"')
+    expect(html.match(/<button type="button" data-mode="flip"/g)).toHaveLength(2)
+  })
+
   it('stands alone: no script or style fetched from anywhere', () => {
     expect(html).not.toMatch(/<(script|link)[^>]+(src|href)=/)
   })
@@ -91,6 +96,18 @@ describe('a page that changed size', () => {
     expect(resized).toContain('style="width:100.0000%;height:66.6667%" src="before/grew.png"')
     expect(resized).toContain('style="width:50.0000%;height:100.0000%" src="after/grew.png"')
     expect(resized).toContain('Dashed outlines mark each picture')
+  })
+
+  it('has no page-wide view switch without a changed page', () => {
+    const quiet = renderReport({
+      base: { label: 'base', sha: 'a'.repeat(40) },
+      head: { label: 'working tree', sha: 'b'.repeat(40) },
+      tier: 'pr',
+      sensitivity: 0.5,
+      results: [{ id: 'new', status: 'added', differingPixels: 0, totalPixels: 0 }],
+      warnings: [],
+    })
+    expect(quiet).not.toContain('class="view-all"')
   })
 
   it('says what the diff colours mean, anti-aliasing included', () => {
