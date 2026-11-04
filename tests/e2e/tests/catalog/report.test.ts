@@ -70,6 +70,13 @@ describe('the report', () => {
     expect(html).toMatch(/<header>[\s\S]*class="tag"[\s\S]*<\/header>/)
   })
 
+  it('lets every changed, added or removed page be marked seen, remembered against its change', () => {
+    expect(html.match(/class="seen-toggle"/g)).toHaveLength(3)
+    expect(html).toContain('data-page="album-focus" data-change="1234"')
+    expect(html).toContain('<main data-report="0123456789abcdef fedcba9876543210">')
+    expect(html).toContain('class="seen-progress"')
+  })
+
   it('stands alone: no script or style fetched from anywhere', () => {
     expect(html).not.toMatch(/<(script|link)[^>]+(src|href)=/)
   })

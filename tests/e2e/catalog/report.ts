@@ -94,6 +94,13 @@ function canvasOf(result: PageResult): Size {
   }
 }
 
+const SEEN_TOGGLE =
+  '<label class="seen-toggle"><input type="checkbox" aria-label="Seen: collapse this page"> Seen</label>'
+
+/** What a card's "seen" mark is kept against: the same page with a different change is new. */
+const cardAttributes = (result: PageResult) =>
+  `data-page="${escapeHtml(result.id)}" data-change="${String(result.differingPixels)}"`
+
 const MODE_BUTTONS = `<span class="modes" role="group" aria-label="View">
       <button type="button" data-mode="slider" aria-pressed="true">Slider</button>
       <button type="button" data-mode="flip" aria-pressed="false">Flip</button>
@@ -110,8 +117,9 @@ function changedCard(result: PageResult): string {
   const bounds = resized
     ? ' Dashed outlines mark each picture&#39;s own bounds; the checkerboard lies outside it.'
     : ''
-  return `<article class="page" id="page-${id}" data-mode="slider">
+  return `<article class="page" id="page-${id}" ${cardAttributes(result)} data-mode="slider">
   <header>
+    ${SEEN_TOGGLE}
     <h3>${id}</h3>
     <span class="detail">${escapeHtml(describeChange(result))}</span>
     <button type="button" class="tag" aria-label="Showing after; show before">after</button>
@@ -140,8 +148,8 @@ function changedCard(result: PageResult): string {
 
 function singleCard(result: PageResult, kind: 'before' | 'after'): string {
   const id = escapeHtml(result.id)
-  return `<article class="page single" id="page-${id}">
-  <header><h3>${id}</h3><span class="detail">${kind === 'after' ? 'only in the working side' : 'only in the base'}</span></header>
+  return `<article class="page single" id="page-${id}" ${cardAttributes(result)}>
+  <header>${SEEN_TOGGLE}<h3>${id}</h3><span class="detail">${kind === 'after' ? 'only in the working side' : 'only in the base'}</span></header>
   ${image(kind, result.id, `${result.id} ${kind}`)}
 </article>`
 }
@@ -204,6 +212,12 @@ h3 { font-size: 15px; margin: 0; font-family: ui-monospace, SFMono-Regular, Menl
 .detail { color: var(--muted); }
 .view-all { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: var(--muted); margin: 16px 0 0; }
 .view-all .modes { margin-left: 0; }
+.seen-progress { color: var(--muted); margin: 8px 0 0; }
+.seen-toggle { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: 13px; cursor: pointer; }
+/* Outranks the per-mode rules that show the current view. */
+.page.seen > :not(header) { display: none !important; }
+.page.seen header { margin-bottom: -12px; border-bottom: 0; border-radius: 10px; }
+.page.seen h3 { color: var(--muted); }
 .modes { display: inline-flex; gap: 4px; margin-left: auto; }
 .modes button { font: inherit; font-size: 13px; padding: 2px 10px; border-radius: 6px; cursor: pointer;
   border: 1px solid var(--line); background: transparent; color: var(--text); }
@@ -245,6 +259,38 @@ a { color: var(--accent); }
 `
 
 const SCRIPT = `
+// Every card above changes height with what this does; keep the clicked control where it was.
+function keepInPlace(control, change) {
+  const top = control.getBoundingClientRect().top;
+  change();
+  window.scrollBy(0, control.getBoundingClientRect().top - top);
+}
+const STORED_SEEN = 'catalog-compare-seen';
+const report = document.querySelector('main').dataset.report;
+const cards = [...document.querySelectorAll('.page[data-page]')];
+const seenKey = (card) => report + ' ' + card.dataset.page + ' ' + card.dataset.change;
+let seen = new Set();
+try { seen = new Set(JSON.parse(localStorage.getItem(STORED_SEEN) || '[]')); } catch {}
+const progress = document.querySelector('.seen-progress');
+function showProgress() {
+  const count = cards.filter((card) => card.classList.contains('seen')).length;
+  progress.textContent = count + ' of ' + cards.length + ' seen';
+}
+for (const card of cards) {
+  const box = card.querySelector('.seen-toggle input');
+  const mark = (on) => {
+    box.checked = on;
+    card.classList.toggle('seen', on);
+  };
+  mark(seen.has(seenKey(card)));
+  box.addEventListener('change', () => {
+    keepInPlace(box, () => mark(box.checked));
+    if (box.checked) seen.add(seenKey(card)); else seen.delete(seenKey(card));
+    try { localStorage.setItem(STORED_SEEN, JSON.stringify([...seen])); } catch {}
+    showProgress();
+  });
+}
+if (progress) showProgress();
 const MODES = ['slider', 'flip', 'side', 'diff'];
 const STORED_MODE = 'catalog-compare-view';
 function showMode(mode) {
@@ -254,10 +300,7 @@ function showMode(mode) {
 }
 for (const button of document.querySelectorAll('.modes button'))
   button.addEventListener('click', () => {
-    // Every card above changes height with the mode; keep the clicked button where it was.
-    const top = button.getBoundingClientRect().top;
-    showMode(button.dataset.mode);
-    window.scrollBy(0, button.getBoundingClientRect().top - top);
+    keepInPlace(button, () => showMode(button.dataset.mode));
     try { localStorage.setItem(STORED_MODE, button.dataset.mode); } catch {}
   });
 try {
@@ -305,7 +348,7 @@ export function renderReport(input: ReportInput): string {
 <style>${STYLE}</style>
 </head>
 <body>
-<main>
+<main data-report="${escapeHtml(`${input.base.sha} ${input.head.sha}`)}">
 <h1>Catalog comparison</h1>
 <p class="meta">${side('Before:', input.base)}<br>${side('After:', input.head)}<br>Tier <code>${escapeHtml(input.tier)}</code>, sensitivity ${String(input.sensitivity)}, both sides captured on this machine.</p>
 <ul class="summary">${statuses
@@ -313,6 +356,7 @@ export function renderReport(input: ReportInput): string {
     .join('')}</ul>
 ${warnings}
 ${counts.changed === 0 ? '' : `<p class="view-all">View for every changed page ${MODE_BUTTONS}</p>`}
+${counts.changed + counts.added + counts.removed === 0 ? '' : '<p class="seen-progress" aria-live="polite"></p>'}
 ${statuses.map((status) => section(status, input.results)).join('\n')}
 </main>
 <script>${SCRIPT}</script>
