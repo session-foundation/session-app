@@ -244,6 +244,12 @@ img { display: block; max-width: 100%; height: auto; }
 .legend { color: var(--muted); font-size: 13px; margin: 8px 0 0; }
 .range { display: flex; align-items: center; gap: 8px; color: var(--muted); margin-top: 8px; }
 .range input { flex: 1; }
+.page > :not(header) { user-select: none; }
+.page:fullscreen { margin: 0; border: 0; border-radius: 0; overflow: auto; }
+/* An overflowing view is a scroll container of its own, and would hold the range's stickiness. */
+.page:fullscreen .view { overflow: visible; }
+.page:fullscreen .range { position: sticky; bottom: 0; z-index: 2; margin: 8px -12px -12px; padding: 8px 12px;
+  background: var(--surface); border-top: 1px solid var(--line); }
 .view.side { display: none; }
 .page[data-mode="side"] .view.side { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px; }
@@ -291,6 +297,13 @@ for (const card of cards) {
   });
 }
 if (progress) showProgress();
+// A double click is two clicks first, so a flip card flips twice and is left as it was.
+for (const card of cards)
+  card.addEventListener('dblclick', (event) => {
+    if (event.target.closest('header, input')) return;
+    if (document.fullscreenElement === card) document.exitFullscreen();
+    else card.requestFullscreen().catch(() => {});
+  });
 const MODES = ['slider', 'flip', 'side', 'diff'];
 const STORED_MODE = 'catalog-compare-view';
 function showMode(mode) {
