@@ -101,27 +101,61 @@ interface Capture {
 
 const pagesDir = (capture: string) => join(capture, 'pages')
 
-/**
- * The change that made hidden runs, for a base from before it: the diff of desktop main in the
- * commit that added hiddenRun.ts. Null when the base has it already.
- */
-function hiddenRunOverlay(baseSha: string): { patch: string; hash: string } | null {
-  if (gitSucceeds(['cat-file', '-e', `${baseSha}:${HIDDEN_RUN_SOURCE}`])) return null
-  const added = git([
-    'log',
-    '--diff-filter=A',
-    '--format=%H',
-    '-1',
-    'HEAD',
-    '--',
-    HIDDEN_RUN_SOURCE,
-  ])
-  if (added === '')
-    throw new CompareFailure(
-      `${HIDDEN_RUN_SOURCE} is not in HEAD's history, so nothing can run hidden`,
-    )
-  const patch = gitRaw(['diff', `${added}^`, added, '--', DESKTOP_MAIN])
-  return { patch, hash: createHash('sha256').update(patch).digest('hex').slice(0, 12) }
+/** The harness that launches Electron, and the colour switch an older copy of it lacks. */
+const HARNESS_SOURCE = 'tests/e2e/harness/DesktopApp.ts'
+const SRGB_SWITCH = '--force-color-profile=srgb'
+/** The launch argument an older harness has, which the switch is put after. */
+const SRGB_ANCHOR = "'--disable-gpu',"
+
+/** What a base is given so that it captures as the working tree does. */
+interface BaseOverlay {
+  /** Desktop main's change in the commit that added hidden runs, for a base from before it. */
+  patch: string | null
+  /**
+   * Whether its harness needs the sRGB switch: pictures in two colour spaces differ wherever there
+   * is colour, so a base without it would show every accent as changed.
+   */
+  srgb: boolean
+  hash: string
+}
+
+/** Null when the base already captures as the working tree does. */
+function baseOverlay(baseSha: string): BaseOverlay | null {
+  let patch: string | null = null
+  if (!gitSucceeds(['cat-file', '-e', `${baseSha}:${HIDDEN_RUN_SOURCE}`])) {
+    const added = git([
+      'log',
+      '--diff-filter=A',
+      '--format=%H',
+      '-1',
+      'HEAD',
+      '--',
+      HIDDEN_RUN_SOURCE,
+    ])
+    if (added === '')
+      throw new CompareFailure(
+        `${HIDDEN_RUN_SOURCE} is not in HEAD's history, so nothing can run hidden`,
+      )
+    patch = gitRaw(['diff', `${added}^`, added, '--', DESKTOP_MAIN])
+  }
+  const srgb = !gitRaw(['show', `${baseSha}:${HARNESS_SOURCE}`]).includes(SRGB_SWITCH)
+  if (patch === null && !srgb) return null
+  const hash = createHash('sha256')
+    .update(patch ?? '')
+    .update('\0')
+    .update(srgb ? SRGB_SWITCH : '')
+    .digest('hex')
+    .slice(0, 12)
+  return { patch, srgb, hash }
+}
+
+/** How the report says what the base was given. */
+function overlayNote(overlay: BaseOverlay): string {
+  const given = [
+    ...(overlay.patch === null ? [] : ['the hidden-run change to desktop main']),
+    ...(overlay.srgb ? ['the sRGB switch in its harness'] : []),
+  ]
+  return `given ${given.join(' and ')} to capture it`
 }
 
 /** Builds what the catalog spec launches, as the catalog workflow does, and captures it. */
@@ -247,7 +281,7 @@ async function cachedCapture(
 async function captureBase(
   sha: string,
   dir: string,
-  overlay: { patch: string } | null,
+  overlay: BaseOverlay | null,
   options: CompareOptions,
 ): Promise<CaptureRecord> {
   const worktree = join(outRoot, `base-${sha.slice(0, 12)}`)
@@ -260,7 +294,7 @@ async function captureBase(
   console.log(`\n▶ base: worktree at ${worktree}`)
   git(['worktree', 'add', '--detach', worktree, sha])
   try {
-    if (overlay !== null) {
+    if (overlay?.patch != null) {
       console.log(`  base predates hidden runs: applying ${DESKTOP_MAIN}'s change from HEAD`)
       try {
         execFileSync('git', ['apply', '--3way'], {
@@ -275,6 +309,17 @@ async function captureBase(
             `captured without a window; compare against a newer base. git apply said: ${said}`,
         )
       }
+    }
+    if (overlay?.srgb === true) {
+      console.log(`  base predates sRGB captures: adding ${SRGB_SWITCH} to its harness`)
+      const harness = join(worktree, HARNESS_SOURCE)
+      const source = readFileSync(harness, 'utf8')
+      if (!source.includes(SRGB_ANCHOR))
+        throw new CompareFailure(
+          `the base's ${HARNESS_SOURCE} has no ${SRGB_ANCHOR} to put ${SRGB_SWITCH} after, so ` +
+            'its pictures would be in another colour space; compare against a newer base',
+        )
+      writeFileSync(harness, source.replace(SRGB_ANCHOR, `${SRGB_ANCHOR} '${SRGB_SWITCH}',`))
     }
     await mustStep(
       'base: localization submodule',
@@ -351,7 +396,7 @@ async function main(): Promise<number> {
   const headSha = git(['rev-parse', 'HEAD'])
   const dirty = git(['status', '--porcelain', '--untracked-files=normal']) !== ''
 
-  const overlay = hiddenRunOverlay(baseSha)
+  const overlay = baseOverlay(baseSha)
   const dotEnv = join(repoRoot, '.env')
   const host = {
     tier: options.tier,
@@ -392,8 +437,7 @@ async function main(): Promise<number> {
     base: {
       label: baseLabel,
       sha: baseSha,
-      note:
-        overlay === null ? undefined : 'given the hidden-run change to desktop main to capture it',
+      note: overlay === null ? undefined : overlayNote(overlay),
     },
     head: {
       label: dirty ? 'working tree, with uncommitted changes' : 'working tree',

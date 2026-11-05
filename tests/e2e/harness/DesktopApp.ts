@@ -168,6 +168,11 @@ export class DesktopApp implements ISessionApp, IPerformanceProbe, IFileChooser 
         '--no-sandbox',
         '--disable-gpu',
         '--disable-dev-shm-usage',
+        // Pictures in sRGB, as the Linux captures Argos compares with are. On a Mac a capture is
+        // otherwise encoded in the display's colour space, which a window opening elsewhere can
+        // change between two pages. Here rather than in main's `appendSwitch`, which is too late
+        // for it.
+        '--force-color-profile=srgb',
       ],
       env: {
         ...process.env,
