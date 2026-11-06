@@ -249,7 +249,8 @@ img { display: block; max-width: 100%; height: auto; }
 /* Fit to the box at --zoom 1, never past the picture's own size. */
 .stage { position: relative; width: calc(min(var(--w) * 1px, 100%) * var(--zoom, 1));
   aspect-ratio: var(--w) / var(--h); }
-.page.zoomed .pan { overflow: auto; max-height: calc(100vh - 9rem); overscroll-behavior: contain;
+/* Scrolling past the picture's foot goes on to the page; sideways it would go back a page in history. */
+.page.zoomed .pan { overflow: auto; max-height: calc(100vh - 9rem); overscroll-behavior: contain auto;
   cursor: grab; }
 .page.zoomed .pan.dragging { cursor: grabbing; }
 .page.pixelated .stage img { image-rendering: pixelated; }
