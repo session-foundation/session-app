@@ -105,12 +105,21 @@ const seenToggle = (id: string) =>
 
 const cardAttributes = (result: ReportPage) => `data-seen-key="${escapeHtml(result.pictures)}"`
 
-const MODE_BUTTONS = `<span class="modes" role="group" aria-label="View">
-      <button type="button" data-mode="slider" aria-pressed="true">Slider</button>
-      <button type="button" data-mode="flip" aria-pressed="false">Flip</button>
-      <button type="button" data-mode="side" aria-pressed="false">Side by side</button>
-      <button type="button" data-mode="diff" aria-pressed="false">Diff</button>
-    </span>`
+/** Each view and the key that shows it on every changed page. */
+const MODES = [
+  { mode: 'slider', label: 'Slider', key: 's' },
+  { mode: 'flip', label: 'Flip', key: 'f' },
+  { mode: 'side', label: 'Side by side', key: 'b' },
+  { mode: 'diff', label: 'Diff', key: 'd' },
+] as const
+
+const MODE_BUTTONS = `<span class="modes" role="group" aria-label="View">${MODES.map(
+  ({ mode, label, key }) =>
+    `<button type="button" data-mode="${mode}" aria-pressed="${String(mode === 'slider')}" aria-keyshortcuts="${key.toUpperCase()}" title="${label} (${key.toUpperCase()})">${label} <kbd>${key.toUpperCase()}</kbd></button>`,
+).join('')}</span>`
+
+/** A box the picture is zoomed and panned within, so a zoomed picture never outgrows the window. */
+const pan = (content: string) => `<div class="pan">${content}</div>`
 
 function changedCard(result: ReportPage): string {
   const id = escapeHtml(result.id)
@@ -121,29 +130,30 @@ function changedCard(result: ReportPage): string {
   const bounds = resized
     ? ' Dashed outlines mark each picture&#39;s own bounds; the checkerboard lies outside it.'
     : ''
-  return `<article class="page" id="page-${id}" ${cardAttributes(result)} data-mode="slider">
+  return `<article class="page" id="page-${id}" ${cardAttributes(result)} data-mode="slider" style="--w:${String(canvas.width)};--h:${String(canvas.height)}">
   <header>
     ${seenToggle(result.id)}
     <h3>${id}</h3>
     <span class="detail">${escapeHtml(describeChange(result))}</span>
     <button type="button" class="tag" aria-label="Showing after; show before">after</button>
+    <button type="button" class="zoom-reset" aria-label="Reset zoom" title="Reset zoom (0)"></button>
     ${MODE_BUTTONS}
   </header>
   <div class="view slider">
-    ${stage(result, [side('before'), side('after')], ' data-split')}
+    ${pan(stage(result, [side('before'), side('after')], ' data-split'))}
     <label class="range">Before <input type="range" min="0" max="100" value="50" aria-label="Before and after"> After</label>
   </div>
   <div class="view flip">
-    <button type="button" class="flipper" aria-label="Show the other side">
+    ${pan(`<button type="button" class="flipper" aria-label="Show the other side">
       ${stage(result, [side('before'), side('after')], ' data-showing="after"')}
-    </button>
+    </button>`)}
   </div>
   <div class="view side">
-    <figure><figcaption>Before</figcaption>${stage(result, [side('before')])}</figure>
-    <figure><figcaption>After</figcaption>${stage(result, [side('after')])}</figure>
+    <figure><figcaption>Before</figcaption>${pan(stage(result, [side('before')]))}</figure>
+    <figure><figcaption>After</figcaption>${pan(stage(result, [side('after')]))}</figure>
   </div>
   <div class="view diff">
-    ${stage(result, [layer('diff', result.id, canvas, canvas, `${result.id}: what differs, in red; anti-aliasing in yellow, not counted`)])}
+    ${pan(stage(result, [layer('diff', result.id, canvas, canvas, `${result.id}: what differs, in red; anti-aliasing in yellow, not counted`)]))}
   </div>
   <p class="legend view diff">Red: a pixel that counts as different. Yellow: a pixel that differs only as anti-aliasing, which is not counted. Grey: the after picture, faded. Checkerboard: where the after picture does not reach.</p>
   ${bounds === '' ? '' : `<p class="legend">${bounds.trim()}</p>`}
@@ -227,14 +237,25 @@ h3 { font-size: 15px; margin: 0; font-family: ui-monospace, SFMono-Regular, Menl
 .modes button { font: inherit; font-size: 13px; padding: 2px 10px; border-radius: 6px; cursor: pointer;
   border: 1px solid var(--line); background: transparent; color: var(--text); }
 .modes button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: Canvas; }
+kbd { font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; opacity: 0.6; }
+.keys { color: var(--muted); font-size: 13px; margin: 8px 0 0; }
 img { display: block; max-width: 100%; height: auto; }
 .single img { background: var(--backdrop); }
-.view { display: none; overflow-x: auto; }
-.view.slider { width: fit-content; max-width: 100%; }
+.view { display: none; }
+.view.slider { max-width: calc(var(--w) * 1px); }
+.page.zoomed .view.slider { max-width: none; }
 .page[data-mode="slider"] .view.slider, .page[data-mode="flip"] .view.flip,
 .page[data-mode="side"] .view.side, .page[data-mode="diff"] .view.diff { display: block; }
-.stage { position: relative; width: calc(var(--w) * 1px); max-width: 100%;
+/* Fit to the box at --zoom 1, never past the picture's own size. */
+.stage { position: relative; width: calc(min(var(--w) * 1px, 100%) * var(--zoom, 1));
   aspect-ratio: var(--w) / var(--h); }
+.page.zoomed .pan { overflow: auto; max-height: calc(100vh - 9rem); overscroll-behavior: contain;
+  cursor: grab; }
+.page.zoomed .pan.dragging { cursor: grabbing; }
+.page.pixelated .stage img { image-rendering: pixelated; }
+.zoom-reset { display: none; font: inherit; font-size: 13px; padding: 2px 10px; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--line); background: transparent; color: var(--text); }
+.page.zoomed .zoom-reset { display: inline-block; }
 .layer { position: absolute; inset: 0; background: var(--backdrop); }
 .layer img, .layer .bounds { position: absolute; top: 0; left: 0; max-width: none; }
 .layer .bounds { display: none; pointer-events: none; }
@@ -253,6 +274,7 @@ img { display: block; max-width: 100%; height: auto; }
 .page:fullscreen { margin: 0; border: 0; border-radius: 0; overflow: auto; }
 /* An overflowing view is a scroll container of its own, and would hold the range's stickiness. */
 .page:fullscreen .view { overflow: visible; }
+.page.zoomed:fullscreen .pan { max-height: calc(100vh - 7rem); }
 .page:fullscreen .range { position: sticky; bottom: 0; z-index: 2; margin: 8px -12px -12px; padding: 8px 12px;
   background: var(--surface); border-top: 1px solid var(--line); }
 .view.side { display: none; }
@@ -324,22 +346,23 @@ for (const card of cards) {
   });
 }
 const MODES = ['slider', 'flip', 'side', 'diff'];
+const MODE_KEYS = { s: 'slider', f: 'flip', b: 'side', d: 'diff' };
 const STORED_MODE = 'catalog-compare-view';
+const changedCards = [...document.querySelectorAll('.page[data-mode]')];
 function showMode(mode) {
-  for (const page of document.querySelectorAll('.page[data-mode]')) page.dataset.mode = mode;
+  for (const page of changedCards) page.dataset.mode = mode;
   for (const button of document.querySelectorAll('.modes button'))
     button.setAttribute('aria-pressed', String(button.dataset.mode === mode));
+  for (const page of changedCards) restoreCentre(page);
+}
+function chooseMode(mode, anchor) {
+  keepInPlace(anchor, () => showMode(mode));
+  try { localStorage.setItem(STORED_MODE, mode); } catch {}
 }
 for (const button of document.querySelectorAll('.modes button'))
-  button.addEventListener('click', () => {
-    keepInPlace(button, () => showMode(button.dataset.mode));
-    try { localStorage.setItem(STORED_MODE, button.dataset.mode); } catch {}
-  });
-try {
-  const stored = localStorage.getItem(STORED_MODE);
-  if (MODES.includes(stored)) showMode(stored);
-} catch {}
-for (const page of document.querySelectorAll('.page[data-mode]')) {
+  button.addEventListener('click', () => chooseMode(button.dataset.mode, button));
+const flips = new Map();
+for (const page of changedCards) {
   const range = page.querySelector('.range input');
   const split = page.querySelector('.stage[data-split]');
   range.addEventListener('input', () => split.style.setProperty('--split', range.value + '%'));
@@ -352,9 +375,167 @@ for (const page of document.querySelectorAll('.page[data-mode]')) {
     tag.textContent = next;
     tag.setAttribute('aria-label', 'Showing ' + next + '; show ' + (next === 'after' ? 'before' : 'after'));
   };
+  flips.set(page, flip);
   flipper.addEventListener('click', flip);
   tag.addEventListener('click', flip);
 }
+
+// The card whose pictures the reader is looking at: under the pointer, else the first in view.
+let pointerCard = null;
+document.addEventListener('pointermove', (event) => { pointerCard = event.target.closest?.('.page') ?? null; });
+function cardInView() {
+  if (document.fullscreenElement?.matches('.page')) return document.fullscreenElement;
+  if (pointerCard) return pointerCard;
+  return cards.find((card) => card.getBoundingClientRect().bottom > 0) ?? null;
+}
+document.addEventListener('keydown', (event) => {
+  if (event.ctrlKey || event.metaKey || event.altKey || event.repeat) return;
+  if (event.target.closest?.('input:not([type=checkbox]):not([type=range]), textarea, select, [contenteditable]')) return;
+  const key = event.key.toLowerCase();
+  const card = cardInView();
+  if (key === '0') {
+    for (const page of changedCards) if (zoomOf(page) !== 1) setZoom(page, 1);
+    return;
+  }
+  const mode = MODE_KEYS[key];
+  if (mode === undefined) return;
+  event.preventDefault();
+  const current = changedCards[0]?.dataset.mode;
+  // F again swaps the side every card shows, so a whole report can be flipped through by key.
+  if (mode === 'flip' && current === 'flip') {
+    for (const flip of flips.values()) flip();
+    return;
+  }
+  chooseMode(mode, card?.closest('.page') ?? document.body);
+});
+
+// Zoom is per card and shared by its views: --zoom scales every stage from its fitted width.
+const MAX_PIXEL_SCALE = 32;
+const zoomOf = (page) => Number(page.style.getPropertyValue('--zoom') || 1);
+const visiblePans = (page) => [...page.querySelectorAll('.pan')].filter((pan) => pan.offsetParent !== null);
+const centres = new Map();
+function rememberCentre(pan) {
+  const page = pan.closest('.page');
+  centres.set(page, {
+    x: (pan.scrollLeft + pan.clientWidth / 2) / pan.scrollWidth,
+    y: (pan.scrollTop + pan.clientHeight / 2) / pan.scrollHeight,
+  });
+}
+function restoreCentre(page, except) {
+  const centre = centres.get(page);
+  if (!centre || zoomOf(page) === 1) return;
+  for (const pan of visiblePans(page)) {
+    if (pan === except) continue;
+    const left = Math.round(centre.x * pan.scrollWidth - pan.clientWidth / 2);
+    const top = Math.round(centre.y * pan.scrollHeight - pan.clientHeight / 2);
+    if (left === pan.scrollLeft && top === pan.scrollTop) continue;
+    // Its scroll event is an echo of this one, not the reader moving it.
+    pan.dataset.echo = '1';
+    pan.scrollTo(left, top);
+  }
+}
+function showZoom(page, zoom) {
+  page.querySelector('.zoom-reset').textContent = Math.round(zoom * 100) + '% ×';
+}
+function setZoom(page, zoom, pan, clientX, clientY) {
+  const before = zoomOf(page);
+  const stage = (pan ?? visiblePans(page)[0])?.querySelector('.stage');
+  const fitWidth = stage ? stage.getBoundingClientRect().width / before : 1;
+  const canvasWidth = Number(getComputedStyle(page).getPropertyValue('--w')) || fitWidth;
+  const maxZoom = Math.max(1, (MAX_PIXEL_SCALE * canvasWidth) / fitWidth);
+  zoom = Math.min(maxZoom, Math.max(1, zoom));
+  if (zoom === before) return;
+  if (zoom === 1) {
+    keepInPlace(page.querySelector('header'), () => {
+      page.style.removeProperty('--zoom');
+      page.classList.remove('zoomed', 'pixelated');
+    });
+    centres.delete(page);
+    return;
+  }
+  // The point under the pointer, as a share of the picture, stays under the pointer.
+  let anchor = null;
+  if (pan) {
+    const box = pan.getBoundingClientRect();
+    anchor = {
+      x: (pan.scrollLeft + clientX - box.left) / pan.scrollWidth,
+      y: (pan.scrollTop + clientY - box.top) / pan.scrollHeight,
+    };
+  }
+  page.style.setProperty('--zoom', String(zoom));
+  showZoom(page, zoom);
+  page.classList.add('zoomed');
+  page.classList.toggle('pixelated', (fitWidth * zoom) / canvasWidth >= 2);
+  if (!pan) return restoreCentre(page);
+  if (before === 1) {
+    // Becoming a bounded box can leave it above the sticky header or past the window's foot.
+    const box = pan.getBoundingClientRect();
+    const top = page.querySelector('header').getBoundingClientRect().bottom + 8;
+    if (box.top < top || box.bottom > window.innerHeight) window.scrollBy(0, box.top - top);
+  }
+  const box = pan.getBoundingClientRect();
+  pan.scrollLeft = anchor.x * pan.scrollWidth - (clientX - box.left);
+  pan.scrollTop = anchor.y * pan.scrollHeight - (clientY - box.top);
+  rememberCentre(pan);
+  restoreCentre(page, pan);
+}
+for (const page of changedCards) {
+  page.querySelector('.zoom-reset').addEventListener('click', () => setZoom(page, 1));
+  for (const pan of page.querySelectorAll('.pan')) {
+    // A trackpad pinch arrives as a wheel event with ctrlKey set, in Chromium and Firefox alike.
+    pan.addEventListener('wheel', (event) => {
+      if (!event.ctrlKey) return;
+      event.preventDefault();
+      // A mouse wheel's notch is ~100 where a pinch's step is a few; cap it so a notch is a step too.
+      const delta = Math.max(-40, Math.min(40, event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY));
+      setZoom(page, zoomOf(page) * Math.exp(-delta * 0.01), pan, event.clientX, event.clientY);
+    }, { passive: false });
+    // Safari pinches through its own gesture events instead.
+    let gestureStart = 1;
+    pan.addEventListener('gesturestart', (event) => { event.preventDefault(); gestureStart = zoomOf(page); });
+    pan.addEventListener('gesturechange', (event) => {
+      event.preventDefault();
+      setZoom(page, gestureStart * event.scale, pan, event.clientX, event.clientY);
+    });
+    pan.addEventListener('scroll', () => {
+      if (pan.dataset.echo) return void delete pan.dataset.echo;
+      if (zoomOf(page) === 1) return;
+      rememberCentre(pan);
+      restoreCentre(page, pan);
+    });
+    // Dragging pans a zoomed picture; a drag is not a click, so it neither flips nor counts toward full screen.
+    let drag = null;
+    pan.addEventListener('pointerdown', (event) => {
+      if (zoomOf(page) === 1 || event.button !== 0 || event.pointerType === 'touch') return;
+      drag = { x: event.clientX, y: event.clientY, left: pan.scrollLeft, top: pan.scrollTop, moved: false };
+    });
+    pan.addEventListener('pointermove', (event) => {
+      if (!drag) return;
+      const dx = event.clientX - drag.x, dy = event.clientY - drag.y;
+      if (!drag.moved && Math.hypot(dx, dy) < 4) return;
+      if (!drag.moved) { drag.moved = true; pan.setPointerCapture(event.pointerId); pan.classList.add('dragging'); }
+      pan.scrollLeft = drag.left - dx;
+      pan.scrollTop = drag.top - dy;
+    });
+    const endDrag = () => {
+      if (!drag) return;
+      const moved = drag.moved;
+      drag = null;
+      pan.classList.remove('dragging');
+      if (!moved) return;
+      const swallow = (event) => event.stopPropagation();
+      pan.addEventListener('click', swallow, { capture: true, once: true });
+      // The click a drag ends with, when there is one, comes before any timer.
+      setTimeout(() => pan.removeEventListener('click', swallow, { capture: true }));
+    };
+    pan.addEventListener('pointerup', endDrag);
+    pan.addEventListener('pointercancel', endDrag);
+  }
+}
+try {
+  const stored = localStorage.getItem(STORED_MODE);
+  if (MODES.includes(stored)) showMode(stored);
+} catch {}
 `
 
 /** The whole report: one file, its pictures in folders beside it. */
@@ -387,7 +568,12 @@ export function renderReport(input: ReportInput): string {
     .map((status) => `<li class="${status}"><b>${String(counts[status])}</b> ${status}</li>`)
     .join('')}</ul>
 ${warnings}
-${counts.changed === 0 ? '' : `<p class="view-all">View for every changed page ${MODE_BUTTONS}</p>`}
+${
+  counts.changed === 0
+    ? ''
+    : `<p class="view-all">View for every changed page ${MODE_BUTTONS}</p>
+<p class="keys">Keys: <kbd>S</kbd> <kbd>F</kbd> <kbd>B</kbd> <kbd>D</kbd> pick a view; <kbd>F</kbd> again swaps every flip; <kbd>0</kbd> resets the zoom. Pinch or Ctrl+scroll on a picture to zoom; scroll or drag to move around it.</p>`
+}
 ${
   counts.changed + counts.added + counts.removed === 0
     ? ''

@@ -67,6 +67,17 @@ describe('the report', () => {
     expect(html.match(/<button type="button" data-mode="flip"/g)).toHaveLength(2)
   })
 
+  it('gives every view a key, and says so on its button', () => {
+    for (const key of ['S', 'F', 'B', 'D'])
+      expect(html.match(new RegExp(`aria-keyshortcuts="${key}"`, 'g'))).toHaveLength(2)
+  })
+
+  it('puts each of a changed page’s four views in a box it can be zoomed within', () => {
+    const card = html.slice(html.indexOf('id="page-album-focus"'), html.indexOf('</article>'))
+    expect(card.match(/<div class="pan">/g)).toHaveLength(5)
+    expect(card).toContain('class="zoom-reset"')
+  })
+
   it('names the side the flip view shows in the card header, where it stays in sight', () => {
     expect(html).toMatch(/<header>[\s\S]*class="tag"[\s\S]*<\/header>/)
   })
