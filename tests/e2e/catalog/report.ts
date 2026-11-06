@@ -67,7 +67,7 @@ export function describeChange(result: PageResult): string {
 const sameSize = (a: Size, b: Size) => a.width === b.width && a.height === b.height
 
 function image(kind: ImageKind, id: string, alt: string): string {
-  return `<img src="${escapeHtml(imagePath(kind, id))}" alt="${escapeHtml(alt)}" loading="lazy">`
+  return `<img src="${escapeHtml(imagePath(kind, id))}" alt="${escapeHtml(alt)}" loading="lazy" draggable="false">`
 }
 
 const percent = (part: number, whole: number) => `${((100 * part) / whole).toFixed(4)}%`
@@ -79,7 +79,7 @@ const percent = (part: number, whole: number) => `${((100 * part) / whole).toFix
  */
 function layer(kind: ImageKind, id: string, size: Size, canvas: Size, alt: string): string {
   const box = `width:${percent(size.width, canvas.width)};height:${percent(size.height, canvas.height)}`
-  return `<div class="layer ${kind}"><img style="${box}" src="${escapeHtml(imagePath(kind, id))}" alt="${escapeHtml(alt)}" loading="lazy"><span class="bounds" style="${box}"></span></div>`
+  return `<div class="layer ${kind}"><img style="${box}" src="${escapeHtml(imagePath(kind, id))}" alt="${escapeHtml(alt)}" loading="lazy" draggable="false"><span class="bounds" style="${box}"></span></div>`
 }
 
 /** A canvas the larger width by the larger height, the size both sides are compared on. */
@@ -505,6 +505,8 @@ for (const page of changedCards) {
     });
     // Dragging pans a zoomed picture; a drag is not a click, so it neither flips nor counts toward full screen.
     let drag = null;
+    // The browser's own drag of an image would take the pointer away from the pan.
+    pan.addEventListener('dragstart', (event) => event.preventDefault());
     pan.addEventListener('pointerdown', (event) => {
       if (zoomOf(page) === 1 || event.button !== 0 || event.pointerType === 'touch') return;
       drag = { x: event.clientX, y: event.clientY, left: pan.scrollLeft, top: pan.scrollTop, moved: false };
