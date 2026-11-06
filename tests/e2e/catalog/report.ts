@@ -272,8 +272,6 @@ img { display: block; max-width: 100%; height: auto; }
 .range input { flex: 1; }
 .page > :not(header) { user-select: none; }
 .page:fullscreen { margin: 0; border: 0; border-radius: 0; overflow: auto; }
-/* An overflowing view is a scroll container of its own, and would hold the range's stickiness. */
-.page:fullscreen .view { overflow: visible; }
 .page.zoomed:fullscreen .pan { max-height: calc(100vh - 7rem); }
 .page:fullscreen .range { position: sticky; bottom: 0; z-index: 2; margin: 8px -12px -12px; padding: 8px 12px;
   background: var(--surface); border-top: 1px solid var(--line); }
@@ -513,6 +511,8 @@ for (const page of changedCards) {
     });
     pan.addEventListener('pointermove', (event) => {
       if (!drag) return;
+      // A press released outside the pan never sends it a pointerup.
+      if (!(event.buttons & 1)) return void endDrag();
       const dx = event.clientX - drag.x, dy = event.clientY - drag.y;
       if (!drag.moved && Math.hypot(dx, dy) < 4) return;
       if (!drag.moved) { drag.moved = true; pan.setPointerCapture(event.pointerId); pan.classList.add('dragging'); }
