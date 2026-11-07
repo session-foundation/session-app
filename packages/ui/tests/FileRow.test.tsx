@@ -203,3 +203,21 @@ describe('a file row’s layout', () => {
     })
   })
 })
+
+describe('a failed file row’s words', () => {
+  it('keep the name and the caption in their usual inks, with only the retry in red', () => {
+    renderInUI(<FileRow {...pictureRow('failed')} />)
+    expect({
+      name: declared(byId(IDS.name).querySelector('span:last-child')!).color,
+      caption: declared(byId(IDS.caption)).color,
+    }).toEqual({ name: 'var(--textPrimary)', caption: 'var(--textSecondary)' })
+    expect(byId(IDS.download).innerHTML).toContain('var(--dangerColor)')
+  })
+
+  it('draw the retry in the body text on a bubble someone else sent', () => {
+    renderInUI(<FileRow {...pictureRow('failed', { received: true })} />)
+    expect(byId(IDS.download).innerHTML).toContain('var(--textPrimary)')
+    expect(byId(IDS.download).innerHTML).not.toContain('var(--dangerColor)')
+    expect(declared(byId(IDS.caption)).color).toBe('var(--textSecondary)')
+  })
+})

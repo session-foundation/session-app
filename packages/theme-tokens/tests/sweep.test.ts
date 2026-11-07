@@ -46,13 +46,14 @@ const surfaces = (t: ThemeTokens): string[] => [
 /** Role, the surfaces it can be drawn on, and the floor it must clear on all of them. */
 const CHECKS: [keyof ThemeTokens, (t: ThemeTokens) => string[], number][] = [
   ['textPrimary', surfaces, 4.5],
-  ['textSecondary', surfaces, 4.5],
+  ['textSecondary', (t) => [...surfaces(t), t.messageBubbleIncomingBg], 4.5],
   ['accentText', surfaces, 4.5],
   ['dangerColor', surfaces, 4.5],
   ['warningColor', surfaces, 4.5],
   ['textDisabled', surfaces, 2],
   // Text contrast, because both are only ever button labels.
   ['onAccent', (t) => [t.primaryColor], 4.5],
+  ['onAccentSecondary', (t) => [t.primaryColor], 4.5],
   ['onDanger', (t) => [t.dangerColor], 4.5],
   ['messageBubbleIncomingText', (t) => [t.messageBubbleIncomingBg], 4.5],
 ]

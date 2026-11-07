@@ -110,7 +110,8 @@ afterEach(() => {
 
 /**
  * A bubble you sent is `$primaryColor`, so the text and glyphs its attachments draw on it take
- * `$onAccent`; the same rows in the sheet sit on the page and keep the page roles.
+ * `$onAccent`, and their captions `$onAccentSecondary`; the same rows in the sheet sit on the page
+ * and keep the page roles.
  */
 describe('attachments on a bubble you sent', () => {
   it('draw every row, "Show all" and the footer’s caption in the fill’s ink', () => {
@@ -118,8 +119,8 @@ describe('attachments on a bubble you sent', () => {
     expect(listInks()).toEqual({
       name: 'var(--onAccent)',
       showAll: 'var(--onAccent)',
-      showAllCount: 'var(--onAccent)',
-      footer: 'var(--onAccent)',
+      showAllCount: 'var(--onAccentSecondary)',
+      footer: 'var(--onAccentSecondary)',
     })
   })
 

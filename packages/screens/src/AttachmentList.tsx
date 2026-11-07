@@ -103,6 +103,7 @@ export function AttachmentList({
           message={message}
           attachment={attachment}
           onAccent={onAccent}
+          received={!onAccent}
         />
       ))}
       {hidden === 0 || onShowAll === undefined ? null : (

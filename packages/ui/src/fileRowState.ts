@@ -92,23 +92,13 @@ export function fileRowMarker(state: FileRowState): IconName | null {
   return null
 }
 
-export type FileRowTone = 'primary' | 'secondary' | 'danger'
+export type FileRowTone = 'primary' | 'danger'
 
 /**
- * The colour of each part of a row, which follows from the state.
- *
- * A failure is red throughout, because it is the row somebody has to act on. An unavailable file
- * says so in its caption alone: there is nothing to act on, so the name and control stay quiet.
+ * The colour of a row's control. Only a failure's retry is red: the name stays the body text and
+ * the caption the muted text in every state, so a failure is said in words at the contrast every
+ * other caption has, on the page and on either bubble.
  */
-export function fileRowTone(state: FileRowState): {
-  name: FileRowTone
-  caption: FileRowTone
-  control: FileRowTone
-} {
-  const failed = state === 'failed'
-  return {
-    name: failed ? 'danger' : 'primary',
-    caption: failed || state === 'unavailable' ? 'danger' : 'secondary',
-    control: failed ? 'danger' : 'primary',
-  }
+export function fileRowTone(state: FileRowState): FileRowTone {
+  return state === 'failed' ? 'danger' : 'primary'
 }

@@ -2,7 +2,7 @@ import type { ConversationId, Message } from '@session/client'
 import { useMessage, useSessionActions } from '@session/state'
 import { tr } from '@session/localization'
 import { ELEMENT } from '@session/test-ids'
-import { MessageFrame, ON_ACCENT_SECONDARY_OPACITY, Text, XStack } from '@session/ui'
+import { MessageFrame, Text, XStack } from '@session/ui'
 import { memo, useMemo, type ReactNode } from 'react'
 
 import { ConversationUiContext, type ConversationUi } from './conversationUi'
@@ -103,8 +103,7 @@ export const MessageRow = memo(function MessageRow({
           {/* On the fill, not on the page: a label only ever appears on an outgoing message. */}
           <Text
             size="$caption"
-            color="$onAccent"
-            opacity={ON_ACCENT_SECONDARY_OPACITY}
+            color="$onAccentSecondary"
             testID={ELEMENT.conversation.messageState}
           >
             {label}

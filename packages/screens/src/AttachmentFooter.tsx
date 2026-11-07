@@ -138,8 +138,8 @@ export function AttachmentFooter({
    * Set while our message's files are still uploading or failed to: the line is then about the
    * upload, and its one verb is the message's retry.
    *
-   * That Retry is not drawn destructive: the danger colour on the tonal fill is 3.3 to 4.1:1 in
-   * the four themes. The caption and the message's own state already say it failed.
+   * The line's Retry, upload or download, is never drawn destructive: the danger colour on the
+   * tonal fill is 3.3 to 4.1:1 in the four themes. The caption already says it failed.
    */
   sending?: { caption: string; retryable: boolean } | undefined
   /** Drawn on a bubble you sent rather than on the page; the buttons keep their own fill. */
@@ -203,7 +203,6 @@ export function AttachmentFooter({
           variant="tonal"
           size={ACTION_SIZE}
           hitSlop={ACTION_SLOP}
-          destructive={sending === undefined && set.state === 'failed'}
           onAccent={onAccent}
           onPress={onAction}
           testID={ELEMENT.conversation.attachmentAction}

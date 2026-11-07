@@ -15,44 +15,18 @@ type Known = string | { why: string; only: FormFactor }
 
 const KNOWN_ISSUES: Record<Audit, Readonly<Record<string, Known>>> = {
   catalog: {
-    'color-contrast message-attachment-state':
-      'textSecondary at caption size on a received bubble is 3.5 to 4.1:1 in every theme, under AA',
-    'color-contrast message-attachment': 'the format line under a lead square: the same ink',
-    'color-contrast message-attachment-show-all': "the roll's Show all count: the same ink",
-    'color-contrast message-state':
-      "our message's send state on a purple sent bubble, ocean themes, as fileRow.onAccent: 4.2:1",
-    'color-contrast message-attachment-action':
-      "a failed file's retry, the danger ink on a received bubble in a light theme: 4.0:1",
-    'color-contrast message-attachment-name':
-      "a failed file's name in the danger ink on the attachment sheet, classic-light: 4.3:1",
     'color-contrast button.variants outlineAccent':
       'the accent as ink on a light page: 1.4 to 2.3:1, worst in yellow',
     'color-contrast button.variants ghostAccent': 'the same ink as outlineAccent: down to 2.0:1',
     'color-contrast button.variants simple': 'its label on the ocean-light page: 3.3:1',
     'color-contrast button.onAccent cell': "a cell's pressed label on the red accent's fill: 2.6:1",
-    'color-contrast fileRow.onAccent fetching': 'the same as idle',
-    'color-contrast button.variants danger': 'the pressed label on the danger fill: 3.7 to 4.2:1',
     'color-contrast button.variants solid':
       "the label on the red accent's fill, ocean themes: 4.0:1",
     'color-contrast button.variants long': 'the same, on the long label',
-    'color-contrast fileRow.onAccent idle':
-      'the caption on a purple sent bubble, ocean themes: 4.2:1',
-    'color-contrast fileRow.onAccent failed': 'the same',
-    'color-contrast fileRow.onAccent uploading': 'the same',
-    'color-contrast fileRow.onAccent queued': 'the same',
-    'color-contrast fileRow.onAccent uploaded': 'the same',
-    'color-contrast fileRow.onAccent unsent': 'the same',
-    'color-contrast fileRow.received idle':
-      'the caption on a received bubble, as message-attachment-state: 4.1:1',
-    'color-contrast fileRow.received fetching': 'the same',
-    'color-contrast fileRow.received failed':
-      'the danger ink on a received bubble in a light theme, as message-attachment-action: 3.6:1',
+    'color-contrast button.variants danger': 'the pressed label on the danger fill: 3.7 to 4.2:1',
     'aria-progressbar-name button.variants loading': 'the spinner has no accessible name',
-    'color-contrast catalog-settings-row-trailing':
-      'a secondary value on a pressed row, classic-light: 4.1:1',
-    'color-contrast catalog-settings-row-arabic': 'its trailing value on a pressed row: the same',
     'color-contrast catalog-settings-row-destructive':
-      'the danger ink on a light page, at label size: 4.3:1',
+      "the danger ink on a light theme's pressed row: 3.6:1",
     'color-contrast avatar.sizes xl': 'white initials on a light avatar colour: 1.4 to 2.3:1',
     'color-contrast avatar.sizes 2xl': 'the same',
     'color-contrast avatar.sizes 3xl': 'the same',
@@ -60,12 +34,7 @@ const KNOWN_ISSUES: Record<Audit, Readonly<Record<string, Known>>> = {
     'color-contrast avatar.sizes arabic': 'the same',
     'color-contrast rail-settings': "the rail's avatar, drawn by the same component: 2.3:1",
   },
-  'showcase-desktop': {
-    'color-contrast message-attachment-state':
-      'textSecondary at caption size on a received bubble is 3.5 to 4.1:1 in every theme, under AA',
-    'color-contrast message-attachment': 'the format line under a lead square: the same ink',
-    'color-contrast message-attachment-show-all': "the roll's Show all count: the same ink",
-  },
+  'showcase-desktop': {},
   'showcase-android': {
     'target-size conversation-back': {
       why: 'drawn at 32dp; its hitSlop reaches MIN_HIT_TARGET, 40, which is under 48 and not in the bounds',

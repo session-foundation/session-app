@@ -145,7 +145,7 @@ export const fileRowReceived = defineStory<FileRowProps>({
   variants: IN_BUBBLE,
   render: (props) => (
     <MessageFrame outgoing={false}>
-      <FileRow {...props} />
+      <FileRow {...props} received />
     </MessageFrame>
   ),
 })

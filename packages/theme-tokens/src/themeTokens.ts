@@ -7,6 +7,7 @@ import {
   contrastPickAll,
   contrastPrefer,
   contrastPreferAll,
+  contrastRatio,
   contrastTo,
   step,
   tint,
@@ -141,6 +142,16 @@ const SHADOW = { light: 'rgba(0, 0, 0, 0.25)', dark: 'rgba(0, 0, 0, 1)' } as con
  */
 const HOVER_OVERLAY = { light: 'rgba(0, 0, 0, 0.04)', dark: 'rgba(255, 255, 255, 0.05)' } as const
 const PRESSED_OVERLAY = { light: 'rgba(0, 0, 0, 0.08)', dark: 'rgba(255, 255, 255, 0.1)' } as const
+
+/** `ink` laid over `fill` at `opacity`, flattened to the colour it draws. */
+function over(ink: string, fill: string, opacity: number): string {
+  const channels = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16))
+  const under = channels(fill)
+  return `#${channels(ink)
+    .map((c, i) => Math.round(c * opacity + under[i]! * (1 - opacity)))
+    .map((c) => c.toString(16).padStart(2, '0'))
+    .join('')}`
+}
 
 /** What a disabled label still has to manage, on every surface. Below AA on purpose. */
 const DISABLED_FLOOR = 2
@@ -305,6 +316,11 @@ export type ThemeTokens = {
   primaryColor: string
   /** Text or a glyph sitting *on* the accent. */
   onAccent: string
+  /**
+   * A caption on the accent: `onAccent` dimmed toward the fill, but never below 4.5:1 on it. A
+   * colour rather than an opacity, because how much an opacity can spend depends on the accent.
+   */
+  onAccentSecondary: string
   /** Text or a glyph sitting *on* the danger fill. */
   onDanger: string
   /**
@@ -452,7 +468,8 @@ function dim({
 }
 
 /** The roles that depend on the accent. Every other role is derived from the knobs alone. */
-type AccentRole = 'primaryColor' | 'onAccent' | 'accentText' | 'accentHover' | 'accentPressed'
+type AccentRole =
+  'primaryColor' | 'onAccent' | 'onAccentSecondary' | 'accentText' | 'accentHover' | 'accentPressed'
 
 /** A theme's accent-independent half, and the anchors its accent roles are measured against. */
 interface ThemeBase {
@@ -565,9 +582,12 @@ function themeBase(knobs: ThemeKnobs): ThemeBase {
       // and targeting the base alone put it at 3.9:1 there while measuring 4.6 where nothing was
       // drawn. This is also what explains the shipped light value of 5.17 that had looked merely
       // dark: 5.14 against white is exactly what 4.5 against the nested surface costs.
+      //
+      // The incoming bubble counts as a surface here: a received file's captions sit on it, and it
+      // is the furthest of them all from the page.
       textSecondary: contrastAdjustAll(
         dim({ text, background, ratio: target.mutedText, hue: t.hue, emphasis: t.emphasis }),
-        surfaces,
+        [...surfaces, incomingBg],
         CONTRAST.normal,
       ),
       // Deliberately below the AA floor -- a disabled control has to read as unavailable -- but
@@ -610,6 +630,21 @@ function themeBase(knobs: ThemeKnobs): ThemeBase {
   return base
 }
 
+/** How far a caption on a fill may fade toward it, where the fill leaves enough contrast. */
+const ON_FILL_CAPTION_OPACITY = 0.85
+
+/**
+ * `ink` faded toward `fill` as a caption, stopping where it would fall under 4.5:1. Navy on
+ * purple starts at 5.5:1, and 0.85 of it is 4.2.
+ */
+function dimmedOn(ink: string, fill: string): string {
+  for (let opacity = ON_FILL_CAPTION_OPACITY; opacity < 1; opacity += 0.01) {
+    const dimmed = over(ink, fill, opacity)
+    if (contrastRatio(dimmed, fill) >= CONTRAST.normal) return dimmed
+  }
+  return ink
+}
+
 /**
  * The whole theme from its knobs and an accent.
  *
@@ -628,10 +663,12 @@ export function deriveTokens(knobs: ThemeKnobs, accent: string): ThemeTokens {
   // and nothing to gain from stopping at the first that clears a floor. `contrastPrefer` is for
   // `accentText`, where the point is to leave a chosen accent alone if it can carry the text.
   const onAccent = contrastPickAll([text, background], [accent])
+  const onAccentSecondary = dimmedOn(onAccent, accent)
 
   return {
     primaryColor: accent,
     onAccent,
+    onAccentSecondary,
     // 4.5:1 because it is text. On a light ground Session's green cannot clear it at any size, so
     // this resolves to the body text there -- which is why a light theme looks less accented.
     accentText: contrastPreferAll([accent, text], surfaces, CONTRAST.normal),

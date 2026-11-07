@@ -3,7 +3,14 @@ import { describe, expect, it } from 'vitest'
 import { PRIMARY_COLOR_HEX, type PrimaryColorState } from '#src/colors'
 import { deriveTokens, getThemeKnobs } from '#src/themeTokens'
 
-const ACCENT_ROLES = ['primaryColor', 'onAccent', 'accentText', 'accentHover', 'accentPressed']
+const ACCENT_ROLES = [
+  'primaryColor',
+  'onAccent',
+  'onAccentSecondary',
+  'accentText',
+  'accentHover',
+  'accentPressed',
+]
 
 /**
  * The accent-independent half of a theme is derived once per set of knobs and shared by every

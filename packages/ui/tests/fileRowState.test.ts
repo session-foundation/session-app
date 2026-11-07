@@ -69,25 +69,18 @@ describe('a file row’s columns', () => {
 })
 
 describe('a file row’s colours', () => {
-  it('is red throughout after a failure', () => {
-    expect(fileRowTone('failed')).toEqual({ name: 'danger', caption: 'danger', control: 'danger' })
-  })
-
-  it('says a file is unavailable in the caption alone', () => {
-    expect(fileRowTone('unavailable')).toEqual({
-      name: 'primary',
-      caption: 'danger',
-      control: 'primary',
-    })
-  })
-
-  it('is at rest in every other state', () => {
-    for (const state of ['idle', 'fetching', 'ready'] as const)
-      expect(fileRowTone(state)).toEqual({
-        name: 'primary',
-        caption: 'secondary',
-        control: 'primary',
-      })
+  it('draws only a failure’s retry in red', () => {
+    expect(fileRowTone('failed')).toBe('danger')
+    for (const state of [
+      'idle',
+      'fetching',
+      'ready',
+      'unavailable',
+      'queued',
+      'uploaded',
+      'unsent',
+    ] as const)
+      expect(fileRowTone(state)).toBe('primary')
   })
 })
 
