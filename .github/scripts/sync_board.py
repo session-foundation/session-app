@@ -71,13 +71,16 @@ def gh(args, payload=None):
     for attempt in range(4):
         out = subprocess.run(['gh', *args], input=None if payload is None else json.dumps(payload),
                              capture_output=True, text=True)
+        failed_graphql = out.returncode != 0 and args[:2] == ['api', 'graphql']
+        reply = graphql_errors_reply(out.stdout) if failed_graphql else None
         # GitHub's GraphQL endpoint fails now and then with a generic error that a retry clears. Only
-        # a failed call is retried: a successful response can quote the phrase in an issue's text.
-        if out.returncode != 0 and 'Something went wrong' in out.stdout + out.stderr and attempt < 3:
+        # the errors are searched: data, partial or whole, can quote the phrase in an issue's text.
+        failure = ' '.join(e.get('message') or '' for e in reply['errors']) if reply else out.stdout + out.stderr
+        if out.returncode != 0 and 'Something went wrong' in failure and attempt < 3:
             time.sleep(3 * (attempt + 1))
             continue
         # gh exits 1 on any GraphQL error, even beside partial data: gql_partial judges the errors.
-        if out.returncode != 0 and args[:2] == ['api', 'graphql'] and graphql_errors_reply(out.stdout):
+        if reply:
             return out.stdout
         if out.returncode != 0:
             sys.exit(f'gh {" ".join(args[:3])} failed: {out.stdout} {out.stderr}')
@@ -93,17 +96,17 @@ def on_tolerated_node(error, tolerated):
 
 
 def gql_partial(query, tolerated, **variables):
-    """The data and the errors on single nodes of the connections named in tolerated, which GraphQL
-    answers with a null node and the rest of the data. Any other error fails the run."""
+    """The data, where an error on a single node of a connection named in tolerated leaves that node
+    null. Any other error fails the run."""
     data = json.loads(gh(['api', 'graphql', '--input', '-'], {'query': query, 'variables': variables}))
     errors = data.get('errors') or []
     if fatal := [e for e in errors if not on_tolerated_node(e, tolerated)]:
         sys.exit(json.dumps(fatal))
-    return data['data'], errors
+    return data['data']
 
 
 def gql(query, **variables):
-    return gql_partial(query, (), **variables)[0]
+    return gql_partial(query, (), **variables)
 
 
 def rest(path):
@@ -143,7 +146,7 @@ def items():
     found, after = [], None
     while True:
         # A blocker in a repository the app can't read comes back as a null node, which sync() reports.
-        page = gql_partial(ITEMS_QUERY, ('blockedBy',), p=PID, after=after)[0]['node']['items']
+        page = gql_partial(ITEMS_QUERY, ('blockedBy',), p=PID, after=after)['node']['items']
         found += [i for i in page['nodes'] if i['content']]
         if not page['pageInfo']['hasNextPage']:
             return found
