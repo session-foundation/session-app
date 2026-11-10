@@ -310,7 +310,9 @@ bundle itself: Metro inlines every `EXPO_PUBLIC_` variable, so the fake and its 
 are chosen per bundle, and a launch with other values restarts Metro. It reads the devices from
 `SESSION_E2E_{ANDROID,IOS}_{PHONE,TABLET}`, Appium from `SESSION_E2E_APPIUM_URL` and Metro's
 port from `SESSION_E2E_METRO_PORT`. There is no CI job for it: it runs against a local emulator
-or simulator.
+or simulator. Appium is installed by hand, not by the repo. On Xcode 27, iOS needs XCUITest driver
+12.22.8 or later (`appium driver install xcuitest@12.22.8`; 13 needs Appium 4): Xcode 27 replaced
+Simulator.app with DeviceHub, and an older driver fails every session while opening its window.
 
 `showcase-audit.spec.ts` audits the `showcase` fixture at two widths on desktop, and on a phone and
 a tablet of each mobile platform, in the default theme.

@@ -168,9 +168,6 @@ export class MobileApp implements ISessionApp {
               'appium:newCommandTimeout': 600,
               'appium:wdaLaunchTimeout': 600_000,
               'appium:reduceMotion': true,
-              // An XCUITest driver older than its DeviceHub support opens Simulator.app, which
-              // Xcode 27 replaced with DeviceHub, so no session starts. No spec needs the window.
-              'appium:isHeadless': true,
             },
     })
 
