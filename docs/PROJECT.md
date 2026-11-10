@@ -148,7 +148,7 @@ from the Actions tab.
 Issues and pull requests from other repositories can go on the board too. Each is looked up in its
 own repository, but only this repository's issues, and its pull requests while they're open, are
 added automatically, and only its issues get a Release. A blocker in a repository the app can't
-read is left out of Waiting on, and the run logs a warning.
+read counts as open: Waiting on says how many it can't read, and the run logs a warning.
 
 It writes with a token from the board's GitHub App, set by the `BOARD_APP_ID` and `BOARD_APP_KEY`
 secrets, and the `BOARD_PROJECT_NUMBER` variable says which project. Until all three are set, it

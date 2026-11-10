@@ -328,14 +328,17 @@ def sync():
             continue
         else:
             blocked_by = content['blockedBy'] or {'totalCount': 0, 'nodes': []}
-            if content['state'] == 'OPEN' and blocked_by['totalCount'] > len(blocked_by['nodes']):
-                print(f'warning: {ref(repo, content["number"])}: only the first {len(blocked_by["nodes"])} '
+            nodes = blocked_by['nodes'] if content['state'] == 'OPEN' else []
+            if content['state'] == 'OPEN' and blocked_by['totalCount'] > len(nodes):
+                print(f'warning: {ref(repo, content["number"])}: only the first {len(nodes)} '
                       f'of its {blocked_by["totalCount"]} blockers are read')
-            if content['state'] == 'OPEN' and (unreadable := blocked_by['nodes'].count(None)):
+            blockers = [b for b in nodes if b and b['state'] == 'OPEN']
+            # Counted as open: whether it is closed is unknown, and Ready would claim it is.
+            if unreadable := nodes.count(None):
                 print(f'warning: {ref(repo, content["number"])}: cannot read {unreadable} of its blockers')
-            blockers = [] if content['state'] != 'OPEN' else [
-                b for b in blocked_by['nodes'] if b and b['state'] == 'OPEN']
-            waiting = ', '.join(f'{ref(repo_of(b), b["number"])} {b["title"][:48]}' for b in blockers)
+            waiting = ', '.join([f'{ref(repo_of(b), b["number"])} {b["title"][:48]}' for b in blockers]
+                                + ([f"{unreadable} blocker{'s' if unreadable > 1 else ''} the app can't read"]
+                                   if unreadable else []))
             for b in blockers:
                 key = (repo_of(b), b['number'])
                 unblocks[key] = unblocks.get(key, 0) + 1
@@ -349,7 +352,7 @@ def sync():
                 # Set by hand, for work started before there is a pull request: left, and not recorded
                 # as the sync's, so it stays until someone moves it or a pull request takes over.
                 wanted, decided = current, False
-            elif blockers or content['milestone'] is None:
+            elif blockers or unreadable or content['milestone'] is None:
                 wanted = 'Backlog'
             else:
                 wanted = 'Ready'
@@ -360,7 +363,7 @@ def sync():
             set_text(item, SYNCED, wanted)
         if waiting != ((item['waiting'] or {}).get('text') or ''):
             set_text(item, 'Waiting on', waiting)
-        ranked.append((item, wanted, len(blockers) if content['__typename'] == 'Issue' else 0))
+        ranked.append((item, wanted, len(blockers) + unreadable if content['__typename'] == 'Issue' else 0))
 
     for item, status, blockers in ranked:
         content = item['content']
