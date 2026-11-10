@@ -142,14 +142,8 @@ ITEMS_QUERY = '''query($p:ID!,$after:String){node(id:$p){... on ProjectV2{items(
 def items():
     found, after = [], None
     while True:
-        # A blocker in a repository the app can't read costs only that blocker, not the run.
-        data, errors = gql_partial(ITEMS_QUERY, ('blockedBy',), p=PID, after=after)
-        page = data['node']['items']
-        for e in errors:
-            # The path runs node/items/nodes/<item>/content/blockedBy/...
-            content = page['nodes'][e['path'][e['path'].index('items') + 2]]['content']
-            print(f'warning: a blocker of {ref(repo_of(content), content["number"])} is not readable: '
-                  f'{e.get("message")}')
+        # A blocker in a repository the app can't read comes back as a null node, which sync() reports.
+        page = gql_partial(ITEMS_QUERY, ('blockedBy',), p=PID, after=after)[0]['node']['items']
         found += [i for i in page['nodes'] if i['content']]
         if not page['pageInfo']['hasNextPage']:
             return found
@@ -337,6 +331,8 @@ def sync():
             if content['state'] == 'OPEN' and blocked_by['totalCount'] > len(blocked_by['nodes']):
                 print(f'warning: {ref(repo, content["number"])}: only the first {len(blocked_by["nodes"])} '
                       f'of its {blocked_by["totalCount"]} blockers are read')
+            if content['state'] == 'OPEN' and (unreadable := blocked_by['nodes'].count(None)):
+                print(f'warning: {ref(repo, content["number"])}: cannot read {unreadable} of its blockers')
             blockers = [] if content['state'] != 'OPEN' else [
                 b for b in blocked_by['nodes'] if b and b['state'] == 'OPEN']
             waiting = ', '.join(f'{ref(repo_of(b), b["number"])} {b["title"][:48]}' for b in blockers)
