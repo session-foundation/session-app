@@ -59,6 +59,14 @@ RANK_STATUS = ['Approved', 'In review', 'In progress', 'Ready', 'Backlog', 'Done
 RANK_PRIORITY = ['P0', 'P1', 'P2']
 
 
+def graphql_errors_reply(stdout):
+    try:
+        reply = json.loads(stdout)
+    except ValueError:
+        return None
+    return reply if isinstance(reply, dict) and reply.get('errors') else None
+
+
 def gh(args, payload=None):
     for attempt in range(4):
         out = subprocess.run(['gh', *args], input=None if payload is None else json.dumps(payload),
@@ -68,17 +76,28 @@ def gh(args, payload=None):
         if out.returncode != 0 and 'Something went wrong' in out.stdout + out.stderr and attempt < 3:
             time.sleep(3 * (attempt + 1))
             continue
+        # gh exits 1 on any GraphQL error, even beside partial data: gql_partial judges the errors.
+        if out.returncode != 0 and args[:2] == ['api', 'graphql'] and graphql_errors_reply(out.stdout):
+            return out.stdout
         if out.returncode != 0:
             sys.exit(f'gh {" ".join(args[:3])} failed: {out.stdout} {out.stderr}')
         return out.stdout
 
 
+def on_tolerated_node(error, tolerated):
+    """Whether the error is on one node of a connection named in tolerated (<field>/nodes/<n>/...).
+    One on the connection itself nulls the whole parent, since the field is non-null."""
+    path = error.get('path') or []
+    return any(field in tolerated and path[at + 1:at + 2] == ['nodes'] and len(path) > at + 2
+               for at, field in enumerate(path))
+
+
 def gql_partial(query, tolerated, **variables):
-    """The data and the errors whose path runs through a field named in tolerated, for which GraphQL
-    nulls that part and still answers the rest. Any other error fails the run."""
+    """The data and the errors on single nodes of the connections named in tolerated, which GraphQL
+    answers with a null node and the rest of the data. Any other error fails the run."""
     data = json.loads(gh(['api', 'graphql', '--input', '-'], {'query': query, 'variables': variables}))
     errors = data.get('errors') or []
-    if fatal := [e for e in errors if not set(e.get('path') or []) & set(tolerated)]:
+    if fatal := [e for e in errors if not on_tolerated_node(e, tolerated)]:
         sys.exit(json.dumps(fatal))
     return data['data'], errors
 
