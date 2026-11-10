@@ -73,16 +73,18 @@ def gh(args, payload=None):
         return out.stdout
 
 
-def gql(query, tolerated=(), **variables):
-    """Fails on any error, except those whose path runs through a field named in tolerated, which
-    are logged: GraphQL nulls that part and still answers the rest."""
+def gql_partial(query, tolerated, **variables):
+    """The data and the errors whose path runs through a field named in tolerated, for which GraphQL
+    nulls that part and still answers the rest. Any other error fails the run."""
     data = json.loads(gh(['api', 'graphql', '--input', '-'], {'query': query, 'variables': variables}))
     errors = data.get('errors') or []
     if fatal := [e for e in errors if not set(e.get('path') or []) & set(tolerated)]:
         sys.exit(json.dumps(fatal))
-    for e in errors:
-        print(f'warning: {e.get("message")} at {"/".join(map(str, e["path"]))}')
-    return data['data']
+    return data['data'], errors
+
+
+def gql(query, **variables):
+    return gql_partial(query, (), **variables)[0]
 
 
 def rest(path):
@@ -113,7 +115,7 @@ ITEMS_QUERY = '''query($p:ID!,$after:String){node(id:$p){... on ProjectV2{items(
     content{
       ... on Issue{__typename id number state repository{nameWithOwner} milestone{title}
         labels(first:20){nodes{name}}
-        blockedBy(first:50){nodes{number title state repository{nameWithOwner}}}}
+        blockedBy(first:50){totalCount nodes{number title state repository{nameWithOwner}}}}
       ... on PullRequest{__typename id number state isDraft reviewDecision repository{nameWithOwner}
         closingIssuesReferences(first:20){nodes{number repository{nameWithOwner}}}}}}}}}}'''
 
@@ -122,7 +124,13 @@ def items():
     found, after = [], None
     while True:
         # A blocker in a repository the app can't read costs only that blocker, not the run.
-        page = gql(ITEMS_QUERY, tolerated=('blockedBy',), p=PID, after=after)['node']['items']
+        data, errors = gql_partial(ITEMS_QUERY, ('blockedBy',), p=PID, after=after)
+        page = data['node']['items']
+        for e in errors:
+            # The path runs node/items/nodes/<item>/content/blockedBy/...
+            content = page['nodes'][e['path'][e['path'].index('items') + 2]]['content']
+            print(f'warning: a blocker of {ref(repo_of(content), content["number"])} is not readable: '
+                  f'{e.get("message")}')
         found += [i for i in page['nodes'] if i['content']]
         if not page['pageInfo']['hasNextPage']:
             return found
@@ -306,8 +314,12 @@ def sync():
         elif AREA_LABEL in [l['name'] for l in content['labels']['nodes']]:
             continue
         else:
+            blocked_by = content['blockedBy'] or {'totalCount': 0, 'nodes': []}
+            if content['state'] == 'OPEN' and blocked_by['totalCount'] > len(blocked_by['nodes']):
+                print(f'warning: {ref(repo, content["number"])}: only the first {len(blocked_by["nodes"])} '
+                      f'of its {blocked_by["totalCount"]} blockers are read')
             blockers = [] if content['state'] != 'OPEN' else [
-                b for b in ((content['blockedBy'] or {}).get('nodes') or []) if b and b['state'] == 'OPEN']
+                b for b in blocked_by['nodes'] if b and b['state'] == 'OPEN']
             waiting = ', '.join(f'{ref(repo_of(b), b["number"])} {b["title"][:48]}' for b in blockers)
             for b in blockers:
                 key = (repo_of(b), b['number'])
