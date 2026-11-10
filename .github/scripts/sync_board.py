@@ -25,6 +25,13 @@ Closing a release's milestone folds the closed issues of Next into it (FOLD_INTO
 made between releases ship with the release that follows them. That run does only the fold: the
 milestones it changes start ordinary syncs.
 
+- "Rank" orders the work for the views that sort by it, lowest first: by Status (what's nearly done
+  first, then what can be picked up, then what's waiting), then release (in the Release field's
+  order), then Priority, then the fewest open blockers, then the most open issues it unblocks, then
+  the easiest.
+- An archived item is left alone, since GitHub refuses any change to one, unless its issue or pull
+  request is open: anything open is work, so it is unarchived and kept in step again.
+
 Blocked-by links fire no event, so the workflow also runs on a schedule. With POST_STATUS=1 it
 posts a progress update to the project instead.
 """
@@ -45,7 +52,11 @@ ORDER = ['Backlog', 'Ready', 'In progress', 'In review', 'Approved', 'Done']
 # A hidden text field holding the Status the sync last decided for an issue, which is how an In
 # progress set by hand is told from one the sync set for a pull request.
 SYNCED = 'Synced status'
-REQUIRED_FIELDS = ['Status', 'Waiting on', 'Release', SYNCED]
+RANK = 'Rank'
+REQUIRED_FIELDS = ['Status', 'Waiting on', 'Release', SYNCED, RANK]
+# Rank's order, lowest first. Approved and In review are nearly done, so they lead.
+RANK_STATUS = ['Approved', 'In review', 'In progress', 'Ready', 'Backlog', 'Done']
+RANK_PRIORITY = ['P0', 'P1', 'P2']
 
 
 def gh(args, payload=None):
@@ -91,8 +102,11 @@ OPTION = {o['name']: o['id'] for o in STATUS['options']}
 
 ITEMS_QUERY = '''query($p:ID!,$after:String){node(id:$p){... on ProjectV2{items(first:100,after:$after){
   pageInfo{hasNextPage endCursor}
-  nodes{id
+  nodes{id isArchived
     status:fieldValueByName(name:"Status"){... on ProjectV2ItemFieldSingleSelectValue{name}}
+    priority:fieldValueByName(name:"Priority"){... on ProjectV2ItemFieldSingleSelectValue{name}}
+    difficulty:fieldValueByName(name:"Difficulty"){... on ProjectV2ItemFieldSingleSelectValue{name}}
+    rank:fieldValueByName(name:"Rank"){... on ProjectV2ItemFieldNumberValue{number}}
     waiting:fieldValueByName(name:"Waiting on"){... on ProjectV2ItemFieldTextValue{text}}
     release:fieldValueByName(name:"Release"){... on ProjectV2ItemFieldSingleSelectValue{optionId}}
     synced:fieldValueByName(name:"Synced status"){... on ProjectV2ItemFieldTextValue{text}}
@@ -129,6 +143,27 @@ def set_text(item, field, text):
     else:
         gql('mutation($p:ID!,$i:ID!,$f:ID!){clearProjectV2ItemFieldValue(input:{projectId:$p,itemId:$i,'
             'fieldId:$f}){projectV2Item{id}}}', p=PID, i=item['id'], f=FIELDS[field]['id'])
+
+
+def set_number(item, field, number):
+    gql('mutation($p:ID!,$i:ID!,$f:ID!,$n:Float!){updateProjectV2ItemFieldValue(input:{projectId:$p,'
+        'itemId:$i,fieldId:$f,value:{number:$n}}){projectV2Item{id}}}',
+        p=PID, i=item['id'], f=FIELDS[field]['id'], n=number)
+
+
+def rank(status, release, priority, difficulty, blockers, unblocks):
+    """
+    One number for an order a view can't express itself, lowest first. Each part has its own digits,
+    so an earlier part always outweighs every later one: status, release (its place in the Release
+    field's order, so a later release's P0 never comes before the next one's P1), priority, open
+    blockers (fewest first), open issues it unblocks (most first), difficulty (easiest first).
+    """
+    s = RANK_STATUS.index(status) if status in RANK_STATUS else len(RANK_STATUS)
+    p = next((at for at, name in enumerate(RANK_PRIORITY) if (priority or '').startswith(name)),
+             len(RANK_PRIORITY))
+    d = int(difficulty[0]) if difficulty and difficulty[0].isdigit() else 6
+    return (s * 10**8 + min(release, 99) * 10**6 + p * 10**5 + min(blockers, 99) * 10**3
+            + (99 - min(unblocks, 99)) * 10 + d)
 
 
 def repo_of(content):
@@ -230,6 +265,17 @@ def sync():
     if added:
         time.sleep(5)
     board = items()
+    for item in board:
+        content = item['content']
+        if item['isArchived'] and content['state'] == 'OPEN':
+            # Anything open is work, so it is always on the board: reopened since it was archived, or
+            # archived by hand while open
+            gql('mutation($p:ID!,$i:ID!){unarchiveProjectV2Item(input:{projectId:$p,itemId:$i}){item{id}}}',
+                p=PID, i=item['id'])
+            item['isArchived'] = False
+            print(f'unarchived {ref(repo_of(content), content["number"])}')
+    # GitHub refuses any change to an archived item
+    board = [i for i in board if not i['isArchived']]
     # Keyed by repository and number: the board can hold another repository's issues and PRs.
     closing = {}
     for i in board:
@@ -238,7 +284,7 @@ def sync():
             for issue in pr['closingIssuesReferences']['nodes']:
                 closing.setdefault((repo_of(issue), issue['number']), []).append(pr)
 
-    release_options, _ = sync_release_options()
+    release_options, release_order = sync_release_options()
     for item in board:
         content = item['content']
         if content['__typename'] != 'Issue' or repo_of(content) != REPO:
@@ -247,6 +293,8 @@ def sync():
         if wanted != (item['release'] or {}).get('optionId'):
             set_release(item, wanted)
 
+    ranked = []                     # (item, status, open blocker count)
+    unblocks = {}                   # (repo, number) -> how many open issues it blocks
     for item in board:
         content = item['content']
         repo = repo_of(content)
@@ -261,6 +309,9 @@ def sync():
             blockers = [] if content['state'] != 'OPEN' else [
                 b for b in ((content['blockedBy'] or {}).get('nodes') or []) if b and b['state'] == 'OPEN']
             waiting = ', '.join(f'{ref(repo_of(b), b["number"])} {b["title"][:48]}' for b in blockers)
+            for b in blockers:
+                key = (repo_of(b), b['number'])
+                unblocks[key] = unblocks.get(key, 0) + 1
             prs = closing.get((repo, content['number']))
             decided = True
             if content['state'] != 'OPEN':
@@ -282,6 +333,18 @@ def sync():
             set_text(item, SYNCED, wanted)
         if waiting != ((item['waiting'] or {}).get('text') or ''):
             set_text(item, 'Waiting on', waiting)
+        ranked.append((item, wanted, len(blockers) if content['__typename'] == 'Issue' else 0))
+
+    for item, status, blockers in ranked:
+        content = item['content']
+        # Unscheduled work, another repository's issues and pull requests come after every release
+        milestone = (content.get('milestone') or {}).get('title') if repo_of(content) == REPO else None
+        release = release_order.index(milestone) if milestone in release_order else len(release_order)
+        value = rank(status, release, (item['priority'] or {}).get('name'),
+                     (item['difficulty'] or {}).get('name'), blockers,
+                     unblocks.get((repo_of(content), content['number']), 0))
+        if value != (item['rank'] or {}).get('number'):
+            set_number(item, RANK, value)
 
 
 def post_status():

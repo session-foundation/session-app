@@ -14,7 +14,7 @@ the sync does, and the few things it can't do.
 | What kind of work?        | A **label**: `feature`, `design`, `architecture`, `bug`                            | The issue forms set it, so a report arrives already labelled            |
 | Does it need libsession?  | The **`libsession`** label, and a **blocked by** link                              | The workstream issue it is blocked by says what libsession is missing   |
 | What has to happen first? | **Blocked by** links between issues                                                | Shown on the issue and on the board as **Waiting on**                   |
-| How important is it?      | The board's **Priority** field, then the order within a column                     | The milestone says _when_; priority says what goes first within it      |
+| How important is it?      | The board's **Priority** field, which the sync folds into **Rank**                 | The milestone says _when_; priority says what goes first within it      |
 | How big is it?            | The board's **Difficulty** field, 1 Trivial to 5 Very high                         |                                                                         |
 | Where is it up to?        | The board's **Status** field                                                       | Set by the sync; see below                                              |
 
@@ -61,7 +61,11 @@ grouped by milestone can only be ordered by due date, and milestones have none.
   if that pull request is closed unmerged or stops saying it fixes the issue. The sync records the
   Status it last set in a hidden **Synced status** field, which is how it tells the two apart.
 - **An issue follows the pull request that will close it** (`Fixes #12` in its description, which
-  can be added after it is opened).
+  can be added after it is opened). Use a closing keyword only when the pull request finishes the
+  issue: merging closes it as Done.
+- **A pull request that does part of an issue mentions it without a closing keyword**
+  (`Part of #12`). The mention shows on the issue's timeline without closing it on merge; update the
+  issue's **Progress** section (what's built, what's left) when it merges.
 - **Some changes take up to an hour to show:** blocked-by links, adding or removing the `area`
   label, and transferring an issue fire no event the sync runs on, so its hourly run picks them up.
   Everything else shows within a minute or so.
@@ -72,17 +76,62 @@ New reports come in through the issue forms with the `triage` label and no miles
 Backlog. Triage gives each one a milestone (Next or a release), leaves it in Backlog with a
 priority, or closes it. That is the one step the board can't do for itself.
 
+## The order work is listed in
+
+A view sorts by one field, and "most important, least blocked" isn't one, so the sync keeps a hidden
+**Rank** number for every card, and the working views sort by it, lowest first. It orders by:
+
+1. **Status**: Approved, In review, In progress, Ready, Backlog, Done. What's nearly finished comes
+   first, then what can be picked up, then what's waiting.
+2. **Release**: in the order of the Release field's options (the dragged order), then unscheduled
+   work. A later release's P0 never comes before the next release's P1.
+3. **Priority**: P0, P1, P2, then no priority.
+4. **Open blockers**: fewest first.
+5. **Open issues it unblocks**: most first, since finishing it frees the most work.
+6. **Difficulty**: easiest first, which matters most where no priority is set.
+
+Priority is relative to the issue's milestone: P0 means that release isn't done without it, P1 that
+it can slip to the next release, P2 that it's for when there's room.
+
 ## Views
 
-- **Releases**: every issue grouped by release in the dragged order, sorted by Priority. Unscheduled
+- **Releases**: every issue grouped by release in the dragged order, sorted by Rank. Unscheduled
   issues are in the group with no release.
-- **Board**: every issue by Status.
+- **Board**: every issue by Status, sorted by Rank within each column.
 - **Areas**: the area issues, each with its progress bar.
-- **Up next**: Ready issues at the top priority, for picking up something to do.
+- **Up next**: Ready issues sorted by Rank, for picking up something to do.
 - **My reviews**: pull requests waiting on your review. One leaves it when you approve or request
   changes.
 - **Planning**: open issues with no milestone, to group by Priority when choosing what goes into the
   next release.
+
+## Done, and archiving
+
+Closed issues and pull requests stay on the board, in Done, until they're archived. The project's
+**Auto-archive items** workflow (Project settings → Workflows) does it, for example with the
+filter `is:closed updated:<@today-14d`. An archived card disappears from every view but still counts
+towards its release's progress. GitHub refuses any change to an archived card, so the sync leaves
+them alone.
+
+**Anything open is always on the board.** The sync unarchives the card of any open issue or pull
+request, whether it was reopened or archived by hand while open, so open work is never hidden. To
+take an issue off the board, close it as not planned; an idea that isn't scheduled can stay open
+with no milestone, where Planning lists it.
+
+### The project's other workflows
+
+The sync sets Status, so GitHub's own workflows that set it stay off: two writers would undo each
+other.
+
+| Workflow                       | State | Why                                                                                                          |
+| ------------------------------ | ----- | ------------------------------------------------------------------------------------------------------------ |
+| Auto-add sub-issues to project | On    | A sub-issue from another repository, such as libsession, joins the board                                     |
+| Auto-archive items             | On    | Keeps Done short; see above                                                                                  |
+| Item added to project          | Off   | The sync sets the first Status                                                                               |
+| Item closed                    | Off   | The sync moves closed issues to Done                                                                         |
+| Pull request merged            | Off   | The sync moves merged pull requests to Done                                                                  |
+| Pull request linked to issue   | Off   | The sync gives an issue its pull request's Status                                                            |
+| Auto-close issue               | Off   | It would close an issue whose card is dragged to Done, the reverse of the rule that Status follows the issue |
 
 ## The sync
 
@@ -109,4 +158,5 @@ skips. The project needs these fields, or the sync stops and names the missing o
 - **Release**, single select, whose options the sync fills from the milestones;
 - **Waiting on**, text;
 - **Synced status**, text, hidden from every view;
+- **Rank**, number, hidden from every view and sorted by;
 - **Priority** and **Difficulty**, single select, which the sync doesn't touch.
