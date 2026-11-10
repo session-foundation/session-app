@@ -48,7 +48,7 @@ SYNCED = 'Synced status'
 REQUIRED_FIELDS = ['Status', 'Waiting on', 'Release', SYNCED]
 
 
-def gh(args, payload=None, allow_fail=False):
+def gh(args, payload=None):
     for attempt in range(4):
         out = subprocess.run(['gh', *args], input=None if payload is None else json.dumps(payload),
                              capture_output=True, text=True)
@@ -58,23 +58,24 @@ def gh(args, payload=None, allow_fail=False):
             time.sleep(3 * (attempt + 1))
             continue
         if out.returncode != 0:
-            if allow_fail:
-                print(f'warning: gh {" ".join(args[:3])} failed: {out.stderr.strip()}')
-                return None
             sys.exit(f'gh {" ".join(args[:3])} failed: {out.stdout} {out.stderr}')
         return out.stdout
 
 
-def gql(query, **variables):
+def gql(query, tolerated=(), **variables):
+    """Fails on any error, except those whose path runs through a field named in tolerated, which
+    are logged: GraphQL nulls that part and still answers the rest."""
     data = json.loads(gh(['api', 'graphql', '--input', '-'], {'query': query, 'variables': variables}))
-    if data.get('errors'):
-        sys.exit(json.dumps(data['errors']))
+    errors = data.get('errors') or []
+    if fatal := [e for e in errors if not set(e.get('path') or []) & set(tolerated)]:
+        sys.exit(json.dumps(fatal))
+    for e in errors:
+        print(f'warning: {e.get("message")} at {"/".join(map(str, e["path"]))}')
     return data['data']
 
 
-def rest(path, allow_fail=False):
-    out = gh(['api', '--paginate', '--slurp', path], allow_fail=allow_fail)
-    return [] if out is None else json.loads(out)
+def rest(path):
+    return json.loads(gh(['api', '--paginate', '--slurp', path]))
 
 
 PROJECT = gql(
@@ -97,7 +98,8 @@ ITEMS_QUERY = '''query($p:ID!,$after:String){node(id:$p){... on ProjectV2{items(
     synced:fieldValueByName(name:"Synced status"){... on ProjectV2ItemFieldTextValue{text}}
     content{
       ... on Issue{__typename id number state repository{nameWithOwner} milestone{title}
-        labels(first:20){nodes{name}}}
+        labels(first:20){nodes{name}}
+        blockedBy(first:50){nodes{number title state repository{nameWithOwner}}}}
       ... on PullRequest{__typename id number state isDraft reviewDecision repository{nameWithOwner}
         closingIssuesReferences(first:20){nodes{number repository{nameWithOwner}}}}}}}}}}'''
 
@@ -105,7 +107,8 @@ ITEMS_QUERY = '''query($p:ID!,$after:String){node(id:$p){... on ProjectV2{items(
 def items():
     found, after = [], None
     while True:
-        page = gql(ITEMS_QUERY, p=PID, after=after)['node']['items']
+        # A blocker in a repository the app can't read costs only that blocker, not the run.
+        page = gql(ITEMS_QUERY, tolerated=('blockedBy',), p=PID, after=after)['node']['items']
         found += [i for i in page['nodes'] if i['content']]
         if not page['pageInfo']['hasNextPage']:
             return found
@@ -255,15 +258,9 @@ def sync():
         elif AREA_LABEL in [l['name'] for l in content['labels']['nodes']]:
             continue
         else:
-            # Another repository's issue may be one the app can't read: that costs its blockers, not
-            # the whole run.
             blockers = [] if content['state'] != 'OPEN' else [
-                b for page in rest(f'repos/{repo}/issues/{content["number"]}/dependencies/blocked_by?per_page=100',
-                                   allow_fail=repo != REPO)
-                for b in page if b['state'] == 'open']
-            waiting = ', '.join(
-                f'{ref(b["repository_url"].split("/repos/", 1)[1], b["number"])} {b["title"][:48]}'
-                for b in blockers)
+                b for b in ((content['blockedBy'] or {}).get('nodes') or []) if b and b['state'] == 'OPEN']
+            waiting = ', '.join(f'{ref(repo_of(b), b["number"])} {b["title"][:48]}' for b in blockers)
             prs = closing.get((repo, content['number']))
             decided = True
             if content['state'] != 'OPEN':
