@@ -32,7 +32,15 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ccache ninja-build
+      # A hosted runner now and then fails to resolve the Ubuntu mirrors for a minute. The loop
+      # wraps both commands because apt-get update exits 0 when its index fetches fail.
+      - name: Install ccache and ninja
+        run: |
+          for attempt in 1 2 3 4 5; do
+            sudo apt-get update && sudo apt-get install -y --no-install-recommends ccache ninja-build && exit 0
+            sleep $((attempt * 15))
+          done
+          exit 1
 
       # libvips' glib builds with meson >= 1.4, newer than the runner's apt carries.
       - run: pipx install 'meson>=1.4'
