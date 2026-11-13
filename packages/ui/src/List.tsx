@@ -600,13 +600,16 @@ export function List<T>({
   const onRowGone = useCallback((key: string) => {
     rowHeights.current.delete(key)
   }, [])
+  // These two take the place of the handlers a list that starts at its end sets, so they call them.
   const onMomentumScrollEnd = useCallback(() => {
+    onTouchEnd()
     arrival.current?.()
-  }, [])
+  }, [onTouchEnd])
   // The reader has taken the scroll: a height that arrives now must not move it.
   const onScrollBeginDrag = useCallback(() => {
+    onTouchBegin()
     if (target.current !== null) target.current.unmeasured = false
-  }, [])
+  }, [onTouchBegin])
 
   useLayoutEffect(() => {
     if (focus !== null) focus.rowMenu = onRowMenu ?? null
