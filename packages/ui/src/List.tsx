@@ -34,7 +34,8 @@ export interface ListHandle {
    * Brings a row to the middle of the list, or its top to the list's top where the row is taller
    * than the list. `animated` animates a short move only: a row more than about a list's height
    * away is jumped to. `focus` moves the desktop keyboard's focus to the row's stop once it is
-   * drawn, and `onArrived` is called once the list has stopped on the row.
+   * drawn, and `onArrived` is called once the row can be seen: at once for a row already on
+   * screen, which is left where it is when all of it is, and otherwise when the list stops on it.
    */
   scrollToKey: (
     key: string,
@@ -260,6 +261,8 @@ export function List<T>({
   const rowNodes = useRef(new Map<string, unknown>())
   const onScreen = useRef<{ first: number; last: number } | null>(null)
   const target = useRef<ScrollTarget | null>(null)
+  /** Native: what to call once the scroll to a row has stopped. */
+  const arrival = useRef<(() => void) | null>(null)
   // On its way to the end, by `scrollToEnd`: an animated scroll reports every offset it passes,
   // none of them the end, and the rows drawn as it nears change where the end is.
   const seekingEnd = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -444,8 +447,17 @@ export function List<T>({
         const block = node.offsetHeight > scroller.clientHeight ? 'start' : 'center'
         const row = node.getBoundingClientRect()
         const box = scroller.getBoundingClientRect()
+        // A row the reader can already see has arrived: the rest of it is brought in alongside,
+        // and one wholly on screen is left where it is.
+        const seen = row.bottom > box.top && row.top < box.bottom
+        if (seen) onArrived?.()
+        if (row.top >= box.top && row.bottom <= box.bottom) return
         const awayPx = Math.abs((row.top + row.bottom) / 2 - (box.top + box.bottom) / 2)
         const smooth = animated && awayPx <= box.bottom - box.top
+        if (seen) {
+          node.scrollIntoView({ block, behavior: smooth ? 'smooth' : 'auto' })
+          return
+        }
         if (smooth && onArrived !== undefined) {
           // Whichever comes first: a row already in place scrolls nowhere and ends no scroll.
           let arrived = false
@@ -487,12 +499,27 @@ export function List<T>({
         if (isWeb) scrollToRowElement(key, animated, onArrived)
         else {
           const shown = onScreen.current
-          const near =
-            shown !== null && index >= shown.first - NEAR_ROWS && index <= shown.last + NEAR_ROWS
-          scrollToTarget(animated && near)
-          // Native reports no end of a scroll it was told to make, animated or not.
-          if (onArrived !== undefined)
-            setTimeout(onArrived, animated && near ? ANIMATED_SCROLL_MS : SCROLL_RETRY_MS * 2)
+          // A row the reader can already see has arrived: the rest of it is brought in alongside,
+          // and one between two rows on screen, so wholly on screen, is left where it is.
+          const seen = shown !== null && index >= shown.first && index <= shown.last
+          if (seen) onArrived?.()
+          if (shown !== null && index > shown.first && index < shown.last) target.current = null
+          else {
+            const near =
+              shown !== null && index >= shown.first - NEAR_ROWS && index <= shown.last + NEAR_ROWS
+            scrollToTarget(animated && near)
+            if (onArrived !== undefined && !seen) {
+              // An animated scroll says when it stops; the wait is for one that moved nowhere, and
+              // for a jump, which reports no end at all.
+              const arrive = () => {
+                if (arrival.current !== arrive) return
+                arrival.current = null
+                onArrived()
+              }
+              arrival.current = arrive
+              setTimeout(arrive, animated && near ? ANIMATED_SCROLL_MS : SCROLL_RETRY_MS * 2)
+            }
+          }
         }
         if (!focusRow || focus === null) return
         let frames = 0
@@ -538,6 +565,9 @@ export function List<T>({
   )
   const onRowGone = useCallback((key: string) => {
     rowHeights.current.delete(key)
+  }, [])
+  const onMomentumScrollEnd = useCallback(() => {
+    arrival.current?.()
   }, [])
   // The reader has taken the scroll: a height that arrives now must not move it.
   const onScrollBeginDrag = useCallback(() => {
@@ -613,6 +643,7 @@ export function List<T>({
             onViewableItemsChanged,
             viewabilityConfig: VIEWABILITY,
             onScrollBeginDrag,
+            onMomentumScrollEnd,
           }
         : {})}
       data={data}

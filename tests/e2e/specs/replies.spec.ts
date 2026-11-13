@@ -9,6 +9,9 @@ import { launchLongConversation as launch, messageSaying as row } from '../harne
 const CONVERSATION = ELEMENT.conversation
 const MENU = ELEMENT.contextMenu
 
+/** Under the half second an animated scroll is given to stop, the click's own time included. */
+const HIGHLIGHT_AT_ONCE_MS = 450
+
 const quoteOf = (app: DesktopApp, body: string): Locator =>
   row(app, body).getByTestId(CONVERSATION.messageQuote)
 
@@ -109,7 +112,10 @@ test('only highlights an original already on screen, with no button and nothing 
     // The picture it answers is the row above it.
     await expect(row(app, REPLIES.view)).toBeInViewport()
     await quoteOf(app, REPLIES.whereIsThis).click()
-    await expect(row(app, REPLIES.view).getByTestId(CONVERSATION.messageHighlight)).toHaveCount(1)
+    // At once: it can be seen already, so the scroll that brings the rest in is not waited for.
+    await expect(row(app, REPLIES.view).getByTestId(CONVERSATION.messageHighlight)).toHaveCount(1, {
+      timeout: HIGHLIGHT_AT_ONCE_MS,
+    })
     await expect(button).toHaveCount(0)
 
     // Far enough up for the button: it goes to the newest message, not back to that reply.
