@@ -73,6 +73,12 @@ dev entries. When a rule fires, fix the design - not the config.
   main, and an `ipc` handler that does not call `isFromAppFrame`.
 - A port method one platform cannot honour is dropped or made nullable, never implemented to
   always fail.
+- **A list row stays cheap.** Nothing is mounted once per row that can live once on the list or
+  the screen: no gesture detector, animated value or style, wrapper view, context provider, effect
+  or timer on a message row, a conversation row or an album tile. A list is shown after drawing a
+  screenful, not a page. A change to a row component or to a list's first render carries its open
+  time measured on a phone against the base, in the PR: the catalog and the desktop e2e show
+  neither cost.
 
 ## Porting a screen
 
