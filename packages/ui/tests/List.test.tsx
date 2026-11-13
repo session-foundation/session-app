@@ -184,7 +184,7 @@ describe('List with roving focus', () => {
 })
 
 describe('List that starts at its end', () => {
-  const LIST = 'paged-list'
+  const LIST = ELEMENT.conversation.screen
   const paged = (count: number): Item[] =>
     Array.from({ length: count }, (_, index) => ({ id: `m${String(index)}` }))
 
