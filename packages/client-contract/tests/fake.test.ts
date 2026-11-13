@@ -18,7 +18,7 @@ import {
 import type { Attachment, SessionClient } from '@session/client'
 import { describe, expect, it } from 'vitest'
 
-import { runSessionClientContract, type ContractHarness } from '#src/index'
+import { recoveryWords, runSessionClientContract, type ContractHarness } from '#src/index'
 
 const ARRIVING_IMAGE: Attachment = {
   index: 0,
@@ -101,7 +101,7 @@ const harness: ContractHarness = {
     const client = Object.values(clients)[0]
     if (!client) throw new Error('fixture did not produce a client')
     // The fake's own phrase, which is the only one it can be asked to agree is genuine.
-    return { client, phrase: await client.getSeedMnemonic() }
+    return { client, phrase: await recoveryWords(client) }
   },
 
   unopenable() {

@@ -37,6 +37,11 @@ export const PENDING_COPY = {
    * about logs.
    */
   export: 'Export',
+  /**
+   * Where the Recovery Password row was, once it is hidden: people who hid it write in asking where
+   * it went, and the answer is often another device they are still signed in on.
+   */
+  recoveryPasswordHiddenOnDevice: 'Recovery Password hidden on this device',
   exporting: 'Exporting',
   exportFailed: 'Export failed',
   previous: 'Previous',

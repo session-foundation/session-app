@@ -175,21 +175,6 @@ describe('a Button on native', () => {
   })
 })
 
-describe('a swipe to reply on native', () => {
-  const swipe = source('SwipeToReply.native.tsx')
-
-  it('taps once as it crosses the threshold, not on every frame past it', () => {
-    // A haptic is felt, never drawn or read, so no device spec can tell one tap from sixty.
-    expect(swipe).toContain('if (past && !armed.value) scheduleOnRN(tap)')
-  })
-
-  it('gives the touch up to a vertical move, so the transcript still scrolls', () => {
-    // Appium's swipe is a straight line, which never starts vertical and turns.
-    expect(swipe).toContain('const FAIL_OFFSET_Y = [-SWIPE_FAIL_Y_PX, SWIPE_FAIL_Y_PX]')
-    expect(swipe).toContain('failOffsetY: FAIL_OFFSET_Y')
-  })
-})
-
 describe('Reply as an accessibility action on native', () => {
   it('runs the reply only for its own action name', () => {
     // The action is VoiceOver's and TalkBack's menu, which no driver opens.

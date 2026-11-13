@@ -1,12 +1,12 @@
-import { useState } from 'react'
-import { Modal as NativeModal } from 'react-native'
+import { useState, type ReactNode } from 'react'
 import { isWeb, XStack, YStack } from 'tamagui'
 
 import type { ElementId } from '@session/test-ids'
-import { SPACING } from '@session/theme-tokens'
 
 import { TILE_SCRIM } from './attachmentTileStyle'
 import { backChevron, forwardChevron } from './backChevron'
+import { BarButton } from './BarButton'
+import { FULL_SCREEN_BAR, FullScreenBar, FullScreenModal } from './FullScreen'
 import { Icon } from './Icon'
 import type { IconName } from './Icon.types'
 import { SIZE_SCALE } from './scales'
@@ -46,13 +46,15 @@ export interface MediaViewerProps {
   imageTestID: ElementId
   /** On the line saying an item is being prepared. */
   preparingTestID?: ElementId | undefined
+  /** See `FullScreenModal`'s: so an export failure is seen while the picture is still up. */
+  toasts?: ReactNode | undefined
 }
 
-export type MediaViewerBodyProps = Omit<MediaViewerProps, 'open'>
+export type MediaViewerBodyProps = Omit<MediaViewerProps, 'open' | 'toasts'>
 
 /**
- * Grows a control drawn at `$xl` to Android's 48 target, which clears Apple's 44. Touch only, and
- * only as far as the control's parent: `HEADER_HEIGHT` is what lets the header's two reach it.
+ * Grows a chevron drawn at `$xl` to Android's 48 target, which clears Apple's 44. Touch only, and
+ * only as far as the control's parent.
  */
 const CONTROL_SLOP = (SIZE_SCALE['3xl'] - SIZE_SCALE.xl) / 2
 
@@ -97,15 +99,6 @@ function Control({
 }
 
 /**
- * The chrome along the top, as a fixed height.
- *
- * A number because the picture below is measured against it, and a header that took its height
- * from its content would make that measurement a guess. On touch, the 48 a control's slop grows
- * it to, since a slop is clipped to the row; on the web, `$xl` control plus the air around it.
- */
-const HEADER_HEIGHT = isWeb ? SIZE_SCALE.xl + SPACING.sm : SIZE_SCALE['3xl']
-
-/**
  * The viewer's chrome, picture and chevrons, filling its parent. `MediaViewer` shows it over the
  * window; on its own it is what a page draws a viewer state in.
  *
@@ -141,7 +134,7 @@ export function MediaViewerBody({
 }: MediaViewerBodyProps) {
   const { width, height } = useWindowSize()
   // The box the picture gets, measured, since the safe area's insets are the platform's to know.
-  const [box, setBox] = useState({ width, height: Math.max(height - HEADER_HEIGHT, 0) })
+  const [box, setBox] = useState({ width, height: Math.max(height - FULL_SCREEN_BAR.height, 0) })
   const current = items[index]
   // By url, so paging to another picture is not drawn as failed, and one that is fetched again
   // under a new url is tried again.
@@ -156,13 +149,25 @@ export function MediaViewerBody({
         <YStack position="relative" flex={1}>
           {/* Along the top, and nothing along the bottom: the bottom edge is where a thumb
               rests. */}
-          <XStack height={HEADER_HEIGHT} alignItems="center" gap="$xs" paddingHorizontal="$sm">
-            <Control icon="x" label={closeLabel} onPress={onClose} testID={closeTestID} />
-            <Text size="$label" color="$textSecondary" flex={1}>
-              {positionLabel}
-            </Text>
-            <Control icon="download" label={exportLabel} onPress={onExport} testID={exportTestID} />
-          </XStack>
+          <FullScreenBar
+            onClose={onClose}
+            closeLabel={closeLabel}
+            closeTestID={closeTestID}
+            title={
+              <Text size="$label" color="$textSecondary">
+                {positionLabel}
+              </Text>
+            }
+            trailing={
+              <BarButton
+                icon="download"
+                accessibilityLabel={exportLabel}
+                onPress={onExport}
+                glassDiameter={FULL_SCREEN_BAR.glassDiameter}
+                testID={exportTestID}
+              />
+            }
+          />
 
           {/* The chevrons are laid over this box rather than the whole screen, so they centre on
               the picture and not on a height that includes the header. */}
@@ -255,13 +260,12 @@ export function MediaViewerBody({
  *
  * **A layer rather than a route.** It covers the conversation instead of navigating away, so
  * dismissing it restores the transcript's scroll position for nothing and anything playing above
- * it keeps going. In react-native's `Modal` for the reason `Modal` itself is: a child that
- * overflows its parent is clipped on Android, and this one is the size of the window.
+ * it keeps going.
  *
  * Each opening draws a fresh body, so a picture that failed is tried again. The body stays mounted
- * once closed: the modal fades out what it holds, and an empty one fades out its own white.
+ * once closed, which is what `FullScreenModal` asks of its content.
  */
-export function MediaViewer({ open, onClose, ...body }: MediaViewerProps) {
+export function MediaViewer({ open, onClose, toasts, ...body }: MediaViewerProps) {
   const [opening, setOpening] = useState(0)
   const [wasOpen, setWasOpen] = useState(open)
   if (open !== wasOpen) {
@@ -269,8 +273,8 @@ export function MediaViewer({ open, onClose, ...body }: MediaViewerProps) {
     if (open) setOpening((count) => count + 1)
   }
   return (
-    <NativeModal visible={open} transparent={false} animationType="fade" onRequestClose={onClose}>
+    <FullScreenModal open={open} onClose={onClose} toasts={toasts}>
       <MediaViewerBody key={opening} {...body} onClose={onClose} />
-    </NativeModal>
+    </FullScreenModal>
   )
 }

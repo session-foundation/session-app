@@ -311,6 +311,25 @@ export function SettingsGroup({ children }: { children: ReactNode }) {
 }
 
 /**
+ * A line of secondary text in a group, in place of a row that is not there: says why, and does
+ * nothing. Shorter than a row, because nothing in it is a tap target.
+ */
+export function SettingsNote({ text, testID }: { text: string; testID: string }) {
+  return (
+    <YStack
+      backgroundColor="$backgroundSecondary"
+      paddingHorizontal="$md"
+      paddingVertical="$sm"
+      testID={testID}
+    >
+      <Text size="$label" tone="secondary">
+        {text}
+      </Text>
+    </YStack>
+  )
+}
+
+/**
  * A heading over a group, with an optional explanation.
  * Use sparingly; over rows whose names already say what they are it is noise.
  */

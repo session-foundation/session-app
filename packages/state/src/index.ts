@@ -1,7 +1,13 @@
 export { applyEvent } from './applyEvent'
 export { createSessionStore } from './store'
 export type { LogLevel, SessionStoreOptions } from './store'
-export type { CacheSettings, JumpOutcome, SessionActions, SessionStore } from './store'
+export type {
+  CacheSettings,
+  JumpOutcome,
+  RecoveryPassword,
+  SessionActions,
+  SessionStore,
+} from './store'
 export {
   SessionStoreProvider,
   useAccount,
@@ -15,6 +21,7 @@ export {
   useMessageTransfers,
   useMessages,
   useNetworkStatus,
+  useRecoveryPasswordHidden,
   useRequests,
   useSessionActions,
   useStartupFailureKind,

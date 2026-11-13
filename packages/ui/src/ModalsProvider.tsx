@@ -95,9 +95,23 @@ export interface Modals {
    * implies a cancel that did not happen. Unknown ids are ignored.
    */
   lock: (id: string) => void
+  /**
+   * Draws the host's native modal afresh once, for a page that has just made the window secure,
+   * and keeps it that way until every modal has closed.
+   *
+   * Android's secure flag is copied from the activity into react-native's `Modal` dialog when the
+   * dialog is made, and not after. A tablet draws Settings in that dialog, so a page that turns
+   * the flag on once Settings is open has to have the dialog made again to be covered by it.
+   * A switch rather than a counter: the page is inside that dialog, so redrawing it mounts the page
+   * again, and its second call must change nothing.
+   */
+  secureHost: () => void
 }
 
 const ModalsContext = createContext<Modals | null>(null)
+
+/** Set by `secureHost`; the host keys its native modal by it. */
+const HostSecuredContext = createContext(false)
 
 /** Separate from `ModalsContext` so `useModals` callers do not re-render on every stack change. */
 const EntriesContext = createContext<readonly OpenModal[]>([])
@@ -108,6 +122,9 @@ const EntriesContext = createContext<readonly OpenModal[]>([])
  */
 export function ModalStackProvider({ children }: { children: ReactNode }) {
   const [entries, setEntries] = useState<readonly OpenModal[]>([])
+  const [hostSecured, setHostSecured] = useState(false)
+  // Back to an ordinary dialog once nothing is open, so the next one is made without the flag.
+  if (hostSecured && entries.length === 0) setHostSecured(false)
 
   // Monotonic, so a stale close handler can never match a later modal.
   const nextId = useRef(0)
@@ -209,12 +226,18 @@ export function ModalStackProvider({ children }: { children: ReactNode }) {
           current.map((entry) => (entry.id === id ? { ...entry, dismissible: false } : entry)),
         )
       },
+
+      secureHost: () => {
+        setHostSecured(true)
+      },
     }
   }, [])
 
   return (
     <ModalsContext.Provider value={modals}>
-      <EntriesContext.Provider value={entries}>{children}</EntriesContext.Provider>
+      <HostSecuredContext.Provider value={hostSecured}>
+        <EntriesContext.Provider value={entries}>{children}</EntriesContext.Provider>
+      </HostSecuredContext.Provider>
     </ModalsContext.Provider>
   )
 }
@@ -225,6 +248,11 @@ export function useModals(): Modals {
   if (modals === null)
     throw new Error('No ModalStackProvider. Wrap the app in <ModalStackProvider>.')
   return modals
+}
+
+/** Whether the host's native modal was drawn for a secure window. See `secureHost`. */
+export function useHostSecured(): boolean {
+  return useContext(HostSecuredContext)
 }
 
 /** What the host has to draw: every open modal, frontmost last. */

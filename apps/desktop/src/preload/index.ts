@@ -1,3 +1,4 @@
+import type { QrMark } from '@session/basic-types'
 import electron from 'electron'
 
 import { readLaunchOverrides } from '../shared/launchOverrides'
@@ -65,6 +66,9 @@ contextBridge.exposeInMainWorld('sessionDesktop', {
   chooseExportLocation: (suggestedName: string): Promise<string | null> =>
     ipcRenderer.invoke('files:choose-export-location', suggestedName),
   revealInFolder: (path: string): Promise<boolean> => ipcRenderer.invoke('files:reveal', path),
+  /** The text to encode, never bytes: main draws the picture, so the page cannot write a file. */
+  saveQrCode: (value: string, mark: QrMark | null): Promise<boolean> =>
+    ipcRenderer.invoke('files:save-qr-code', value, mark),
   /**
    * Where a picked or dropped file lives, which the page cannot learn by itself: `File.path` is
    * gone from Electron. Empty for anything not on disk.

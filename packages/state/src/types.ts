@@ -154,6 +154,12 @@ export interface SessionState {
   appearance: StoredAppearance | null
 
   /**
+   * Whether the recovery password was hidden on this device, which takes away the row that shows
+   * it. Device-local, as on every legacy client: hiding it here says nothing about another device.
+   */
+  recoveryPasswordHidden: boolean
+
+  /**
    * Whether the attached network can carry traffic, as libsession last said: asked once by
    * `hydrate`, then followed by its events. `unknown` until that first answer, which is
    * libsession's own word for a status nobody has reported yet.
@@ -181,5 +187,6 @@ export const emptyState: SessionState = {
   histories: {},
   transfers: {},
   appearance: null,
+  recoveryPasswordHidden: false,
   networkStatus: 'unknown',
 }

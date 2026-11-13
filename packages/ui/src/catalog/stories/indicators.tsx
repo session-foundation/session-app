@@ -17,16 +17,24 @@ export const radio = defineStory<{ selected: boolean; disabled?: boolean }>({
   render: (props) => <RadioIndicator {...props} />,
 })
 
-export const avatar = defineStory<{ name: string; size: 'xl' | '2xl' | '3xl' }>({
+/**
+ * The Settings display picture enlarged: initials past the top of the type ramp keep growing with
+ * the disc. One letter, whose share of the disc is the larger; the Settings header's own page draws
+ * two letters at both of its sizes.
+ */
+const ENLARGED_AVATAR_PX = 190
+
+export const avatar = defineStory<{ name: string; size: 'xl' | '2xl' | '3xl' | number }>({
   component: 'avatar',
   story: 'sizes',
-  width: 72,
+  width: ENLARGED_AVATAR_PX,
   variants: {
     xl: { name: 'Alice', size: 'xl' },
     '2xl': { name: 'Bob', size: '2xl' },
     '3xl': { name: 'Zoë', size: '3xl' },
     emoji: { name: '🦊 Fox', size: '2xl' },
     arabic: { name: 'ليلى', size: '2xl' },
+    enlargedOneLetter: { name: 'Q', size: ENLARGED_AVATAR_PX },
   },
   render: ({ name, size }) => <Avatar id={`05${name}`} name={name} size={size} />,
 })

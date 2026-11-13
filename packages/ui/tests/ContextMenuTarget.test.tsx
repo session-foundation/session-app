@@ -19,42 +19,48 @@ function target(onDoublePress: (() => void) | undefined) {
   )
 }
 
-function select(node: Node): void {
+/** What the browser does with a double-click's second press: selects the text under it. */
+function select(node: Node, start?: number, end?: number): void {
   const range = document.createRange()
-  range.selectNodeContents(node)
+  if (start === undefined || end === undefined) range.selectNodeContents(node)
+  else {
+    range.setStart(node, start)
+    range.setEnd(node, end)
+  }
   const selection = getSelection()
   selection?.removeAllRanges()
   selection?.addRange(range)
 }
 
 describe('a double-click on a message', () => {
-  it('is reported, and its second press selects no word', () => {
+  it('on its words selects the word, and is not reported', () => {
     const onDoublePress = vi.fn()
     const { getByTestId } = target(onDoublePress)
     const words = getByTestId('words')
 
-    // False from fireEvent: the default, which would select the word, was prevented.
-    expect(fireEvent.mouseDown(words, { detail: 2 })).toBe(false)
-    fireEvent.doubleClick(words)
-
-    expect(onDoublePress).toHaveBeenCalledOnce()
-  })
-
-  it('leaves a single press alone', () => {
-    const { getByTestId } = target(vi.fn())
-    expect(fireEvent.mouseDown(getByTestId('words'), { detail: 1 })).toBe(true)
-  })
-
-  it('is the selection’s while text is selected, which it then keeps', () => {
-    const onDoublePress = vi.fn()
-    const { getByTestId } = target(onDoublePress)
-    const words = getByTestId('words')
-    select(words)
-
+    // True from fireEvent: the press is left to the browser, which selects the word.
     expect(fireEvent.mouseDown(words, { detail: 2 })).toBe(true)
+    select(words)
     fireEvent.doubleClick(words)
 
     expect(onDoublePress).not.toHaveBeenCalled()
+    getSelection()?.removeAllRanges()
+  })
+
+  it('off its words is reported: nothing selected, or only whitespace', () => {
+    const onDoublePress = vi.fn()
+    const { getByTestId } = target(onDoublePress)
+    const words = getByTestId('words')
+
+    getSelection()?.removeAllRanges()
+    fireEvent.doubleClick(words)
+    // "Are we": the space between the two words.
+    const text = words.firstChild
+    if (text === null) throw new Error('the words have no text node')
+    select(text, 3, 4)
+    fireEvent.doubleClick(words)
+
+    expect(onDoublePress).toHaveBeenCalledTimes(2)
     getSelection()?.removeAllRanges()
   })
 
@@ -63,10 +69,5 @@ describe('a double-click on a message', () => {
     const { getByTestId } = target(onDoublePress)
     fireEvent.doubleClick(getByTestId('control'))
     expect(onDoublePress).not.toHaveBeenCalled()
-  })
-
-  it('does nothing where the message takes none', () => {
-    const { getByTestId } = target(undefined)
-    expect(fireEvent.mouseDown(getByTestId('words'), { detail: 2 })).toBe(true)
   })
 })

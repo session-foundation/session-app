@@ -12,7 +12,8 @@ import { useToastQueue } from './Toasts'
 /**
  * Above the settings modal on iOS, which presents it in a window of its own: drawn in the app's
  * window, a toast raised from inside settings would be behind the panel that raised it. Android's
- * modal stack is a view in the app's window, and the toasts are already drawn after it.
+ * modal stack is a view in the app's window, and the toasts are already drawn after it; a
+ * full-screen layer there is a window of its own, which draws its own (see `FullScreenModal`).
  */
 function AboveModals({ children }: { children: ReactNode }) {
   return Platform.OS === 'ios' ? <FullWindowOverlay>{children}</FullWindowOverlay> : children

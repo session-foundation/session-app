@@ -144,6 +144,7 @@ describe('screen copy', () => {
       'attachmentViewGallery',
       'attachmentViewList',
       'export',
+      'recoveryPasswordHiddenOnDevice',
       'exporting',
       'exportFailed',
       'previous',

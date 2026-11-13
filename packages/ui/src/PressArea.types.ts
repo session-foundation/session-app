@@ -31,6 +31,11 @@ export interface PressAreaProps {
   ring?: FocusRingShape | undefined
   /** Announced as busy, for a control whose action is running. */
   busy?: boolean
+  /**
+   * Takes the keyboard's focus when it appears. Web only, for a control that replaces the one just
+   * pressed: that one unmounted with the focus, which would otherwise fall back to the page.
+   */
+  focusOnMount?: boolean | undefined
   testID?: string
   /**
    * The control, told whether it is currently pressed and whether a pointer is over it.

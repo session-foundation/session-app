@@ -519,6 +519,11 @@ struct BoolResult {
             value{std::move(value_)} {}
 };
 
+/// The answer to a seed read once the recovery password is hidden: see `hideRecoveryPassword`.
+struct SeedHiddenResult {
+    static constexpr std::string_view type_tag = "seedHidden";
+};
+
 /// Where an export landed, which is not always where it was asked to go: a collision becomes
 /// `name (1)`.
 struct PathResult {
@@ -675,6 +680,7 @@ using Result = std::variant<
         HexResult,
         PrefResult,
         BoolResult,
+        SeedHiddenResult,
         PathResult,
         ByteCountResult,
         SendPlanResult,
@@ -1033,6 +1039,9 @@ struct CheckRecoveryPhraseCommand {
             phrase{std::move(phrase_)}, language{std::move(language_)} {}
 };
 
+/// Restore from a seed in hex: 16 bytes (32 characters), as every recovery password QR code
+/// carries, or the full 32 bytes. A 16-byte seed is the lower half, the upper half zero -- the
+/// same seed the 13 words decode to.
 struct RestoreAccountFromSeedCommand {
     static constexpr std::string_view type_tag = "restoreAccountFromSeed";
 
@@ -1074,6 +1083,8 @@ struct KeepAccountCommand {
     static constexpr std::string_view type_tag = "keepAccount";
 };
 
+/// The recovery password's words, answered with a `mnemonic` result, or `seedHidden` once
+/// `hideRecoveryPassword` has been called on this device.
 struct GetSeedMnemonicCommand {
     static constexpr std::string_view type_tag = "getSeedMnemonic";
 
@@ -1081,6 +1092,30 @@ struct GetSeedMnemonicCommand {
 
     explicit GetSeedMnemonicCommand(std::optional<std::string> language_) :
             language{std::move(language_)} {}
+};
+
+/// The account seed as lowercase hex, answered with a `hex` result: what a recovery password's
+/// QR code carries. `seedHidden` instead once `hideRecoveryPassword` has been called.
+///
+/// **16 bytes (32 characters) when the seed's upper half is zero**, which is every account the
+/// 13 words describe, and 32 bytes otherwise. The short form is the one every existing client
+/// puts in that QR and reads back from it, so a code drawn from this scans anywhere.
+/// `restoreAccountFromSeed` takes either length.
+struct GetSeedHexCommand {
+    static constexpr std::string_view type_tag = "getSeedHex";
+};
+
+/// Hides the recovery password on this device for good, answered with an empty result once it is
+/// stored. From then on `getSeedMnemonic` and `getSeedHex` answer `seedHidden`, so nothing above
+/// the bridge can read the seed back out; the account itself, and every key derived from the
+/// seed, carry on as before. There is no way back, as on every legacy client.
+struct HideRecoveryPasswordCommand {
+    static constexpr std::string_view type_tag = "hideRecoveryPassword";
+};
+
+/// Whether `hideRecoveryPassword` has been called on this device, answered with a `bool`.
+struct GetRecoveryPasswordHiddenCommand {
+    static constexpr std::string_view type_tag = "getRecoveryPasswordHidden";
 };
 
 struct SetDisplayNameCommand {
@@ -1701,6 +1736,9 @@ using Command = std::variant<
         DiscardAccountCommand,
         KeepAccountCommand,
         GetSeedMnemonicCommand,
+        GetSeedHexCommand,
+        HideRecoveryPasswordCommand,
+        GetRecoveryPasswordHiddenCommand,
         SetDisplayNameCommand,
         AttachNetworkCommand,
         WarmNetworkCacheCommand,

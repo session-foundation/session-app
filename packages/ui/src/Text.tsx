@@ -2,7 +2,7 @@ import type { ComponentProps } from 'react'
 
 import { SizableText, styled } from 'tamagui'
 
-import { BODY_FACE } from './bodyFace'
+import { BODY_FACE, SEMIBOLD_FAMILY } from './bodyFace'
 import { FACE_WEIGHTS } from './faceWeights'
 
 /**
@@ -39,7 +39,10 @@ export const Text = styled(SizableText, {
     /** What each asks for depends on the face drawn: see `faceWeights.ts`. */
     weight: {
       regular: { fontWeight: FACE_WEIGHTS[BODY_FACE].regular },
-      semibold: { fontWeight: FACE_WEIGHTS[BODY_FACE].semibold },
+      semibold: {
+        fontWeight: FACE_WEIGHTS[BODY_FACE].semibold,
+        ...(SEMIBOLD_FAMILY === undefined ? {} : { fontFamily: SEMIBOLD_FAMILY }),
+      },
       bold: { fontWeight: FACE_WEIGHTS[BODY_FACE].bold },
     },
   } as const,

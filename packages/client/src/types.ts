@@ -98,8 +98,24 @@ export interface SessionClient {
    * throws it away — so this is what turns "an account was made" into "an account was kept".
    */
   keepAccount(): Promise<void>
-  /** libsession owns the word list, so onboarding needs no mnemonic library of its own. */
-  getSeedMnemonic(language?: string): Promise<string[]>
+  /**
+   * The recovery password's words; libsession owns the word list, so onboarding needs no mnemonic
+   * library of its own. Null once the recovery password is hidden (`hideRecoveryPassword`).
+   */
+  getSeedMnemonic(language?: string): Promise<string[] | null>
+  /**
+   * The seed as lowercase hex, for a recovery password's QR code: 16 bytes when that is the whole
+   * seed, as for every account the 13 words describe, and 32 otherwise. `restoreAccount` takes
+   * either length back. Null once the recovery password is hidden.
+   */
+  getSeedHex(): Promise<string | null>
+  /**
+   * Hides the recovery password on this device for good: both seed reads answer null from then on.
+   * Resolves once it is stored.
+   */
+  hideRecoveryPassword(): Promise<void>
+  /** Whether the recovery password has been hidden on this device. */
+  getRecoveryPasswordHidden(): Promise<boolean>
   setDisplayName(name: string): Promise<void>
   /**
    * Attach a network, or replace the one attached. Refused whole: a network that will not build

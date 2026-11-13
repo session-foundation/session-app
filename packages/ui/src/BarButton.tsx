@@ -12,10 +12,14 @@ export interface BarButtonProps {
   accessibilityLabel: string
   onPress: () => void
   disabled?: boolean
+  /**
+   * The glass's diameter, for a button lined up with one the system draws in its own bar. A `md`
+   * circular button's when omitted, so glass and circle take the same room.
+   */
+  glassDiameter?: number | undefined
   testID?: string | undefined
 }
 
-/** A `md` circular button's diameter, so glass and circle take the same room. */
 const DIAMETER = SIZE_SCALE['2xl']
 
 /**
@@ -28,6 +32,7 @@ export function BarButton({
   accessibilityLabel,
   onPress,
   disabled = false,
+  glassDiameter = DIAMETER,
   testID,
 }: BarButtonProps) {
   const Glass = useGlass()
@@ -57,7 +62,7 @@ export function BarButton({
       disabled={disabled}
     >
       {(_pressed, hovered) => (
-        <Glass size={DIAMETER} dark={dark} highlight={hovered ? hoverColor : null}>
+        <Glass size={glassDiameter} dark={dark} highlight={hovered ? hoverColor : null}>
           {glyph}
         </Glass>
       )}

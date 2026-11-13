@@ -14,10 +14,12 @@ function selectsTextIn(element: Element): boolean {
   return element.contains(selection.anchorNode) || element.contains(selection.focusNode)
 }
 
-/** Whether the reader has any text selected, which a double-click must not replace or act over. */
-function selectsText(): boolean {
-  const selection = globalThis.getSelection?.()
-  return selection !== null && selection !== undefined && !selection.isCollapsed
+/**
+ * Whether a double-click selected words: one on a word is a selection, as everywhere else. One on
+ * the padding or a picture selects nothing, or only the whitespace beside it.
+ */
+function selectsWords(): boolean {
+  return String(globalThis.getSelection?.() ?? '').trim() !== ''
 }
 
 /** A press on a control inside the target is that control's, not the message's. */
@@ -55,14 +57,9 @@ export function ContextMenuTarget({
         {...(onDoublePress === undefined
           ? {}
           : {
-              // The second press of a double-click selects the word under it, before the
-              // double-click is reported: stopped here, so the double-click finds none selected.
-              onMouseDown: (event: MouseEvent) => {
-                if (event.detail === 2 && !selectsText() && !onControl(event))
-                  event.preventDefault()
-              },
+              // Reported after the browser has selected the word under the second press.
               onDoubleClick: (event: MouseEvent) => {
-                if (!selectsText() && !onControl(event)) onDoublePress()
+                if (!selectsWords() && !onControl(event)) onDoublePress()
               },
             })}
       >

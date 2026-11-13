@@ -79,6 +79,12 @@ export function useAppearance(): StoredAppearance | null {
   return useStore(store, (state) => state.appearance)
 }
 
+/** Whether the recovery password was hidden on this device. */
+export function useRecoveryPasswordHidden(): boolean {
+  const store = useSessionStore()
+  return useStore(store, (state) => state.recoveryPasswordHidden)
+}
+
 /** The file server's limit on one upload, encrypted and padded, or null before a start asked. */
 export function useAttachmentUploadLimit(): number | null {
   const store = useSessionStore()

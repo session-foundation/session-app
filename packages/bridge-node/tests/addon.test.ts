@@ -665,6 +665,7 @@ describeEcho('the generated converters', () => {
     { type: 'response', response: { id: 900_011, result: { type: 'pref' } } },
     { type: 'response', response: { id: 900_012, result: { type: 'bool', value: true } } },
     { type: 'response', response: { id: 900_013, result: { type: 'empty' } } },
+    { type: 'response', response: { id: 900_050, result: { type: 'seedHidden' } } },
     {
       type: 'response',
       response: { id: 900_014, result: { type: 'path', path: '/tmp/a (1).jpg' } },

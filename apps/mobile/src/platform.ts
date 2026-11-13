@@ -1,5 +1,6 @@
 import { memoryPorts, setPorts, type MediaPort, type NotificationsPort } from '@session/app'
 import { mediaUrl } from '@session/app/mediaUrl'
+import { qrCodePng } from '@session/app/qrCodePng'
 import { parseNetworkName } from '@session/basic-types'
 import { isExportName, logSpan, type DiagnosticsSnapshot } from '@session/logging'
 import * as Clipboard from 'expo-clipboard'
@@ -15,9 +16,26 @@ import { restartProcess, terminateProcess } from './processExit'
 import { SessionLogs } from './sessionLogs'
 import { attachmentsBytes, databaseSizes } from './storageSizes'
 import { readDatabaseKey, writeDatabaseKey } from './storage/databaseKey'
+import { SecureScreen } from './secureScreen'
 import { plainPath } from './storage/layout'
 import { exportsDirectory, File } from './storage/roots'
 import { sweepStaged } from './storage/staging'
+
+/** The name the share sheet offers for a QR code. */
+const QR_CODE_FILE = 'session-qr-code.png'
+
+/**
+ * A QR code a share left behind when the app was killed while its sheet was open. It may be a
+ * recovery password's, which is the seed, so it does not wait for the next share to be replaced.
+ */
+function sweepSharedQrCode(): void {
+  try {
+    const left = new File(exportsDirectory(), QR_CODE_FILE)
+    if (left.exists) left.delete()
+  } catch {
+    // Nothing to sweep is the common case.
+  }
+}
 
 /**
  * Whose servers fast mode would use, which is what the onboarding screen has to name.
@@ -162,9 +180,28 @@ const ports = memoryPorts({
     // The platform's sheet, with the text alone: no title or subject, which iOS would drop and
     // Android would show as a heading above what was shared.
     shareText: (text) => Share.share({ message: text }).then(() => undefined),
+    // A file in the exports directory, as an exported log is, so Android's sheet can take it
+    // through expo-sharing's content provider. Unlike a log it is deleted once the sheet is done
+    // with it: a recovery password's code is the seed, and no copy of it may outlive the share.
+    // The sheet resolves once the app it went to has taken it on iOS, and once Session is back in
+    // front on Android.
+    shareQrCode: async (value, mark) => {
+      const out = new File(exportsDirectory(), QR_CODE_FILE)
+      if (out.exists) out.delete()
+      await out.write(qrCodePng(value, mark))
+      try {
+        await Sharing.shareAsync(out.uri, { mimeType: 'image/png', UTI: 'public.png' })
+      } finally {
+        if (out.exists) out.delete()
+      }
+    },
   },
   clipboard: {
     setString: (value) => Clipboard.setStringAsync(value).then(() => undefined),
+    setSecret: (value) =>
+      SecureScreen === null
+        ? Clipboard.setStringAsync(value).then(() => undefined)
+        : SecureScreen.copySensitive(value),
     // Android 13 (API 33) added the system's own preview of what was copied.
     confirmsCopy: Platform.OS === 'android' && Number(Platform.Version) >= 33,
   },
@@ -230,6 +267,7 @@ const ports = memoryPorts({
 
 sweepStagedExports()
 sweepStaged()
+sweepSharedQrCode()
 
 /**
  * In front means `active`. `inactive` -- the app switcher, a call coming in, Control Centre over
@@ -256,6 +294,27 @@ const appFocus = {
   },
 }
 
+/** How long the flag outlasts its last holder: long enough for a screen to mount again. */
+const SECURE_RELEASE_MS = 500
+const secureScreen = SecureScreen
+let secureHolders = 0
+let secureRelease: ReturnType<typeof setTimeout> | null = null
+/** Android's secure window flag; null where the module is not in the build. */
+const secureWindow =
+  secureScreen === null
+    ? null
+    : (prevented: boolean): Promise<void> => {
+        secureHolders = Math.max(0, secureHolders + (prevented ? 1 : -1))
+        if (secureRelease !== null) clearTimeout(secureRelease)
+        secureRelease = null
+        if (secureHolders > 0) return secureScreen.setSecure(true)
+        secureRelease = setTimeout(() => {
+          secureRelease = null
+          if (secureHolders === 0) void secureScreen.setSecure(false)
+        }, SECURE_RELEASE_MS)
+        return Promise.resolve()
+      }
+
 setPorts({
   ...ports,
   files: { ...ports.files, ...pickers, ...exportFiles },
@@ -264,5 +323,6 @@ setPorts({
     ...appFocus,
     close: endingRun('quit', terminateProcess),
     restart: endingRun('restart', restartProcess),
+    preventScreenCapture: secureWindow,
   },
 })

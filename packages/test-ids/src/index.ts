@@ -130,6 +130,14 @@ export const ELEMENT = {
     themeOption: (name: string) => `settings-theme-${name}` as const,
     accentOption: (name: string) => `settings-accent-${name}` as const,
     displayName: 'settings-display-name',
+    /** The account's display picture, which enlarges in place when pressed. */
+    avatar: 'settings-avatar',
+    /** The badge on the display picture that puts the account's QR code in its place. */
+    qrToggle: 'settings-qr-toggle',
+    /** The badge on the QR code that brings the display picture back. */
+    qrBack: 'settings-qr-back',
+    accountQr: 'settings-account-qr',
+    accountQrFullScreen: 'settings-account-qr-full-screen',
     accountId: 'settings-account-id',
     copyAccountId: 'settings-copy-account-id',
     shareAccountId: 'settings-share-account-id',
@@ -164,6 +172,21 @@ export const ELEMENT = {
     row: (name: string) => `keyboard-shortcut-${name}` as const,
     /** One of a row's key combinations, in the order drawn. */
     combo: (name: string, index: number) => `keyboard-shortcut-${name}-${String(index)}` as const,
+  },
+  recoveryPassword: {
+    words: 'recovery-password-words',
+    copy: 'recovery-password-copy',
+    viewQr: 'recovery-password-view-qr',
+    viewWords: 'recovery-password-view-words',
+    qr: 'recovery-password-qr',
+    qrFullScreen: 'recovery-password-qr-full-screen',
+    hideRow: 'recovery-password-hide-row',
+    hide: 'recovery-password-hide',
+    hideConfirm: 'recovery-password-hide-confirm',
+    hideContinue: 'recovery-password-hide-continue',
+    hideYes: 'recovery-password-hide-yes',
+    hideCancel: 'recovery-password-hide-cancel',
+    loadError: 'recovery-password-load-error',
   },
   toast: {
     item: 'toast',
@@ -256,6 +279,12 @@ export const ELEMENT = {
     back: 'context-menu-back',
     /** A row, by its entry's id: `reply`, `copy`, `delete`. */
     item: (id: string) => `context-menu-item-${id}` as const,
+  },
+  /** Whichever full-screen QR code is open: only one ever is. */
+  qrViewer: {
+    close: 'qr-viewer-close',
+    /** The button under the code that hands it to the share sheet, on the phones. */
+    share: 'qr-viewer-share',
   },
   catalog: {
     page: 'catalog-page',

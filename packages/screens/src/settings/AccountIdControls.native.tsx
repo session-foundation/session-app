@@ -4,6 +4,8 @@ import { ELEMENT } from '@session/test-ids'
 import { Button, XStack } from '@session/ui'
 import { useState } from 'react'
 
+import { useTimeout } from '../useTimeout'
+
 import { AccountIdText } from './AccountIdText'
 import type { AccountIdControlsProps } from './AccountIdControls.types'
 
@@ -19,6 +21,7 @@ const COPIED_FOR_MS = 4000
 export function AccountIdControls({ sessionId }: AccountIdControlsProps) {
   const shareText = requirePorts().share.shareText
   const [copied, setCopied] = useState(false)
+  const later = useTimeout()
   return (
     <>
       <AccountIdText sessionId={sessionId} />
@@ -45,7 +48,7 @@ export function AccountIdControls({ sessionId }: AccountIdControlsProps) {
               .clipboard.setString(sessionId)
               .then(() => {
                 setCopied(true)
-                setTimeout(() => {
+                later(() => {
                   setCopied(false)
                 }, COPIED_FOR_MS)
               })

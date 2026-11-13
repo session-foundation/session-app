@@ -25,9 +25,6 @@ const KNOWN_ISSUES: Record<Audit, Readonly<Record<string, Known>>> = {
       "a failed file's retry, the danger ink on a received bubble in a light theme: 4.0:1",
     'color-contrast message-attachment-name':
       "a failed file's name in the danger ink on the attachment sheet, classic-light: 4.3:1",
-    'color-contrast button.variants outlineAccent':
-      'the accent as ink on a light page: 1.4 to 2.3:1, worst in yellow',
-    'color-contrast button.variants ghostAccent': 'the same ink as outlineAccent: down to 2.0:1',
     'color-contrast button.variants simple': 'its label on the ocean-light page: 3.3:1',
     'color-contrast button.onAccent cell': "a cell's pressed label on the red accent's fill: 2.6:1",
     'color-contrast fileRow.onAccent fetching': 'the same as idle',
@@ -52,6 +49,8 @@ const KNOWN_ISSUES: Record<Audit, Readonly<Record<string, Known>>> = {
     'color-contrast catalog-settings-row-arabic': 'its trailing value on a pressed row: the same',
     'color-contrast catalog-settings-row-destructive':
       'the danger ink on a light page, at label size: 4.3:1',
+    'color-contrast recovery-password-hide':
+      "the danger ink on the settings card's surface, classic-light, as the settings row: 4.3:1",
     'color-contrast context-menu-item-delete':
       "the danger ink on the menu's card surface, classic-light, as the settings row: 4.3:1",
     'color-contrast avatar.sizes xl': 'white initials on a light avatar colour: 1.4 to 2.3:1',
@@ -61,6 +60,7 @@ const KNOWN_ISSUES: Record<Audit, Readonly<Record<string, Known>>> = {
     'color-contrast avatar.sizes arabic': 'the same',
     'color-contrast rail-settings': "the rail's avatar, drawn by the same component: 2.3:1",
     'color-contrast conversation-header-avatar': "the conversation header's avatar: the same",
+    'color-contrast settings-avatar': 'the avatar at the top of Settings: the same, 2.3:1',
   },
   'showcase-desktop': {
     'color-contrast message-attachment-state':

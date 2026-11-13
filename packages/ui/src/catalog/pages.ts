@@ -29,11 +29,17 @@ const storyId = (story: AnyStory) => `${story.component}-${story.story}`
 function pagesFor(story: AnyStory, tier: CatalogTier): CatalogPageSpec[] {
   const id = storyId(story)
   const base = { story, rtl: false, width: story.width, forced: true }
-  const { accent = false, rtl = false, responsive = false } = story.sensitive ?? {}
+  const { accent = false, rtl = false, responsive = false, theme = false } = story.sensitive ?? {}
   const pages: CatalogPageSpec[] = []
 
   if (tier === 'pr') {
-    pages.push({ ...base, id, kind: 'themes', themes: PR_THEMES, accents: [DEFAULT_ACCENT] })
+    pages.push({
+      ...base,
+      id,
+      kind: 'themes',
+      themes: theme ? THEME_STATES : PR_THEMES,
+      accents: [DEFAULT_ACCENT],
+    })
     if (accent)
       pages.push({
         ...base,
