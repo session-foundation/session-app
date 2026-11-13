@@ -687,7 +687,9 @@ export function createSessionStore(
       await client.sendMessage(id, message)
       if (store.getState().histories[id]?.ready !== true) return
       patchWindow(id, { jumps: [] })
-      await actions.showNewest(id)
+      // The message is stored: a read that fails after it must not be reported as a refusal,
+      // which keeps the draft and invites sending it twice.
+      await actions.showNewest(id).catch(() => undefined)
     },
 
     attachmentSendPlan(path, contentType): Promise<SendPlan> {

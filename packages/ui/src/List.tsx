@@ -1,10 +1,12 @@
 import {
   useCallback,
+  useEffect,
   useImperativeHandle,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
+  type ReactNode,
   type Ref,
 } from 'react'
 import {
@@ -63,9 +65,12 @@ const VIEWABILITY = { itemVisiblePercentThreshold: 1 } as const
 const HIDDEN = { flex: 1, opacity: 0 } as const
 
 interface ScrollTarget {
+  key: string
   index: number
   viewPosition: number
   retries: number
+  /** Placed before its row's height was known: put again, once, if the row proves a tall one. */
+  unmeasured: boolean
 }
 
 interface WebScroller extends WebBox {
@@ -83,6 +88,49 @@ interface WebBox {
 interface WebRow extends WebBox {
   offsetHeight: number
   scrollIntoView: (options: { block: 'start' | 'center'; behavior?: 'smooth' | 'auto' }) => void
+}
+
+/**
+ * A row whose element and height the list keeps, to scroll to it. Its own component so the ref is
+ * one function for the row's life: React detaches and attaches an inline one on every render.
+ */
+function MeasuredRow({
+  rowKey,
+  nodes,
+  onHeight,
+  onGone,
+  children,
+}: {
+  rowKey: string
+  nodes: Map<string, unknown>
+  onHeight: (key: string, heightPx: number) => void
+  onGone: (key: string) => void
+  children: ReactNode
+}) {
+  const attach = useCallback(
+    (node: unknown) => {
+      if (node === null) nodes.delete(rowKey)
+      else nodes.set(rowKey, node)
+    },
+    [nodes, rowKey],
+  )
+  const onLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      onHeight(rowKey, event.nativeEvent.layout.height)
+    },
+    [onHeight, rowKey],
+  )
+  useEffect(
+    () => () => {
+      onGone(rowKey)
+    },
+    [onGone, rowKey],
+  )
+  return (
+    <View ref={attach} onLayout={onLayout}>
+      {children}
+    </View>
+  )
 }
 
 export interface ListProps<T> {
@@ -419,7 +467,13 @@ export function List<T>({
         atEnd.current = false
         const heightPx = rowHeights.current.get(key)
         const tall = heightPx !== undefined && heightPx > scroll.current.viewportPx
-        target.current = { index, viewPosition: tall ? 0 : 0.5, retries: 0 }
+        target.current = {
+          key,
+          index,
+          viewPosition: tall ? 0 : 0.5,
+          retries: 0,
+          unmeasured: heightPx === undefined,
+        }
         if (isWeb) scrollToRowElement(key, animated, onArrived)
         else {
           const shown = onScreen.current
@@ -454,6 +508,28 @@ export function List<T>({
 
   const measured = handle !== undefined
 
+  const onRowHeight = useCallback(
+    (key: string, heightPx: number) => {
+      rowHeights.current.set(key, heightPx)
+      // Native places by index and a guess at where in the list the row should sit. The web
+      // scrolls to the row's own element, which knows its height.
+      const at = target.current
+      if (isWeb || at === null || at.key !== key || !at.unmeasured) return
+      at.unmeasured = false
+      if (heightPx <= scroll.current.viewportPx) return
+      at.viewPosition = 0
+      scrollToTarget(false)
+    },
+    [scrollToTarget],
+  )
+  const onRowGone = useCallback((key: string) => {
+    rowHeights.current.delete(key)
+  }, [])
+  // The reader has taken the scroll: a height that arrives now must not move it.
+  const onScrollBeginDrag = useCallback(() => {
+    if (target.current !== null) target.current.unmeasured = false
+  }, [])
+
   useLayoutEffect(() => {
     if (focus !== null) focus.rowMenu = onRowMenu ?? null
   }, [focus, onRowMenu])
@@ -462,25 +538,20 @@ export function List<T>({
     ({ item, index }: { item: T; index: number }) => {
       const key = keyExtractor(item, index)
       const row = measured ? (
-        <View
-          ref={(node) => {
-            if (node === null) {
-              rowNodes.current.delete(key)
-              rowHeights.current.delete(key)
-            } else rowNodes.current.set(key, node)
-          }}
-          onLayout={(event) => {
-            rowHeights.current.set(key, event.nativeEvent.layout.height)
-          }}
+        <MeasuredRow
+          rowKey={key}
+          nodes={rowNodes.current}
+          onHeight={onRowHeight}
+          onGone={onRowGone}
         >
           {renderItem(item, index)}
-        </View>
+        </MeasuredRow>
       ) : (
         renderItem(item, index)
       )
       return focus === null ? row : <ListRowKey.Provider value={key}>{row}</ListRowKey.Provider>
     },
-    [focus, measured, renderItem, keyExtractor],
+    [focus, measured, renderItem, keyExtractor, onRowHeight, onRowGone],
   )
 
   const contentContainerStyle = useMemo(
@@ -516,7 +587,12 @@ export function List<T>({
           }
         : {})}
       {...(measured
-        ? { onScrollToIndexFailed, onViewableItemsChanged, viewabilityConfig: VIEWABILITY }
+        ? {
+            onScrollToIndexFailed,
+            onViewableItemsChanged,
+            viewabilityConfig: VIEWABILITY,
+            onScrollBeginDrag,
+          }
         : {})}
       data={data}
       renderItem={renderRow}

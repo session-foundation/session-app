@@ -325,6 +325,24 @@ describe('the way back from a jump', () => {
   })
 })
 
+describe('a send from a window short of the newest message', () => {
+  it('is not refused when the read of the newest page fails after it is stored', async () => {
+    const { store, client, bob, idOf, window } = await longHistory()
+    await store.actions.loadHistory(bob)
+    await store.actions.jumpToMessage(bob, idOf('m10'), idOf('m99'))
+    const read = client.getMessages.bind(client)
+    client.getMessages = () => Promise.reject(new Error('the database is busy'))
+
+    await expect(store.actions.send(bob, { body: 'answer' })).resolves.toBeUndefined()
+
+    // Left on the jumped window, from which paging still reaches what was sent.
+    expect(window().hasNewer).toBe(true)
+    client.getMessages = read
+    await store.actions.showNewest(bob)
+    expect(window().messages.at(-1)?.body).toBe('answer')
+  })
+})
+
 describe('a page read that fails', () => {
   it('leaves the window free to ask for that page again', async () => {
     const { store, client, bob, idOf, window, bodies } = await longHistory()
