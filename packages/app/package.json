@@ -16,7 +16,8 @@
     ".": "./src/index.ts",
     "./exportFileName": "./src/exportFileName.ts",
     "./mediaUrl": "./src/mediaUrl.ts",
-    "./flags": "./src/flags.ts"
+    "./flags": "./src/flags.ts",
+    "./qrCodePng": "./src/qrCodePng.ts"
   },
   "scripts": {
     "lint": "eslint .",
@@ -42,6 +43,7 @@
   "dependencies": {
     "@session/basic-types": "workspace:*",
     "@session/client": "workspace:*",
-    "@session/logging": "workspace:*"
+    "@session/logging": "workspace:*",
+    "uqr": "catalog:"
   }
 }

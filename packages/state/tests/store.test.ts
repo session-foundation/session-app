@@ -131,6 +131,40 @@ describe("the account's theme", () => {
   })
 })
 
+describe('the recovery password', () => {
+  function alice() {
+    const { world, clients } = friends(['Alice', 'Bob'])
+    const client = clients['Alice']
+    if (!client) throw new Error('fixture did not produce a client')
+    return { world, client, store: createSessionStore(client) }
+  }
+
+  it('is shown until hidden, and stays hidden on the next start', async () => {
+    const { client, store } = alice()
+    await store.actions.hydrate()
+    expect(store.getState().recoveryPasswordHidden).toBe(false)
+
+    await store.actions.hideRecoveryPassword()
+    expect(store.getState().recoveryPasswordHidden).toBe(true)
+
+    const next = createSessionStore(client)
+    await next.actions.hydrate()
+    expect(next.getState().recoveryPasswordHidden).toBe(true)
+  })
+
+  it('reaches the caller without passing through the store', async () => {
+    const { store } = alice()
+    await store.actions.hydrate()
+    const before = JSON.stringify(store.getState())
+
+    const { words, seedHex } = await store.actions.getRecoveryPassword()
+
+    expect(words.length).toBeGreaterThan(0)
+    expect(seedHex).toMatch(/^(?:[0-9a-f]{32}){1,2}$/)
+    expect(JSON.stringify(store.getState())).toBe(before)
+  })
+})
+
 describe('hydrating with a cache limit', () => {
   it('hands the limit to libsession', async () => {
     const { clients } = friends(['Alice', 'Bob'])

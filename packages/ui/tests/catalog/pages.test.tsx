@@ -11,4 +11,12 @@ describe('catalogPages', () => {
     const repeated = ids.filter((id, at) => ids.indexOf(id) !== at)
     expect(repeated).toEqual([])
   })
+
+  // A role each theme colours for itself is only checked where every theme is drawn.
+  it('draws a theme-sensitive story in every theme on a pull request', () => {
+    const page = catalogPages('pr').find((each) => each.id === 'qrCode-recoveryPassword')
+    expect(page?.themes).toEqual(['classic-dark', 'classic-light', 'ocean-dark', 'ocean-light'])
+    const plain = catalogPages('pr').find((each) => each.id === 'radioIndicator-states')
+    expect(plain?.themes).toEqual(['classic-dark', 'classic-light'])
+  })
 })

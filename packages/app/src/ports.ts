@@ -1,4 +1,4 @@
-import type { NetworkName, WithSpan } from '@session/basic-types'
+import type { NetworkName, QrMark, WithSpan } from '@session/basic-types'
 import type { AttachmentRef, PixelSize } from '@session/client'
 import type { BuildFacts, DiagnosticsSnapshot, ExportPart, LogFileInfo } from '@session/logging'
 /**
@@ -90,6 +90,13 @@ export interface FilesPort {
    * path, and neither a photo library nor a picked folder is one.
    */
   revealInFolder(path: string): Promise<void>
+  /**
+   * Saves a QR code of `value` as a PNG wherever the person chooses, with `mark` in its middle
+   * where there is one, or null where there is no file to save it to. Desktop only, as in the
+   * legacy desktop client, which offers it on the recovery password's full-screen QR. Resolves
+   * false when the person cancelled.
+   */
+  saveQrCode: ((value: string, mark: QrMark | null) => Promise<boolean>) | null
 }
 
 /**
@@ -188,6 +195,12 @@ export interface NotificationsPort {
 export interface ClipboardPort {
   setString(value: string): Promise<void>
   /**
+   * Copies something secret, such as the recovery password. Marked sensitive where the OS has a
+   * flag for it -- Android 13 and later, whose clipboard preview then hides it -- and copied as
+   * `setString` would anywhere else.
+   */
+  setSecret(value: string): Promise<void>
+  /**
    * Whether the OS says so itself when something is copied, so the app should not as well.
    * Android 13 and later show a clipboard preview on every copy.
    */
@@ -223,6 +236,13 @@ export interface SharePort {
    * Null rather than a no-op, so a screen leaves out what would only send through it.
    */
   shareText: ((text: string) => Promise<void>) | null
+  /**
+   * Hands a QR code of `value`, with `mark` in its middle where there is one, to the share sheet
+   * as a PNG, from which it can be saved to Files, or null where there is no sheet (the desktop
+   * saves it instead: `files.saveQrCode`). Never to the photo library, which backs itself up to
+   * the cloud.
+   */
+  shareQrCode: ((value: string, mark: QrMark | null) => Promise<void>) | null
 }
 
 export interface WindowPort {
@@ -250,6 +270,16 @@ export interface WindowPort {
    * so it is null there and the caller falls back to `close`.
    */
   restart: (() => void) | null
+  /**
+   * Keeps whatever is on screen out of screenshots, recordings and the recents thumbnail while
+   * `true`, or null where the platform is not asked to. Android's secure window flag; a screen
+   * that shows a secret sets it on the way in and clears it on the way out.
+   *
+   * Resolves once the window has it, for whatever then has to be drawn after. Counted: the flag
+   * clears a moment after the last `true` is matched by a `false`, so a screen that is mounted
+   * again in place never leaves a gap with it off.
+   */
+  preventScreenCapture: ((prevented: boolean) => Promise<void>) | null
   isFocused(): boolean
   /** Drives read receipts and whether a notification is worth showing. */
   onFocusChange(handler: (focused: boolean) => void): () => void

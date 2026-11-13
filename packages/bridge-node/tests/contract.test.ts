@@ -4,7 +4,11 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { createSessionClient, type SessionClient } from '@session/client'
-import { runSessionClientContract, type ContractHarness } from '@session/client-contract'
+import {
+  recoveryWords,
+  runSessionClientContract,
+  type ContractHarness,
+} from '@session/client-contract'
 import jpeg from 'jpeg-js'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -155,7 +159,7 @@ describeAddon('addon', () => {
       // Nothing else can produce one: the word list is libsession's.
       const source = await openPeer(join(root, `phrase-${String(sequence)}`))
       open.push(source)
-      const phrase = await source.client.getSeedMnemonic()
+      const phrase = await recoveryWords(source.client)
 
       return { client, phrase }
     },

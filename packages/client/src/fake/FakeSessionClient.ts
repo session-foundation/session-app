@@ -77,6 +77,12 @@ function compareToCursor(message: Message, cursor: MessageCursor): number {
 const FAKE_PROFILE_DELAY_MS = 2500
 
 /**
+ * Where the bridge keeps the hidden flag: a globals key beside the app's preferences, so a device
+ * that hid it as a preference is still hidden. Kept in the same place here, and wiped with them.
+ */
+const RECOVERY_PASSWORD_HIDDEN_KEY = 'recoveryPassword.hidden'
+
+/**
  * The fake behind the same interface the real bridge implements.
  *
  * Everything here is synchronous underneath; the promises exist because the interface has
@@ -122,8 +128,8 @@ export class FakeSessionClient implements SessionClient {
     this.assertOpen()
     // The shim rejects a seed it cannot decode rather than guessing at one, so onboarding sees
     // the same refusal here as it will against libsession.
-    if ('hexSeed' in from && !/^[0-9a-fA-F]{64}$/.test(from.hexSeed))
-      return Promise.reject(new Error('hexSeed must be 32 bytes of hex'))
+    if ('hexSeed' in from && !/^(?:[0-9a-fA-F]{32}){1,2}$/.test(from.hexSeed))
+      return Promise.reject(new Error('hexSeed must be 16 or 32 bytes of hex'))
     // A phrase, though, is taken on trust: libsession refuses an unknown word by name and a
     // checksum that does not add up, and neither check can be made without its word list, which
     // is a megabyte of data this has no business carrying. So the refusal half of the recovery
@@ -165,8 +171,31 @@ export class FakeSessionClient implements SessionClient {
     return Promise.resolve()
   }
 
-  getSeedMnemonic(): Promise<string[]> {
+  getSeedHex(): Promise<string | null> {
     this.assertOpen()
+    if (this.recoveryPasswordHidden()) return Promise.resolve(null)
+    // The 16-byte form, as for every 13-word account: the length is the edge a QR code depends on.
+    return Promise.resolve('0123456789abcdef0123456789abcdef')
+  }
+
+  hideRecoveryPassword(): Promise<void> {
+    this.assertOpen()
+    this.account.setPref(RECOVERY_PASSWORD_HIDDEN_KEY, 'true')
+    return Promise.resolve()
+  }
+
+  getRecoveryPasswordHidden(): Promise<boolean> {
+    this.assertOpen()
+    return Promise.resolve(this.recoveryPasswordHidden())
+  }
+
+  private recoveryPasswordHidden(): boolean {
+    return this.account.getPref(RECOVERY_PASSWORD_HIDDEN_KEY) === 'true'
+  }
+
+  getSeedMnemonic(): Promise<string[] | null> {
+    this.assertOpen()
+    if (this.recoveryPasswordHidden()) return Promise.resolve(null)
     // libsession owns the real word list; the shape is what onboarding is written against.
     return Promise.resolve(
       'letters mumble ordeal jaded womanly framed jailed sifting january nurse gutter estate jaded'.split(
@@ -550,6 +579,12 @@ export class FakeSessionClient implements SessionClient {
 
   setPref(key: string, value: string): Promise<void> {
     this.assertOpen()
+    // As the bridge refuses it: only hideRecoveryPassword writes the hidden flag.
+    if (key === RECOVERY_PASSWORD_HIDDEN_KEY) {
+      return Promise.reject(
+        new Error('recoveryPassword.hidden is set only by hideRecoveryPassword'),
+      )
+    }
     this.account.setPref(key, value)
     return Promise.resolve()
   }

@@ -109,9 +109,21 @@ const handlers: { [K in Command['type']]: Handler<K> } = {
     await client.keepAccount()
     return empty
   },
-  getSeedMnemonic: async (client, cmd) => ({
-    type: 'mnemonic',
-    words: await client.getSeedMnemonic(cmd.language),
+  getSeedMnemonic: async (client, cmd) => {
+    const words = await client.getSeedMnemonic(cmd.language)
+    return words === null ? { type: 'seedHidden' } : { type: 'mnemonic', words }
+  },
+  getSeedHex: async (client) => {
+    const hex = await client.getSeedHex()
+    return hex === null ? { type: 'seedHidden' } : { type: 'hex', hex }
+  },
+  hideRecoveryPassword: async (client) => {
+    await client.hideRecoveryPassword()
+    return empty
+  },
+  getRecoveryPasswordHidden: async (client) => ({
+    type: 'bool',
+    value: await client.getRecoveryPasswordHidden(),
   }),
   setDisplayName: async (client, cmd) => {
     await client.setDisplayName(cmd.name)

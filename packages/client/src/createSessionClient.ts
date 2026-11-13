@@ -162,12 +162,27 @@ export function createSessionClient(transport: BridgeTransport): SessionClient {
       await call({ type: 'keepAccount' })
     },
 
-    async getSeedMnemonic(language): Promise<string[]> {
+    async getSeedMnemonic(language): Promise<string[] | null> {
       const response = await call({
         type: 'getSeedMnemonic',
         ...(language === undefined ? {} : { language }),
       })
+      if (response.result?.type === 'seedHidden') return null
       return resultOf(response, 'mnemonic').words
+    },
+
+    async getSeedHex(): Promise<string | null> {
+      const response = await call({ type: 'getSeedHex' })
+      if (response.result?.type === 'seedHidden') return null
+      return resultOf(response, 'hex').hex
+    },
+
+    async hideRecoveryPassword(): Promise<void> {
+      await call({ type: 'hideRecoveryPassword' })
+    },
+
+    async getRecoveryPasswordHidden(): Promise<boolean> {
+      return resultOf(await call({ type: 'getRecoveryPasswordHidden' }), 'bool').value
     },
 
     async setDisplayName(name): Promise<void> {

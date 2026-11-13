@@ -1,11 +1,20 @@
-import { SettingsRow, type SettingsRowProps } from '../../SettingsRow'
+import { SettingsNote, SettingsRow, type SettingsRowProps } from '../../SettingsRow'
 import { Text } from '../../Text'
 import { defineStory } from '../story'
 import { LONG, noop } from './shared'
 
 const ROW = { onPress: noop } as const
 
-export const settingsRow = defineStory<SettingsRowProps>({
+/**
+ * The note that stands where a row has gone, among the rows so its height and inset are seen
+ * against theirs.
+ */
+interface NoteVariant {
+  note: string
+  testID: string
+}
+
+export const settingsRow = defineStory<SettingsRowProps | NoteVariant>({
   component: 'settingsRow',
   story: 'variants',
   width: 390,
@@ -68,6 +77,17 @@ export const settingsRow = defineStory<SettingsRowProps>({
       subtitle: LONG,
       icon: 'clock',
     },
+    note: { testID: 'catalog-settings-note', note: 'Recovery Password hidden on this device' },
+    noteArabic: {
+      testID: 'catalog-settings-note-arabic',
+      note: 'تم إخفاء كلمة مرور الاسترداد على هذا الجهاز',
+    },
+    noteLong: { testID: 'catalog-settings-note-long', note: LONG },
   },
-  render: (props) => <SettingsRow {...props} />,
+  render: (props) =>
+    'note' in props ? (
+      <SettingsNote text={props.note} testID={props.testID} />
+    ) : (
+      <SettingsRow {...props} />
+    ),
 })

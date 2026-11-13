@@ -17,7 +17,6 @@ import {
   UIProvider,
 } from '@session/ui'
 import { useFonts } from 'expo-font'
-import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { KeyboardProvider } from 'react-native-keyboard-controller'
 import { useEffect, useState } from 'react'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
@@ -32,16 +31,11 @@ import { HideSplashOnMount } from '../src/splash'
 import { storePromise } from '../src/store'
 import { WindowControlsInsetRoot } from '../src/windowControls'
 
-const FILL = { flex: 1 } as const
-
 export default function RootLayout() {
   return (
-    // Gesture handler needs its root above every detector; a message row's swipe is one.
-    <GestureHandlerRootView style={FILL}>
-      <HapticsProvider value={mobileHaptics}>
-        <AppTree />
-      </HapticsProvider>
-    </GestureHandlerRootView>
+    <HapticsProvider value={mobileHaptics}>
+      <AppTree />
+    </HapticsProvider>
   )
 }
 

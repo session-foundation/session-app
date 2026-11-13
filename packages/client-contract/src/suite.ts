@@ -26,6 +26,8 @@ import {
   type SessionEvent,
 } from '@session/client'
 
+import { recoveryHex, recoveryWords } from './seed'
+
 export interface ContractHarness {
   /** Two clients that already know each other, with no history and no attachments. */
   friends(): Promise<{
@@ -362,6 +364,42 @@ export function runSessionClientContract(
       const info = await client.getAccountInfo()
       expect(info.haveAccount).toBe(true)
       expect(info.sessionId).toBeDefined()
+    })
+
+    it('gives the seed as a recovery QR code carries it, and restores the same account', async () => {
+      // The QR code's round trip: what one device draws is what another device restores from.
+      // Every existing client reads 16 bytes there, so a 13-word account must come out short.
+      const first = await harness.newcomer()
+      await first.client.createAccount()
+      const hexSeed = await recoveryHex(first.client)
+      expect(/^(?:[0-9a-f]{32}){1,2}$/.test(hexSeed)).toBe(true)
+      if ((await recoveryWords(first.client)).length === 13) expect(hexSeed.length).toBe(32)
+      const { sessionId } = await first.client.getAccountInfo()
+
+      const second = await harness.newcomer()
+      await second.client.restoreAccount({ hexSeed })
+
+      expect((await second.client.getAccountInfo()).sessionId).toBe(sessionId)
+    })
+
+    it('stops giving the seed out once the recovery password is hidden, and keeps the account', async () => {
+      // Hiding is for good, and enforced below the app: neither form of the seed comes back.
+      const { client } = await harness.newcomer()
+      await client.createAccount()
+      const { sessionId } = await client.getAccountInfo()
+      expect(await client.getRecoveryPasswordHidden()).toBe(false)
+
+      await client.hideRecoveryPassword()
+
+      expect(await client.getRecoveryPasswordHidden()).toBe(true)
+      expect(await client.getSeedMnemonic()).toBe(null)
+      expect(await client.getSeedHex()).toBe(null)
+      expect((await client.getAccountInfo()).sessionId).toBe(sessionId)
+
+      // Not undone through the generic preference store, which shares the flag's key.
+      expect(await failure(() => client.setPref('recoveryPassword.hidden', 'false'))).toBeDefined()
+      expect(await client.getRecoveryPasswordHidden()).toBe(true)
+      expect(await client.getSeedMnemonic()).toBe(null)
     })
 
     it('refuses a phrase of the wrong length, and still makes nothing', async () => {
@@ -1303,11 +1341,11 @@ export function runSessionClientContract(
       expect(next?.id).toBeGreaterThan(highest)
     })
 
-    it('refuses a seed that is not 32 bytes of hex', async () => {
+    it('refuses a seed that is not 16 or 32 bytes of hex', async () => {
       const { alice } = await harness.friends()
 
       // oxenc's from_hex is UB on non-hex or odd-length input, so the refusal precedes the decode.
-      for (const hexSeed of ['', 'zz'.repeat(32), `${'ab'.repeat(31)}a`]) {
+      for (const hexSeed of ['', 'zz'.repeat(32), `${'ab'.repeat(31)}a`, 'ab'.repeat(24)]) {
         const error = await failure(() => alice.restoreAccount({ hexSeed }))
         expect(error instanceof Error).toBe(true)
         expect(String(error)).toContain('hexSeed')

@@ -14,6 +14,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { createSessionClient, type SessionClient } from '@session/client'
+import { recoveryWords } from '@session/client-contract'
 import { describe, expect, it } from 'vitest'
 
 import { createNodeBridgeTransport } from '#src/index'
@@ -124,7 +125,7 @@ describeAddon('onboarding, against libsession', () => {
 
     try {
       await origin.client.createAccount()
-      const words = await origin.client.getSeedMnemonic()
+      const words = await recoveryWords(origin.client)
       const mine = await origin.client.getAccountInfo()
 
       await restored.client.restoreAccount({ words })
@@ -146,7 +147,7 @@ describeAddon('onboarding, against libsession', () => {
 
     try {
       await origin.client.createAccount()
-      const words = await origin.client.getSeedMnemonic()
+      const words = await recoveryWords(origin.client)
 
       const misspelt = [...words]
       misspelt[0] = 'zzzzz'
@@ -178,7 +179,7 @@ describeAddon('onboarding, against libsession', () => {
 
     try {
       await origin.client.createAccount()
-      const words = await origin.client.getSeedMnemonic()
+      const words = await recoveryWords(origin.client)
 
       await checker.client.checkRecoveryPhrase(words)
       expect((await checker.client.getAccountInfo()).haveAccount).toBe(false)
@@ -201,7 +202,7 @@ describeAddon('onboarding, against libsession', () => {
 
     try {
       await origin.client.createAccount()
-      const words = await origin.client.getSeedMnemonic()
+      const words = await recoveryWords(origin.client)
 
       const misspelt = [...words]
       misspelt[0] = 'zzzzz'
@@ -264,7 +265,7 @@ describeAddon('backing out of onboarding', () => {
         const origin = await newcomer(24)
         try {
           await origin.client.createAccount()
-          return await origin.client.getSeedMnemonic()
+          return await recoveryWords(origin.client)
         } finally {
           await origin.dispose()
         }
@@ -296,11 +297,11 @@ describeAddon('backing out of onboarding', () => {
     try {
       await first.client.createAccount()
       await first.client.setDisplayName('First')
-      const firstWords = await first.client.getSeedMnemonic()
+      const firstWords = await recoveryWords(first.client)
       const firstId = (await first.client.getAccountInfo()).sessionId
 
       await second.client.createAccount()
-      const secondWords = await second.client.getSeedMnemonic()
+      const secondWords = await recoveryWords(second.client)
       const secondId = (await second.client.getAccountInfo()).sessionId
       expect(secondId).not.toBe(firstId)
 
@@ -508,7 +509,7 @@ describeAddon('discarding an account', () => {
 
     try {
       await origin.client.createAccount()
-      const words = await origin.client.getSeedMnemonic()
+      const words = await recoveryWords(origin.client)
       const theirs = (await origin.client.getAccountInfo()).sessionId
 
       await device.client.restoreAccount({ words })

@@ -114,6 +114,11 @@ export type Command =
    * the app's memory and a second copy of the same secret buys nothing.
    */
   | { type: 'checkRecoveryPhrase'; phrase: SecretBytes; language?: string }
+  /**
+   * Restore from a seed in hex: 16 bytes (32 characters), as every recovery password QR code
+   * carries, or the full 32 bytes. A 16-byte seed is the lower half, the upper half zero -- the
+   * same seed the 13 words decode to.
+   */
   | { type: 'restoreAccountFromSeed'; hexSeed: string }
   /**
    * Throws away the account and everything stored under it, and starts again from nothing.
@@ -145,7 +150,30 @@ export type Command =
    * onboards calls this once after `createAccount` and is done.
    */
   | { type: 'keepAccount' }
+  /**
+   * The recovery password's words, answered with a `mnemonic` result, or `seedHidden` once
+   * `hideRecoveryPassword` has been called on this device.
+   */
   | { type: 'getSeedMnemonic'; language?: string }
+  /**
+   * The account seed as lowercase hex, answered with a `hex` result: what a recovery password's
+   * QR code carries. `seedHidden` instead once `hideRecoveryPassword` has been called.
+   *
+   * **16 bytes (32 characters) when the seed's upper half is zero**, which is every account the
+   * 13 words describe, and 32 bytes otherwise. The short form is the one every existing client
+   * puts in that QR and reads back from it, so a code drawn from this scans anywhere.
+   * `restoreAccountFromSeed` takes either length.
+   */
+  | { type: 'getSeedHex' }
+  /**
+   * Hides the recovery password on this device for good, answered with an empty result once it is
+   * stored. From then on `getSeedMnemonic` and `getSeedHex` answer `seedHidden`, so nothing above
+   * the bridge can read the seed back out; the account itself, and every key derived from the
+   * seed, carry on as before. There is no way back, as on every legacy client.
+   */
+  | { type: 'hideRecoveryPassword' }
+  /** Whether `hideRecoveryPassword` has been called on this device, answered with a `bool`. */
+  | { type: 'getRecoveryPasswordHidden' }
   | { type: 'setDisplayName'; name: string }
   /**
    * Attach a network, or replace the one attached. Declining to attach is how an app stays
@@ -412,6 +440,8 @@ export type Result =
   | { type: 'hex'; hex: string }
   | { type: 'pref'; value?: string }
   | { type: 'bool'; value: boolean }
+  /** The answer to a seed read once the recovery password is hidden: see `hideRecoveryPassword`. */
+  | { type: 'seedHidden' }
   /**
    * Where an export landed, which is not always where it was asked to go: a collision becomes
    * `name (1)`.

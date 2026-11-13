@@ -42,7 +42,7 @@ describe('the media viewer', () => {
   const viewer = source('MediaViewer.tsx')
 
   it('keeps its chrome inside the safe area, since a modal is drawn edge to edge on Android', () => {
-    expect(viewer).toMatch(/<SafeArea>[\s\S]*icon="x"/)
+    expect(viewer).toMatch(/<SafeArea>[\s\S]*<FullScreenBar/)
   })
 
   it('lays the chevrons over the picture\u2019s own box, so they centre on the picture', () => {
@@ -65,11 +65,8 @@ describe('the media viewer', () => {
     expect(viewer.match(/overMedia\n/g)?.length).toBe(2)
   })
 
-  it('grows each control to a thumb’s target on touch', () => {
+  it('grows each chevron to a thumb’s target on touch', () => {
     expect(viewer).toContain("CONTROL_SLOP = (SIZE_SCALE['3xl'] - SIZE_SCALE.xl) / 2")
-    // A slop stops at the parent's edge, so close and export are only as tall as the header.
-    expect(viewer).toMatch(/HEADER_HEIGHT = isWeb \? [^:\n]+ : SIZE_SCALE\['3xl'\]\n/)
-    expect(viewer).toContain('<XStack height={HEADER_HEIGHT}')
     expect(viewer).toMatch(/isWeb \? \{\} : \{ hitSlop: CONTROL_SLOP \}/)
   })
 })

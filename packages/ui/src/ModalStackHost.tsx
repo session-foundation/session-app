@@ -14,7 +14,7 @@ import {
   PANEL_SHADOW_BLUR,
   PANEL_WIDTH,
 } from './modalPanelMetrics'
-import { useModalEntries, useModals, type OpenModal } from './ModalsProvider'
+import { useHostSecured, useModalEntries, useModals, type OpenModal } from './ModalsProvider'
 import { Text } from './Text'
 import { LABEL_MAX_SCALE } from './fontScaleCaps'
 import { useThemeIsDark } from './UIProvider'
@@ -67,12 +67,14 @@ export function ModalStackHost({
   const panelHeight = windowHeight - 2 * inset
 
   const top = entries.at(-1)
+  const hostSecured = useHostSecured()
   const screenInsets = useScreenInsets()
   // Decided by the bottom entry, so an alert with nothing under it fades on every width.
   const slides = !wide && entries[0]?.kind === 'panel'
 
   return (
     <NativeModal
+      key={hostSecured ? 'secured' : 'plain'}
       visible={entries.length > 0}
       transparent
       animationType={slides ? 'slide' : 'fade'}
