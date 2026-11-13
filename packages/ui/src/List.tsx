@@ -49,6 +49,8 @@ export interface ListHandle {
 
 /** How close to its end a list still counts as at it, and follows content that grows. */
 const AT_END_SLACK_PX = 8
+/** Native: how long after a finger lifts its fling is waited for. */
+const FLING_BEGINS_MS = 150
 /** How long a scroll to the end is given to get there before the list stops holding to it. */
 const SEEK_END_MS = 1000
 /** How much of the list's height from its first row counts as reaching the start. */
@@ -268,6 +270,9 @@ export function List<T>({
   // On its way to the end, by `scrollToEnd`: an animated scroll reports every offset it passes,
   // none of them the end, and the rows drawn as it nears change where the end is.
   const seekingEnd = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  // Native: the reader's finger, or the fling it left, is moving the list.
+  const touched = useRef(false)
+  const touchEnding = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   // The first pass alone draws every row. FlatList keeps its first `initialNumToRender` rows
   // mounted for good, so a count that followed the data would mount every page ever read.
   const [firstPassRows] = useState(() => Math.max(data.length, 1))
@@ -339,11 +344,28 @@ export function List<T>({
         seekingEnd.current = undefined
       }
       if (resized && atEnd.current) followEnd()
-      else if (seekingEnd.current === undefined) atEnd.current = startsAtEnd && reachesEnd
+      else if (seekingEnd.current !== undefined) {
+        // Held to the end until it gets there.
+      } else if (isWeb || touched.current || reachesEnd) atEnd.current = startsAtEnd && reachesEnd
+      // Native moves the scroll itself to keep its place when rows arrive above: at the end,
+      // that is not the reader leaving it.
+      else followEnd()
       report()
     },
     [startsAtEnd, followEnd, report],
   )
+
+  const onTouchBegin = useCallback(() => {
+    clearTimeout(touchEnding.current)
+    touched.current = true
+  }, [])
+  const onTouchEnd = useCallback(() => {
+    clearTimeout(touchEnding.current)
+    // A fling goes on after the finger lifts, and says so only once it has begun.
+    touchEnding.current = setTimeout(() => {
+      touched.current = false
+    }, FLING_BEGINS_MS)
+  }, [])
 
   const onContentSizeChange = useCallback(
     (_width: number, height: number) => {
@@ -631,6 +653,7 @@ export function List<T>({
   useEffect(
     () => () => {
       clearTimeout(seekingEnd.current)
+      clearTimeout(touchEnding.current)
     },
     [],
   )
@@ -642,6 +665,14 @@ export function List<T>({
       ref={attach}
       {...(tracksScroll
         ? { onScroll, scrollEventThrottle: 16, onContentSizeChange, onLayout }
+        : {})}
+      {...(startsAtEnd && !isWeb
+        ? {
+            onScrollBeginDrag: onTouchBegin,
+            onMomentumScrollBegin: onTouchBegin,
+            onScrollEndDrag: onTouchEnd,
+            onMomentumScrollEnd: onTouchEnd,
+          }
         : {})}
       {...(startsAtEnd
         ? {
