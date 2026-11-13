@@ -162,6 +162,9 @@ export function List<T>({
   const atEnd = useRef(startsAtEnd)
   const far = useRef(false)
   const startAskedAtPx = useRef(-1)
+  // The first pass alone draws every row. FlatList keeps its first `initialNumToRender` rows
+  // mounted for good, so a count that followed the data would mount every page ever read.
+  const [firstPassRows] = useState(() => Math.max(data.length, 1))
   // A list that opens at its end is not shown until it is there.
   const [placed, setPlaced] = useState(!startsAtEnd)
 
@@ -181,7 +184,10 @@ export function List<T>({
       far.current = isFar
       latest.current.onFarFromEnd?.(isFar)
     }
-    if (offsetPx <= viewportPx * START_REACHED_VIEWPORTS && startAskedAtPx.current !== contentPx) {
+    if (offsetPx > viewportPx * START_REACHED_VIEWPORTS) {
+      // Coming back to the start asks again: a page that failed to arrive left the height as it was.
+      startAskedAtPx.current = -1
+    } else if (startAskedAtPx.current !== contentPx) {
       startAskedAtPx.current = contentPx
       latest.current.onStartReached?.()
     }
@@ -327,7 +333,7 @@ export function List<T>({
         : {})}
       {...(startsAtEnd
         ? {
-            initialNumToRender: Math.max(data.length, 1),
+            initialNumToRender: firstPassRows,
             ...(isWeb ? {} : { maintainVisibleContentPosition: KEEPS_PLACE }),
           }
         : {})}
