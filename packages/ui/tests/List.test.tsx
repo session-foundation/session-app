@@ -185,6 +185,8 @@ describe('List with roving focus', () => {
 
 describe('List that starts at its end', () => {
   const LIST = ELEMENT.conversation.screen
+  /** Past the 100 ms after its last event at which react-native-web calls a scroll ended. */
+  const SCROLL_END_MS = 150
   const paged = (count: number): Item[] =>
     Array.from({ length: count }, (_, index) => ({ id: `m${String(index)}` }))
 
@@ -238,5 +240,8 @@ describe('List that starts at its end', () => {
     // A page that did arrive is a new height to ask from.
     await scrollTo(0, 3000)
     expect(onStartReached).toHaveBeenCalledTimes(3)
+
+    // react-native-web ends a scroll on a timer of its own, which must not outlive the page.
+    await new Promise((resolve) => setTimeout(resolve, SCROLL_END_MS))
   })
 })
