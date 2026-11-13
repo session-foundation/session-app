@@ -257,7 +257,7 @@ function removeConversation(state: SessionState, id: ConversationId): SessionSta
 }
 
 /** History's order: by timestamp, then id, so messages sharing a timestamp keep one order. */
-export function compareMessages(a: Message, b: Message): number {
+function compareMessages(a: Message, b: Message): number {
   return a.timestamp - b.timestamp || a.id - b.id
 }
 
