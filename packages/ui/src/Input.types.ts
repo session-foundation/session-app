@@ -32,6 +32,10 @@ export interface InputProps {
   autoFocus?: boolean
   disabled?: boolean
   onSubmit?: () => void
+  /** The Escape key while the field has focus. The desktop's: a soft keyboard has none. */
+  onEscape?: (() => void) | undefined
+  /** Takes focus each time this changes to a new number; unset, or on mount, it does not. */
+  focusSerial?: number | undefined
   /**
    * Take the space the parent offers along its main axis.
    *

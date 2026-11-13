@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { Input as TamaguiInput, XStack } from 'tamagui'
 
 import type { InputProps } from './Input.types'
@@ -26,6 +27,7 @@ export function Input({
   autoFocus,
   disabled,
   onSubmit,
+  focusSerial,
   grow = false,
   compact = false,
   end,
@@ -34,8 +36,17 @@ export function Input({
   errorText = false,
   testID,
 }: InputProps) {
+  const input = useRef<{ focus: () => void } | null>(null)
+  const focusedFor = useRef(focusSerial)
+  useEffect(() => {
+    if (focusSerial === focusedFor.current) return
+    focusedFor.current = focusSerial
+    if (focusSerial !== undefined) input.current?.focus()
+  }, [focusSerial])
+
   const field = (
     <TamaguiInput
+      ref={input as never}
       // Fills the wrapper, which is the thing the parent lays out -- so `grow` belongs there and
       // this is unconditional. Stretched as well as flexed, because the wrapper is a row: `flex`
       // gives it the width and `alignSelf` the height.
