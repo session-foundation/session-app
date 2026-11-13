@@ -6,17 +6,21 @@ import {
   ContextMenuTarget,
   MessageFrame,
   ON_ACCENT_SECONDARY_OPACITY,
+  replyAction,
+  SwipeToReply,
   Text,
   useMenuLongPress,
   XStack,
 } from '@session/ui'
-import { memo, useMemo, type ReactNode } from 'react'
+import { memo, useCallback, useMemo, type ReactNode } from 'react'
 
-import { ConversationUiContext, type ConversationUi } from './conversationUi'
+import { ConversationUiContext, useConversationUi, type ConversationUi } from './conversationUi'
 import { attachmentsWidthPx } from './attachmentsWidth'
 import { MessageAttachments } from './MessageAttachments'
 import { useAlbumGeometry } from './useAlbumGeometry'
 import { offersRetry } from './messageRetry'
+import { canReply } from './quotedReply'
+import { ReplyQuote } from './ReplyQuote'
 import { useMessageMenuOpener } from './useMessageMenuOpener'
 
 /**
@@ -83,7 +87,12 @@ export const MessageRow = memo(function MessageRow({
   const message = useMessage(conversationId, messageId)
   const geometry = useAlbumGeometry()
   const openMyMenu = useMessageMenuOpener(messageId)
+  const { reply } = useConversationUi()
+  const replyToMe = useCallback(() => {
+    reply(messageId)
+  }, [reply, messageId])
   if (message === undefined) return null
+  const replyable = canReply(message)
   // A caption wraps at its attachments' width, so a narrow picture keeps a narrow bubble.
   const attachmentsWidth =
     message.attachments.length === 0 ? undefined : attachmentsWidthPx(message, geometry)
@@ -92,55 +101,63 @@ export const MessageRow = memo(function MessageRow({
   const retryable = offersRetry(message)
 
   return (
-    <ContextMenuTarget
-      onOpen={openMyMenu}
-      alignSelf={message.outgoing ? 'flex-end' : 'flex-start'}
-      // Text wraps at four fifths of the row. Attachments are sized for the transcript already,
-      // as a share of it that fits the row, and their caption wraps at them.
-      maxWidth={attachmentsWidth === undefined ? '80%' : '100%'}
-    >
-      <MessageFrame
-        outgoing={message.outgoing}
-        focusable
-        testID={ELEMENT.conversation.messageRow(index)}
+    <SwipeToReply onReply={replyToMe} enabled={replyable}>
+      <ContextMenuTarget
+        onOpen={openMyMenu}
+        onDoublePress={replyable ? replyToMe : undefined}
+        alignSelf={message.outgoing ? 'flex-end' : 'flex-start'}
+        // Text wraps at four fifths of the row. Attachments are sized for the transcript
+        // already, as a share of it that fits the row, and their caption wraps at them.
+        maxWidth={attachmentsWidth === undefined ? '80%' : '100%'}
       >
-        {message.body.length === 0 ? null : (
-          <Text
-            size="$body"
-            color={message.outgoing ? '$onAccent' : '$messageBubbleIncomingText'}
-            {...(attachmentsWidth === undefined ? {} : { maxWidth: attachmentsWidth })}
-            testID={ELEMENT.conversation.messageBody}
-          >
-            {message.body}
-          </Text>
-        )}
-        {attachmentsWidth === undefined ? null : (
-          <MessageAttachments message={message} width={attachmentsWidth} />
-        )}
-        {label === undefined ? null : (
-          <XStack alignItems="center" gap="$xs">
-            {/* On the fill, not on the page: a label only ever appears on an outgoing message. */}
+        <MessageFrame
+          outgoing={message.outgoing}
+          focusable
+          testID={ELEMENT.conversation.messageRow(index)}
+        >
+          {message.replyTo === undefined ? null : (
+            <ReplyQuote message={message} reply={message.replyTo} />
+          )}
+          {message.body.length === 0 ? null : (
             <Text
-              size="$caption"
-              color="$onAccent"
-              opacity={ON_ACCENT_SECONDARY_OPACITY}
-              testID={ELEMENT.conversation.messageState}
+              size="$body"
+              color={message.outgoing ? '$onAccent' : '$messageBubbleIncomingText'}
+              {...(attachmentsWidth === undefined ? {} : { maxWidth: attachmentsWidth })}
+              // A swipe is out of a screen reader's reach, so the words offer the same.
+              {...(replyable ? replyAction(tr('reply'), replyToMe) : {})}
+              testID={ELEMENT.conversation.messageBody}
             >
-              {label}
+              {message.body}
             </Text>
-            {retryable ? (
-              <RetryLink
-                onPress={() => {
-                  // Resumes rather than restarts. The state comes back as an update, so
-                  // there is nothing to do here.
-                  void actions.retry(message.id)
-                }}
-              />
-            ) : null}
-          </XStack>
-        )}
-      </MessageFrame>
-    </ContextMenuTarget>
+          )}
+          {attachmentsWidth === undefined ? null : (
+            <MessageAttachments message={message} width={attachmentsWidth} />
+          )}
+          {label === undefined ? null : (
+            <XStack alignItems="center" gap="$xs">
+              {/* On the fill, not on the page: only an outgoing message has a label. */}
+              <Text
+                size="$caption"
+                color="$onAccent"
+                opacity={ON_ACCENT_SECONDARY_OPACITY}
+                testID={ELEMENT.conversation.messageState}
+              >
+                {label}
+              </Text>
+              {retryable ? (
+                <RetryLink
+                  onPress={() => {
+                    // Resumes rather than restarts. The state comes back as an update, so
+                    // there is nothing to do here.
+                    void actions.retry(message.id)
+                  }}
+                />
+              ) : null}
+            </XStack>
+          )}
+        </MessageFrame>
+      </ContextMenuTarget>
+    </SwipeToReply>
   )
 })
 
@@ -164,6 +181,7 @@ export function DetachedMessages({
       openViewer: ignore,
       openSheet: ignore,
       openMenu: ignore,
+      reply: ignore,
     }),
     [conversationId],
   )

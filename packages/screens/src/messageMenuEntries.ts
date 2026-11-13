@@ -5,10 +5,12 @@ import { ELEMENT } from '@session/test-ids'
 import { tidyMenu, type ContextMenuEntry, type IconName } from '@session/ui'
 
 import { offersRetry } from './messageRetry'
+import { canReply } from './quotedReply'
 import { isUploadPhase } from './uploadState'
 
 /** What the menu's live entries do; the rest have nothing behind them yet. */
 export interface MessageMenuActions {
+  reply: () => void
   retry: () => void
   exportAttachment: (index: number) => void
   copyBody: () => void
@@ -45,7 +47,8 @@ function exportable(message: Message): number | undefined {
  *
  * An entry that only applies to some messages is left out of the others, as legacy does: Resend
  * for a failed send, Export for attachments, Copy for a body, Copy Account ID for someone else's
- * standard account ID. An entry whose feature is not built is drawn disabled rather than hidden.
+ * standard account ID. An entry whose feature is not built is drawn disabled rather than hidden,
+ * as Reply is on a message that cannot be answered.
  */
 export function messageMenuEntries(
   message: Message,
@@ -61,7 +64,10 @@ export function messageMenuEntries(
         },
         disabled: exportIndex === undefined,
       }),
-    row('reply', tr('reply'), 'reply', NOT_BUILT),
+    row('reply', tr('reply'), 'reply', {
+      onSelect: actions.reply,
+      disabled: !canReply(message),
+    }),
     message.body.length > 0 && row('copy', tr('copy'), 'copy', { onSelect: actions.copyBody }),
     row('info', tr('info'), 'info', NOT_BUILT),
     row('select', tr('select'), 'circleCheck', NOT_BUILT),

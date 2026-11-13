@@ -17,6 +17,8 @@ export interface ConversationUi {
   openSheet: (messageId: number) => void
   /** A right-click or a long press on a message, or the keyboard on a focused one. */
   openMenu: (messageId: number, anchor: MenuAnchor) => void
+  /** Starts a reply to a message of this conversation, in the composer. */
+  reply: (messageId: number) => void
 }
 
 export const ConversationUiContext = createContext<ConversationUi | null>(null)

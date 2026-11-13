@@ -7,18 +7,21 @@ import {
   ATTACH_OPENS_MENU,
   Button,
   ComposerNotice,
+  ComposerReply,
   Icon,
   Input,
   StagedTile,
   StagedTray,
   XStack,
   YStack,
+  type QuotedMessage,
 } from '@session/ui'
 import { useRef, useState } from 'react'
 
 import { AttachMenu } from './AttachMenu'
 import { draftAfterSend, followSent } from './draftAfterSend'
 import { refusalAnnouncement, refusalNotices } from './refusalNotices'
+import { quoteLabels } from './quotedReply'
 import { isFull, sizeOf, type StagingRefusal } from './staging'
 import { NOTHING_REFUSED, type StagingState } from './useStaging'
 
@@ -45,14 +48,33 @@ function Notices({ staging }: { staging: StagingState }) {
   )
 }
 
-/** The bottom of a conversation: what is staged, what was refused, and the line being typed. */
+/** The message being answered, as the bar above the input draws it. */
+export interface ComposerReplyTarget {
+  /** `messageReplyingTo` and the author, already worded. */
+  heading: string
+  message: QuotedMessage
+}
+
+/**
+ * The bottom of a conversation: what is being answered, what is staged, what was refused, and the
+ * line being typed.
+ */
 export function Composer({
   staging,
   onSend,
+  reply,
+  onCancelReply,
+  focusSerial,
 }: {
   staging: StagingState
   /** Rejects when libsession refused the message, which it then has not stored. */
   onSend: (body: string, files: readonly PickedFile[]) => Promise<void>
+  /** Absent while not replying. The draft and the staged files are the composer's either way. */
+  reply?: ComposerReplyTarget | undefined
+  /** The bar's X, and Escape in the input while replying. */
+  onCancelReply?: (() => void) | undefined
+  /** Moves focus to the input each time it changes: starting a reply does. */
+  focusSerial?: number | undefined
 }) {
   const [draft, setDraft] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
@@ -108,6 +130,18 @@ export function Composer({
   return (
     <YStack padding="$md" gap="$sm" borderTopWidth={1} borderTopColor="$bordersColor">
       <Notices staging={staging} />
+      {reply === undefined || onCancelReply === undefined ? null : (
+        <ComposerReply
+          heading={reply.heading}
+          message={reply.message}
+          labels={quoteLabels()}
+          onClose={onCancelReply}
+          closeLabel={tr('close')}
+          testID={ELEMENT.conversation.composerReply}
+          closeTestID={ELEMENT.conversation.composerReplyClose}
+          thumbnailTestID={ELEMENT.conversation.composerReplyThumbnail}
+        />
+      )}
       {staging.files.length > 0 ? (
         <StagedTray
           countLabel={PENDING_COPY.attachmentsStagedCount(
@@ -173,6 +207,8 @@ export function Composer({
           }}
           placeholder={tr('message')}
           onSubmit={send}
+          onEscape={reply === undefined ? undefined : onCancelReply}
+          focusSerial={focusSerial}
           testID={ELEMENT.conversation.composerInput}
         />
         <Button
@@ -209,6 +245,8 @@ export function Composer({
 export interface ComposerSeed {
   files: PickedFile[]
   refused?: Partial<StagingRefusal> | undefined
+  /** What it is answering, for the bar above the input. */
+  reply?: ComposerReplyTarget | undefined
 }
 
 const ignore = () => {}
@@ -239,5 +277,12 @@ function seededStaging({ files, refused }: ComposerSeed): StagingState {
  * nothing sends. For the component catalog, as `DetachedMessages` is for rows.
  */
 export function DetachedComposer({ seed }: { seed: ComposerSeed }) {
-  return <Composer staging={seededStaging(seed)} onSend={neverAnswered} />
+  return (
+    <Composer
+      staging={seededStaging(seed)}
+      onSend={neverAnswered}
+      reply={seed.reply}
+      onCancelReply={ignore}
+    />
+  )
 }

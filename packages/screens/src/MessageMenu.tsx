@@ -4,6 +4,7 @@ import { useMessage, useSessionActions } from '@session/state'
 import { ELEMENT } from '@session/test-ids'
 import { ContextMenu, type MenuAnchor } from '@session/ui'
 
+import { useConversationUi } from './conversationUi'
 import { exportOne } from './exportAttachment'
 import { messageMenuEntries } from './messageMenuEntries'
 import { useCopyWithToast } from './useCopyWithToast'
@@ -28,6 +29,7 @@ export function MessageMenu({
   const actions = useSessionActions()
   const copy = useCopyWithToast()
   const feedback = useExportFeedback()
+  const { reply } = useConversationUi()
   const message = useMessage(conversationId, target?.messageId ?? -1)
   // A message deleted while its menu is open closes the menu with it.
   const open = target !== null && message !== undefined
@@ -40,6 +42,9 @@ export function MessageMenu({
         message === undefined
           ? []
           : messageMenuEntries(message, {
+              reply: () => {
+                reply(message.id)
+              },
               retry: () => {
                 void actions.retry(message.id)
               },

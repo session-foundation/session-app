@@ -12,6 +12,7 @@ function conversationUi(): ConversationUi {
     openViewer: vi.fn(),
     openSheet: vi.fn(),
     openMenu: vi.fn(),
+    reply: vi.fn(),
   }
 }
 

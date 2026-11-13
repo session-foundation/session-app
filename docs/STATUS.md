@@ -35,7 +35,7 @@ a time, via the `port-feature` skill.
   stops showing it, so paging depth and scroll position go with it. Keeping both, so that coming
   back puts you where you were, is its own piece of work; keeping every window loaded for the
   session is not the way to do it.
-- **Anything a message can be beyond text**: no reactions, replies, edits, deletes or read
+- **Anything a message can be beyond text and a reply**: no reactions, edits, deletes or read
   receipts.
 - **A devnet cannot have its own Pro backend.** The key libsession verifies proofs against is a
   `constexpr` read at one call site in `core.cpp`, so pointing a build at another deployment needs

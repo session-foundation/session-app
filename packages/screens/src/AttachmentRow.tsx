@@ -15,6 +15,7 @@ import { controlVerb, rowVerb, verbLabel, type AttachmentVerb } from './attachme
 import { useConversationUi } from './conversationUi'
 import { exportOne } from './exportAttachment'
 import { layoutLine } from './layoutLine'
+import { canReply } from './quotedReply'
 import { SendingRow } from './SendingRow'
 import { isUploadPhase } from './uploadState'
 import { useExportFeedback } from './useExportFeedback'
@@ -136,6 +137,17 @@ function SettledRow({ message, attachment, onAccent, hasControl }: RowProps) {
       onAction={control === null ? undefined : perform[control]}
       onAccent={onAccent}
       hasControl={hasControl}
+      // A message of files alone has no words to carry Reply for a screen reader.
+      reply={
+        canReply(message)
+          ? {
+              label: tr('reply'),
+              run: () => {
+                ui.reply(message.id)
+              },
+            }
+          : undefined
+      }
       testIDs={{
         row: ELEMENT.conversation.attachment,
         name: ELEMENT.conversation.attachmentName,

@@ -6,7 +6,12 @@ import { ELEMENT } from '@session/test-ids'
 import type * as React from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { Composer, DetachedComposer, type ComposerSeed } from '#src/Composer'
+import {
+  Composer,
+  DetachedComposer,
+  type ComposerReplyTarget,
+  type ComposerSeed,
+} from '#src/Composer'
 import { PLAN_GIVES_UP_AFTER_MS, useStaging, type StagingState } from '#src/useStaging'
 
 /**
@@ -46,6 +51,7 @@ vi.mock('@session/ui', () => {
     Announcement: named('Announcement'),
     Button: named('Button'),
     ComposerNotice: named('ComposerNotice'),
+    ComposerReply: named('ComposerReply'),
     Icon: named('Icon'),
     Input: named('Input'),
     PressArea: named('PressArea'),
@@ -79,11 +85,14 @@ function hostElements(node: unknown): Element[] {
 let onSend: ReturnType<typeof vi.fn<(body: string, files: readonly PickedFile[]) => Promise<void>>>
 let planSend: (file: PickedFile) => Promise<SendPlan>
 
+/** What the composer is answering, when a test sets it. */
+let replying: { reply: ComposerReplyTarget; onCancelReply: () => void } | undefined
+
 /** One render of a conversation's composer and the staging it is given. */
 function render(): { staging: StagingState; find: (testID: string) => Element | undefined } {
   hooks.nextSlot = 0
   const staging = useStaging((file) => planSend(file))
-  const tree = Composer({ staging, onSend })
+  const tree = Composer({ staging, onSend, ...replying, focusSerial: 3 })
   const elements = hostElements(tree)
   return {
     staging,
@@ -124,6 +133,7 @@ beforeEach(() => {
   setPorts(memoryPorts())
   hooks.slots = []
   planSend = () => Promise.resolve('as-is')
+  replying = undefined
 })
 
 afterEach(() => {
@@ -167,6 +177,44 @@ describe('the composer while a send is out', () => {
     const { find } = render()
     expect(find(ELEMENT.conversation.stagedTray)?.props.clearDisabled).toBe(true)
     expect(find(ELEMENT.conversation.stagedTile(0))?.props.removeDisabled).toBe(true)
+  })
+})
+
+describe('the composer while replying', () => {
+  const answered: ComposerReplyTarget = {
+    heading: 'Replying to Bob',
+    message: { id: 4, outgoing: false, body: 'Are we still on?', attachments: [] },
+  }
+  const bar = () => render().find(ELEMENT.conversation.composerReply)
+  const input = () => render().find(ELEMENT.conversation.composerInput)
+
+  it('draws no bar, and gives Escape nothing to do, while not replying', () => {
+    expect(bar()).toBeUndefined()
+    expect(input()?.props.onEscape).toBeUndefined()
+  })
+
+  it('heads the bar with what it answers, named as the close button is', () => {
+    replying = { reply: answered, onCancelReply: vi.fn() }
+    expect(bar()?.props).toMatchObject({
+      heading: 'Replying to Bob',
+      message: answered.message,
+      closeLabel: tr('close'),
+      closeTestID: ELEMENT.conversation.composerReplyClose,
+    })
+  })
+
+  it('stops replying from the X and from Escape in the input, keeping what was typed', () => {
+    const onCancelReply = vi.fn()
+    replying = { reply: answered, onCancelReply }
+    type('half a thought')
+    ;(bar()?.props.onClose as () => void)()
+    ;(input()?.props.onEscape as () => void)()
+    expect(onCancelReply).toHaveBeenCalledTimes(2)
+    expect(input()?.props.value).toBe('half a thought')
+  })
+
+  it('hands the input the focus request a reply makes', () => {
+    expect(input()?.props.focusSerial).toBe(3)
   })
 })
 

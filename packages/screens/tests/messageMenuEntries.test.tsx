@@ -24,7 +24,13 @@ const file = (index: number, availability: Attachment['availability']): Attachme
   ({ index, availability }) as unknown as Attachment
 
 function actions() {
-  return { retry: vi.fn(), exportAttachment: vi.fn(), copyBody: vi.fn(), copyAuthor: vi.fn() }
+  return {
+    reply: vi.fn(),
+    retry: vi.fn(),
+    exportAttachment: vi.fn(),
+    copyBody: vi.fn(),
+    copyAuthor: vi.fn(),
+  }
 }
 
 /** Each row as `id` or `id (disabled)`, separators as `|`. */
@@ -43,7 +49,7 @@ const choose = (entries: readonly ContextMenuEntry[], id: string) => {
 describe('a message’s context menu', () => {
   it('offers on a received text what can be done, and greys what is not built', () => {
     expect(shape(messageMenuEntries(message(), actions()))).toEqual([
-      'reply (disabled)',
+      'reply',
       'copy',
       'info (disabled)',
       'select (disabled)',
@@ -51,6 +57,23 @@ describe('a message’s context menu', () => {
       '|',
       'delete (disabled)',
     ])
+  })
+
+  it('starts a reply from Reply', () => {
+    const chosen = actions()
+    choose(messageMenuEntries(message(), chosen), 'reply')
+    expect(chosen.reply).toHaveBeenCalledOnce()
+  })
+
+  it('greys Reply on a message that cannot be answered: ours until sent, and a deleted one', () => {
+    const replyOf = (overrides: Partial<Message>) =>
+      shape(messageMenuEntries(message(overrides), actions())).find((row) =>
+        row.startsWith('reply'),
+      )
+    expect(replyOf({ outgoing: true, sendState: 'sent' })).toBe('reply')
+    for (const sendState of ['pending', 'sending', 'uploading', 'failed', 'unsendable'] as const)
+      expect(replyOf({ outgoing: true, sendState })).toBe('reply (disabled)')
+    expect(replyOf({ deleted: 'here' })).toBe('reply (disabled)')
   })
 
   it('offers Resend on a failed send of ours, and no Copy Account ID', () => {
