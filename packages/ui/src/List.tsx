@@ -48,6 +48,8 @@ export interface ListHandle {
 
 /** How close to its end a list still counts as at it, and follows content that grows. */
 const AT_END_SLACK_PX = 8
+/** How long a scroll to the end is given to get there before the list stops holding to it. */
+const SEEK_END_MS = 1000
 /** How much of the list's height from its first row counts as reaching the start. */
 const START_REACHED_VIEWPORTS = 0.5
 /** Native: a row within this many rows of what is on screen is near enough to animate to. */
@@ -258,6 +260,9 @@ export function List<T>({
   const rowNodes = useRef(new Map<string, unknown>())
   const onScreen = useRef<{ first: number; last: number } | null>(null)
   const target = useRef<ScrollTarget | null>(null)
+  // On its way to the end, by `scrollToEnd`: an animated scroll reports every offset it passes,
+  // none of them the end, and the rows drawn as it nears change where the end is.
+  const seekingEnd = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   // The first pass alone draws every row. FlatList keeps its first `initialNumToRender` rows
   // mounted for good, so a count that followed the data would mount every page ever read.
   const [firstPassRows] = useState(() => Math.max(data.length, 1))
@@ -322,11 +327,14 @@ export function List<T>({
         viewportPx: layoutMeasurement.height,
         contentPx: contentSize.height,
       }
-      if (!(resized && atEnd.current))
-        atEnd.current =
-          startsAtEnd &&
-          contentSize.height - contentOffset.y - layoutMeasurement.height <= AT_END_SLACK_PX
-      else followEnd()
+      const reachesEnd =
+        contentSize.height - contentOffset.y - layoutMeasurement.height <= AT_END_SLACK_PX
+      if (reachesEnd) {
+        clearTimeout(seekingEnd.current)
+        seekingEnd.current = undefined
+      }
+      if (resized && atEnd.current) followEnd()
+      else if (seekingEnd.current === undefined) atEnd.current = startsAtEnd && reachesEnd
       report()
     },
     [startsAtEnd, followEnd, report],
@@ -465,6 +473,8 @@ export function List<T>({
         const index = latest.current.keys.indexOf(key)
         if (index === -1) return
         atEnd.current = false
+        clearTimeout(seekingEnd.current)
+        seekingEnd.current = undefined
         const heightPx = rowHeights.current.get(key)
         const tall = heightPx !== undefined && heightPx > scroll.current.viewportPx
         target.current = {
@@ -500,6 +510,10 @@ export function List<T>({
       scrollToEnd({ animated = false } = {}) {
         atEnd.current = startsAtEnd
         target.current = null
+        clearTimeout(seekingEnd.current)
+        seekingEnd.current = setTimeout(() => {
+          seekingEnd.current = undefined
+        }, SEEK_END_MS)
         toEnd(animated)
       },
     }),
@@ -572,6 +586,13 @@ export function List<T>({
   )
 
   const tracksScroll = startsAtEnd || onStartReached !== undefined || onFarFromEnd !== undefined
+  useEffect(
+    () => () => {
+      clearTimeout(seekingEnd.current)
+    },
+    [],
+  )
+
   const drawn = (
     <FlatList
       style={fitsContent ? FITS_CONTENT : placed ? FILLS : HIDDEN}
