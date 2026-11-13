@@ -78,10 +78,13 @@ export const MessageRow = memo(function MessageRow({
   conversationId,
   messageId,
   index,
+  highlightSerial,
 }: {
   conversationId: ConversationId
   messageId: number
   index: number
+  /** Set while a jump's landing on this message is being shown; see `MessageFrame`. */
+  highlightSerial?: number | undefined
 }) {
   const actions = useSessionActions()
   const message = useMessage(conversationId, messageId)
@@ -113,6 +116,7 @@ export const MessageRow = memo(function MessageRow({
         <MessageFrame
           outgoing={message.outgoing}
           focusable
+          highlightSerial={highlightSerial}
           testID={ELEMENT.conversation.messageRow(index)}
         >
           {message.replyTo === undefined ? null : (
@@ -182,6 +186,7 @@ export function DetachedMessages({
       openSheet: ignore,
       openMenu: ignore,
       reply: ignore,
+      openQuote: ignore,
     }),
     [conversationId],
   )

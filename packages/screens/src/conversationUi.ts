@@ -19,7 +19,12 @@ export interface ConversationUi {
   openMenu: (messageId: number, anchor: MenuAnchor) => void
   /** Starts a reply to a message of this conversation, in the composer. */
   reply: (messageId: number) => void
+  /** A press on the quote heading a reply: goes to its original, or says it is not found. */
+  openQuote: (replyId: number) => void
 }
+
+/** The reply whose quote is being followed while its original is read in, or null. */
+export const QuoteJumpContext = createContext<number | null>(null)
 
 export const ConversationUiContext = createContext<ConversationUi | null>(null)
 
