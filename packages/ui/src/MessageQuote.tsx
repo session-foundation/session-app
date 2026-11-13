@@ -81,8 +81,11 @@ export function QuoteLines({
     <>
       {preview.visual === null ? <YStack width={STRIPE_WIDTH_PX} backgroundColor={stripe} /> : null}
       {thumb}
+      {/* Yoga sizes a bubble from its children's bases: a zero one gives the text no width. */}
       <YStack
-        flex={1}
+        flexGrow={1}
+        flexShrink={1}
+        flexBasis="auto"
         minWidth={0}
         justifyContent="center"
         gap="$2xs"
