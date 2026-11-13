@@ -27,7 +27,7 @@ import {
 } from './selectors'
 import type { StartupFailureKind } from './startupFailure'
 import type { SessionActions, SessionStore } from './store'
-import type { AttachmentTransferState, MessageTransfers, StoredAppearance } from './types'
+import type { AttachmentTransferState, MessageTransfers, Landing, StoredAppearance } from './types'
 import { emptyWindow } from './types'
 
 const StoreContext = createContext<SessionStore | null>(null)
@@ -121,14 +121,21 @@ export function useConversation(id: ConversationId | undefined): Conversation | 
   )
 }
 
-/** A conversation's loaded window and the read that grows it. */
+/** A conversation's loaded window and the reads that move it. */
 export interface Transcript {
   messages: Message[]
   ready: boolean
   /** Whether history goes on past the window's oldest and newest messages. */
   hasOlder: boolean
   hasNewer: boolean
+  /** How many jumps there are to walk back through. */
+  jumpCount: number
+  /** The reply the latest jump started from, which the next walk back lands on. */
+  returnsTo: number | undefined
+  /** The last message a jump landed on, to scroll to and highlight. */
+  landing: Landing | undefined
   loadOlder: () => void
+  loadNewer: () => void
 }
 
 /**
@@ -164,6 +171,9 @@ export function useMessages(id: ConversationId | undefined): Transcript {
   const loadOlder = useCallback(() => {
     if (id !== undefined) void store.actions.loadOlder(id)
   }, [id, store])
+  const loadNewer = useCallback(() => {
+    if (id !== undefined) void store.actions.loadNewer(id)
+  }, [id, store])
 
   return useMemo(
     () => ({
@@ -171,9 +181,13 @@ export function useMessages(id: ConversationId | undefined): Transcript {
       ready: window.ready,
       hasOlder: window.hasOlder,
       hasNewer: window.hasNewer,
+      jumpCount: window.jumps.length,
+      returnsTo: window.jumps[window.jumps.length - 1],
+      landing: window.landing,
       loadOlder,
+      loadNewer,
     }),
-    [window, loadOlder],
+    [window, loadOlder, loadNewer],
   )
 }
 

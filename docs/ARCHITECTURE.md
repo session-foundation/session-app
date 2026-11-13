@@ -968,8 +968,12 @@ Append one paragraph per decision. Undocumented decisions are what rot.
   gallery.
 
 - **2026-11-12 - A history window is a run of messages that need not reach either end.** It keeps
-  libsession's `hasOlder` and `hasNewer` from the read that made it. An announced message is
-  merged by id and placed by (timestamp, id), and one past an end that history goes on beyond is
-  left for paging to read. The transcript is not an inverted list: it opens at its end and
-  follows it, so its rows stay in reading order for the keyboard, a screen reader and a text
-  selection.
+  libsession's `hasOlder` and `hasNewer` from the read that made it and pages both ways. Following
+  a reply's quote lands on the original, replacing the window with 60 messages read around it
+  when it is not held; the replies followed are kept with the window, up to 20, and walked back
+  one at a time. They live in the store rather than in libsession because they are where this
+  screen has been, which no other device shares, and they go with the window when the
+  conversation is left. An announced message is merged by id and placed by (timestamp, id), and
+  one past an end that history goes on beyond is left for paging to read. The transcript is not
+  an inverted list: it opens at its end and follows it, so its rows stay in reading order for the
+  keyboard, a screen reader and a text selection.

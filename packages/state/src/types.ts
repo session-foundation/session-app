@@ -14,6 +14,15 @@ import type { StartupFailureKind } from './startupFailure'
 /** One of the two lists a conversation can be in, named as the state field holding it. */
 export type ListName = Exclude<ConversationList, 'none'>
 
+/** How many jumps a window remembers the way back from; one more drops the oldest. */
+export const MAX_JUMPS = 20
+
+/** Which message a jump put the reader on. `serial` differs for every landing, repeats included. */
+export interface Landing {
+  messageId: number
+  serial: number
+}
+
 /**
  * One conversation's loaded history: a run of consecutive messages, which need not reach either
  * end of the conversation.
@@ -29,13 +38,21 @@ export interface MessageWindow {
   hasOlder: boolean
   /**
    * Whether history goes on past the newest message held. While it does, a message announced
-   * beyond that end is not this window's to hold.
+   * beyond that end is not this window's to hold: paging newer reads it.
    */
   hasNewer: boolean
   /** The first page is being read. */
   fetching: boolean
   /** Guard against asking for a page twice while the first request is still out. */
   fetchingOlder: boolean
+  fetchingNewer: boolean
+  /**
+   * The replies whose quotes were followed, oldest jump first, each the message to return to.
+   * At most `MAX_JUMPS`. Dropped with the window, so leaving the conversation empties it.
+   */
+  jumps: readonly number[]
+  /** The last landing, for the screen to scroll to and highlight. */
+  landing?: Landing
 }
 
 export const emptyWindow: MessageWindow = {
@@ -45,6 +62,8 @@ export const emptyWindow: MessageWindow = {
   hasNewer: false,
   fetching: false,
   fetchingOlder: false,
+  fetchingNewer: false,
+  jumps: [],
 }
 
 /**
