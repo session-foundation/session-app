@@ -26,6 +26,8 @@ const PREPARE: Record<string, 'downloaded' | 'downloadFailed' | Running> = {
   'Ours from another device, for the ring at 95%': { doneBytes: 95, totalBytes: 100 },
   'One file, caught downloading': { doneBytes: 40, totalBytes: 100 },
   'One picture as a list, caught downloading': { doneBytes: 40, totalBytes: 100 },
+  // Quoted by a reply, which then draws libsession's thumbnail of it.
+  'A view, downloaded': 'downloaded',
 }
 
 /** Four tenths of a 3 MB file, so a caption reads in the sizes a real one would. */

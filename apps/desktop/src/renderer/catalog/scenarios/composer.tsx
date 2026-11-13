@@ -1,6 +1,6 @@
 import type { PickedFile } from '@session/app'
 import { MAX_ATTACHMENTS_PER_MESSAGE } from '@session/basic-types'
-import { DetachedComposer, type ComposerSeed } from '@session/screens'
+import { DetachedComposer, replyingToHeading, type ComposerSeed } from '@session/screens'
 import { CatalogPictures, defineStory, type AnyStory } from '@session/ui/catalog'
 import { useContext } from 'react'
 
@@ -56,4 +56,55 @@ const composer = defineStory<ComposerRow>({
   render: (row) => <ScenarioComposer {...row} />,
 })
 
-export const COMPOSER_SCENARIOS: readonly AnyStory[] = [composer]
+/** What a composer is answering, and how many files it has staged under the bar. */
+interface ReplyingRow {
+  count: number
+  quoted: string
+  /** Whether the answered message carries a picture, drawn in the bar's square. */
+  picture?: boolean
+}
+
+function ReplyingComposer({ count, quoted, picture = false }: ReplyingRow) {
+  const pictures = useContext(CatalogPictures)
+  const files = Array.from({ length: count }, (_, at) => stagedFile(at, pictures))
+  return (
+    <DetachedComposer
+      seed={{
+        files,
+        reply: {
+          heading: replyingToHeading('Bob'),
+          message: {
+            id: 1,
+            outgoing: false,
+            body: quoted,
+            attachments: picture
+              ? [{ contentType: 'image/jpeg', voiceMessage: false, uri: pictures[0] }]
+              : [],
+          },
+        },
+      }}
+    />
+  )
+}
+
+/** The bar above the input while replying: its stripe or square leads, its X trails. */
+const replying = defineStory<ReplyingRow>({
+  component: 'composer',
+  story: 'replying',
+  width: 640,
+  sensitive: { accent: true, rtl: true },
+  variants: {
+    toText: { count: 0, quoted: 'Are we still on for Thursday?' },
+    toLongText: {
+      count: 0,
+      quoted:
+        'Are we still on for Thursday? I might bring Sam along if that is all right with you, ' +
+        'and we could eat first.',
+    },
+    toPicture: { count: 0, quoted: '', picture: true },
+    withFilesStaged: { count: 3, quoted: 'Send me the photos', picture: false },
+  },
+  render: (row) => <ReplyingComposer {...row} />,
+})
+
+export const COMPOSER_SCENARIOS: readonly AnyStory[] = [composer, replying]

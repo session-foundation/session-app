@@ -136,4 +136,32 @@ export const MESSAGE_SCENARIOS: readonly AnyStory[] = [
     ],
     {},
   ),
+  // A reply to each kind of message a quote draws, through the fake: the author's wording, the
+  // thumbnail or the ThumbHash, and an original deleted or never received.
+  message(
+    'replies',
+    [
+      'Yes, 7pm',
+      'No worries',
+      'Skip that one',
+      'Where is this?',
+      'Lovely',
+      'Send me the third one',
+      'Jealous',
+      'Signed',
+      'Both signed',
+      'Listening now',
+      'Watching now',
+      'Can you resend?',
+      'Here it is',
+      'What did it say?',
+      'Too late, I read it',
+    ],
+    { rtl: true },
+  ),
+  // A quote on our accent and on a received bubble, in every accent: all fifteen replies in
+  // every accent is a page past the capture's height.
+  message('repliesAccent', ['Yes, 7pm', 'No worries', 'Where is this?', 'What did it say?'], {
+    accent: true,
+  }),
 ]
