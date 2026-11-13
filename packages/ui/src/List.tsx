@@ -272,6 +272,7 @@ export function List<T>({
   const seekingEnd = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   // Native: the reader's finger, or the fling it left, is moving the list.
   const touched = useRef(false)
+  const everTouched = useRef(false)
   const touchEnding = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   // The first pass alone draws every row. FlatList keeps its first `initialNumToRender` rows
   // mounted for good, so a count that followed the data would mount every page ever read.
@@ -299,6 +300,10 @@ export function List<T>({
       // Coming back to the start asks again: a page that failed left the height as it was.
       startAskedAtPx.current = -1
     } else if (startAskedAtPx.current !== contentPx) {
+      // Native shows rows added above a list at its end as a jump there and back. A list that
+      // opened full waits for the reader to move it before it asks for more.
+      const opensFull = !isWeb && atEnd.current && !everTouched.current && contentPx > viewportPx
+      if (opensFull) return
       startAskedAtPx.current = contentPx
       latest.current.onStartReached?.()
     }
@@ -358,6 +363,7 @@ export function List<T>({
   const onTouchBegin = useCallback(() => {
     clearTimeout(touchEnding.current)
     touched.current = true
+    everTouched.current = true
   }, [])
   const onTouchEnd = useCallback(() => {
     clearTimeout(touchEnding.current)
