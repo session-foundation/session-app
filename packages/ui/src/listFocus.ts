@@ -174,6 +174,14 @@ export class ListFocus {
     return true
   }
 
+  /** Moves keyboard focus to a row's stop, where it is; false while the row is not drawn. */
+  focusRow(key: string): boolean {
+    const node = this.drawn.get(key)
+    if (node === undefined) return false
+    node.focus({ preventScroll: true })
+    return true
+  }
+
   private keyOf(node: HTMLElement): string | null {
     for (const [key, drawn] of this.drawn) if (drawn === node) return key
     return null

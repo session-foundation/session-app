@@ -9,6 +9,7 @@ import {
 } from 'react'
 import {
   FlatList,
+  View,
   type LayoutChangeEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
@@ -27,6 +28,18 @@ import {
 
 /** What a screen moves a list by. */
 export interface ListHandle {
+  /**
+   * Brings a row to the middle of the list, or its top to the list's top where the row is taller
+   * than the list. `animated` animates a short move only: a row more than about a list's height
+   * away is jumped to. `focus` moves the desktop keyboard's focus to the row's stop once it is
+   * drawn, and `onArrived` is called once the list has stopped on the row.
+   */
+  scrollToKey: (
+    key: string,
+    options?: { animated?: boolean; focus?: boolean; onArrived?: () => void },
+  ) => void
+  /** Whether any of the row is drawn inside the list's viewport, as last reported. */
+  isOnScreen: (key: string) => boolean
   /** To the last row, where a list that `startsAtEnd` then stays. */
   scrollToEnd: (options?: { animated?: boolean }) => void
 }
@@ -35,13 +48,41 @@ export interface ListHandle {
 const AT_END_SLACK_PX = 8
 /** How much of the list's height from its first row counts as reaching the start. */
 const START_REACHED_VIEWPORTS = 0.5
+/** Native: a row within this many rows of what is on screen is near enough to animate to. */
+const NEAR_ROWS = 8
+/** How long an animated scroll is given to stop where nothing says that it has. */
+const ANIMATED_SCROLL_MS = 500
+/** How often a row not yet measured is tried again, and how long between tries. */
+const SCROLL_RETRIES = 5
+const SCROLL_RETRY_MS = 50
+/** How many frames a row is waited for, to be drawn or to take focus, before giving up. */
+const ROW_FRAMES = 30
 
 const KEEPS_PLACE = { minIndexForVisible: 0 } as const
+const VIEWABILITY = { itemVisiblePercentThreshold: 1 } as const
 const HIDDEN = { flex: 1, opacity: 0 } as const
 
-interface WebScroller {
+interface ScrollTarget {
+  index: number
+  viewPosition: number
+  retries: number
+}
+
+interface WebScroller extends WebBox {
   scrollTop: number
   scrollHeight: number
+  clientHeight: number
+  addEventListener: (type: 'scrollend', listener: () => void, options: { once: true }) => void
+  removeEventListener: (type: 'scrollend', listener: () => void) => void
+}
+
+interface WebBox {
+  getBoundingClientRect: () => { top: number; bottom: number }
+}
+
+interface WebRow extends WebBox {
+  offsetHeight: number
+  scrollIntoView: (options: { block: 'start' | 'center'; behavior?: 'smooth' | 'auto' }) => void
 }
 
 export interface ListProps<T> {
@@ -76,7 +117,7 @@ export interface ListProps<T> {
    * Space on that element, or the Menu key or Shift+F10 anywhere in the row.
    */
   onRowMenu?: ListRowMenu | undefined
-  /** Scrolls the list from outside. */
+  /** Scrolls the list from outside. Rows are then measured, which is what places a tall one. */
   handle?: Ref<ListHandle> | undefined
   /**
    * Opens on its last row and follows its end as rows arrive or grow, until scrolled away from
@@ -92,6 +133,8 @@ export interface ListProps<T> {
   onStartReached?: (() => void) | undefined
   /** Whether the end is more than one list's height away, said when that changes. */
   onFarFromEnd?: ((far: boolean) => void) | undefined
+  /** The keys of the rows drawn inside the viewport, each time that set changes. */
+  onRowsOnScreen?: ((keys: ReadonlySet<string>) => void) | undefined
 }
 
 const FILLS = { flex: 1 } as const
@@ -135,6 +178,7 @@ export function List<T>({
   startsAtEnd = false,
   onStartReached,
   onFarFromEnd,
+  onRowsOnScreen,
 }: ListProps<T>) {
   // TODO(#533): keyboard on iPad and the iPad app on Mac. Full Keyboard Access reaches a row only
   // as a full-width accessibility element with the button trait, which hides the row's own
@@ -162,12 +206,16 @@ export function List<T>({
   const atEnd = useRef(startsAtEnd)
   const far = useRef(false)
   const startAskedAtPx = useRef(-1)
+  const rowHeights = useRef(new Map<string, number>())
+  const rowNodes = useRef(new Map<string, unknown>())
+  const onScreen = useRef<{ first: number; last: number } | null>(null)
+  const target = useRef<ScrollTarget | null>(null)
   // A list that opens at its end is not shown until it is there.
   const [placed, setPlaced] = useState(!startsAtEnd)
 
-  const latest = useRef({ onStartReached, onFarFromEnd })
+  const latest = useRef({ keys, onStartReached, onFarFromEnd, onRowsOnScreen })
   useLayoutEffect(() => {
-    latest.current = { onStartReached, onFarFromEnd }
+    latest.current = { keys, onStartReached, onFarFromEnd, onRowsOnScreen }
   })
 
   /** Reports what the scroller's position means, from wherever it was learnt. */
@@ -275,16 +323,130 @@ export function List<T>({
     heldHeightPx.current = node.scrollHeight
   }, [keys, startsAtEnd, webScroller])
 
+  const scrollToTarget = useCallback((animated: boolean) => {
+    const at = target.current
+    if (at === null) return
+    list.current?.scrollToIndex({ index: at.index, viewPosition: at.viewPosition, animated })
+  }, [])
+
+  // A row not measured yet has no offset to scroll to: go to roughly where it is, which
+  // measures it, then try again.
+  const onScrollToIndexFailed = useCallback(
+    (info: { index: number; averageItemLength: number }) => {
+      const at = target.current
+      if (at === null || at.retries >= SCROLL_RETRIES) return
+      at.retries += 1
+      list.current?.scrollToOffset({
+        offset: info.averageItemLength * info.index,
+        animated: false,
+      })
+      setTimeout(() => {
+        scrollToTarget(false)
+      }, SCROLL_RETRY_MS)
+    },
+    [scrollToTarget],
+  )
+
+  const onViewableItemsChanged = useCallback(
+    ({ viewableItems }: { viewableItems: { index?: number | null | undefined }[] }) => {
+      const indices = viewableItems.flatMap(({ index }) =>
+        typeof index === 'number' ? [index] : [],
+      )
+      onScreen.current =
+        indices.length === 0 ? null : { first: Math.min(...indices), last: Math.max(...indices) }
+      const report = latest.current.onRowsOnScreen
+      if (report === undefined) return
+      const all = latest.current.keys
+      report(new Set(indices.flatMap((index) => all[index] ?? [])))
+    },
+    [],
+  )
+
+  /**
+   * The web's scroll to a row, by the row's own element: rows just handed to the list have no
+   * measurements for the list to scroll by, and the page knows where they are.
+   */
+  const scrollToRowElement = useCallback(
+    (key: string, animated: boolean, onArrived: (() => void) | undefined) => {
+      let frames = 0
+      const step = () => {
+        frames += 1
+        const node = rowNodes.current.get(key) as WebRow | undefined
+        const scroller = webScroller()
+        if (node === undefined || scroller === null) {
+          // Not drawn yet: towards where the list reckons it is, which draws it.
+          scrollToTarget(false)
+          if (frames < ROW_FRAMES) requestAnimationFrame(step)
+          return
+        }
+        const block = node.offsetHeight > scroller.clientHeight ? 'start' : 'center'
+        const row = node.getBoundingClientRect()
+        const box = scroller.getBoundingClientRect()
+        const awayPx = Math.abs((row.top + row.bottom) / 2 - (box.top + box.bottom) / 2)
+        const smooth = animated && awayPx <= box.bottom - box.top
+        if (smooth && onArrived !== undefined) {
+          // Whichever comes first: a row already in place scrolls nowhere and ends no scroll.
+          let arrived = false
+          const arrive = () => {
+            if (arrived) return
+            arrived = true
+            scroller.removeEventListener('scrollend', arrive)
+            onArrived()
+          }
+          scroller.addEventListener('scrollend', arrive, { once: true })
+          setTimeout(arrive, ANIMATED_SCROLL_MS)
+        }
+        node.scrollIntoView({ block, behavior: smooth ? 'smooth' : 'auto' })
+        if (!smooth && onArrived !== undefined) requestAnimationFrame(onArrived)
+      }
+      step()
+    },
+    [scrollToTarget, webScroller],
+  )
+
   useImperativeHandle(
     handle,
     (): ListHandle => ({
+      scrollToKey(key, { animated = false, focus: focusRow = false, onArrived } = {}) {
+        const index = latest.current.keys.indexOf(key)
+        if (index === -1) return
+        atEnd.current = false
+        const heightPx = rowHeights.current.get(key)
+        const tall = heightPx !== undefined && heightPx > scroll.current.viewportPx
+        target.current = { index, viewPosition: tall ? 0 : 0.5, retries: 0 }
+        if (isWeb) scrollToRowElement(key, animated, onArrived)
+        else {
+          const shown = onScreen.current
+          const near =
+            shown !== null && index >= shown.first - NEAR_ROWS && index <= shown.last + NEAR_ROWS
+          scrollToTarget(animated && near)
+          // Native reports no end of a scroll it was told to make, animated or not.
+          if (onArrived !== undefined)
+            setTimeout(onArrived, animated && near ? ANIMATED_SCROLL_MS : SCROLL_RETRY_MS * 2)
+        }
+        if (!focusRow || focus === null) return
+        let frames = 0
+        const tryFocus = () => {
+          frames += 1
+          if (!focus.focusRow(key) && frames < ROW_FRAMES) requestAnimationFrame(tryFocus)
+        }
+        requestAnimationFrame(tryFocus)
+      },
+      isOnScreen(key) {
+        const index = latest.current.keys.indexOf(key)
+        const shown = onScreen.current
+        return index !== -1 && shown !== null && index >= shown.first && index <= shown.last
+      },
       scrollToEnd({ animated = false } = {}) {
         atEnd.current = startsAtEnd
+        target.current = null
         toEnd(animated)
       },
     }),
-    [startsAtEnd, toEnd],
+    [focus, scrollToTarget, scrollToRowElement, startsAtEnd, toEnd],
   )
+
+  const measured = handle !== undefined
 
   useLayoutEffect(() => {
     if (focus !== null) focus.rowMenu = onRowMenu ?? null
@@ -293,10 +455,26 @@ export function List<T>({
   const renderRow = useCallback(
     ({ item, index }: { item: T; index: number }) => {
       const key = keyExtractor(item, index)
-      const row = renderItem(item, index)
+      const row = measured ? (
+        <View
+          ref={(node) => {
+            if (node === null) {
+              rowNodes.current.delete(key)
+              rowHeights.current.delete(key)
+            } else rowNodes.current.set(key, node)
+          }}
+          onLayout={(event) => {
+            rowHeights.current.set(key, event.nativeEvent.layout.height)
+          }}
+        >
+          {renderItem(item, index)}
+        </View>
+      ) : (
+        renderItem(item, index)
+      )
       return focus === null ? row : <ListRowKey.Provider value={key}>{row}</ListRowKey.Provider>
     },
-    [focus, renderItem, keyExtractor],
+    [focus, measured, renderItem, keyExtractor],
   )
 
   const contentContainerStyle = useMemo(
@@ -330,6 +508,9 @@ export function List<T>({
             initialNumToRender: Math.max(data.length, 1),
             ...(isWeb ? {} : { maintainVisibleContentPosition: KEEPS_PLACE }),
           }
+        : {})}
+      {...(measured
+        ? { onScrollToIndexFailed, onViewableItemsChanged, viewabilityConfig: VIEWABILITY }
         : {})}
       data={data}
       renderItem={renderRow}
