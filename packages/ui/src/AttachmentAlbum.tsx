@@ -7,11 +7,13 @@ import type { ElementId } from '@session/test-ids'
 import { ALBUM_SEAM, albumLayout, lastTile } from './albumLayout'
 import { AttachmentTile } from './AttachmentTile'
 import { FetchHint } from './FetchHint'
+import type { FileRowReply } from './fileRowAccessibility'
 import { tileRadius } from './attachmentTileStyle'
 import { useForcedFocus } from './interactionOverride'
 import { focusRing, heldButton, keyboardPress } from './keyboardPress'
 import { useListTabIndex } from './listFocus'
 import { pressHint } from './pressHint'
+import { replyAction } from './replyAction'
 import { StateLayer } from './StateLayer'
 import type { WithTestID } from './with'
 import { useMenuLongPress } from './menuLongPress'
@@ -64,6 +66,11 @@ export type AttachmentAlbumProps = WithTestID & {
    * seams and round the edge, on the fill, where the accent would not show.
    */
   onAccent?: boolean | undefined
+  /**
+   * Reply to the album's message, already worded: a screen reader's action on every tile, since a
+   * message of pictures alone has no words to carry it. Keep its identity: the tiles are memoised.
+   */
+  reply?: FileRowReply | undefined
 }
 
 /**
@@ -79,6 +86,7 @@ const AlbumTile = memo(function AlbumTile({
   name,
   onOpen,
   onAccent,
+  reply,
   testID,
 }: WithTestID & {
   /** Absent only where the layout and the items disagree, which draws nothing. */
@@ -92,6 +100,7 @@ const AlbumTile = memo(function AlbumTile({
   name: string
   onOpen: (at: number) => void
   onAccent: boolean
+  reply: FileRowReply | undefined
 }) {
   const forcedFocus = useForcedFocus()
   const tabIndex = useListTabIndex()
@@ -116,6 +125,7 @@ const AlbumTile = memo(function AlbumTile({
             'aria-label': name,
           })}
       {...pressHint(item.hint)}
+      {...(reply === undefined ? {} : replyAction(reply.label, reply.run))}
       {...keyboardPress(held || item.hint === undefined ? undefined : press, ring, tabIndex)}
       {...forcedFocus}
       aria-disabled={held}
@@ -165,6 +175,7 @@ export function AttachmentAlbum({
   tileTestID,
   onAccent = false,
   loneMaxHeightPx,
+  reply,
   testID,
 }: AttachmentAlbumProps) {
   const layout = albumLayout(
@@ -203,6 +214,7 @@ export function AttachmentAlbum({
                 name={nameOf(tile.at)}
                 onOpen={onOpen}
                 onAccent={onAccent}
+                reply={reply}
                 testID={tileTestID}
               />
             ))}

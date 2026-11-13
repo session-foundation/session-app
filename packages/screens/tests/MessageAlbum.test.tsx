@@ -71,7 +71,12 @@ function album(
   {
     onOpen = () => {},
     setState = 'idle',
-  }: { onOpen?: (index: number) => void; setState?: AttachmentSetState } = {},
+    onReply,
+  }: {
+    onOpen?: (index: number) => void
+    setState?: AttachmentSetState
+    onReply?: () => void
+  } = {},
 ) {
   return (
     <MessageAlbum
@@ -85,6 +90,7 @@ function album(
       })}
       setState={setState}
       onAccent={false}
+      onReply={onReply}
     />
   )
 }
@@ -196,4 +202,28 @@ describe('an album’s cloud', () => {
       )
     },
   )
+})
+
+describe('Reply on an album, for a screen reader', () => {
+  const shown = message([picture(0), picture(1)])
+
+  it('is handed to the tiles already worded, and runs the latest handler', () => {
+    const first = vi.fn()
+    const latest = vi.fn()
+    const { rerender } = renderScreen(album(shown, ['ready', 'ready'], { onReply: first }))
+    const before = albumProps.at(-1)?.reply
+    expect(before?.label).toBe(tr('reply'))
+
+    rerender(album(shown, ['ready', 'ready'], { onReply: latest }))
+    // The same object, so the memoised tiles are not drawn again for it.
+    expect(albumProps.at(-1)?.reply).toBe(before)
+    before?.run()
+    expect(first).not.toHaveBeenCalled()
+    expect(latest).toHaveBeenCalledTimes(1)
+  })
+
+  it('is absent for a message that cannot be answered', () => {
+    renderScreen(album(shown, ['ready', 'ready']))
+    expect(albumProps.at(-1)?.reply).toBeUndefined()
+  })
 })

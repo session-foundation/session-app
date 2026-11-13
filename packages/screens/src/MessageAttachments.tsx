@@ -8,6 +8,7 @@ import { attachmentView, canChooseView } from './attachmentView'
 import { useConversationUi } from './conversationUi'
 import { exportOne } from './exportAttachment'
 import { MessageAlbum } from './MessageAlbum'
+import { canReply } from './quotedReply'
 import { isUploadPhase, whileSending } from './uploadState'
 import { useAttachmentFooter } from './useAttachmentFooter'
 import { useAlbumGeometry } from './useAlbumGeometry'
@@ -65,6 +66,13 @@ export function MessageAttachments({
             onAccent={message.outgoing}
             fetchFor={albumFetch}
             setState={set.state}
+            onReply={
+              canReply(message)
+                ? () => {
+                    ui.reply(message.id)
+                  }
+                : undefined
+            }
             // Opens only a picture that is here, as the legacy clients do, and exports one sent as
             // the original file. A tile is the whole set's, so tapping one that is not here fetches
             // every attachment the album stands for.

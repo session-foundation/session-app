@@ -27,6 +27,7 @@ export function MessageAlbum({
   fetchFor,
   setState,
   onAccent,
+  onReply,
 }: {
   message: Message
   /** The message's attachments' width, which the album fills. */
@@ -40,6 +41,8 @@ export function MessageAlbum({
   setState: AttachmentSetState
   /** Drawn on a bubble you sent. */
   onAccent: boolean
+  /** Starts a reply to the message, from a tile's screen-reader action; absent where it cannot. */
+  onReply?: (() => void) | undefined
 }) {
   // Every picture, those sent as original files included: they draw a tile and export on a tap.
   const viewable = useMemo(() => message.attachments.filter(isViewable), [message])
@@ -73,9 +76,25 @@ export function MessageAlbum({
   // The caller's `onOpen` is new on every transfer report; read through a ref, the album's memoised
   // tiles get one callback until the message changes.
   const latestOnOpen = useRef(onOpen)
+  const latestOnReply = useRef(onReply)
   useLayoutEffect(() => {
     latestOnOpen.current = onOpen
+    latestOnReply.current = onReply
   })
+  const replies = onReply !== undefined
+  const reply = useMemo(
+    () =>
+      replies
+        ? {
+            label: tr('reply'),
+            run: () => {
+              latestOnReply.current?.()
+            },
+          }
+        : undefined,
+    // The label is the catalogue's, read again when the language changes.
+    [replies, locale],
+  )
   const openAt = useCallback(
     (at: number) => {
       const attachment = viewable[at]
@@ -96,6 +115,7 @@ export function MessageAlbum({
       fetchTestID={ELEMENT.conversation.attachmentFetch}
       tileTestID={ELEMENT.conversation.attachmentTile}
       onAccent={onAccent}
+      reply={reply}
       testID={ELEMENT.conversation.attachment}
     />
   )
