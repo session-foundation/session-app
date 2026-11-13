@@ -57,7 +57,7 @@ describe('a window on a long history', () => {
 
   it('opens on the newest page, with history going on before it', () => {
     const { window, bodies } = fixture
-    expect(bodies()).toEqual(run(70, 99))
+    expect(bodies()).toEqual(run(85, 99))
     expect([window().hasOlder, window().hasNewer]).toEqual([true, false])
   })
 
@@ -65,7 +65,7 @@ describe('a window on a long history', () => {
     const { store, bob, window, bodies } = fixture
 
     await store.actions.loadOlder(bob)
-    expect(bodies()).toEqual(run(40, 99))
+    expect(bodies()).toEqual(run(55, 99))
     expect(window().hasOlder).toBe(true)
 
     await store.actions.loadOlder(bob)
@@ -112,7 +112,7 @@ describe('a page read that fails', () => {
 
     client.getMessages = read
     await store.actions.loadOlder(bob)
-    expect(bodies()).toEqual(run(40, 99))
+    expect(bodies()).toEqual(run(55, 99))
   })
 })
 

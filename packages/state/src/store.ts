@@ -240,6 +240,11 @@ export interface SessionStoreOptions {
 }
 
 const PAGE = 30
+/**
+ * What a conversation opens on: about two screens, so the first draw is short. Every row of it is
+ * drawn before the transcript is shown, and the page before is read once the start is in reach.
+ */
+const FIRST_PAGE = 15
 const LIST_NAMES: readonly ListName[] = ['conversations', 'requests']
 
 export function createSessionStore(
@@ -494,7 +499,7 @@ export function createSessionStore(
       if (existing?.fetching) return
       patchWindow(id, { fetching: true })
       const generation = generationOf(id)
-      const page = await client.getMessages(id, { limit: PAGE })
+      const page = await client.getMessages(id, { limit: FIRST_PAGE })
       if (generationOf(id) !== generation) return
       replaceWindow(id, page)
     },
