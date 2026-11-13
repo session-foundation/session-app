@@ -271,8 +271,13 @@ export interface SessionStoreOptions {
 }
 
 const PAGE = 30
-/** A page each side of the message a jump lands on. */
-const JUMP_WINDOW = 2 * PAGE
+/**
+ * What a conversation opens on: about two screens, so the first draw is short. Every row of it is
+ * drawn before the transcript is shown, and the page before is read once the start is in reach.
+ */
+const FIRST_PAGE = 15
+/** What a jump reads around the message it lands on: every row of it is drawn again. */
+const JUMP_WINDOW = PAGE
 const LIST_NAMES: readonly ListName[] = ['conversations', 'requests']
 
 export function createSessionStore(
@@ -592,7 +597,7 @@ export function createSessionStore(
       if (existing?.fetching) return
       patchWindow(id, { fetching: true })
       const generation = generationOf(id)
-      const page = await client.getMessages(id, { limit: PAGE })
+      const page = await client.getMessages(id, { limit: FIRST_PAGE })
       if (generationOf(id) !== generation) return
       replaceWindow(id, page)
     },
@@ -666,7 +671,7 @@ export function createSessionStore(
       if (window?.ready !== true || !window.hasNewer) return
       const generation = supersede(id)
       patchWindow(id, { fetchingOlder: false, fetchingNewer: false })
-      const page = await client.getMessages(id, { limit: PAGE })
+      const page = await client.getMessages(id, { limit: FIRST_PAGE })
       if (generationOf(id) !== generation) return
       replaceWindow(id, page)
     },
@@ -689,7 +694,9 @@ export function createSessionStore(
       patchWindow(id, { jumps: [] })
       // The message is stored: a read that fails after it must not be reported as a refusal,
       // which keeps the draft and invites sending it twice.
-      await actions.showNewest(id).catch(() => undefined)
+      await actions.showNewest(id).catch((error: unknown) => {
+        log('warn', 'session', `could not show the newest page after a send: ${String(error)}`)
+      })
     },
 
     attachmentSendPlan(path, contentType): Promise<SendPlan> {

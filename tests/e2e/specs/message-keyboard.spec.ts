@@ -177,7 +177,7 @@ test('enters a transcript on a message on screen, or the one a click chose @desk
     await app.tap(ELEMENT.conversationList.row(LONG_ROW))
     await expect(app.locator(CONVERSATION.headerName)).toHaveText('Dracula')
     // Reaching the start reads the rest of the history in above it, which renumbers the rows.
-    await app.locator(ROW(0)).scrollIntoViewIfNeeded()
+    await app.scrollToStart(CONVERSATION.screen)
     await expect(app.locator(ROW(LONG_NEWEST))).toHaveCount(1)
     await app.locator(ROW(0)).scrollIntoViewIfNeeded()
     await expect(app.locator(ROW(LONG_NEWEST))).not.toBeInViewport()
