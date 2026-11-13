@@ -185,7 +185,7 @@ export function List<T>({
       latest.current.onFarFromEnd?.(isFar)
     }
     if (offsetPx > viewportPx * START_REACHED_VIEWPORTS) {
-      // Coming back to the start asks again: a page that failed to arrive left the height as it was.
+      // Coming back to the start asks again: a page that failed left the height as it was.
       startAskedAtPx.current = -1
     } else if (startAskedAtPx.current !== contentPx) {
       startAskedAtPx.current = contentPx
