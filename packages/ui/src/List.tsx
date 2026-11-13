@@ -57,6 +57,8 @@ const START_REACHED_VIEWPORTS = 0.5
 const NEAR_ROWS = 8
 /** How long an animated scroll is given to stop where nothing says that it has. */
 const ANIMATED_SCROLL_MS = 500
+/** Native: how long a row not laid out when it was asked for is waited for before giving up. */
+const UNMEASURED_ROW_MS = 1500
 /** How often a row not yet measured is tried again, and how long between tries. */
 const SCROLL_RETRIES = 5
 const SCROLL_RETRY_MS = 50
@@ -517,7 +519,15 @@ export function List<T>({
                 onArrived()
               }
               arrival.current = arrive
-              setTimeout(arrive, animated && near ? ANIMATED_SCROLL_MS : SCROLL_RETRY_MS * 2)
+              // A row not laid out yet arrives when it is: see `onRowHeight`. The wait is then
+              // only for a row that never is.
+              const waitMs =
+                heightPx === undefined
+                  ? UNMEASURED_ROW_MS
+                  : animated && near
+                    ? ANIMATED_SCROLL_MS
+                    : SCROLL_RETRY_MS * 2
+              setTimeout(arrive, waitMs)
             }
           }
         }
@@ -557,9 +567,11 @@ export function List<T>({
       const at = target.current
       if (isWeb || at === null || at.key !== key || !at.unmeasured) return
       at.unmeasured = false
-      if (heightPx <= scroll.current.viewportPx) return
-      at.viewPosition = 0
+      // Put again now that the list knows where the row is: the first try went by the rows that
+      // were there before. Then it has arrived, ahead of the rows still being drawn around it.
+      if (heightPx > scroll.current.viewportPx) at.viewPosition = 0
       scrollToTarget(false)
+      requestAnimationFrame(() => arrival.current?.())
     },
     [scrollToTarget],
   )
