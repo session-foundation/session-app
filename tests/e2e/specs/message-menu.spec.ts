@@ -41,7 +41,8 @@ test('opens a message’s menu at the pointer on a right-click, and closes it wi
     await expect(menu).toHaveAttribute('role', 'menu')
     await expect(menu).toHaveAttribute('aria-label', tr('message'))
     await expect(app.locator(MENU.item('copy'))).toHaveText(tr('copy'))
-    await expect(app.locator(MENU.item('reply'))).toHaveAttribute('aria-disabled', 'true')
+    await expect(app.locator(MENU.item('reply'))).toHaveText(tr('reply'))
+    await expect(app.locator(MENU.item('delete'))).toHaveAttribute('aria-disabled', 'true')
 
     // Opened by a pointer, no row is focused until an arrow key asks for one.
     await app.page.keyboard.press('ArrowDown')

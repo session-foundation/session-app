@@ -20,7 +20,8 @@ for (const platform of MOBILE_PLATFORMS) {
       await app.longPress(ELEMENT.conversation.messageBody)
       await app.waitForVisible(MENU.menu)
       expect(await app.readText(MENU.item('copy'))).toBe(tr('copy'))
-      expect(await app.isDisabled(MENU.item('reply'))).toBe(true)
+      expect(await app.isDisabled(MENU.item('reply'))).toBe(false)
+      expect(await app.isDisabled(MENU.item('delete'))).toBe(true)
 
       await app.tap(MENU.item('copy'))
       await expect.poll(() => app.isVisible(MENU.menu), { timeout: CLOSE_MS }).toBe(false)

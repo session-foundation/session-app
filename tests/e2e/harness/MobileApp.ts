@@ -24,6 +24,8 @@ import { parseNativeTree, walk, type NativeNode } from './nativeTree'
 
 /** Over react-native's 500 ms long-press delay, with room for a slow emulator. */
 const LONG_PRESS_HOLD_MS = 1_000
+/** Slow enough to be a drag the whole way, quick enough to stay under a long press. */
+const SWIPE_MS = 300
 const run = promisify(execFile)
 
 export type MobilePlatform = 'android' | 'ios'
@@ -318,6 +320,28 @@ export class MobileApp implements ISessionApp {
       })
       .down()
       .pause(LONG_PRESS_HOLD_MS)
+      .up()
+      .perform()
+  }
+
+  /**
+   * Drags a finger sideways from the middle of the element, `dx` in the unit `frame` answers in
+   * and negative towards the left, then lifts it: a swipe on a row rather than a scroll.
+   */
+  async swipeAcross(id: ElementId, dx: number, at = 0): Promise<void> {
+    const box = await this.frame(id, at)
+    if (box === null) throw new Error(`No element ${String(at)} carries ${id}`)
+    this.scrolledTo = null
+    const scale = this.platform === 'android' ? (await this.screenDensity()) / 160 : 1
+    const y = Math.round((box.y + box.height / 2) * scale)
+    const from = Math.round((box.x + box.width / 2) * scale)
+    await this.driver
+      .action('pointer', { parameters: { pointerType: 'touch' } })
+      .move({ x: from, y })
+      .down()
+      .move({ x: from + Math.round(dx * scale), y, duration: SWIPE_MS })
+      // Still before lifting, so the release is a release and not a fling.
+      .pause(100)
       .up()
       .perform()
   }

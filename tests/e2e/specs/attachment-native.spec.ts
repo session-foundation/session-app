@@ -6,6 +6,7 @@ import {
   type FileRowState,
   verbName,
 } from '@session/expectations'
+import { tr } from '@session/localization'
 import { ELEMENT } from '@session/test-ids'
 
 import { openFirstConversation } from '../harness/attachments'
@@ -44,9 +45,12 @@ function receipt(state: Extract<FileRowState, 'idle' | 'fetching' | 'ready'>) {
   })
 }
 
-/** A row's custom actions are its verbs after the activation, named where the phone names them. */
+/**
+ * A row's custom actions are its verbs after the activation, then its message's Reply, named
+ * where the phone names them.
+ */
 async function expectCustomActions(app: MobileApp, verbs: readonly string[]): Promise<void> {
-  const rest = verbs.slice(1)
+  const rest = [...verbs.slice(1), tr('reply')]
   const found = await app.customActions(ATTACHMENT_ROW_IDS.row, RECEIPT_ROW)
   expect(found).toHaveLength(rest.length)
   found.forEach((label, at) => {
