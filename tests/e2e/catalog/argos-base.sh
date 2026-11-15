@@ -103,17 +103,19 @@ check() {
   fi
 
   # Only fail where a rerun can do better: Argos holds a build there it can compare with, or a run
-  # there is still going. Argos passes over a rejected build and one it could not process.
+  # there is still going. Argos passes over a rejected build and one it could not process, and a
+  # build stays pending for hours after its upload dies.
   if ! expected=$(expected_build_status "${api%/*}"); then
     expected=unknown
   fi
   case $expected in
-    accepted | no-changes | changes-detected | pending | progress) ;;
+    accepted | no-changes | changes-detected | progress) ;;
     *)
       if ! jobs=$(unfinished_jobs) || [ -z "$jobs" ]; then
         case $expected in
           "") why="No such build exists, and no catalog run on ${base:0:8} is going." ;;
           unknown) why="That build could not be looked up." ;;
+          pending) why="That build's upload never finished, and Argos does not compare with it." ;;
           *) why="That build is $expected, and Argos does not compare with it." ;;
         esac
         echo "::warning::$url compared with $used rather than $wanted. $why"

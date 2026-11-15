@@ -77,7 +77,8 @@ jobs:
           key: ${{ steps.dev-media.outputs.cache-primary-key }}
 
       # In the pinned image: see tests/e2e/catalog/Dockerfile.
-      - run: pnpm --filter @session/e2e test:catalog
+      - id: capture
+        run: pnpm --filter @session/e2e test:catalog
 
       # Argos compares with the build of main's head or of the pull request below, which another
       # runner can still be capturing.
@@ -108,8 +109,9 @@ jobs:
           ARGOS_TOKEN: ${{ secrets.ARGOS_TOKEN }}
           UPLOAD_LOG: ${{ runner.temp }}/argos-upload.log
 
+      # Only the capture writes traces; a failed upload or baseline check has none to explain it.
       - uses: actions/upload-artifact@v7
-        if: failure()
+        if: failure() && steps.capture.outcome == 'failure'
         with:
           name: playwright-traces
           path: test-results/
