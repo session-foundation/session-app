@@ -304,6 +304,9 @@ export function List<T>({
       // opened full waits for the reader to move it before it asks for more.
       const opensFull = !isWeb && atEnd.current && !everTouched.current && contentPx > viewportPx
       if (opensFull) return
+      // A window just swapped in sits at its start until its landing row is laid out. Rows added
+      // above before then are not held in place on iOS, and the landing is lost.
+      if (!isWeb && target.current?.unmeasured === true) return
       startAskedAtPx.current = contentPx
       latest.current.onStartReached?.()
     }
