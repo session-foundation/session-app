@@ -188,9 +188,9 @@ export function List<T>({
   // A list that opens at its end is not shown until it is there.
   const [placed, setPlaced] = useState(!startsAtEnd)
 
-  const latest = useRef({ onStartReached, onFarFromEnd })
+  const latest = useRef({ keys, onStartReached, onFarFromEnd })
   useLayoutEffect(() => {
-    latest.current = { onStartReached, onFarFromEnd }
+    latest.current = { keys, onStartReached, onFarFromEnd }
   })
 
   /** Reports what the scroller's position means, from wherever it was learnt. */
