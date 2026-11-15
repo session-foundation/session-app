@@ -277,6 +277,14 @@ export function List<T>({
   // The first pass alone draws every row. FlatList keeps its first `initialNumToRender` rows
   // mounted for good, so a count that followed the data would mount every page ever read.
   const [firstPassRows] = useState(() => Math.max(data.length, 1))
+  // The web keeps its place by Chromium's scroll anchoring, which needs the rows on screen to
+  // stay mounted through the commit that adds a page above them: FlatList drops every row past
+  // the ones it always draws when its data changes. So those reach past the page just added.
+  const [alwaysDrawn, setAlwaysDrawn] = useState({ firstKey: keys[0], rows: firstPassRows })
+  if (alwaysDrawn.firstKey !== keys[0]) {
+    const addedAbove = alwaysDrawn.firstKey === undefined ? -1 : keys.indexOf(alwaysDrawn.firstKey)
+    setAlwaysDrawn({ firstKey: keys[0], rows: Math.max(addedAbove, 0) + firstPassRows })
+  }
   // A list that opens at its end is not shown until it is there.
   const [placed, setPlaced] = useState(!startsAtEnd)
 
@@ -688,7 +696,7 @@ export function List<T>({
         : {})}
       {...(startsAtEnd
         ? {
-            initialNumToRender: firstPassRows,
+            initialNumToRender: isWeb ? alwaysDrawn.rows : firstPassRows,
             ...(isWeb ? {} : { maintainVisibleContentPosition: KEEPS_PLACE }),
           }
         : {})}
