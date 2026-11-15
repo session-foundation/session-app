@@ -155,45 +155,57 @@ function PlacementCell({
 /** A bubble's size, for the keyboard cases. */
 const BUBBLE = { width: 260, height: 60 } as const
 
-export const contextMenuPlacement = defineStory<PlacementCase>({
-  component: 'contextMenu',
-  story: 'placement',
-  width: CELL_WIDTH,
-  sensitive: { rtl: true },
-  variants: {
-    roomy: { pointer: { start: 120, y: 40 } },
-    trailingEdge: { pointer: { start: 560, y: 40 } },
-    bottomEdge: { pointer: { start: 120, y: 330 } },
-    corner: { pointer: { start: 560, y: 330 } },
-    neitherAcross: {
-      window: { width: NARROW_FOR_MENU, height: WINDOW_HEIGHT },
-      pointer: { start: 120, y: 40 },
-    },
-    neitherDown: { window: { width: CELL_WIDTH, height: 300 }, pointer: { start: 120, y: 150 } },
-    tallerThanWindow: {
-      window: { width: CELL_WIDTH, height: 200 },
-      pointer: { start: 120, y: 60 },
-      entries: MANY,
-    },
-    submenu: { pointer: { start: 60, y: 40 }, initialPath: ['more'] },
-    submenuFlips: { pointer: { start: 380, y: 40 }, initialPath: ['more'] },
-    submenuAtBottom: { pointer: { start: 60, y: 120 }, initialPath: ['more'] },
-    submenuInPlace: {
-      window: { width: NARROW_FOR_SUBMENUS, height: WINDOW_HEIGHT },
-      pointer: { start: 60, y: 40 },
-      initialPath: ['more'],
-    },
-    keyboardBelow: { element: { start: 40, y: 40, ...BUBBLE } },
-    keyboardTrailingBubble: { element: { start: 300, y: 40, ...BUBBLE } },
-    keyboardAbove: { element: { start: 40, y: 270, ...BUBBLE } },
-    keyboardOver: { element: { start: 40, y: 30, width: BUBBLE.width, height: 300 } },
-    // Wide rows, so neither side of the parent holds the submenu: it lies over the parent instead.
-    submenuNoRoom: { pointer: { start: 160, y: 40 }, entries: LONG_LABELS, initialPath: ['more'] },
-    submenuRepeatsId: {
-      pointer: { start: 60, y: 120 },
-      entries: REPEATED_ID,
-      initialPath: ['more'],
-    },
+function placementStory(story: string, variants: Record<string, PlacementCase>) {
+  return defineStory<PlacementCase>({
+    component: 'contextMenu',
+    story,
+    width: CELL_WIDTH,
+    sensitive: { rtl: true },
+    variants,
+    render: (props) => <PlacementCell {...props} />,
+  })
+}
+
+// Three stories, because a nightly page draws every row in four themes, and all of these rows
+// together outgrow the capture window.
+export const contextMenuPlacement = placementStory('placement', {
+  roomy: { pointer: { start: 120, y: 40 } },
+  trailingEdge: { pointer: { start: 560, y: 40 } },
+  bottomEdge: { pointer: { start: 120, y: 330 } },
+  corner: { pointer: { start: 560, y: 330 } },
+  neitherAcross: {
+    window: { width: NARROW_FOR_MENU, height: WINDOW_HEIGHT },
+    pointer: { start: 120, y: 40 },
   },
-  render: (props) => <PlacementCell {...props} />,
+  neitherDown: { window: { width: CELL_WIDTH, height: 300 }, pointer: { start: 120, y: 150 } },
+  tallerThanWindow: {
+    window: { width: CELL_WIDTH, height: 200 },
+    pointer: { start: 120, y: 60 },
+    entries: MANY,
+  },
+})
+
+export const contextMenuSubmenuPlacement = placementStory('submenuPlacement', {
+  submenu: { pointer: { start: 60, y: 40 }, initialPath: ['more'] },
+  submenuFlips: { pointer: { start: 380, y: 40 }, initialPath: ['more'] },
+  submenuAtBottom: { pointer: { start: 60, y: 120 }, initialPath: ['more'] },
+  submenuInPlace: {
+    window: { width: NARROW_FOR_SUBMENUS, height: WINDOW_HEIGHT },
+    pointer: { start: 60, y: 40 },
+    initialPath: ['more'],
+  },
+  // Wide rows, so neither side of the parent holds the submenu: it lies over the parent instead.
+  submenuNoRoom: { pointer: { start: 160, y: 40 }, entries: LONG_LABELS, initialPath: ['more'] },
+  submenuRepeatsId: {
+    pointer: { start: 60, y: 120 },
+    entries: REPEATED_ID,
+    initialPath: ['more'],
+  },
+})
+
+export const contextMenuKeyboardPlacement = placementStory('keyboardPlacement', {
+  keyboardBelow: { element: { start: 40, y: 40, ...BUBBLE } },
+  keyboardTrailingBubble: { element: { start: 300, y: 40, ...BUBBLE } },
+  keyboardAbove: { element: { start: 40, y: 270, ...BUBBLE } },
+  keyboardOver: { element: { start: 40, y: 30, width: BUBBLE.width, height: 300 } },
 })

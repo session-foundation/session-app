@@ -44,38 +44,38 @@ export function SwipeToReply({ onReply, enabled = true, children }: SwipeToReply
 
   const at = (event: GestureResponderEvent) => event.nativeEvent
   // Unclaimed until it moves sideways, so a press, a long press and a scroll start as they would
-  // without it. Capture, so the swipe is taken from a pressable inside the bubble.
-  const responder = enabled
-    ? {
-        onTouchStart: (event: GestureResponderEvent) => {
-          startSwipe(touch.current, at(event).pageX, at(event).pageY)
-        },
-        onMoveShouldSetResponderCapture: (event: GestureResponderEvent) =>
-          at(event).touches.length <= 1 &&
-          claimsSwipe(touch.current, at(event).pageX, at(event).pageY, isLayoutRtl() ? 1 : -1),
-        // True keeps the native scroll view from taking the touch back mid-swipe.
-        onResponderGrant: () => {
-          if (settling.current !== null) cancelAnimationFrame(settling.current)
-          settling.current = null
-          return true
-        },
-        onResponderTerminationRequest: () => false,
-        onResponderMove: (event: GestureResponderEvent) => {
-          const { offsetPx, tap } = moveSwipe(touch.current, at(event).pageX)
-          drawn.current = offsetPx
-          setOffset(offsetPx)
-          if (tap) haptics?.threshold()
-        },
-        onResponderRelease: () => {
-          if (releaseSwipe(touch.current)) onReply()
-          settle(drawn.current)
-        },
-        onResponderTerminate: () => {
-          releaseSwipe(touch.current)
-          settle(drawn.current)
-        },
-      }
-    : {}
+  // without it. Capture, so the swipe is taken from a pressable inside the bubble. Attached even
+  // when disabled: `enabled` can turn false mid-drag, and the row still has to come back to rest.
+  const responder = {
+    onTouchStart: (event: GestureResponderEvent) => {
+      startSwipe(touch.current, at(event).pageX, at(event).pageY)
+    },
+    onMoveShouldSetResponderCapture: (event: GestureResponderEvent) =>
+      enabled &&
+      at(event).touches.length <= 1 &&
+      claimsSwipe(touch.current, at(event).pageX, at(event).pageY, isLayoutRtl() ? 1 : -1),
+    // True keeps the native scroll view from taking the touch back mid-swipe.
+    onResponderGrant: () => {
+      if (settling.current !== null) cancelAnimationFrame(settling.current)
+      settling.current = null
+      return true
+    },
+    onResponderTerminationRequest: () => false,
+    onResponderMove: (event: GestureResponderEvent) => {
+      const { offsetPx, tap } = moveSwipe(touch.current, at(event).pageX)
+      drawn.current = offsetPx
+      setOffset(offsetPx)
+      if (tap) haptics?.threshold()
+    },
+    onResponderRelease: () => {
+      if (releaseSwipe(touch.current) && enabled) onReply()
+      settle(drawn.current)
+    },
+    onResponderTerminate: () => {
+      releaseSwipe(touch.current)
+      settle(drawn.current)
+    },
+  }
 
   const progress = Math.min(Math.abs(offset) / SWIPE_REPLY_THRESHOLD_PX, 1)
   return (

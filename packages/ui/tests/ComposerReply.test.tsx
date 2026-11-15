@@ -15,8 +15,8 @@ const LABELS: QuoteLabels = {
   gif: 'GIF',
   video: 'Video',
   audio: 'Audio',
-  voiceMessage: 'Voice Message',
-  document: 'Document',
+  voice: 'Voice Message',
+  file: 'Document',
   andMore: (count) => `+${String(count)}`,
   notFound: 'Original message not found',
 }

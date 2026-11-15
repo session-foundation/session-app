@@ -12,8 +12,8 @@ export function quoteLabels(): QuoteLabels {
     gif: tr('gif'),
     video: tr('video'),
     audio: tr('audio'),
-    voiceMessage: tr('messageVoice'),
-    document: tr('document'),
+    voice: tr('messageVoice'),
+    file: tr('document'),
     andMore: (count) => tr('andMore', { count }),
     notFound: tr('messageErrorOriginal'),
   }

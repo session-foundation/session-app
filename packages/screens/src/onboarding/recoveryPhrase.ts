@@ -1,3 +1,5 @@
+import type { RecoveryInput } from './flow'
+
 /**
  * The shortest phrase that can encode anything.
  *
@@ -37,4 +39,22 @@ export function phraseWords(input: string): string[] {
  */
 export function phraseIsTooShort(input: string): boolean {
   return phraseWords(input).length < SHORTEST_PHRASE_WORDS
+}
+
+/** A seed written out in hex, which is what every client's recovery password QR code holds. */
+const HEX_SEED = /^[0-9a-f]+$/i
+
+/**
+ * What a scanned recovery password QR code restores from.
+ *
+ * The seed in hex is what every client draws, and goes to libsession as read. A code holding the
+ * phrase itself is accepted too, as legacy Android accepts it, and goes the typed phrase's way.
+ * Hex is tried first: its letters would otherwise split into words. Anything else is passed on as
+ * a seed for libsession to refuse, so a code that is neither gets the QR tab's own error.
+ */
+export function scannedRecovery(value: string): RecoveryInput {
+  const trimmed = value.trim()
+  if (HEX_SEED.test(trimmed)) return { hexSeed: trimmed }
+  const words = phraseWords(value)
+  return words.length < SHORTEST_PHRASE_WORDS ? { hexSeed: value } : { words }
 }

@@ -21,8 +21,6 @@ const KNOWN_ISSUES: Record<Audit, Readonly<Record<string, Known>>> = {
     'color-contrast message-attachment-show-all': "the roll's Show all count: the same ink",
     'color-contrast message-state':
       "our message's send state on a purple sent bubble, ocean themes, as fileRow.onAccent: 4.2:1",
-    'color-contrast message-attachment-action':
-      "a failed file's retry, the danger ink on a received bubble in a light theme: 4.0:1",
     'color-contrast message-attachment-name':
       "a failed file's name in the danger ink on the attachment sheet, classic-light: 4.3:1",
     'color-contrast button.variants simple': 'its label on the ocean-light page: 3.3:1',
@@ -32,6 +30,8 @@ const KNOWN_ISSUES: Record<Audit, Readonly<Record<string, Known>>> = {
     'color-contrast button.variants solid':
       "the label on the red accent's fill, ocean themes: 4.0:1",
     'color-contrast button.variants long': 'the same, on the long label',
+    'color-contrast button.variants outlineAccent':
+      "hovered or held, its label on the red accent's fill, as solid's: 4.1:1",
     'color-contrast fileRow.onAccent idle':
       'the caption on a purple sent bubble, ocean themes: 4.2:1',
     'color-contrast fileRow.onAccent failed': 'the same',
