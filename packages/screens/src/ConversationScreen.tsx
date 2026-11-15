@@ -245,7 +245,9 @@ function Conversation({ conversationId }: { conversationId: ConversationId }) {
           notFound()
           return
         }
-        setFollowingQuoteOf(replyId)
+        // Busy only while the original is read in: one in the window arrives at once, and the
+        // spinner would take its quote's picture away for a frame.
+        if (!held.current.some((m) => m.id === reply.messageId)) setFollowingQuoteOf(replyId)
         // An original already on screen is only shown, with nowhere to come back from.
         const inPlace = list.current?.isOnScreen(String(reply.messageId)) === true
         actions
