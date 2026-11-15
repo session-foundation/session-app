@@ -110,19 +110,28 @@ function MenuCell({ entries, initialPath = [], inPlace = false, farCorner = fals
   )
 }
 
-export const contextMenu = defineStory<MenuCase>({
-  component: 'contextMenu',
-  story: 'kinds',
-  width: CELL_WIDTH,
-  forced: ['hover', 'focus'],
-  sensitive: { rtl: true },
-  variants: {
-    kinds: { entries: KINDS },
-    submenu: { entries: KINDS, initialPath: ['more'] },
-    inPlace: { entries: KINDS, initialPath: ['more'], inPlace: true },
-    farCorner: { entries: KINDS, farCorner: true },
-    long: { entries: LONG_LABELS, initialPath: ['more'] },
-    arabic: { entries: ARABIC },
-  },
-  render: (props) => <MenuCell {...props} />,
+function menuStory(story: string, variants: Record<string, MenuCase>) {
+  return defineStory<MenuCase>({
+    component: 'contextMenu',
+    story,
+    width: CELL_WIDTH,
+    forced: ['hover', 'focus'],
+    sensitive: { rtl: true },
+    variants,
+    render: (props) => <MenuCell {...props} />,
+  })
+}
+
+// Two stories, because a nightly page draws every row in four themes and three states, and all six
+// rows together outgrow the capture window.
+export const contextMenu = menuStory('kinds', {
+  kinds: { entries: KINDS },
+  submenu: { entries: KINDS, initialPath: ['more'] },
+  inPlace: { entries: KINDS, initialPath: ['more'], inPlace: true },
+  farCorner: { entries: KINDS, farCorner: true },
+})
+
+export const contextMenuLabels = menuStory('labels', {
+  long: { entries: LONG_LABELS, initialPath: ['more'] },
+  arabic: { entries: ARABIC },
 })

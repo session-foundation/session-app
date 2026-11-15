@@ -91,12 +91,8 @@ function byRow(page: CatalogPageSummary, issue: AuditIssue): AuditIssue {
   return row === undefined ? issue : { ...issue, target: `${page.story} ${row}` }
 }
 
-/**
- * Every catalog page of the tier, captured and audited: a page draws its story in each theme, and
- * the nightly tier in each accent too, so this is where colour contrast is checked.
- */
-test(`captures and audits the component catalog's ${TIER} pages @catalog`, async () => {
-  test.setTimeout(30 * 60_000)
+/** The desktop app on the catalog, in the capture window, with the catalog's pages listed. */
+async function launchCatalog(): Promise<DesktopApp> {
   const app = await DesktopApp.launch('catalog', {
     env: {
       TZ: 'UTC',
@@ -104,17 +100,51 @@ test(`captures and audits the component catalog's ${TIER} pages @catalog`, async
       EXPO_PUBLIC_SESSION_FLAG_COMPONENT_CATALOG: '1',
     },
   })
+  await sizeWindow(app, CAPTURE_WINDOW)
+  await app.page.emulateMedia({ reducedMotion: 'reduce' })
+  await app.page.waitForFunction(
+    () => (globalThis as unknown as CatalogGlobal).sessionCatalog !== undefined,
+  )
+  return app
+}
+
+async function catalogPages(app: DesktopApp, tier: string): Promise<CatalogPageSummary[]> {
+  return app.page.evaluate(
+    (wanted) => (globalThis as unknown as CatalogGlobal).sessionCatalog?.pages(wanted) ?? [],
+    tier,
+  )
+}
+
+async function openPage(app: DesktopApp, tier: string, id: string): Promise<void> {
+  await app.page.evaluate(
+    (hash) => {
+      ;(globalThis as unknown as CatalogGlobal).location.hash = hash
+    },
+    `#/catalog/${tier}/${encodeURIComponent(id)}`,
+  )
+  await expect(app.locator(ELEMENT.catalog.ready)).toHaveText(id, { timeout: PAGE_READY_MS })
+}
+
+/** The window the open page needs, or, naming the page, why no window holds it. */
+async function windowForPage(app: DesktopApp, id: string): Promise<WindowSize | string> {
   try {
-    await sizeWindow(app, CAPTURE_WINDOW)
+    return windowFor(await pageExtent(app))
+  } catch (error) {
+    // The size alone does not say which story to split.
+    return `${id}: ${(error as Error).message}`
+  }
+}
+
+/**
+ * Every catalog page of the tier, captured and audited: a page draws its story in each theme, and
+ * the nightly tier in each accent too, so this is where colour contrast is checked.
+ */
+test(`captures and audits the component catalog's ${TIER} pages @catalog`, async () => {
+  test.setTimeout(30 * 60_000)
+  const app = await launchCatalog()
+  try {
     let windowSize = CAPTURE_WINDOW
-    await app.page.emulateMedia({ reducedMotion: 'reduce' })
-    await app.page.waitForFunction(
-      () => (globalThis as unknown as CatalogGlobal).sessionCatalog !== undefined,
-    )
-    const pages = await app.page.evaluate(
-      (tier) => (globalThis as unknown as CatalogGlobal).sessionCatalog?.pages(tier) ?? [],
-      TIER,
-    )
+    const pages = await catalogPages(app, TIER)
     if (OUT !== undefined) mkdirSync(OUT, { recursive: true })
     if (PAGES_OUT !== undefined) {
       mkdirSync(dirname(PAGES_OUT), { recursive: true })
@@ -122,6 +152,8 @@ test(`captures and audits the component catalog's ${TIER} pages @catalog`, async
     }
 
     const found = new Map<string, AuditIssue>()
+    // Reported once every other page is captured, so one tall story does not blank the whole run.
+    const tooTall: string[] = []
     for (const page of pages) {
       const { id } = page
       // Every page is laid out in the same window whatever came before it, then the window grows to
@@ -130,20 +162,11 @@ test(`captures and audits the component catalog's ${TIER} pages @catalog`, async
         await sizeWindow(app, CAPTURE_WINDOW)
         windowSize = CAPTURE_WINDOW
       }
-      await app.page.evaluate(
-        (hash) => {
-          ;(globalThis as unknown as CatalogGlobal).location.hash = hash
-        },
-        `#/catalog/${TIER}/${encodeURIComponent(id)}`,
-      )
-      await expect(app.locator(ELEMENT.catalog.ready)).toHaveText(id, { timeout: PAGE_READY_MS })
-      const extent = await pageExtent(app)
-      let fits: WindowSize
-      try {
-        fits = windowFor(extent)
-      } catch (error) {
-        // The size alone does not say which story to split.
-        throw new Error(`${id}: ${(error as Error).message}`, { cause: error })
+      await openPage(app, TIER, id)
+      const fits = await windowForPage(app, id)
+      if (typeof fits === 'string') {
+        tooTall.push(fits)
+        continue
       }
       if (!sameSize(windowSize, fits)) {
         await sizeWindow(app, fits)
@@ -159,10 +182,12 @@ test(`captures and audits the component catalog's ${TIER} pages @catalog`, async
       }
     }
 
+    expect.soft(tooTall, 'pages past the capture window, not captured').toEqual([])
     const { unknown, fixed } = auditVerdict('catalog', found.values())
-    expect(unknown, describeIssues(unknown).join('\n')).toEqual([])
-    // The pr tier draws a subset of the pages, so only the nightly sweep can tell one is fixed.
-    if (TIER === 'nightly') expect(fixed, 'no longer found: remove from KNOWN_ISSUES').toEqual([])
+    expect.soft(unknown, describeIssues(unknown).join('\n')).toEqual([])
+    // Only a nightly sweep that drew every page can tell a known issue is fixed.
+    if (TIER === 'nightly' && tooTall.length === 0)
+      expect.soft(fixed, 'no longer found: remove from KNOWN_ISSUES').toEqual([])
   } finally {
     await app.close()
   }

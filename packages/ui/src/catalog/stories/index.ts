@@ -2,8 +2,12 @@ import type { AnyStory } from '../story'
 import { albumChoices, albumFocus, albumLone, albumOverflow, albumRows } from './album'
 import { button, buttonOnAccent, buttonSizes } from './button'
 import { composerReply } from './composerReply'
-import { contextMenu } from './contextMenu'
-import { contextMenuPlacement } from './contextMenuPlacement'
+import { contextMenu, contextMenuLabels } from './contextMenu'
+import {
+  contextMenuKeyboardPlacement,
+  contextMenuPlacement,
+  contextMenuSubmenuPlacement,
+} from './contextMenuPlacement'
 import { fileRow, fileRowOnAccent, fileRowReceived } from './fileRow'
 import { keyCombo } from './keyCombo'
 import { messageFrameFocus, messageFrameHighlight } from './messageFrame'
@@ -41,7 +45,10 @@ export const STORIES: readonly AnyStory[] = [
   dropOverlay,
   mediaViewer,
   contextMenu,
+  contextMenuLabels,
   contextMenuPlacement,
+  contextMenuSubmenuPlacement,
+  contextMenuKeyboardPlacement,
   qrCode,
   qrViewer,
   messageFrameFocus,

@@ -90,3 +90,15 @@ jobs:
         with:
           name: playwright-traces
           path: test-results/
+
+  # The nightly tier only: a pull request's or main's run fails where its author sees it, and a
+  # dispatched one has someone watching it.
+  notify:
+    needs: desktop
+    if: always() && github.event_name == 'schedule' && needs.desktop.result != 'success'
+    uses: ./.github/workflows/alert-discord.yml
+    with:
+      name: catalog nightly
+      result: ${{ needs.desktop.result }}
+    secrets:
+      webhook: ${{ secrets.ALERT_DISCORD_WEBHOOK_URL }}

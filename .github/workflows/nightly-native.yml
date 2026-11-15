@@ -72,23 +72,14 @@ jobs:
 
       - run: pnpm --filter @session/bridge-node test
 
-  # A job of its own rather than a step, and any result but success, so a timeout or a
-  # cancellation is reported too. Only the scheduled run: a dispatched one has someone watching it.
+  # Any result but success, so a timeout or a cancellation is reported too. Only the scheduled run:
+  # a dispatched one has someone watching it.
   notify:
     needs: addon
     if: always() && github.event_name == 'schedule' && needs.addon.result != 'success'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Post the failure to Discord
-        env:
-          WEBHOOK: ${{ secrets.ALERT_DISCORD_WEBHOOK_URL }}
-          RESULT: ${{ needs.addon.result }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          if [ -z "$WEBHOOK" ]; then
-            echo "::warning::ALERT_DISCORD_WEBHOOK_URL is not set, so the failure is not reported."
-            exit 0
-          fi
-          jq -n --arg content "❌ **${GITHUB_REPOSITORY#*/} nightly-native** ended in \`${RESULT}\` on \`${GITHUB_REF_NAME}\`."$'\n'"$RUN_URL" \
-            '{content: $content, allowed_mentions: {parse: []}}' |
-            curl --fail-with-body -sS -H 'Content-Type: application/json' --data-binary @- "$WEBHOOK"
+    uses: ./.github/workflows/alert-discord.yml
+    with:
+      name: nightly-native
+      result: ${{ needs.addon.result }}
+    secrets:
+      webhook: ${{ secrets.ALERT_DISCORD_WEBHOOK_URL }}

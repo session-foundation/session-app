@@ -1,0 +1,38 @@
+name: alert-discord
+
+# Called by a scheduled workflow's last job when another job did not succeed. A job rather than a
+# step, so a timeout or a cancellation of the job it watches is reported too.
+on:
+  workflow_call:
+    inputs:
+      name:
+        description: What failed, as the message names it
+        type: string
+        required: true
+      result:
+        description: The watched job's result
+        type: string
+        required: true
+    secrets:
+      webhook:
+        description: ALERT_DISCORD_WEBHOOK_URL; without it the failure is only a warning here
+        required: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post the failure to Discord
+        env:
+          WEBHOOK: ${{ secrets.webhook }}
+          NAME: ${{ inputs.name }}
+          RESULT: ${{ inputs.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -z "$WEBHOOK" ]; then
+            echo "::warning::ALERT_DISCORD_WEBHOOK_URL is not set, so the failure is not reported."
+            exit 0
+          fi
+          jq -n --arg content "❌ **${GITHUB_REPOSITORY#*/} ${NAME}** ended in \`${RESULT}\` on \`${GITHUB_REF_NAME}\`."$'\n'"$RUN_URL" \
+            '{content: $content, allowed_mentions: {parse: []}}' |
+            curl --fail-with-body -sS -H 'Content-Type: application/json' --data-binary @- "$WEBHOOK"

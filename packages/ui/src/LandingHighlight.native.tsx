@@ -1,15 +1,18 @@
 import { ELEMENT } from '@session/test-ids'
 import { useEffect, useRef } from 'react'
-import { AccessibilityInfo, Animated, Platform } from 'react-native'
+import { AccessibilityInfo, Animated } from 'react-native'
 
-import { LANDING_ALPHA, LANDING_FADE_MS, LANDING_GLOW_PX, LANDING_RING_PX } from './landingMetrics'
+import {
+  LANDING_ALPHA,
+  LANDING_FADE_MS,
+  LANDING_GLOW_PX,
+  LANDING_GLOW_SPREAD_PX,
+  LANDING_RING_PX,
+} from './landingMetrics'
 import type { LandingHighlightProps } from './LandingHighlight.types'
 import { useTokenColor } from './useTokenColor'
 
-/**
- * The native half: one fade on the native driver, or under reduced motion shown and then removed.
- * The glow is iOS's alone: Android's elevation shadow takes no colour, so there it is the ring.
- */
+/** One fade on the native driver, or under reduced motion shown and then removed. */
 export function LandingHighlight({
   serial,
   still = false,
@@ -70,9 +73,7 @@ export function LandingHighlight({
           borderWidth: LANDING_RING_PX,
           borderColor: ring,
           opacity: LANDING_ALPHA,
-          ...(Platform.OS === 'ios'
-            ? { shadowColor: ring, shadowOpacity: 1, shadowRadius: LANDING_GLOW_PX }
-            : {}),
+          boxShadow: `0px 0px ${String(LANDING_GLOW_PX)}px ${String(LANDING_GLOW_SPREAD_PX)}px ${ring}`,
         }}
       />
     </Animated.View>

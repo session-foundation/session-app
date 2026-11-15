@@ -28,6 +28,9 @@ function hiddenUnless(showing: boolean): { visibility: 'visible' | 'hidden' } {
   return { visibility: showing ? 'visible' : 'hidden' }
 }
 
+/** CSS react-native's style types do not name; react-native-web passes it through. */
+const STABLE_GUTTER = { scrollbarGutter: 'stable' } as never
+
 interface ModalStackHostProps {
   /** Names the close control for a screen reader, since it is drawn as a cross. */
   closeLabel: string
@@ -271,6 +274,10 @@ export function ModalStackHost({
                           // rings the whole body. The style, not the width: `outline-style: auto`
                           // ignores the width. It stays focusable and keyboard-scrollable.
                           focusStyle={{ outlineStyle: 'none' }}
+                          // Room for a scrollbar whether or not one shows, where scrollbars take
+                          // room: a page that grows past the panel would otherwise narrow, and
+                          // every line on it re-wrap, the moment the bar appears.
+                          {...(Platform.OS === 'web' ? { style: STABLE_GUTTER } : {})}
                         >
                           {held.render()}
                         </ScrollView>

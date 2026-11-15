@@ -1,4 +1,4 @@
-import { requirePorts } from '@session/app'
+import { flag, requirePorts } from '@session/app'
 import { tr } from '@session/localization'
 import { useSessionActions, type RecoveryPassword, type SessionActions } from '@session/state'
 import { ELEMENT } from '@session/test-ids'
@@ -7,6 +7,7 @@ import {
   RecoveryPasswordMark,
   SettingsGroup,
   SettingsRow,
+  Swap,
   Text,
   useModals,
   useToast,
@@ -294,51 +295,55 @@ export function RecoveryPasswordPage({
             alignSelf="stretch"
           />
 
-          {showingQr ? (
-            <>
-              <ShareableQrCode
-                value={secret.seedHex}
-                sizePx={qrSizePx}
-                mark="recoveryPassword"
-                accessibilityLabel={tr('qrCode')}
-                testID={ELEMENT.recoveryPassword.qr}
-                fullScreenTestID={ELEMENT.recoveryPassword.qrFullScreen}
-              />
-              <XStack alignSelf="stretch">
-                <Button
-                  variant="outline"
-                  fill
-                  testID={ELEMENT.recoveryPassword.viewWords}
-                  focusOnMount={swapped}
-                  onPress={() => {
-                    setShowingQr(false)
-                    setSwapped(true)
-                  }}
-                >
-                  {tr('recoveryPasswordView')}
-                </Button>
-              </XStack>
-            </>
-          ) : (
-            <>
-              <Words words={secret.words} />
-              <XStack alignSelf="stretch" gap="$md">
-                <RecoveryPasswordCopy phrase={secret.words.join(' ')} />
-                <Button
-                  variant="outline"
-                  fill
-                  testID={ELEMENT.recoveryPassword.viewQr}
-                  focusOnMount={swapped}
-                  onPress={() => {
-                    setShowingQr(true)
-                    setSwapped(true)
-                  }}
-                >
-                  {tr('qrView')}
-                </Button>
-              </XStack>
-            </>
-          )}
+          {/* Swapped as legacy Android swaps them: the arriving one fades in, held in place, as
+              the box grows or shrinks between their heights. */}
+          <Swap swapKey={showingQr ? 'qr' : 'words'} instant={flag('disableAnimations')}>
+            {showingQr ? (
+              <YStack alignSelf="stretch" gap="$md" alignItems="center">
+                <ShareableQrCode
+                  value={secret.seedHex}
+                  sizePx={qrSizePx}
+                  mark="recoveryPassword"
+                  accessibilityLabel={tr('qrCode')}
+                  testID={ELEMENT.recoveryPassword.qr}
+                  fullScreenTestID={ELEMENT.recoveryPassword.qrFullScreen}
+                />
+                <XStack alignSelf="stretch">
+                  <Button
+                    variant="outline"
+                    fill
+                    testID={ELEMENT.recoveryPassword.viewWords}
+                    focusOnMount={swapped}
+                    onPress={() => {
+                      setShowingQr(false)
+                      setSwapped(true)
+                    }}
+                  >
+                    {tr('recoveryPasswordView')}
+                  </Button>
+                </XStack>
+              </YStack>
+            ) : (
+              <YStack alignSelf="stretch" gap="$md" alignItems="center">
+                <Words words={secret.words} />
+                <XStack alignSelf="stretch" gap="$md">
+                  <RecoveryPasswordCopy phrase={secret.words.join(' ')} />
+                  <Button
+                    variant="outline"
+                    fill
+                    testID={ELEMENT.recoveryPassword.viewQr}
+                    focusOnMount={swapped}
+                    onPress={() => {
+                      setShowingQr(true)
+                      setSwapped(true)
+                    }}
+                  >
+                    {tr('qrView')}
+                  </Button>
+                </XStack>
+              </YStack>
+            )}
+          </Swap>
         </YStack>
       </SettingsGroup>
 

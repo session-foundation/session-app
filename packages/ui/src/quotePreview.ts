@@ -31,14 +31,14 @@ export interface QuotedMessage {
   deleted?: boolean | undefined
 }
 
-/** Already worded, for a package that cannot reach the catalogue. */
-export interface QuoteLabels {
-  image: string
-  gif: string
-  video: string
-  audio: string
-  voiceMessage: string
-  document: string
+/** What a quoted message's first attachment is. */
+type QuoteKind = 'image' | 'gif' | 'video' | 'voice' | 'audio' | 'file'
+
+/**
+ * Already worded, for a package that cannot reach the catalogue: a name per kind (`voice` is
+ * `messageVoice`, `file` is `document`), drawn when the message has no body.
+ */
+export type QuoteLabels = Record<QuoteKind, string> & {
   /** `andMore`: "+4". */
   andMore: (count: number) => string
   /** `messageErrorOriginal`: what a quote of a deleted or never-received original says. */
@@ -47,8 +47,6 @@ export interface QuoteLabels {
 
 /** The colour a quote's words and glyphs take on what it is drawn on. */
 export type QuoteInk = '$onAccent' | '$messageBubbleIncomingText' | '$textPrimary'
-
-type QuoteKind = 'text' | 'image' | 'gif' | 'video' | 'voice' | 'audio' | 'file'
 
 /** What sits after the stripe: a picture, a glyph on a plain tile, or nothing. */
 export type QuoteVisual =
@@ -63,7 +61,7 @@ export type QuoteVisual =
 export interface QuotePreview {
   /** False for an original deleted or never received: the quote then only says so. */
   found: boolean
-  kind: QuoteKind
+  kind: QuoteKind | 'text'
   /** The body, the kind's label, or a file's name. */
   text: string
   /** A file or audio name, drawn losing its middle rather than its extension. */
@@ -77,13 +75,12 @@ export interface QuotePreview {
   visual: QuoteVisual | null
 }
 
-function kindOf(attachment: QuotedAttachment): Exclude<QuoteKind, 'text'> {
+function kindOf(attachment: QuotedAttachment): QuoteKind {
   if (attachment.voiceMessage) return 'voice'
   const type = contentTypeEssence(attachment.contentType) ?? ''
   if (type === 'image/gif') return 'gif'
   const family = type.split('/')[0]
-  if (family === 'image' || family === 'video' || family === 'audio')
-    return family === 'audio' ? 'audio' : family
+  if (family === 'image' || family === 'video' || family === 'audio') return family
   return 'file'
 }
 
@@ -92,7 +89,7 @@ function hasPicture(attachment: QuotedAttachment): boolean {
 }
 
 function visualOf(
-  kind: Exclude<QuoteKind, 'text'>,
+  kind: QuoteKind,
   first: QuotedAttachment,
   more: string | null,
   labels: QuoteLabels,
@@ -166,15 +163,7 @@ export function quotePreview(
   if (named !== undefined && named !== '')
     return { ...shown, text: named, isFileName: true, lines: 1 }
 
-  const label = {
-    image: labels.image,
-    gif: labels.gif,
-    video: labels.video,
-    voice: labels.voiceMessage,
-    audio: labels.audio,
-    file: labels.document,
-  }[kind]
-  return { ...shown, text: label, isFileName: false, lines: 1 }
+  return { ...shown, text: labels[kind], isFileName: false, lines: 1 }
 }
 
 /** "Bob: Image +4", the one name a screen reader gives the whole quote. */

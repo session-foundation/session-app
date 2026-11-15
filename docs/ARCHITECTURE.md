@@ -336,8 +336,8 @@ accent; `nightly` draws every theme and accent, every night. The desktop app ope
 capture is the same on any Linux x86_64 host, and the `catalog` workflow uploads the captures to Argos.
 A capture paints only what lies inside the window, so each page is laid out in a 3000x2400 window
 and the window then grows to hold the page, the height alone unless the page is wider too
-(`tests/e2e/catalog/captureWindow.ts`). A page past the cap there fails the run rather than coming
-out black below the fold; the Xvfb screen in `capture.sh` is sized to the cap.
+(`tests/e2e/catalog/captureWindow.ts`). A page past the cap there is left out and fails the run
+rather than coming out black below the fold; the Xvfb screen in `capture.sh` is sized to the cap.
 
 **Comparing the catalog locally.** `pnpm catalog:compare [base-ref]` answers "which pages does my
 change move?" before a push, on any host, macOS included. It captures the catalog twice on this
