@@ -35,6 +35,10 @@ jobs:
     env:
       CATALOG_TIER: ${{ inputs.tier || (github.event_name == 'schedule' && 'nightly') || 'pr' }}
       CATALOG_OUT: ${{ github.workspace }}/test-results/catalog
+      # A stacked pull request compares with the build of the one below it, which Argos otherwise
+      # passes over until it is approved. Read by the upload and by argos-base.sh.
+      ARGOS_REFERENCE_COMMIT: ${{ github.event_name == 'pull_request' && github.base_ref != github.event.repository.default_branch && github.event.pull_request.base.sha || '' }}
+      ARGOS_API_BASE_URL: ${{ vars.ARGOS_API_BASE_URL }}
     steps:
       - uses: actions/checkout@v5
 
@@ -74,10 +78,9 @@ jobs:
       # Argos compares with the build of main's head or of the pull request below, which another
       # runner can still be capturing.
       - if: github.event_name == 'pull_request' && (success() || failure())
-        run: tests/e2e/catalog/await-base.sh
+        run: tests/e2e/catalog/argos-base.sh await
         env:
           GH_TOKEN: ${{ github.token }}
-          BASE_COMMIT: ${{ github.base_ref != github.event.repository.default_branch && github.event.pull_request.base.sha || '' }}
 
       # The captures go up even when the audit fails: the two are read separately.
       # A tier is its own build name, so a nightly build is never compared with a pr one. Skipped
@@ -85,16 +88,21 @@ jobs:
       - if: success() || failure()
         run: |
           if [ -z "$ARGOS_TOKEN" ]; then echo "No ARGOS_TOKEN: captures not uploaded"; exit 0; fi
-          pnpm --filter @session/e2e catalog:upload --build-name "catalog-$CATALOG_TIER" "$CATALOG_OUT"
+          set -o pipefail
+          pnpm --filter @session/e2e catalog:upload --build-name "catalog-$CATALOG_TIER" "$CATALOG_OUT" |
+            tee "$RUNNER_TEMP/argos-upload.log"
         env:
-          ARGOS_API_BASE_URL: ${{ vars.ARGOS_API_BASE_URL }}
           ARGOS_TOKEN: ${{ secrets.ARGOS_TOKEN }}
-          # A stacked pull request compares with the build of the one below it, which Argos
-          # otherwise passes over until it is approved.
-          ARGOS_REFERENCE_COMMIT: ${{ github.event_name == 'pull_request' && github.base_ref != github.event.repository.default_branch && github.event.pull_request.base.sha || '' }}
           # Node gives each address family 250ms to connect; a burst of uploads to a server
           # 250ms away times out on every one, so allow longer.
           NODE_OPTIONS: --network-family-autoselection-attempt-timeout=2000
+
+      - if: github.event_name == 'pull_request' && (success() || failure())
+        run: tests/e2e/catalog/argos-base.sh check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARGOS_TOKEN: ${{ secrets.ARGOS_TOKEN }}
+          UPLOAD_LOG: ${{ runner.temp }}/argos-upload.log
 
       - uses: actions/upload-artifact@v7
         if: failure()
