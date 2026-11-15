@@ -6,6 +6,7 @@ import { MediaViewer, type MediaViewerItem } from '@session/ui'
 import { useMemo, useRef } from 'react'
 
 import { fetchOf } from './attachmentFetch'
+import { ToastLayer } from './ToastLayer'
 import { exportOne } from './exportAttachment'
 import { useExportFeedback } from './useExportFeedback'
 import {
@@ -76,6 +77,7 @@ function MessageViewer({
 
   return (
     <MediaViewer
+      toasts={<ToastLayer />}
       open={open}
       items={items}
       index={at}

@@ -1,4 +1,5 @@
 import {
+  AccountHeader,
   AttachmentCacheSection,
   KeyboardShortcutsPage,
   RecoveryPasswordPage,
@@ -33,6 +34,9 @@ const CATALOG_LONG_SECRET = {
 
 /** A phone's width, as the settings row's own story draws at. */
 const SECTION_WIDTH = 390
+
+/** Made up, never an account's: a standard Account ID, for the avatar's colour and the code. */
+const CATALOG_ACCOUNT_ID = '05b2c7e1d4a8f3906e5c1b7d2a4f8e3c9b6d1a5e7f2c4b8d3a9e6f1c5b7d2a4e8f'
 
 /**
  * The attachment cache's figures against the showcase, whose prepared downloads give it a usage. A
@@ -78,5 +82,22 @@ export const SETTINGS_SCENARIOS: readonly AnyStory[] = [
     sensitive: { rtl: true },
     variants: { mac: { names: 'mac' }, pc: { names: 'pc' } },
     render: ({ names }) => <KeyboardShortcutsPage names={names} />,
+  }),
+  // The top of Settings in each of its three states, since the badges and the picture cannot be
+  // pressed here. The code's colours swap with the theme; a right-to-left page moves the badges
+  // to the other corner.
+  defineStory<{ view: 'avatar' | 'enlargedAvatar' | 'qr' }>({
+    component: 'settings',
+    story: 'accountHeader',
+    width: SECTION_WIDTH,
+    sensitive: { rtl: true, theme: true },
+    variants: {
+      avatar: { view: 'avatar' },
+      enlarged: { view: 'enlargedAvatar' },
+      qr: { view: 'qr' },
+    },
+    render: ({ view }) => (
+      <AccountHeader sessionId={CATALOG_ACCOUNT_ID} name="Alice" initialView={view} />
+    ),
   }),
 ]

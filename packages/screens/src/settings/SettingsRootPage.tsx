@@ -8,9 +8,7 @@ import {
 } from '@session/state'
 import { ELEMENT } from '@session/test-ids'
 import {
-  Avatar,
   Button,
-  LABEL_MAX_SCALE,
   ProBadge,
   RecoveryPasswordShield,
   SessionTokenMark,
@@ -20,14 +18,13 @@ import {
   StatusDot,
   Text,
   useModals,
-  XStack,
   YStack,
   type SettingsRowProps,
   type Modals,
 } from '@session/ui'
 import { useState } from 'react'
 
-import { AccountIdControls } from './AccountIdControls'
+import { AccountHeader } from './AccountHeader'
 import { confirmLink } from './confirmLink'
 import { ConversationsPage } from './ConversationsPage'
 import { HelpPage } from './HelpPage'
@@ -60,8 +57,6 @@ type RowSpec = Pick<
 
 /** Secondary text in place of a row, which says why the row is not there. */
 type NoteSpec = { note: string; testID: string }
-
-const PROFILE_AVATAR = 90
 
 /** Asks before deleting everything on the device, on top of the settings modal. */
 function confirmClearData(modals: Modals, clear: () => Promise<void>): void {
@@ -127,62 +122,6 @@ function ClearDataActions({
         {tr('cancel')}
       </Button>
     </>
-  )
-}
-
-/** "Your Account ID" in a pill between two rules. */
-function AccountIdPill() {
-  return (
-    <XStack alignSelf="stretch" alignItems="center">
-      <YStack flex={1} height={1} backgroundColor="$bordersColor" />
-      <YStack
-        paddingTop="$2xs"
-        paddingBottom="$2xs"
-        paddingHorizontal="$sm"
-        borderRadius="$full"
-        borderWidth={1}
-        borderColor="$bordersColor"
-      >
-        <Text
-          size="$body"
-          tone="secondary"
-          userSelect="none"
-          maxFontSizeMultiplier={LABEL_MAX_SCALE}
-        >
-          {tr('accountIdYours')}
-        </Text>
-      </YStack>
-      <YStack flex={1} height={1} backgroundColor="$bordersColor" />
-    </XStack>
-  )
-}
-
-/**
- * The account, above the rows. The ID is what someone needs to message this account, so it wraps
- * rather than truncates, with a copy control beside it; on desktop the ID copies when pressed too.
- */
-function AccountHeader({ sessionId, name }: { sessionId: string; name: string }) {
-  return (
-    <YStack
-      alignItems="center"
-      gap="$sm"
-      // No bottom padding: the page's gap already separates the ID from the first group.
-      paddingTop="$lg"
-    >
-      <Avatar id={sessionId} name={name} size={PROFILE_AVATAR} />
-      {name === '' ? null : (
-        <Text
-          size="$headingLarge"
-          weight="bold"
-          maxFontSizeMultiplier={LABEL_MAX_SCALE}
-          testID={ELEMENT.settings.displayName}
-        >
-          {name}
-        </Text>
-      )}
-      <AccountIdPill />
-      <AccountIdControls sessionId={sessionId} />
-    </YStack>
   )
 }
 

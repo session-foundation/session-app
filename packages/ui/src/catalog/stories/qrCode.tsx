@@ -1,6 +1,8 @@
 import { RecoveryPasswordMark } from '../../Brand'
 import { QrCode } from '../../QrCode'
+import { QrViewerBody } from '../../QrViewer'
 import { defineStory } from '../story'
+import { noop } from './shared'
 
 interface QrRow {
   value: string
@@ -37,6 +39,43 @@ export const qrCode = defineStory<QrRow>({
       sizePx={sizePx}
       logo={logo ? RecoveryPasswordMark : undefined}
       accessibilityLabel="QR code"
+    />
+  ),
+})
+
+/** A made-up Account ID, never an account's. */
+const ACCOUNT_ID = `05${SHORT_SEED}${SHORT_SEED}`
+/** A phone's window, with the status bar across its top and the home indicator at its foot. */
+const PHONE_WIDTH = 390
+const PHONE_HEIGHT = 640
+const STATUS_BAR_PX = 47
+const HOME_INDICATOR_PX = 34
+
+/**
+ * The code full screen: alone, as on desktop, with the phones' Share button under it, and the
+ * recovery password's, which carries its shield as the code on the page does.
+ */
+export const qrViewer = defineStory<{ share: boolean; mark?: boolean }>({
+  component: 'qrViewer',
+  story: 'fullScreen',
+  width: PHONE_WIDTH,
+  variants: {
+    alone: { share: false },
+    share: { share: true },
+    recoveryPassword: { share: true, mark: true },
+  },
+  render: ({ share, mark = false }) => (
+    <QrViewerBody
+      value={mark ? SHORT_SEED : ACCOUNT_ID}
+      logo={mark ? RecoveryPasswordMark : undefined}
+      width={PHONE_WIDTH}
+      height={PHONE_HEIGHT}
+      topInsetPx={STATUS_BAR_PX}
+      bottomInsetPx={HOME_INDICATOR_PX}
+      onClose={noop}
+      accessibilityLabel="QR code"
+      closeLabel="Close"
+      action={share ? { label: 'Share', icon: 'share2', onPress: noop } : undefined}
     />
   ),
 })

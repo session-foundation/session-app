@@ -108,11 +108,15 @@ const Frame = styled(XStack, {
        * stroke *and* label in the primary colour, so the pair reads as one accented group with one
        * of them filled. Outlined in the text colour instead, the quieter half reads as a secondary
        * action of a different family rather than as the other half of a pair.
+       *
+       * At rest, stroke and label are `accentText`: the accent where it reads on the page, and the
+       * text colour where it does not, which is a light theme's page for Session's green (about
+       * 1.5:1). The fill it takes when hovered or held is the accent itself, under `onAccent`.
        */
       outlineAccent: {
         backgroundColor: 'transparent',
-        borderColor: '$primaryColor',
-        color: '$primaryColor',
+        borderColor: '$accentText',
+        color: '$accentText',
         hoverStyle: {
           backgroundColor: '$primaryColor',
           borderColor: '$primaryColor',
@@ -139,7 +143,8 @@ const Frame = styled(XStack, {
       ghostAccent: {
         backgroundColor: 'transparent',
         borderColor: 'transparent',
-        color: '$primaryColor',
+        // `accentText`, for the same reason as `outlineAccent`'s label.
+        color: '$accentText',
         hoverStyle: { backgroundColor: '$hoverOverlay' },
         pressStyle: PRESS_STYLE.ghostAccent,
       },
@@ -296,9 +301,9 @@ const INVERTS_ON_PRESS = new Set(['solid', 'outline', 'outlineAccent', 'danger']
 const LABEL_TONE = {
   solid: '$onAccent',
   outline: '$textPrimary',
-  outlineAccent: '$primaryColor',
+  outlineAccent: '$accentText',
   ghost: '$textPrimary',
-  ghostAccent: '$primaryColor',
+  ghostAccent: '$accentText',
   simple: '$textPrimary',
   subtle: '$textSecondary',
   tonal: '$textPrimary',

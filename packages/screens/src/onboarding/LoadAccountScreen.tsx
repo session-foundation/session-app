@@ -23,7 +23,7 @@ import { OnboardingChrome, useStepPadding } from './OnboardingChrome'
 import { OnboardingStepBody } from './OnboardingStep'
 import { ScanQrPane } from './ScanQrPane'
 import { useExportLogs } from '../useExportLogs'
-import { phraseIsTooShort, phraseWords } from './recoveryPhrase'
+import { phraseIsTooShort, phraseWords, scannedRecovery } from './recoveryPhrase'
 import type { RecoveryInput } from './flow'
 
 /** Room reserved inside the field for the reveal toggle. The desktop client reserves 48. */
@@ -174,9 +174,9 @@ export function LoadAccountScreen({
                   showing={tab === 'qr'}
                   fitsPage={fitsPage}
                   onScan={(value) => {
-                    // Handed over as it was read. Whether it decodes to a seed is libsession's to
-                    // say, and its refusal comes back the same way a typed phrase's does.
-                    onContinue({ hexSeed: value })
+                    // Whether it decodes to a seed is libsession's to say, and its refusal comes
+                    // back the same way a typed phrase's does.
+                    onContinue(scannedRecovery(value))
                   }}
                   error={rejected ? tr('qrNotRecoveryPassword') : null}
                 />

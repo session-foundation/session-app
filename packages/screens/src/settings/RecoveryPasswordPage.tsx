@@ -1,30 +1,26 @@
-import { requirePorts } from '@session/app'
+import { flag, requirePorts } from '@session/app'
 import { tr } from '@session/localization'
 import { useSessionActions, type RecoveryPassword, type SessionActions } from '@session/state'
 import { ELEMENT } from '@session/test-ids'
 import {
   Button,
-  ContextMenu,
-  ContextMenuTarget,
-  PressArea,
-  QrCode,
-  QrViewer,
   RecoveryPasswordMark,
   SettingsGroup,
   SettingsRow,
+  Swap,
   Text,
   useModals,
   useToast,
   useWindowSize,
   XStack,
   YStack,
-  type MenuAnchor,
   type Modals,
 } from '@session/ui'
 import { useEffect, useState } from 'react'
 
 import { LocalizedText } from '../LocalizedText'
 import { RecoveryPasswordCopy } from './RecoveryPasswordCopy'
+import { ShareableQrCode } from './ShareableQrCode'
 
 /** The shield beside the heading, at the clients' own size rather than a rung. */
 const HEADING_MARK_SIZE = 20
@@ -264,7 +260,6 @@ export function RecoveryPasswordPage({
   // Whether the words and the code have swapped since the page opened: the button that swaps back
   // takes the focus then, and only then, so opening the page does not move it.
   const [swapped, setSwapped] = useState(false)
-  const [fullScreen, setFullScreen] = useState(false)
 
   // Out of screenshots, recordings and the recents thumbnail while it is on screen, where the
   // platform offers that (Android). The modal host is drawn afresh after: on a tablet Settings is
@@ -282,22 +277,7 @@ export function RecoveryPasswordPage({
     }
   }, [preventCapture, modals])
 
-  // The desktop's full-screen code, and its Save, as the legacy desktop client offers them. Both
-  // where a file can be saved, which is the desktop alone.
-  const saveQrCode = ports.files.saveQrCode
-  // The phones' long-press: the share sheet, from which the code can be saved to Files.
-  const shareQrCode = ports.share.shareQrCode
-  const [shareMenu, setShareMenu] = useState<MenuAnchor | null>(null)
   const qrSizePx = Math.min(QR_SIZE_PX, window.width - QR_INSET_PX)
-  const qr = (
-    <QrCode
-      value={secret.seedHex}
-      sizePx={qrSizePx}
-      logo={RecoveryPasswordMark}
-      accessibilityLabel={tr('qrCode')}
-      testID={ELEMENT.recoveryPassword.qr}
-    />
-  )
 
   return (
     <YStack padding="$md" gap="$lg">
@@ -315,59 +295,55 @@ export function RecoveryPasswordPage({
             alignSelf="stretch"
           />
 
-          {showingQr ? (
-            <>
-              {saveQrCode === null ? (
-                shareQrCode === null ? (
-                  qr
-                ) : (
-                  <ContextMenuTarget onOpen={setShareMenu}>{qr}</ContextMenuTarget>
-                )
-              ) : (
-                <PressArea
+          {/* Swapped as legacy Android swaps them: the arriving one fades in, held in place, as
+              the box grows or shrinks between their heights. */}
+          <Swap swapKey={showingQr ? 'qr' : 'words'} instant={flag('disableAnimations')}>
+            {showingQr ? (
+              <YStack alignSelf="stretch" gap="$md" alignItems="center">
+                <ShareableQrCode
+                  value={secret.seedHex}
+                  sizePx={qrSizePx}
+                  mark="recoveryPassword"
                   accessibilityLabel={tr('qrCode')}
-                  onPress={() => {
-                    setFullScreen(true)
-                  }}
-                >
-                  {() => qr}
-                </PressArea>
-              )}
-              <XStack alignSelf="stretch">
-                <Button
-                  variant="outline"
-                  fill
-                  testID={ELEMENT.recoveryPassword.viewWords}
-                  focusOnMount={swapped}
-                  onPress={() => {
-                    setShowingQr(false)
-                    setSwapped(true)
-                  }}
-                >
-                  {tr('recoveryPasswordView')}
-                </Button>
-              </XStack>
-            </>
-          ) : (
-            <>
-              <Words words={secret.words} />
-              <XStack alignSelf="stretch" gap="$md">
-                <RecoveryPasswordCopy phrase={secret.words.join(' ')} />
-                <Button
-                  variant="outline"
-                  fill
-                  testID={ELEMENT.recoveryPassword.viewQr}
-                  focusOnMount={swapped}
-                  onPress={() => {
-                    setShowingQr(true)
-                    setSwapped(true)
-                  }}
-                >
-                  {tr('qrView')}
-                </Button>
-              </XStack>
-            </>
-          )}
+                  testID={ELEMENT.recoveryPassword.qr}
+                  fullScreenTestID={ELEMENT.recoveryPassword.qrFullScreen}
+                />
+                <XStack alignSelf="stretch">
+                  <Button
+                    variant="outline"
+                    fill
+                    testID={ELEMENT.recoveryPassword.viewWords}
+                    focusOnMount={swapped}
+                    onPress={() => {
+                      setShowingQr(false)
+                      setSwapped(true)
+                    }}
+                  >
+                    {tr('recoveryPasswordView')}
+                  </Button>
+                </XStack>
+              </YStack>
+            ) : (
+              <YStack alignSelf="stretch" gap="$md" alignItems="center">
+                <Words words={secret.words} />
+                <XStack alignSelf="stretch" gap="$md">
+                  <RecoveryPasswordCopy phrase={secret.words.join(' ')} />
+                  <Button
+                    variant="outline"
+                    fill
+                    testID={ELEMENT.recoveryPassword.viewQr}
+                    focusOnMount={swapped}
+                    onPress={() => {
+                      setShowingQr(true)
+                      setSwapped(true)
+                    }}
+                  >
+                    {tr('qrView')}
+                  </Button>
+                </XStack>
+              </YStack>
+            )}
+          </Swap>
         </YStack>
       </SettingsGroup>
 
@@ -393,61 +369,6 @@ export function RecoveryPasswordPage({
           }
         />
       </SettingsGroup>
-
-      {shareQrCode === null ? null : (
-        <ContextMenu
-          anchor={shareMenu}
-          onDismiss={() => {
-            setShareMenu(null)
-          }}
-          entries={[
-            {
-              id: 'share',
-              kind: 'action',
-              label: tr('share'),
-              icon: 'share2',
-              testID: ELEMENT.contextMenu.item('share'),
-              onSelect: () => {
-                void shareQrCode(secret.seedHex).catch(() => {
-                  toasts.show(tr('errorGeneric'))
-                })
-              },
-            },
-          ]}
-          accessibilityLabel={tr('qrCode')}
-          backLabel={tr('back')}
-          testIDs={ELEMENT.contextMenu}
-        />
-      )}
-      {saveQrCode === null ? null : (
-        <QrViewer
-          value={fullScreen ? secret.seedHex : null}
-          onClose={() => {
-            setFullScreen(false)
-          }}
-          accessibilityLabel={tr('qrCode')}
-          testID={ELEMENT.recoveryPassword.qrFullScreen}
-          menu={{
-            entries: [
-              {
-                id: 'save',
-                kind: 'action',
-                label: tr('save'),
-                icon: 'download',
-                testID: ELEMENT.contextMenu.item('save'),
-                onSelect: () => {
-                  void saveQrCode(secret.seedHex).catch(() => {
-                    toasts.show(tr('attachmentsSaveError'))
-                  })
-                },
-              },
-            ],
-            accessibilityLabel: tr('qrCode'),
-            backLabel: tr('back'),
-            testIDs: ELEMENT.contextMenu,
-          }}
-        />
-      )}
     </YStack>
   )
 }

@@ -1,4 +1,7 @@
+import { QR_MARK_FILL, QR_MARK_OUTLINES, qrMarkModules, type QrMark } from '@session/basic-types'
 import { encode } from 'uqr'
+
+import { rasterizeMark } from './markRaster'
 
 /**
  * The longest text drawn: a community's full URL at libsession's limit
@@ -76,26 +79,51 @@ function chunk(type: string, data: Uint8Array): Uint8Array {
 }
 
 /**
- * A QR code of `value` as a PNG: black modules on white, with its quiet zone, and no logo -- a
- * file is scanned by whatever someone points at it, not only by Session. Level Q, as drawn on
- * screen. One-bit greyscale, so it needs nothing but this file to build on any platform.
+ * A QR code of `value` as a PNG: black modules on white, with its quiet zone, and `mark` in the
+ * middle where there is one, drawn as on screen: the same square cleared, the mark at the same
+ * share of it. Level Q, as drawn on screen, which restores the modules the mark covers. One-bit
+ * greyscale, so it needs nothing but this file and the mark's outline to build on any platform.
  */
-export function qrCodePng(value: string): Uint8Array {
+export function qrCodePng(value: string, mark: QrMark | null = null): Uint8Array {
   const { size, data } = encode(value, { ecc: 'Q', border: QUIET_MODULES })
   const side = size * MODULE_PX
+
+  // The cleared square and the mark in it, in pixels, measured as the screen measures them: on the
+  // code without its quiet zone.
+  const clearedModules = mark === null ? 0 : qrMarkModules(size - 2 * QUIET_MODULES)
+  const clearedStart = (size - clearedModules) / 2
+  const markBoxPx = Math.round(clearedModules * MODULE_PX * QR_MARK_FILL)
+  const markStartPx = Math.round((side - markBoxPx) / 2)
+  const markInk = mark === null ? null : rasterizeMark(QR_MARK_OUTLINES[mark], markBoxPx, markBoxPx)
+  const cleared = (moduleX: number, moduleY: number) =>
+    moduleX >= clearedStart &&
+    moduleX < clearedStart + clearedModules &&
+    moduleY >= clearedStart &&
+    moduleY < clearedStart + clearedModules
+  const inkAt = (x: number, y: number): boolean => {
+    const moduleX = Math.floor(x / MODULE_PX)
+    const moduleY = Math.floor(y / MODULE_PX)
+    if (markInk !== null && cleared(moduleX, moduleY)) {
+      const mx = x - markStartPx
+      const my = y - markStartPx
+      return (
+        mx >= 0 && my >= 0 && mx < markBoxPx && my < markBoxPx && markInk[my * markBoxPx + mx] === 1
+      )
+    }
+    return data[moduleY]?.[moduleX] === true
+  }
+
   const rowBytes = Math.ceil(side / 8)
   // Each row is its filter byte (0, none) then the pixels, a set bit being white.
   const raw = new Uint8Array((rowBytes + 1) * side)
-  data.forEach((row, moduleY) => {
-    for (let dy = 0; dy < MODULE_PX; dy += 1) {
-      const rowStart = (moduleY * MODULE_PX + dy) * (rowBytes + 1) + 1
-      for (let x = 0; x < side; x += 1) {
-        if (row[Math.floor(x / MODULE_PX)] === true) continue
-        const at = rowStart + (x >>> 3)
-        raw[at] = (raw[at] ?? 0) | (0x80 >>> (x & 7))
-      }
+  for (let y = 0; y < side; y += 1) {
+    const rowStart = y * (rowBytes + 1) + 1
+    for (let x = 0; x < side; x += 1) {
+      if (inkAt(x, y)) continue
+      const at = rowStart + (x >>> 3)
+      raw[at] = (raw[at] ?? 0) | (0x80 >>> (x & 7))
     }
-  })
+  }
 
   const header = new Uint8Array(13)
   const view = new DataView(header.buffer)

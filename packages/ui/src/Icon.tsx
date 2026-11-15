@@ -46,6 +46,7 @@ import { PaintbrushVertical } from '@tamagui/lucide-icons-2/icons/PaintbrushVert
 import { Pin } from '@tamagui/lucide-icons-2/icons/Pin'
 import { Play } from '@tamagui/lucide-icons-2/icons/Play'
 import { Plus } from '@tamagui/lucide-icons-2/icons/Plus'
+import { QrCode } from '@tamagui/lucide-icons-2/icons/QrCode'
 import { Reply } from '@tamagui/lucide-icons-2/icons/Reply'
 import { RotateCw } from '@tamagui/lucide-icons-2/icons/RotateCw'
 import { Search } from '@tamagui/lucide-icons-2/icons/Search'
@@ -54,6 +55,7 @@ import { Share2 } from '@tamagui/lucide-icons-2/icons/Share2'
 import { SunMedium } from '@tamagui/lucide-icons-2/icons/SunMedium'
 import { Trash2 } from '@tamagui/lucide-icons-2/icons/Trash2'
 import { TriangleAlert } from '@tamagui/lucide-icons-2/icons/TriangleAlert'
+import { UserRound } from '@tamagui/lucide-icons-2/icons/UserRound'
 import { UserRoundPlus } from '@tamagui/lucide-icons-2/icons/UserRoundPlus'
 import { UsersRound } from '@tamagui/lucide-icons-2/icons/UsersRound'
 import { Video } from '@tamagui/lucide-icons-2/icons/Video'
@@ -124,6 +126,7 @@ const GLYPHS = {
   pin: Pin,
   play: Play,
   plus: Plus,
+  qrCode: QrCode,
   reply: Reply,
   rotateCw: RotateCw,
   search: Search,
@@ -132,6 +135,7 @@ const GLYPHS = {
   sunMedium: SunMedium,
   trash: Trash2,
   triangleAlert: TriangleAlert,
+  userRound: UserRound,
   userRoundPlus: UserRoundPlus,
   usersRound: UsersRound,
   video: Video,

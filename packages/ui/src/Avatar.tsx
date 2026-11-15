@@ -1,4 +1,4 @@
-import { COLORS, PRIMARY_COLOR_HEX } from '@session/theme-tokens'
+import { COLORS, FONT_SIZE, PRIMARY_COLOR_HEX } from '@session/theme-tokens'
 import { XStack } from 'tamagui'
 
 import { avatarInitials } from './avatarInitials'
@@ -25,6 +25,13 @@ function colorFor(id: string): string {
 
 /** Initials scale with the diameter; one letter gets more room. */
 const INITIALS_RATIO = { one: 0.5, more: 0.4 } as const
+
+/**
+ * The top of the type ramp. Initials that would be larger are drawn at their own size rather
+ * than capped here, or an enlarged display picture's initials barely grow with the disc. A font
+ * size rather than a scale transform, which iOS draws as a stretched bitmap.
+ */
+const RAMP_TOP_PX = Math.max(...Object.values(FONT_SIZE))
 
 const DEFAULT_SIZE_PX = SIZE_SCALE['2xl']
 
@@ -64,7 +71,11 @@ function Disc({ id, name, sizePx, ringPx, testID }: DiscProps) {
   // The ring is inside the box on both platforms, so the initials fit what is left of it.
   const innerPx = sizePx - 2 * (ringPx ?? 0)
   const surface = usePaneSurface()
-  const initialsSize = rampSizeAtMost(innerPx * INITIALS_RATIO[letters.length > 1 ? 'more' : 'one'])
+  const initialsPx = Math.floor(innerPx * INITIALS_RATIO[letters.length > 1 ? 'more' : 'one'])
+  const initialsSize =
+    initialsPx > RAMP_TOP_PX
+      ? { fontSize: initialsPx, lineHeight: initialsPx }
+      : { size: `$${rampSizeAtMost(initialsPx)}` as const }
   return (
     <XStack
       width={sizePx}
@@ -80,7 +91,7 @@ function Disc({ id, name, sizePx, ringPx, testID }: DiscProps) {
       {/* White: the circle is the account's colour, not the theme's, so no theme role fits. The
           initials are sized off the disc, so the system text size must not scale them a second
           time: a disc that grows with the text already carries them with it. */}
-      <Text size={`$${initialsSize}`} weight="bold" color={COLORS.WHITE} allowFontScaling={false}>
+      <Text {...initialsSize} weight="bold" color={COLORS.WHITE} allowFontScaling={false}>
         {letters}
       </Text>
     </XStack>

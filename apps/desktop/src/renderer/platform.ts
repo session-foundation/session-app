@@ -33,7 +33,7 @@ setPorts(
       revealInFolder: async (path) => {
         await window.sessionDesktop.revealInFolder(path)
       },
-      saveQrCode: (value) => window.sessionDesktop.saveQrCode(value),
+      saveQrCode: (value, mark) => window.sessionDesktop.saveQrCode(value, mark),
     },
     // Main owns the files, compresses with zlib, and asks where to save; see main/logs.ts.
     logs: {

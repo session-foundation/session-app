@@ -185,10 +185,10 @@ const ports = memoryPorts({
     // with it: a recovery password's code is the seed, and no copy of it may outlive the share.
     // The sheet resolves once the app it went to has taken it on iOS, and once Session is back in
     // front on Android.
-    shareQrCode: async (value) => {
+    shareQrCode: async (value, mark) => {
       const out = new File(exportsDirectory(), QR_CODE_FILE)
       if (out.exists) out.delete()
-      await out.write(qrCodePng(value))
+      await out.write(qrCodePng(value, mark))
       try {
         await Sharing.shareAsync(out.uri, { mimeType: 'image/png', UTI: 'public.png' })
       } finally {

@@ -1,4 +1,4 @@
-import type { NetworkName, WithSpan } from '@session/basic-types'
+import type { NetworkName, QrMark, WithSpan } from '@session/basic-types'
 import type { AttachmentRef, PixelSize } from '@session/client'
 import type { BuildFacts, DiagnosticsSnapshot, ExportPart, LogFileInfo } from '@session/logging'
 /**
@@ -91,11 +91,12 @@ export interface FilesPort {
    */
   revealInFolder(path: string): Promise<void>
   /**
-   * Saves a QR code of `value` as a PNG wherever the person chooses, or null where there is no
-   * file to save it to. Desktop only, as in the legacy desktop client, which offers it on the
-   * recovery password's full-screen QR. Resolves false when the person cancelled.
+   * Saves a QR code of `value` as a PNG wherever the person chooses, with `mark` in its middle
+   * where there is one, or null where there is no file to save it to. Desktop only, as in the
+   * legacy desktop client, which offers it on the recovery password's full-screen QR. Resolves
+   * false when the person cancelled.
    */
-  saveQrCode: ((value: string) => Promise<boolean>) | null
+  saveQrCode: ((value: string, mark: QrMark | null) => Promise<boolean>) | null
 }
 
 /**
@@ -236,11 +237,12 @@ export interface SharePort {
    */
   shareText: ((text: string) => Promise<void>) | null
   /**
-   * Hands a QR code of `value` to the share sheet as a PNG, from which it can be saved to Files,
-   * or null where there is no sheet (the desktop saves it instead: `files.saveQrCode`). Never to
-   * the photo library, which backs itself up to the cloud.
+   * Hands a QR code of `value`, with `mark` in its middle where there is one, to the share sheet
+   * as a PNG, from which it can be saved to Files, or null where there is no sheet (the desktop
+   * saves it instead: `files.saveQrCode`). Never to the photo library, which backs itself up to
+   * the cloud.
    */
-  shareQrCode: ((value: string) => Promise<void>) | null
+  shareQrCode: ((value: string, mark: QrMark | null) => Promise<void>) | null
 }
 
 export interface WindowPort {

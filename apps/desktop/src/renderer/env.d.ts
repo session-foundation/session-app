@@ -1,4 +1,4 @@
-import type { WithSpan } from '@session/basic-types'
+import type { QrMark, WithSpan } from '@session/basic-types'
 import type { DiagnosticsSnapshot, ExportPart, LogFileInfo } from '@session/logging'
 
 // The type imports make this a module, so what it declares for the page is declared global.
@@ -51,7 +51,7 @@ declare global {
       openExternal(url: string): void
       chooseExportLocation(suggestedName: string): Promise<string | null>
       /** Main draws the PNG and asks where to save it; false when cancelled or refused. */
-      saveQrCode(value: string): Promise<boolean>
+      saveQrCode(value: string, mark: QrMark | null): Promise<boolean>
       /** False when main refused a path outside the folders chosen this run. */
       revealInFolder(path: string): Promise<boolean>
       /** Empty for a file that is not on disk. */

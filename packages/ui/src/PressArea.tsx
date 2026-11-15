@@ -47,7 +47,9 @@ export function PressArea({
   const tabIndex = useListTabIndex()
   const element = useRef<HTMLElement | null>(null)
   useEffect(() => {
-    if (focusOnMount) element.current?.focus()
+    // Without scrolling: the control can arrive in a box that is still opening, clipped, and the
+    // browser would scroll that box to show it, sliding the content up under its top edge.
+    if (focusOnMount) element.current?.focus({ preventScroll: true })
   }, [focusOnMount])
   return (
     <YStack

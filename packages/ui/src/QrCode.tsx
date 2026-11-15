@@ -1,3 +1,4 @@
+import { QR_MARK_FILL, qrMarkModules } from '@session/basic-types'
 import { useMemo, type ComponentType } from 'react'
 import Svg, { Path } from 'react-native-svg'
 import { YStack } from 'tamagui'
@@ -10,7 +11,7 @@ export interface QrCodeProps {
   value: string
   /** The whole panel's width and height, its quiet zone included. */
   sizePx: number
-  /** Drawn over the middle in the modules' colour, as the legacy clients put the Session shield. */
+  /** Drawn over the middle in the modules' colour: the recovery password's shield. */
   logo?: ComponentType<MarkProps> | undefined
   /** Its name for a screen reader: a code with no name is an image nobody can identify. */
   accessibilityLabel: string
@@ -19,8 +20,6 @@ export interface QrCodeProps {
 
 /** Modules of panel around the code: the quiet zone a scanner needs to find its edge. */
 const QUIET_MODULES = 2
-/** The logo's share of the code's width. Level Q restores up to a quarter of the modules. */
-const LOGO_SHARE = 0.22
 
 /**
  * One path for every dark module, a rectangle per run along a row: a code is up to 177 modules
@@ -55,8 +54,8 @@ export function QrCode({ value, sizePx, logo: Logo, accessibilityLabel, testID }
   const span = size + QUIET_MODULES * 2
   const modulePx = sizePx / span
 
-  // The logo's square, in modules, kept odd so it centres on a module rather than between two.
-  const logoModules = Logo === undefined ? 0 : Math.round((size * LOGO_SHARE) / 2) * 2 + 1
+  // The same square the saved PNG clears, so the two draw one code.
+  const logoModules = Logo === undefined ? 0 : qrMarkModules(size)
   const logoStart = (size - logoModules) / 2
   const path = useMemo(
     () =>
@@ -95,7 +94,9 @@ export function QrCode({ value, sizePx, logo: Logo, accessibilityLabel, testID }
       >
         <Path d={path} fill={ink} />
       </Svg>
-      {Logo === undefined ? null : <Logo size={logoModules * modulePx * 0.8} color="$surfaceInk" />}
+      {Logo === undefined ? null : (
+        <Logo size={logoModules * modulePx * QR_MARK_FILL} color="$surfaceInk" />
+      )}
     </YStack>
   )
 }

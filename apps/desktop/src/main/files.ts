@@ -3,6 +3,7 @@ import { basename, dirname, join, resolve } from 'node:path'
 
 import { bareFileName, MAX_SUGGESTED_NAME_CHARS } from '@session/app/exportFileName'
 import { MAX_QR_TEXT_CHARS, qrCodePng } from '@session/app/qrCodePng'
+import { isQrMark } from '@session/basic-types'
 import type { Frame, OutgoingAttachment, Request } from '@session/client'
 
 // Named imports do not survive the ESM loader here; see the note in index.ts.
@@ -281,26 +282,30 @@ export function serveFiles(
 
   // Takes the text, never bytes: main draws the picture, so all the page can have written is a QR
   // code, and only where the person chose.
-  ipc.handle('files:save-qr-code', async (event, value: unknown): Promise<boolean> => {
-    if (!isFromAppFrame(event.senderFrame, appUrl)) return false
-    if (typeof value !== 'string' || value.length === 0 || value.length > MAX_QR_TEXT_CHARS)
-      return false
-    const answer = await dialog.showSaveDialog(window, {
-      defaultPath: dialogDefaultPath(
-        'session-qr-code.png',
-        process.platform,
-        lastFolder,
-        app.getPath('downloads'),
-      ),
-      filters: [{ name: 'PNG', extensions: ['png'] }],
-      properties: ['showOverwriteConfirmation', 'createDirectory'],
-    })
-    if (answer.canceled || answer.filePath === '') return false
-    lastFolder = dirname(answer.filePath)
-    writeLastFolder(lastFolderFile, lastFolder)
-    writeFileSync(answer.filePath, qrCodePng(value))
-    return true
-  })
+  ipc.handle(
+    'files:save-qr-code',
+    async (event, value: unknown, mark: unknown): Promise<boolean> => {
+      if (!isFromAppFrame(event.senderFrame, appUrl)) return false
+      if (typeof value !== 'string' || value.length === 0 || value.length > MAX_QR_TEXT_CHARS)
+        return false
+      if (mark !== null && !isQrMark(mark)) return false
+      const answer = await dialog.showSaveDialog(window, {
+        defaultPath: dialogDefaultPath(
+          'session-qr-code.png',
+          process.platform,
+          lastFolder,
+          app.getPath('downloads'),
+        ),
+        filters: [{ name: 'PNG', extensions: ['png'] }],
+        properties: ['showOverwriteConfirmation', 'createDirectory'],
+      })
+      if (answer.canceled || answer.filePath === '') return false
+      lastFolder = dirname(answer.filePath)
+      writeLastFolder(lastFolderFile, lastFolder)
+      writeFileSync(answer.filePath, qrCodePng(value, mark))
+      return true
+    },
+  )
 
   // The path comes from the preload's `webUtils.getPathForFile`, never from the page.
   ipc.handle('files:allow-preview', (event, path: unknown): string | null => {

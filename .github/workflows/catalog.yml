@@ -71,6 +71,14 @@ jobs:
       # In the pinned image: see tests/e2e/catalog/Dockerfile.
       - run: pnpm --filter @session/e2e test:catalog
 
+      # Argos compares with the build of main's head or of the pull request below, which another
+      # runner can still be capturing.
+      - if: github.event_name == 'pull_request' && (success() || failure())
+        run: tests/e2e/catalog/await-base.sh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_COMMIT: ${{ github.base_ref != github.event.repository.default_branch && github.event.pull_request.base.sha || '' }}
+
       # The captures go up even when the audit fails: the two are read separately.
       # A tier is its own build name, so a nightly build is never compared with a pr one. Skipped
       # where the token is not given: a fork's pull request, or a repository with no Argos yet.
