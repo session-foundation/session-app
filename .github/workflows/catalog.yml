@@ -48,15 +48,18 @@ jobs:
 
       - uses: pnpm/action-setup@v6
 
-      # No pnpm cache: each runner keeps its own store between jobs, and restoring GitHub's copy of
-      # it took 20 s a job.
+      # No pnpm cache: the install below keeps its store on the runner.
       - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
           check-latest: true
           package-manager-cache: false
 
+      # The default store is under PNPM_HOME, which pnpm/action-setup reinstalls every job; the tool
+      # cache outlasts the job, and each runner has its own.
       - run: pnpm install --frozen-lockfile
+        env:
+          pnpm_config_store_dir: ${{ runner.tool_cache }}/pnpm-store
       - run: pnpm --filter @session/localization build
       - run: pnpm --filter @session/desktop build
       # The fake draws the thirty dev photographs and refuses to start without them. Cached, so the
@@ -91,7 +94,7 @@ jobs:
         run: |
           if [ -z "$ARGOS_TOKEN" ]; then echo "No ARGOS_TOKEN: captures not uploaded"; exit 0; fi
           set -o pipefail
-          pnpm --filter @session/e2e catalog:upload --build-name "catalog-$CATALOG_TIER" "$CATALOG_OUT" |
+          pnpm --filter @session/e2e catalog:upload --build-name "catalog-$CATALOG_TIER" "$CATALOG_OUT" 2>&1 |
             tee "$RUNNER_TEMP/argos-upload.log"
         env:
           ARGOS_TOKEN: ${{ secrets.ARGOS_TOKEN }}

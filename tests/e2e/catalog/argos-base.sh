@@ -56,10 +56,16 @@ await() {
 
 check() {
   local url build status used wanted runs
-  url=$(grep -oE 'https?://[^ ]+/builds/[0-9]+' "$UPLOAD_LOG" 2>/dev/null | tail -1)
-  if [ -z "$url" ]; then
-    echo "::warning::No Argos build in the upload's output, so its baseline is not checked"
+  # No log: the upload was skipped, for want of a token.
+  if [ ! -f "$UPLOAD_LOG" ]; then
+    echo "::warning::No upload, so no Argos baseline to check"
     return 0
+  fi
+  # A log without the URL is an upload whose output changed, which would turn this check off unseen.
+  url=$(grep -oE 'https?://[^ ]+/builds/[0-9]+' "$UPLOAD_LOG" | tail -1)
+  if [ -z "$url" ]; then
+    echo "::error::No Argos build URL in the upload's output, so its baseline cannot be checked"
+    return 1
   fi
   # The app's build URL is owner/project/builds/N under the host; the API takes the same path.
   local api="${ARGOS_API_BASE_URL%/}/projects/${url#*://*/}"
@@ -73,6 +79,13 @@ check() {
     [ "$status" != pending ] && [ "$status" != progress ] && break
     sleep 5
   done
+  # Argos sets the base while it processes the build, so an unprocessed or failed one has none.
+  case $status in
+    pending | progress | error | aborted | expired)
+      echo "::warning::$url is $status, so its baseline is not checked"
+      return 0
+      ;;
+  esac
 
   used=$(jq -r 'if .base then "\(.base.branch)@\(.base.sha[0:8])" else "no build" end' <<<"$build")
   if [ -n "$stacked" ]; then
@@ -83,9 +96,10 @@ check() {
     wanted="main's build of ${base:0:8}, the commit this pull request is merged onto"
   fi
 
-  # Only fail where a rerun can do better: the build it should have used exists or is coming.
-  if ! runs=$(base_runs) || [ -z "$runs" ] || ! grep -qvE '^completed (cancelled|skipped)$' <<<"$runs"; then
-    echo "::warning::$url compared with $used rather than $wanted, which has no catalog build"
+  # Only fail where a rerun can do better: a run on that commit is still going or has uploaded. A
+  # failed one may have stopped before its upload, and then a rerun of this job cannot help.
+  if ! runs=$(base_runs) || ! grep -qE '^(queued|in_progress|waiting|pending|requested) |^completed success$' <<<"$runs"; then
+    echo "::warning::$url compared with $used rather than $wanted, which has no catalog build to wait for"
     return 0
   fi
   echo "::error::$url compared with $used rather than $wanted, so it may show changes that are not this pull request's. Rerun this job once the catalog run on ${base:0:8} has finished."
