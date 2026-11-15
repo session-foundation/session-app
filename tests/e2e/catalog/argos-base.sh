@@ -3,7 +3,8 @@
 # at once. `await`, before the upload: waits while the run that build comes from is capturing.
 # `check`, after it: fails when Argos compared with another build and a rerun would fix that.
 # Takes GH_TOKEN, GITHUB_REPOSITORY, GITHUB_SHA and GITHUB_BASE_REF, ARGOS_REFERENCE_COMMIT for a
-# stacked pull request, and for `check` ARGOS_TOKEN, ARGOS_API_BASE_URL and UPLOAD_LOG.
+# stacked pull request, and for `check` ARGOS_TOKEN, ARGOS_API_BASE_URL, CATALOG_TIER and
+# UPLOAD_LOG.
 set -uo pipefail
 
 mode=${1:?usage: argos-base.sh await|check}
@@ -16,18 +17,12 @@ if ! base=${stacked:-$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA" --j
   exit 0
 fi
 
-# The catalog runs on the base commit that upload a pr-tier build, as "status conclusion" lines: a
-# nightly or dispatched run on the same commit uploads under another build name.
-base_runs() {
-  gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$base&per_page=50" --jq \
-    '.workflow_runs[] | select(.name == "catalog" and (.event == "push" or .event == "pull_request")) | "\(.status) \(.conclusion)"'
-}
-
-# The jobs of those runs still going, as their status: queued or in_progress.
+# The jobs still going in the catalog runs on the base commit, as queued or in_progress. A
+# scheduled run uploads a nightly build; a dispatched one is on the pr tier unless told otherwise.
 unfinished_jobs() {
   local runs
   runs=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$base&per_page=50" --jq \
-    '.workflow_runs[] | select(.name == "catalog" and .status != "completed" and (.event == "push" or .event == "pull_request")) | .id') ||
+    '.workflow_runs[] | select(.name == "catalog" and .status != "completed" and .event != "schedule") | .id') ||
     return 1
   for run in $runs; do
     gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run/jobs" --jq '.jobs[] | select(.status != "completed") | .status' ||
@@ -54,12 +49,23 @@ await() {
   echo "::warning::The catalog run on $base is still going after 20 minutes"
 }
 
+# The status of Argos's newest build of this tier on the base commit, empty when it has none.
+expected_build_status() {
+  curl -fsS -G -H "Authorization: Bearer $ARGOS_TOKEN" --data-urlencode "headSha=$base" \
+    --data-urlencode "search=catalog-$CATALOG_TIER" --data-urlencode perPage=1 "$1" |
+    jq -r '.results[0].status // ""'
+}
+
 check() {
-  local url build status used wanted runs
-  # No log: the upload was skipped, for want of a token.
-  if [ ! -f "$UPLOAD_LOG" ]; then
-    echo "::warning::No upload, so no Argos baseline to check"
+  local url build status used wanted expected why jobs
+  # The upload skips itself without a token.
+  if [ -z "${ARGOS_TOKEN:-}" ]; then
+    echo "::warning::No ARGOS_TOKEN, so no Argos baseline to check"
     return 0
+  fi
+  if [ ! -f "$UPLOAD_LOG" ]; then
+    echo "::error::No upload log at $UPLOAD_LOG, so the Argos baseline cannot be checked"
+    return 1
   fi
   # A log without the URL is an upload whose output changed, which would turn this check off unseen.
   url=$(grep -oE 'https?://[^ ]+/builds/[0-9]+' "$UPLOAD_LOG" | tail -1)
@@ -96,12 +102,25 @@ check() {
     wanted="main's build of ${base:0:8}, the commit this pull request is merged onto"
   fi
 
-  # Only fail where a rerun can do better: a run on that commit is still going or has uploaded. A
-  # failed one may have stopped before its upload, and then a rerun of this job cannot help.
-  if ! runs=$(base_runs) || ! grep -qE '^(queued|in_progress|waiting|pending|requested) |^completed success$' <<<"$runs"; then
-    echo "::warning::$url compared with $used rather than $wanted, which has no catalog build to wait for"
-    return 0
+  # Only fail where a rerun can do better: Argos holds a build there it can compare with, or a run
+  # there is still going. Argos passes over a rejected build and one it could not process.
+  if ! expected=$(expected_build_status "${api%/*}"); then
+    expected=unknown
   fi
+  case $expected in
+    accepted | no-changes | changes-detected | pending | progress) ;;
+    *)
+      if ! jobs=$(unfinished_jobs) || [ -z "$jobs" ]; then
+        case $expected in
+          "") why="No such build exists, and no catalog run on ${base:0:8} is going." ;;
+          unknown) why="That build could not be looked up." ;;
+          *) why="That build is $expected, and Argos does not compare with it." ;;
+        esac
+        echo "::warning::$url compared with $used rather than $wanted. $why"
+        return 0
+      fi
+      ;;
+  esac
   echo "::error::$url compared with $used rather than $wanted, so it may show changes that are not this pull request's. Rerun this job once the catalog run on ${base:0:8} has finished."
   return 1
 }
