@@ -48,17 +48,13 @@ jobs:
 
       - uses: pnpm/action-setup@v6
 
-      # No pnpm cache: the install below keeps its store on the runner.
       - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
           check-latest: true
-          package-manager-cache: false
+          cache: pnpm
 
-      # The default store is under PNPM_HOME, which pnpm/action-setup reinstalls every job; the tool
-      # cache outlasts the job, and each runner has its own. A flag, because pnpm 10 and 11 read the
-      # store from environment variables of different prefixes.
-      - run: pnpm install --frozen-lockfile --store-dir "$RUNNER_TOOL_CACHE/pnpm-store"
+      - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @session/localization build
       - run: pnpm --filter @session/desktop build
       # The fake draws the thirty dev photographs and refuses to start without them. Cached, so the
