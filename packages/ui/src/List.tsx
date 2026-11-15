@@ -296,7 +296,8 @@ export function List<T>({
   /** Reports what the scroller's position means, from wherever it was learnt. */
   const report = useCallback(() => {
     const { viewportPx, contentPx } = scroll.current
-    if (viewportPx === 0) return
+    // Rows with no height yet are not laid out: nothing is at the start or the end of them.
+    if (viewportPx === 0 || (contentPx === 0 && latest.current.keys.length > 0)) return
     // Following the end, the offset is where the scroll about to happen puts it.
     const offsetPx = atEnd.current ? Math.max(0, contentPx - viewportPx) : scroll.current.offsetPx
     const isFar = contentPx - offsetPx - viewportPx > viewportPx
