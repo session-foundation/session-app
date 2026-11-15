@@ -48,11 +48,13 @@ jobs:
 
       - uses: pnpm/action-setup@v6
 
+      # No pnpm cache: each runner keeps its own store between jobs, and restoring GitHub's copy of
+      # it took 20 s a job.
       - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
           check-latest: true
-          cache: pnpm
+          package-manager-cache: false
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @session/localization build
