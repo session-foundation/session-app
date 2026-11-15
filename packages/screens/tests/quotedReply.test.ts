@@ -94,8 +94,8 @@ describe('a quote’s labels', () => {
       gif: tr('gif'),
       video: tr('video'),
       audio: tr('audio'),
-      voiceMessage: tr('messageVoice'),
-      document: tr('document'),
+      voice: tr('messageVoice'),
+      file: tr('document'),
       notFound: tr('messageErrorOriginal'),
     })
     expect(labels.andMore(4)).toBe(tr('andMore', { count: 4 }))
