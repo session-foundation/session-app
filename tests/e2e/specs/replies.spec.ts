@@ -23,6 +23,26 @@ async function expectLandedOn(app: DesktopApp, body: string): Promise<void> {
   await expect(landed).toBeFocused()
 }
 
+/** What the page's own elements are read by here: the e2e package is typed without the DOM. */
+interface Scrolled {
+  parentElement: Scrolled
+  scrollHeight: number
+  clientHeight: number
+  getBoundingClientRect: () => { top: number; bottom: number }
+}
+
+/** How far the row's middle is from the middle of the transcript it scrolls in. */
+async function offCentrePx(app: DesktopApp, body: string): Promise<number> {
+  return row(app, body).evaluate((element: unknown) => {
+    const message = element as Scrolled
+    let scroller = message.parentElement
+    while (scroller.scrollHeight <= scroller.clientHeight + 1) scroller = scroller.parentElement
+    const box = scroller.getBoundingClientRect()
+    const at = message.getBoundingClientRect()
+    return Math.abs((at.top + at.bottom) / 2 - (box.top + box.bottom) / 2)
+  })
+}
+
 test('replies from the menu, and the sent message quotes what it answers @desktop @high-risk', async () => {
   const app = await launch()
   try {
@@ -84,6 +104,8 @@ test('jumps to an original far above the window, and walks back through the chai
 
     await quoteOf(app, REPLIES.seeYou).click()
     await expectLandedOn(app, REPLIES.station)
+    // In the middle of the transcript, not wherever the scroll left over from the last page put it.
+    await expect.poll(() => offCentrePx(app, REPLIES.station)).toBeLessThan(16)
     await expect(button).toHaveAccessibleName(PENDING_COPY.messageBackToReply)
 
     await expect(row(app, REPLIES.meet)).toHaveCount(0)

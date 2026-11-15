@@ -53,6 +53,8 @@ const AT_END_SLACK_PX = 8
 const FLING_BEGINS_MS = 150
 /** How long a scroll to the end is given to get there before the list stops holding to it. */
 const SEEK_END_MS = 1000
+/** How long after a scroll to a row the list's position is its own doing, not the reader's. */
+const LANDING_MS = 1500
 /** How much of the list's height from its first row counts as reaching the start. */
 const START_REACHED_VIEWPORTS = 0.5
 /** Native: a row within this many rows of what is on screen is near enough to animate to. */
@@ -270,6 +272,12 @@ export function List<T>({
   // On its way to the end, by `scrollToEnd`: an animated scroll reports every offset it passes,
   // none of them the end, and the rows drawn as it nears change where the end is.
   const seekingEnd = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  // Just put on a row: the rows drawn around it can leave the scroll at the window's end, which
+  // is not the reader coming back to the newest message.
+  const landing = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  // The web: puts the landing's row where it belongs again. A window just swapped in is drawn a
+  // batch at a time, and the first scroll stops at the end of the rows drawn by then.
+  const placeAgain = useRef<(() => void) | null>(null)
   // Native: the reader's finger, or the fling it left, is moving the list.
   const touched = useRef(false)
   const everTouched = useRef(false)
@@ -289,7 +297,10 @@ export function List<T>({
   const [placed, setPlaced] = useState(!startsAtEnd)
 
   const latest = useRef({ keys, onStartReached, onFarFromEnd, onRowsOnScreen })
+  // The rows before the ones now held: what is on screen is known of those until these are drawn.
+  const keysBefore = useRef(keys)
   useLayoutEffect(() => {
+    if (latest.current.keys !== keys) keysBefore.current = latest.current.keys
     latest.current = { keys, onStartReached, onFarFromEnd, onRowsOnScreen }
   })
 
@@ -363,6 +374,8 @@ export function List<T>({
       if (resized && atEnd.current) followEnd()
       else if (seekingEnd.current !== undefined) {
         // Held to the end until it gets there.
+      } else if (landing.current !== undefined) {
+        // Not the reader's scroll: where it is counts once the landing is over.
       } else if (isWeb || touched.current || reachesEnd) atEnd.current = startsAtEnd && reachesEnd
       // Native moves the scroll itself to keep its place when rows arrive above: at the end,
       // that is not the reader leaving it.
@@ -376,6 +389,8 @@ export function List<T>({
     clearTimeout(touchEnding.current)
     touched.current = true
     everTouched.current = true
+    clearTimeout(landing.current)
+    landing.current = undefined
   }, [])
   const onTouchEnd = useCallback(() => {
     clearTimeout(touchEnding.current)
@@ -388,6 +403,7 @@ export function List<T>({
   const onContentSizeChange = useCallback(
     (_width: number, height: number) => {
       scroll.current.contentPx = height
+      if (landing.current !== undefined) placeAgain.current?.()
       followEnd()
       setPlaced(true)
       report()
@@ -474,7 +490,7 @@ export function List<T>({
    * measurements for the list to scroll by, and the page knows where they are.
    */
   const scrollToRowElement = useCallback(
-    (key: string, animated: boolean, onArrived: (() => void) | undefined) => {
+    (key: string, animated: boolean, wasHeld: boolean, onArrived: (() => void) | undefined) => {
       let frames = 0
       const step = () => {
         frames += 1
@@ -490,10 +506,11 @@ export function List<T>({
         const row = node.getBoundingClientRect()
         const box = scroller.getBoundingClientRect()
         // A row the reader can already see has arrived: the rest of it is brought in alongside,
-        // and one wholly on screen is left where it is.
-        const seen = row.bottom > box.top && row.top < box.bottom
+        // and one wholly on screen is left where it is. A row that came with the window was not
+        // there to be seen, wherever the scroll left over from the last window puts it.
+        const seen = wasHeld && row.bottom > box.top && row.top < box.bottom
         if (seen) onArrived?.()
-        if (row.top >= box.top && row.bottom <= box.bottom) return
+        if (seen && row.top >= box.top && row.bottom <= box.bottom) return
         const awayPx = Math.abs((row.top + row.bottom) / 2 - (box.top + box.bottom) / 2)
         const smooth = animated && awayPx <= box.bottom - box.top
         if (seen) {
@@ -513,7 +530,12 @@ export function List<T>({
           setTimeout(arrive, ANIMATED_SCROLL_MS)
         }
         node.scrollIntoView({ block, behavior: smooth ? 'smooth' : 'auto' })
-        if (!smooth && onArrived !== undefined) requestAnimationFrame(onArrived)
+        if (!smooth) {
+          placeAgain.current = () => {
+            node.scrollIntoView({ block })
+          }
+          if (onArrived !== undefined) requestAnimationFrame(onArrived)
+        }
       }
       step()
     },
@@ -529,6 +551,13 @@ export function List<T>({
         atEnd.current = false
         clearTimeout(seekingEnd.current)
         seekingEnd.current = undefined
+        placeAgain.current = null
+        clearTimeout(landing.current)
+        landing.current = setTimeout(() => {
+          landing.current = undefined
+          const { offsetPx, viewportPx, contentPx } = scroll.current
+          atEnd.current = startsAtEnd && contentPx - offsetPx - viewportPx <= AT_END_SLACK_PX
+        }, LANDING_MS)
         const heightPx = rowHeights.current.get(key)
         const tall = heightPx !== undefined && heightPx > scroll.current.viewportPx
         target.current = {
@@ -538,17 +567,22 @@ export function List<T>({
           retries: 0,
           unmeasured: heightPx === undefined,
         }
-        if (isWeb) scrollToRowElement(key, animated, onArrived)
+        const wasHeld = keysBefore.current.includes(key)
+        if (isWeb) scrollToRowElement(key, animated, wasHeld, onArrived)
         else {
           const shown = onScreen.current
           // A row the reader can already see has arrived: the rest of it is brought in alongside,
           // and one between two rows on screen, so wholly on screen, is left where it is.
-          const seen = shown !== null && index >= shown.first && index <= shown.last
+          const seen = wasHeld && shown !== null && index >= shown.first && index <= shown.last
           if (seen) onArrived?.()
-          if (shown !== null && index > shown.first && index < shown.last) target.current = null
+          if (wasHeld && shown !== null && index > shown.first && index < shown.last)
+            target.current = null
           else {
             const near =
-              shown !== null && index >= shown.first - NEAR_ROWS && index <= shown.last + NEAR_ROWS
+              wasHeld &&
+              shown !== null &&
+              index >= shown.first - NEAR_ROWS &&
+              index <= shown.last + NEAR_ROWS
             scrollToTarget(animated && near)
             if (onArrived !== undefined && !seen) {
               // An animated scroll says when it stops; the wait is for one that moved nowhere, and
@@ -587,6 +621,8 @@ export function List<T>({
       scrollToEnd({ animated = false } = {}) {
         atEnd.current = startsAtEnd
         target.current = null
+        clearTimeout(landing.current)
+        landing.current = undefined
         clearTimeout(seekingEnd.current)
         seekingEnd.current = setTimeout(() => {
           seekingEnd.current = undefined
@@ -675,6 +711,7 @@ export function List<T>({
     () => () => {
       clearTimeout(seekingEnd.current)
       clearTimeout(touchEnding.current)
+      clearTimeout(landing.current)
     },
     [],
   )
