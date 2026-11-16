@@ -15,7 +15,9 @@ repo=$(cd "$here/../../.." && pwd)
 out=${CATALOG_OUT:-$repo/test-results/catalog}
 media=${SESSION_FAKE_MEDIA_DIR:-$HOME/.cache/session-app/dev-media}
 
-docker build --quiet --tag session-catalog "$here" >/dev/null
+# Run by the ID this build printed: another job on this host's daemon can retag session-catalog
+# from its own Dockerfile in between.
+image=$(docker build --quiet --tag session-catalog "$here")
 # Made here, so the container's user owns nothing the host cannot clean up.
 mkdir -p "$out"
 
@@ -32,5 +34,5 @@ docker run --rm --init ${CATALOG_CGROUP_PARENT:+--cgroup-parent "$CATALOG_CGROUP
   --env SESSION_FAKE_MEDIA_DIR=/media \
   --volume "$repo:$repo" --volume "$out:/out" --volume "$media:/media:ro" \
   --workdir "$repo/tests/e2e" \
-  session-catalog \
+  "$image" \
   xvfb-run -a -s '-screen 0 3800x8200x24' pnpm exec playwright test --project catalog "$@"
