@@ -1,0 +1,251 @@
+import {
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Ref,
+} from 'react'
+import {
+  FlatList,
+  type LayoutChangeEvent,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+} from 'react-native'
+
+import { nearStart, type ScrollReading } from './listEdges'
+import { useRovingRows, type RovingRowsProps } from './rovingRows'
+import { useTranscriptPlatform } from './transcriptPlatform'
+
+/** What a screen moves a transcript by. */
+export interface TranscriptListHandle {
+  /** To the last row, where the list then stays. */
+  scrollToEnd: (options?: { animated?: boolean }) => void
+}
+
+export interface TranscriptListProps<T> extends RovingRowsProps {
+  data: readonly T[]
+  renderItem: (item: T, index: number) => React.ReactElement | null
+  keyExtractor: (item: T, index: number) => string
+  testID?: string
+  handle?: Ref<TranscriptListHandle> | undefined
+  /**
+   * The first row is in reach (two list heights on native, half of one on the web), or the rows do
+   * not fill the list: once per content height, so a page that arrives and still leaves the start
+   * in reach asks again.
+   */
+  onStartReached?: (() => void) | undefined
+  /** Whether the end is more than one list's height away, said when that changes. */
+  onFarFromEnd?: ((far: boolean) => void) | undefined
+}
+
+/** How close to its end a list still counts as at it, and follows content that grows. */
+const AT_END_SLACK_PX = 8
+/** How long a scroll to the end is given to get there before the list stops holding to it. */
+const SEEK_END_MS = 1000
+
+const FILLS = { flex: 1 } as const
+const HIDDEN = { flex: 1, opacity: 0 } as const
+
+/**
+ * A conversation's messages, a page at a time: opens on its last row and follows its end as rows
+ * arrive or grow, until scrolled away from it, and keeps what is on screen in place when rows are
+ * added before it. Every row is drawn on the first pass, so the end is known before anything is
+ * shown: for a list handed a page at a time, not a thousand rows.
+ */
+export function TranscriptList<T>({
+  data,
+  renderItem,
+  keyExtractor,
+  testID,
+  rovingFocus,
+  onRowMenu,
+  handle,
+  onStartReached,
+  onFarFromEnd,
+}: TranscriptListProps<T>) {
+  const { focus, renderRow, withFocus } = useRovingRows({
+    rovingFocus,
+    onRowMenu,
+    inverted: false,
+    data,
+    renderItem,
+    keyExtractor,
+  })
+  const keys = useMemo(() => data.map(keyExtractor), [data, keyExtractor])
+
+  const list = useRef<FlatList<T> | null>(null)
+  const attach = useCallback(
+    (node: FlatList<T> | null) => {
+      list.current = node
+      focus?.attach(node)
+    },
+    [focus],
+  )
+  /** The scroller as last reported: scroll events do not say that content grew. */
+  const scroll = useRef<ScrollReading>({
+    offsetPx: 0,
+    viewportPx: 0,
+    contentPx: 0,
+    offsetAtContentPx: 0,
+  })
+  const atEnd = useRef(true)
+  const far = useRef(false)
+  const startAskedAtPx = useRef(-1)
+  // On its way to the end, by `scrollToEnd`: an animated scroll reports every offset it passes,
+  // none of them the end, and the rows drawn as it nears change where the end is.
+  const seekingEnd = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  // The first pass alone draws every row. FlatList keeps its first `initialNumToRender` rows
+  // mounted for good, so a count that followed the data would mount every page ever read.
+  const [firstPassRows] = useState(() => Math.max(data.length, 1))
+  // Not shown until it is at its end.
+  const [placed, setPlaced] = useState(false)
+  const onPlaced = useCallback(() => {
+    setPlaced(true)
+  }, [])
+
+  /**
+   * To the scroll view's own end. The list's `scrollToEnd` reckons the end from its rows'
+   * measurements, which rows just handed to it do not have yet.
+   */
+  const toEnd = useCallback((animated: boolean) => {
+    const scrollView = list.current?.getScrollResponder() as
+      { scrollToEnd?: (options: { animated: boolean }) => void } | null | undefined
+    scrollView?.scrollToEnd?.({ animated })
+  }, [])
+
+  const platform = useTranscriptPlatform({ list, keys, atEnd, firstPassRows, toEnd, onPlaced })
+
+  const latest = useRef({ keys, onStartReached, onFarFromEnd, platform })
+  useLayoutEffect(() => {
+    latest.current = { keys, onStartReached, onFarFromEnd, platform }
+  })
+
+  /** Reports what the scroller's position means, from wherever it was learnt. */
+  const report = useCallback(() => {
+    const { viewportPx, contentPx } = scroll.current
+    const { platform: here } = latest.current
+    // Rows with no height yet are not laid out: nothing is at the start or the end of them.
+    if (viewportPx === 0 || (contentPx === 0 && latest.current.keys.length > 0)) return
+    // Following the end, the offset is where the scroll about to happen puts it.
+    const offsetPx = atEnd.current ? Math.max(0, contentPx - viewportPx) : scroll.current.offsetPx
+    const isFar = contentPx - offsetPx - viewportPx > viewportPx
+    if (isFar !== far.current) {
+      far.current = isFar
+      latest.current.onFarFromEnd?.(isFar)
+    }
+    // Following the end, the offset is reckoned from the height, so it is never out of date.
+    const atStart = atEnd.current
+      ? offsetPx <= viewportPx * here.startViewports
+      : nearStart(scroll.current, here.startViewports)
+    if (atStart === null) return
+    if (!atStart) {
+      // Coming back to the start asks again: a page that failed left the height as it was.
+      startAskedAtPx.current = -1
+    } else if (startAskedAtPx.current !== contentPx) {
+      // Native shows rows added above a list at its end as a jump there and back. A list that
+      // opened full waits for the reader to move it before it asks for more.
+      if (atEnd.current && here.untouched() && contentPx > viewportPx) return
+      startAskedAtPx.current = contentPx
+      latest.current.onStartReached?.()
+    }
+  }, [])
+
+  const followEnd = useCallback(() => {
+    if (atEnd.current) toEnd(false)
+  }, [toEnd])
+
+  const onScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent
+      // Rows that changed under a list at its end move the scroll before their new height is
+      // reported: that is not the reader leaving the end, and the report then follows it.
+      const resized = contentSize.height !== scroll.current.contentPx
+      scroll.current = {
+        offsetPx: contentOffset.y,
+        viewportPx: layoutMeasurement.height,
+        contentPx: contentSize.height,
+        offsetAtContentPx: contentSize.height,
+      }
+      const reachesEnd =
+        contentSize.height - contentOffset.y - layoutMeasurement.height <= AT_END_SLACK_PX
+      if (reachesEnd) {
+        clearTimeout(seekingEnd.current)
+        seekingEnd.current = undefined
+      }
+      if (resized && atEnd.current) followEnd()
+      else if (seekingEnd.current !== undefined) {
+        // Held to the end until it gets there.
+      } else if (latest.current.platform.readerScrolled() || reachesEnd) atEnd.current = reachesEnd
+      // The list moved itself to keep its place as rows arrived above: at the end, that is not
+      // the reader leaving it.
+      else followEnd()
+      report()
+    },
+    [followEnd, report],
+  )
+
+  const onContentSizeChange = useCallback(
+    (_width: number, height: number) => {
+      scroll.current.contentPx = height
+      followEnd()
+      setPlaced(true)
+      report()
+    },
+    [followEnd, report],
+  )
+
+  const onLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      scroll.current.viewportPx = event.nativeEvent.layout.height
+      followEnd()
+      setPlaced(true)
+      report()
+    },
+    [followEnd, report],
+  )
+
+  useImperativeHandle(
+    handle,
+    (): TranscriptListHandle => ({
+      scrollToEnd({ animated = false } = {}) {
+        atEnd.current = true
+        clearTimeout(seekingEnd.current)
+        seekingEnd.current = setTimeout(() => {
+          seekingEnd.current = undefined
+        }, SEEK_END_MS)
+        toEnd(animated)
+      },
+    }),
+    [toEnd],
+  )
+
+  useEffect(
+    () => () => {
+      clearTimeout(seekingEnd.current)
+    },
+    [],
+  )
+
+  return withFocus(
+    <FlatList
+      style={placed ? FILLS : HIDDEN}
+      ref={attach}
+      onScroll={onScroll}
+      scrollEventThrottle={16}
+      onContentSizeChange={onContentSizeChange}
+      onLayout={onLayout}
+      {...platform.listProps}
+      data={data}
+      renderItem={renderRow}
+      keyExtractor={keyExtractor}
+      // With the keyboard up, a tap on the list's own background puts it away and a drag does
+      // too, while a tap on a control inside still reaches the control.
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
+      {...(testID === undefined ? {} : { testID })}
+    />,
+  )
+}
