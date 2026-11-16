@@ -74,7 +74,7 @@ if (hidden !== null) {
 void openLogs()
 
 const here = fileURLToPath(new URL('.', import.meta.url))
-// An unpackaged run wears a DEV badge, so it is never mistaken for an installed client.
+// An unpackaged run draws its S in amber, so it is never mistaken for an installed client.
 const iconPath = join(here, `../../resources/${app.isPackaged ? 'icon.png' : 'icon-dev.png'}`)
 
 // Before whenReady, the last point Electron takes a desktop name. See devLauncher.ts.
