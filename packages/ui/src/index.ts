@@ -90,7 +90,6 @@ export { replyAction } from './replyAction'
 export { SwipeToReply, type SwipeToReplyProps } from './SwipeToReply'
 export { ScrollToLatest, type ScrollToLatestProps } from './ScrollToLatest'
 export { LANDING_FADE_MS } from './landingMetrics'
-export { useReducedMotion } from './useReducedMotion'
 export { MessageQuote, type MessageQuoteProps } from './MessageQuote'
 export {
   quotePreview,

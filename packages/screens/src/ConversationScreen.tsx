@@ -22,7 +22,6 @@ import {
   ScrollToLatest,
   Text,
   TranscriptList,
-  useReducedMotion,
   useToast,
   XStack,
   YStack,
@@ -140,7 +139,6 @@ function useLanding(
   list: { current: TranscriptListHandle | null },
 ): Landing | null {
   const { landing, messages } = transcript
-  const reducedMotion = useReducedMotion()
   const [highlight, setHighlight] = useState<Landing | null>(null)
   const shownSerial = useRef<number | undefined>(undefined)
   /** The messages the list held before this render, which a landing among may be animated to. */
@@ -151,7 +149,7 @@ function useLanding(
     if (landing !== undefined && landing.serial !== shownSerial.current) {
       shownSerial.current = landing.serial
       list.current?.scrollToKey(String(landing.messageId), {
-        animated: !reducedMotion && heldBefore.current.has(landing.messageId),
+        animated: heldBefore.current.has(landing.messageId),
         focus: true,
         onArrived: () => {
           // A later landing has taken over.
@@ -167,7 +165,7 @@ function useLanding(
       })
     }
     heldBefore.current = new Set(messages.map((m) => m.id))
-  }, [landing, messages, reducedMotion, list])
+  }, [landing, messages, list])
 
   useEffect(
     () => () => {
@@ -225,7 +223,6 @@ function Conversation({ conversationId }: { conversationId: ConversationId }) {
   const showLoading = useShowAfter(!ready)
   const actions = useSessionActions()
   const toasts = useToast()
-  const reducedMotion = useReducedMotion()
   const list = useRef<TranscriptListHandle | null>(null)
   const highlight = useLanding(transcript, list)
   const [farFromEnd, setFarFromEnd] = useState(false)
@@ -340,7 +337,7 @@ function Conversation({ conversationId }: { conversationId: ConversationId }) {
       return
     }
     // Read in afresh, the newest page is simply where the list is put: nothing to animate from.
-    const animated = !reducedMotion && !transcript.hasNewer
+    const animated = !transcript.hasNewer
     void actions.showNewest(conversationId).then(() => {
       list.current?.scrollToEnd({ animated })
     })

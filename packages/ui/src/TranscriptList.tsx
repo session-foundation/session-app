@@ -22,15 +22,17 @@ import { useRovingRows, type RovingRowsProps } from './rovingRows'
 import { useRowScroller } from './rowScroller'
 import type { RowsOnScreen } from './rowScroller.types'
 import { useTranscriptPlatform } from './transcriptPlatform'
+import { useReducedMotion } from './useReducedMotion'
 
 /** What a screen moves a transcript by. */
 export interface TranscriptListHandle {
   /**
    * Brings a row to the middle of the list, or its top to the list's top where the row is taller
-   * than the list. `animated` animates a short move only: a row more than about a list's height
-   * away is jumped to. `focus` moves the desktop keyboard's focus to the row's stop once it is
-   * drawn, and `onArrived` is called once the row can be seen: at once for a row already on
-   * screen, which is left where it is when all of it is, and otherwise when the list stops on it.
+   * than the list. `animated` animates a short move only, and not for reduced motion: a row more
+   * than about a list's height away is jumped to. `focus` moves the desktop keyboard's focus to
+   * the row's stop once it is drawn, and `onArrived` is called once the row can be seen: at once
+   * for a row already on screen, which is left where it is when all of it is, and otherwise when
+   * the list stops on it.
    */
   scrollToKey: (
     key: string,
@@ -38,7 +40,7 @@ export interface TranscriptListHandle {
   ) => void
   /** Whether any of the row is drawn inside the list's viewport, as last reported. */
   isOnScreen: (key: string) => boolean
-  /** To the last row, where the list then stays. */
+  /** To the last row, where the list then stays. `animated` is dropped for reduced motion. */
   scrollToEnd: (options?: { animated?: boolean }) => void
 }
 
@@ -97,6 +99,7 @@ export function TranscriptList<T>({
   const rowNodes = useRef(new Map<string, unknown>())
   const onScreen = useRef<RowsOnScreen>(null)
   const keys = useMemo(() => data.map(keyExtractor), [data, keyExtractor])
+  const reducedMotion = useReducedMotion()
 
   const list = useRef<FlatList<T> | null>(null)
   /** The scroller as last reported: scroll events do not say that content grew. */
@@ -328,7 +331,7 @@ export function TranscriptList<T>({
         rows.scrollTo({
           key,
           index,
-          animated,
+          animated: animated && !reducedMotion,
           wasHeld: keysBefore.current.includes(key),
           onArrived,
         })
@@ -354,10 +357,10 @@ export function TranscriptList<T>({
         seekingEnd.current = setTimeout(() => {
           seekingEnd.current = undefined
         }, SEEK_END_MS)
-        toEnd(animated)
+        toEnd(animated && !reducedMotion)
       },
     }),
-    [focus, rows, toEnd],
+    [focus, reducedMotion, rows, toEnd],
   )
 
   useEffect(
