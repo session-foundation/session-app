@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Keeps a pull request's Argos comparison on the build it should use when several runners capture
 # at once. `await`, before the upload: waits while the run that build comes from is capturing.
-# `check`, after it: fails when Argos compared with another build and a rerun would fix that.
+# `check`, after it: fails when Argos compared with another build and a rerun would fix that, and
+# warns when the right build captured other files than this pull request is merged onto.
 # Takes GH_TOKEN, GITHUB_REPOSITORY, GITHUB_SHA and GITHUB_BASE_REF, ARGOS_REFERENCE_COMMIT for a
 # stacked pull request, and for `check` ARGOS_TOKEN, ARGOS_API_BASE_URL, CATALOG_TIER and
 # UPLOAD_LOG.
@@ -58,6 +59,7 @@ expected_build_status() {
 
 check() {
   local url build status used wanted expected why jobs
+  local used_sha onto used_commit onto_tree used_tree used_head
   # The upload skips itself without a token.
   if [ -z "${ARGOS_TOKEN:-}" ]; then
     echo "::warning::No ARGOS_TOKEN, so no Argos baseline to check"
@@ -94,12 +96,34 @@ check() {
   esac
 
   used=$(jq -r 'if .base then "\(.base.branch)@\(.base.sha[0:8])" else "no build" end' <<<"$build")
+  used_sha=$(jq -r '.base.sha // ""' <<<"$build")
   if [ -n "$stacked" ]; then
-    [ "$(jq -r '.base.branch // ""' <<<"$build")" = "$GITHUB_BASE_REF" ] && return 0
-    wanted="the build of $GITHUB_BASE_REF, the pull request below"
+    wanted="the build of $GITHUB_BASE_REF at ${base:0:8}, the pull request below"
   else
-    [ "$(jq -r '.base.sha // ""' <<<"$build")" = "$base" ] && return 0
     wanted="main's build of ${base:0:8}, the commit this pull request is merged onto"
+  fi
+
+  # Argos stores a pull request's build under GitHub's merge commit, not the head it was built from,
+  # so the build it compared with is judged by the files it captured.
+  if [ -n "$used_sha" ]; then
+    onto=$base
+    if [ -n "$stacked" ] && ! onto=$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA" --jq '.parents[0].sha'); then
+      echo "::warning::Could not resolve the commit this pull request is merged onto, so the baseline of $url is not checked"
+      return 0
+    fi
+    [ "$used_sha" = "$onto" ] && return 0
+    if ! used_commit=$(gh api "repos/$GITHUB_REPOSITORY/git/commits/$used_sha" --jq '"\(.tree.sha) \(.parents[1].sha // "")"') ||
+      ! onto_tree=$(gh api "repos/$GITHUB_REPOSITORY/git/commits/$onto" --jq .tree.sha); then
+      echo "::warning::Could not compare the files of ${used_sha:0:8} and ${onto:0:8}, so the baseline of $url is not checked"
+      return 0
+    fi
+    read -r used_tree used_head <<<"$used_commit"
+    [ "$used_tree" = "$onto_tree" ] && return 0
+    # A rerun captures the same merge commit and gets the same build, so only a push can fix this.
+    if [ -n "$stacked" ] && { [ "$used_sha" = "$base" ] || [ "$used_head" = "$base" ]; }; then
+      echo "::warning::$url compared with $used, the build of $GITHUB_BASE_REF at ${base:0:8}, but that build captured other files than this pull request is merged onto, so it may show changes that are not this pull request's. Merge main into $GITHUB_BASE_REF and up through the stack, then push."
+      return 0
+    fi
   fi
 
   # Only fail where a rerun can do better: Argos holds a build there it can compare with, or a run
