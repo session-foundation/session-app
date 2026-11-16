@@ -4,21 +4,10 @@ import { describe, expect, it, vi } from 'vitest'
 import { MESSAGE_QUOTE_ID, messageQuote } from '@session/expectations'
 
 import { MessageQuote, type MessageQuoteProps } from '#src/MessageQuote'
-import type { QuoteLabels } from '#src/quotePreview'
+import { QUOTE_LABELS } from '#src/catalog/quoteLabels'
 
 import { byId, nodeOf } from '@session/render-tier'
 import { renderInUI } from './support/render'
-
-const LABELS: QuoteLabels = {
-  image: 'Image',
-  gif: 'GIF',
-  video: 'Video',
-  audio: 'Audio',
-  voice: 'Voice Message',
-  file: 'Document',
-  andMore: (count) => `+${String(count)}`,
-  notFound: 'Original message not found',
-}
 
 const HINT = 'Shows the original message'
 
@@ -31,7 +20,7 @@ function quote(over: Partial<MessageQuoteProps> = {}): MessageQuoteProps {
       body: '',
       attachments: [{ contentType: 'image/jpeg', voiceMessage: false }],
     },
-    labels: LABELS,
+    labels: QUOTE_LABELS,
     onAccent: false,
     onPress: () => {},
     hint: HINT,
