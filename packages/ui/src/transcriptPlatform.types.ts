@@ -1,0 +1,39 @@
+import type { RefObject } from 'react'
+import type { ScrollViewProps } from 'react-native'
+
+/** What the platform's half of a transcript list is given. */
+export interface TranscriptPlatformInput {
+  /** The FlatList, or null before it is drawn. */
+  list: RefObject<unknown>
+  keys: readonly string[]
+  /** Whether the list is following its end. */
+  atEnd: RefObject<boolean>
+  /** Rows the first pass drew: what opened the transcript. */
+  firstPassRows: number
+  toEnd: (animated: boolean) => void
+  /** The list is at its end and can be shown. */
+  onPlaced: () => void
+  /** Native: the reader's finger took the scroll. */
+  onReaderTouch: () => void
+  /** Native: a fling or an animated scroll came to rest. */
+  onScrollStopped: () => void
+}
+
+/** How a transcript list keeps its place and tells the reader's scroll from its own. */
+export interface TranscriptPlatform {
+  /** Spread on the FlatList. */
+  listProps: { initialNumToRender: number } & Pick<
+    ScrollViewProps,
+    | 'maintainVisibleContentPosition'
+    | 'onScrollBeginDrag'
+    | 'onMomentumScrollBegin'
+    | 'onScrollEndDrag'
+    | 'onMomentumScrollEnd'
+  >
+  /** Whether the scroll just reported is the reader's doing rather than the list's own. */
+  readerScrolled: () => boolean
+  /** Whether the reader has yet to move the list since it opened. */
+  untouched: () => boolean
+  /** How many list heights from its first row count as reaching the start. */
+  startViewports: number
+}

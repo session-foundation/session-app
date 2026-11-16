@@ -18,15 +18,15 @@ import {
   DropZone,
   elementMenuAnchor,
   LANDING_FADE_MS,
-  List,
   Screen,
   ScrollToLatest,
   Text,
+  TranscriptList,
   useReducedMotion,
   useToast,
   XStack,
   YStack,
-  type ListHandle,
+  type TranscriptListHandle,
 } from '@session/ui'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type Ref } from 'react'
 
@@ -80,7 +80,7 @@ function Transcript({
   transcript: LoadedTranscript
   /** The landing being shown, on the row it landed on. */
   highlight: Landing | null
-  list: Ref<ListHandle>
+  list: Ref<TranscriptListHandle>
   onFarFromEnd: (far: boolean) => void
   onRowsOnScreen: (keys: ReadonlySet<string>) => void
 }) {
@@ -97,12 +97,11 @@ function Transcript({
   )
   return (
     // No itemHeight: a bubble is as tall as its body wraps to, so the list has to measure.
-    <List
+    <TranscriptList
       data={messages}
       keyExtractor={messageKey}
       onRowMenu={openRowMenu}
       handle={list}
-      startsAtEnd
       onStartReached={loadOlder}
       onEndReached={loadNewer}
       onFarFromEnd={onFarFromEnd}
@@ -134,7 +133,7 @@ function Transcript({
  */
 function useLanding(
   transcript: LoadedTranscript,
-  list: { current: ListHandle | null },
+  list: { current: TranscriptListHandle | null },
 ): Landing | null {
   const { landing, messages } = transcript
   const reducedMotion = useReducedMotion()
@@ -182,7 +181,7 @@ function Conversation({ conversationId }: { conversationId: ConversationId }) {
   const actions = useSessionActions()
   const toasts = useToast()
   const reducedMotion = useReducedMotion()
-  const list = useRef<ListHandle | null>(null)
+  const list = useRef<TranscriptListHandle | null>(null)
   const highlight = useLanding(transcript, list)
   const [farFromEnd, setFarFromEnd] = useState(false)
   // Held here beside the draft, not in the store: which message this screen is answering is
