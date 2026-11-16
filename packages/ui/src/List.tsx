@@ -20,6 +20,7 @@ import { isWeb } from 'tamagui'
 
 import { SPACING } from '@session/theme-tokens'
 
+import { nearStart, type ScrollReading } from './listEdges'
 import {
   ListFocus,
   ListFocusContext,
@@ -259,7 +260,12 @@ export function List<T>({
     [focus],
   )
   /** The scroller as last reported: scroll events do not say that content grew. */
-  const scroll = useRef({ offsetPx: 0, viewportPx: 0, contentPx: 0 })
+  const scroll = useRef<ScrollReading>({
+    offsetPx: 0,
+    viewportPx: 0,
+    contentPx: 0,
+    offsetAtContentPx: 0,
+  })
   const atEnd = useRef(startsAtEnd)
   const far = useRef(false)
   const startAskedAtPx = useRef(-1)
@@ -316,7 +322,12 @@ export function List<T>({
       far.current = isFar
       latest.current.onFarFromEnd?.(isFar)
     }
-    if (offsetPx > viewportPx * START_REACHED_VIEWPORTS) {
+    // Following the end, the offset is reckoned from the height, so it is never out of date.
+    const atStart = atEnd.current
+      ? offsetPx <= viewportPx * START_REACHED_VIEWPORTS
+      : nearStart(scroll.current, START_REACHED_VIEWPORTS)
+    if (atStart === null) return
+    if (!atStart) {
       // Coming back to the start asks again: a page that failed left the height as it was.
       startAskedAtPx.current = -1
     } else if (startAskedAtPx.current !== contentPx) {
@@ -364,6 +375,7 @@ export function List<T>({
         offsetPx: contentOffset.y,
         viewportPx: layoutMeasurement.height,
         contentPx: contentSize.height,
+        offsetAtContentPx: contentSize.height,
       }
       const reachesEnd =
         contentSize.height - contentOffset.y - layoutMeasurement.height <= AT_END_SLACK_PX
