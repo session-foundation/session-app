@@ -1,11 +1,12 @@
 import { fireEvent } from '@testing-library/react'
+import { createRef } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 
 import { byId } from '@session/render-tier'
 import { ELEMENT } from '@session/test-ids'
 
 import { Text } from '#src/Text'
-import { TranscriptList } from '#src/TranscriptList'
+import { TranscriptList, type TranscriptListHandle } from '#src/TranscriptList'
 
 import { renderInUI } from './support/render'
 
@@ -75,6 +76,28 @@ describe('TranscriptList', () => {
     expect(onStartReached).toHaveBeenCalledTimes(3)
 
     // react-native-web ends a scroll on a timer of its own, which must not outlive the page.
+    await new Promise((resolve) => setTimeout(resolve, SCROLL_END_MS))
+  })
+  it('lets a reader who scrolls up on the way to the end stay there when a row arrives', async () => {
+    const handle = createRef<TranscriptListHandle>()
+    renderInUI(
+      <TranscriptList
+        data={paged(12)}
+        keyExtractor={key}
+        handle={handle}
+        testID={LIST}
+        renderItem={(item, index) => <Text testID={ROW(index)}>{item.id}</Text>}
+      />,
+    )
+    await scrollTo(1000, 2000)
+    handle.current?.scrollToEnd({ animated: true })
+    await scrollTo(1200, 2000)
+    // Up, before the animated scroll got there: the reader's.
+    await scrollTo(900, 2000)
+    // A row arrives, which would draw a list at its end down to it.
+    await scrollTo(900, 2100)
+    expect(byId(LIST).scrollTop).toBe(900)
+
     await new Promise((resolve) => setTimeout(resolve, SCROLL_END_MS))
   })
 })

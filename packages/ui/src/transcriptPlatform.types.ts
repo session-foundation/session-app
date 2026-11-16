@@ -35,9 +35,12 @@ export interface TranscriptPlatform {
     | 'onScrollEndDrag'
     | 'onMomentumScrollEnd'
   >
-  /** Whether the scroll just reported is the reader's doing rather than the list's own. */
+  /**
+   * Whether the scroll just reported is surely the reader's, even right after a resize: every
+   * scroll on the web, a finger or the fling it left on native.
+   */
   readerScrolled: () => boolean
-  /** Whether the reader has yet to move the list since it opened. */
+  /** Whether no finger has touched the list since it opened: always false on the web. */
   untouched: () => boolean
   /** How many list heights from its first row count as reaching the start. */
   startViewports: number

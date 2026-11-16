@@ -70,6 +70,12 @@ const AT_END_SLACK_PX = 8
 const SEEK_END_MS = 1000
 /** How long after a scroll to a row the list's position is its own doing, not the reader's. */
 const LANDING_MS = 1500
+/**
+ * How long after the content or the list changed size a scroll is taken for the list's own: one
+ * that keeps the place as rows change above, or follows the end. Any other is the reader's, a
+ * finger's, a screen reader's or a keyboard's.
+ */
+const OWN_SCROLL_MS = 300
 
 const VIEWABILITY = { itemVisiblePercentThreshold: 1 } as const
 
@@ -118,6 +124,10 @@ export function TranscriptList<T>({
   // Just put on a row: the rows drawn around it can leave the scroll at the window's end, which
   // is not the reader coming back to the newest message.
   const landing = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  /** When the content or the list last changed size, after which the list may move itself. */
+  const resizedAtMs = useRef(0)
+  /** The reader has moved the list since it opened, by whatever means. */
+  const readerMoved = useRef(false)
   // The first pass alone draws every row. FlatList keeps its first `initialNumToRender` rows
   // mounted for good, so a count that followed the data would mount every page ever read.
   const [firstPassRows] = useState(() => Math.max(data.length, 1))
@@ -231,7 +241,8 @@ export function TranscriptList<T>({
     } else if (startAskedAtPx.current !== contentPx) {
       // Native shows rows added above a list at its end as a jump there and back. A list that
       // opened full waits for the reader to move it before it asks for more.
-      if (atEnd.current && here.untouched() && contentPx > viewportPx) return
+      if (atEnd.current && !readerMoved.current && here.untouched() && contentPx > viewportPx)
+        return
       if (latest.current.rows.holdsStart()) return
       // Just put on a row: rows added above it now are not held in place on Android, and the
       // landing slides away. The reader's next scroll asks.
@@ -250,7 +261,12 @@ export function TranscriptList<T>({
       const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent
       // Rows that changed under a list at its end move the scroll before their new height is
       // reported: that is not the reader leaving the end, and the report then follows it.
-      const resized = contentSize.height !== scroll.current.contentPx
+      const resized =
+        contentSize.height !== scroll.current.contentPx ||
+        layoutMeasurement.height !== scroll.current.viewportPx
+      if (resized) resizedAtMs.current = Date.now()
+      // An animated scroll to the end only ever moves down.
+      const movedUp = !resized && contentOffset.y < scroll.current.offsetPx - AT_END_SLACK_PX
       scroll.current = {
         offsetPx: contentOffset.y,
         viewportPx: layoutMeasurement.height,
@@ -259,7 +275,10 @@ export function TranscriptList<T>({
       }
       const reachesEnd =
         contentSize.height - contentOffset.y - layoutMeasurement.height <= AT_END_SLACK_PX
-      if (reachesEnd) {
+      const byReader =
+        latest.current.platform.readerScrolled() || Date.now() - resizedAtMs.current > OWN_SCROLL_MS
+      // Heading for the end, a scroll back up is the reader taking over.
+      if (reachesEnd || (movedUp && byReader)) {
         clearTimeout(seekingEnd.current)
         seekingEnd.current = undefined
       }
@@ -268,8 +287,11 @@ export function TranscriptList<T>({
         // Held to the end until it gets there.
       } else if (landing.current !== undefined) {
         // Not the reader's scroll: where it is counts once the landing is over.
-      } else if (latest.current.platform.readerScrolled() || reachesEnd) atEnd.current = reachesEnd
-      // The list moved itself to keep its place as rows arrived above: at the end, that is not
+      } else if (byReader || reachesEnd) {
+        atEnd.current = reachesEnd
+        if (byReader && !reachesEnd) readerMoved.current = true
+      }
+      // The list moved itself to keep its place as rows changed above: at the end, that is not
       // the reader leaving it.
       else followEnd()
       report()
@@ -279,6 +301,7 @@ export function TranscriptList<T>({
 
   const onContentSizeChange = useCallback(
     (_width: number, height: number) => {
+      if (height !== scroll.current.contentPx) resizedAtMs.current = Date.now()
       scroll.current.contentPx = height
       if (landing.current !== undefined) latest.current.rows.onContentGrew()
       followEnd()
@@ -290,6 +313,8 @@ export function TranscriptList<T>({
 
   const onLayout = useCallback(
     (event: LayoutChangeEvent) => {
+      if (event.nativeEvent.layout.height !== scroll.current.viewportPx)
+        resizedAtMs.current = Date.now()
       scroll.current.viewportPx = event.nativeEvent.layout.height
       followEnd()
       setPlaced(true)
