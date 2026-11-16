@@ -1,4 +1,4 @@
-import { requirePorts } from '@session/app'
+import { flag, requirePorts } from '@session/app'
 import { formatBytes, MAX_ATTACHMENTS_PER_MESSAGE } from '@session/basic-types'
 import type { ConversationId, Message } from '@session/client'
 import {
@@ -72,6 +72,7 @@ function Transcript({
   conversationId,
   transcript,
   highlight,
+  held,
   list,
   onFarFromEnd,
   onRowsOnScreen,
@@ -80,6 +81,8 @@ function Transcript({
   transcript: LoadedTranscript
   /** The landing being shown, on the row it landed on. */
   highlight: Landing | null
+  /** Draws the landing's highlight at full strength, with no fade. */
+  held: boolean
   list: Ref<TranscriptListHandle>
   onFarFromEnd: (far: boolean) => void
   onRowsOnScreen: (keys: ReadonlySet<string>) => void
@@ -119,6 +122,7 @@ function Transcript({
             messageId={message.id}
             index={index}
             highlightSerial={highlight?.messageId === message.id ? highlight.serial : undefined}
+            highlightHeld={held && highlight?.messageId === message.id}
           />
         </YStack>
       )}
@@ -153,6 +157,8 @@ function useLanding(
           // A later landing has taken over.
           if (shownSerial.current !== landing.serial) return
           setHighlight(landing)
+          // Held still, it stays until the next landing.
+          if (flag('disableAnimations')) return
           clearTimeout(timer.current)
           timer.current = setTimeout(() => {
             setHighlight(null)
@@ -170,6 +176,45 @@ function useLanding(
     [],
   )
   return highlight
+}
+
+const ignore = () => undefined
+
+/**
+ * The transcript just after a jump landed on `landedOn`, its highlight held: for the component
+ * catalog, whose capture would otherwise catch the fade at a moment of its own. Scrolls the list
+ * there without moving the store's window, which the catalog's other rows draw from.
+ */
+export function DetachedTranscript({
+  conversationId,
+  landedOn,
+}: {
+  conversationId: ConversationId
+  landedOn: number
+}) {
+  const transcript = useMessages(conversationId)
+  const list = useRef<TranscriptListHandle | null>(null)
+  const [highlight, setHighlight] = useState<Landing | null>(null)
+  useLayoutEffect(() => {
+    if (!transcript.ready) return
+    list.current?.scrollToKey(String(landedOn), {
+      onArrived: () => {
+        setHighlight({ messageId: landedOn, serial: 1 })
+      },
+    })
+  }, [transcript.ready, landedOn])
+  if (!transcript.ready) return null
+  return (
+    <Transcript
+      conversationId={conversationId}
+      transcript={transcript}
+      highlight={highlight}
+      held
+      list={list}
+      onFarFromEnd={ignore}
+      onRowsOnScreen={ignore}
+    />
+  )
 }
 
 function Conversation({ conversationId }: { conversationId: ConversationId }) {
@@ -345,6 +390,8 @@ function Conversation({ conversationId }: { conversationId: ConversationId }) {
                   <Transcript
                     conversationId={conversationId}
                     transcript={transcript}
+                    // With animations off, for tests that would race the fade, it is held.
+                    held={flag('disableAnimations')}
                     highlight={highlight}
                     list={list}
                     onFarFromEnd={setFarFromEnd}

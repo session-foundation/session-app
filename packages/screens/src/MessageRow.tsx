@@ -79,12 +79,15 @@ export const MessageRow = memo(function MessageRow({
   messageId,
   index,
   highlightSerial,
+  highlightHeld,
 }: {
   conversationId: ConversationId
   messageId: number
   index: number
   /** Set while a jump's landing on this message is being shown; see `MessageFrame`. */
   highlightSerial?: number | undefined
+  /** The landing's highlight at full strength, with no fade; see `MessageFrame`. */
+  highlightHeld?: boolean | undefined
 }) {
   const actions = useSessionActions()
   const message = useMessage(conversationId, messageId)
@@ -117,6 +120,7 @@ export const MessageRow = memo(function MessageRow({
           outgoing={message.outgoing}
           focusable
           highlightSerial={highlightSerial}
+          highlightHeld={highlightHeld}
           testID={ELEMENT.conversation.messageRow(index)}
         >
           {message.replyTo === undefined ? null : (

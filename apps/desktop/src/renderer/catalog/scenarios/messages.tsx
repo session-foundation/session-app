@@ -1,4 +1,5 @@
-import { MessageRow, TranscriptWidth } from '@session/screens'
+import { DetachedTranscript, MessageRow, TranscriptWidth } from '@session/screens'
+import { YStack } from '@session/ui'
 import { defineStory, type AnyStory } from '@session/ui/catalog'
 
 import { useScenario } from './ScenarioProvider'
@@ -6,12 +7,28 @@ import { useScenario } from './ScenarioProvider'
 /** A row is a message of the `showcase` fixture, found by its body. */
 interface ScenarioRow {
   body: string
+  /** Drawn as the transcript just after a jump landed on it, its highlight held. */
+  landed?: boolean | undefined
 }
 
-function ScenarioMessage({ body }: ScenarioRow) {
+/** Tall enough for rows above and below a landing in the middle. */
+const TRANSCRIPT_HEIGHT_PX = 480
+
+function ScenarioMessage({ body, landed = false }: ScenarioRow) {
   const scenario = useScenario()
   const messageId = scenario?.messageIds.get(body)
   if (scenario === null || messageId === undefined) return null
+  if (landed)
+    return (
+      // Laid out as the conversation lays out its transcript, in a box of its own height.
+      <YStack height={TRANSCRIPT_HEIGHT_PX}>
+        <TranscriptWidth flex={1}>
+          <YStack flex={1} position="relative">
+            <DetachedTranscript conversationId={scenario.conversationId} landedOn={messageId} />
+          </YStack>
+        </TranscriptWidth>
+      </YStack>
+    )
   // Measured as the conversation measures its transcript, so an album shrinks to fit a narrow cell
   // rather than drawing at its narrowest wherever it is.
   return (
@@ -23,13 +40,24 @@ function ScenarioMessage({ body }: ScenarioRow) {
 
 const MESSAGE_WIDTH = 420
 
-const message = (story: string, bodies: readonly string[], sensitive: AnyStory['sensitive']) =>
+const message = (
+  story: string,
+  bodies: readonly string[],
+  sensitive: AnyStory['sensitive'],
+  landings: readonly string[] = [],
+) =>
   defineStory<ScenarioRow>({
     component: 'message',
     story,
     width: MESSAGE_WIDTH,
     sensitive,
-    variants: Object.fromEntries(bodies.map((body) => [body, { body }])),
+    variants: Object.fromEntries<ScenarioRow>([
+      ...bodies.map((body): [string, ScenarioRow] => [body, { body }]),
+      ...landings.map((body): [string, ScenarioRow] => [
+        `Landed on ${body}`,
+        { body, landed: true },
+      ]),
+    ]),
     render: (row) => <ScenarioMessage {...row} />,
   })
 
@@ -158,6 +186,10 @@ export const MESSAGE_SCENARIOS: readonly AnyStory[] = [
       'Too late, I read it',
     ],
     { rtl: true },
+    // The transcript just after a jump, the landing's ring and glow held: whether the list's
+    // padding, a parent or the rows beside it cut them. Theirs and ours with rows above and
+    // below, then the first and the last row, at the list's edges.
+    ['Are we still on for Thursday?', 'Yes, 7pm', 'One picture', 'The lease, signed'],
   ),
   // A quote on our accent and on a received bubble, in every accent: all fifteen replies in
   // every accent is a page past the capture's height.
