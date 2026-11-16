@@ -5,21 +5,10 @@ import { pressArea } from '@session/expectations'
 import { ELEMENT } from '@session/test-ids'
 
 import { ComposerReply, type ComposerReplyProps } from '#src/ComposerReply'
-import type { QuoteLabels } from '#src/quotePreview'
+import { QUOTE_LABELS } from '#src/catalog/quoteLabels'
 
 import { byId, nodeOf } from '@session/render-tier'
 import { renderInUI } from './support/render'
-
-const LABELS: QuoteLabels = {
-  image: 'Image',
-  gif: 'GIF',
-  video: 'Video',
-  audio: 'Audio',
-  voice: 'Voice Message',
-  file: 'Document',
-  andMore: (count) => `+${String(count)}`,
-  notFound: 'Original message not found',
-}
 
 const IDS = {
   bar: ELEMENT.conversation.composerReply,
@@ -30,7 +19,7 @@ function bar(over: Partial<ComposerReplyProps> = {}): ComposerReplyProps {
   return {
     heading: 'Replying to Bob',
     message: { id: 3, outgoing: false, body: 'Are we still on?', attachments: [] },
-    labels: LABELS,
+    labels: QUOTE_LABELS,
     onClose: () => {},
     closeLabel: 'Close',
     testID: IDS.bar,

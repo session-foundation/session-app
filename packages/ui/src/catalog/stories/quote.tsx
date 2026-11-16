@@ -3,22 +3,12 @@ import { YStack } from 'tamagui'
 
 import { MessageFrame } from '../../MessageFrame'
 import { MessageQuote } from '../../MessageQuote'
-import type { QuotedAttachment, QuotedMessage, QuoteLabels } from '../../quotePreview'
+import type { QuotedAttachment, QuotedMessage } from '../../quotePreview'
 import { Text } from '../../Text'
+import { QUOTE_LABELS } from '../quoteLabels'
 import { useCatalogPicture, useCatalogPlaceholder } from '../pictures'
 import { defineStory } from '../story'
 import { noop } from './shared'
-
-export const QUOTE_LABELS: QuoteLabels = {
-  image: 'Image',
-  gif: 'GIF',
-  video: 'Video',
-  audio: 'Audio',
-  voice: 'Voice Message',
-  file: 'Document',
-  andMore: (count) => `+${String(count)}`,
-  notFound: 'Original message not found',
-}
 
 /** Which of the catalog's photographs an attachment draws, as its thumbnail or its ThumbHash. */
 type CatalogAttachment = Omit<QuotedAttachment, 'uri' | 'thumbhash'> & {

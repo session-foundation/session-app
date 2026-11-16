@@ -9,7 +9,7 @@ import type { QuotedMessage } from '../../quotePreview'
 import { Text } from '../../Text'
 import { useCatalogPicture } from '../pictures'
 import { defineStory } from '../story'
-import { QUOTE_LABELS } from './quote'
+import { QUOTE_LABELS } from '../quoteLabels'
 import { noop } from './shared'
 
 interface ReplyRow {

@@ -5,7 +5,7 @@ import { MessageFrame } from '../../MessageFrame'
 import { MessageQuote } from '../../MessageQuote'
 import { Text } from '../../Text'
 import { defineStory } from '../story'
-import { QUOTE_LABELS } from './quote'
+import { QUOTE_LABELS } from '../quoteLabels'
 import { LONG } from './shared'
 
 interface FrameRow {

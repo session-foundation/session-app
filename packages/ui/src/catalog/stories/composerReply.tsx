@@ -4,7 +4,7 @@ import { ComposerReply } from '../../ComposerReply'
 import type { QuotedMessage } from '../../quotePreview'
 import { useCatalogPicture } from '../pictures'
 import { defineStory } from '../story'
-import { QUOTE_LABELS } from './quote'
+import { QUOTE_LABELS } from '../quoteLabels'
 import { noop } from './shared'
 
 interface ReplyRow {
