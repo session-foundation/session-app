@@ -18,10 +18,11 @@ import {
 import { nearStart, type ScrollReading } from './listEdges'
 import { useRovingRows, type RovingRowsProps } from './rovingRows'
 import { useTranscriptPlatform } from './transcriptPlatform'
+import { useReducedMotion } from './useReducedMotion'
 
 /** What a screen moves a transcript by. */
 export interface TranscriptListHandle {
-  /** To the last row, where the list then stays. */
+  /** To the last row, where the list then stays. `animated` is dropped for reduced motion. */
   scrollToEnd: (options?: { animated?: boolean }) => void
 }
 
@@ -75,6 +76,7 @@ export function TranscriptList<T>({
     keyExtractor,
   })
   const keys = useMemo(() => data.map(keyExtractor), [data, keyExtractor])
+  const reducedMotion = useReducedMotion()
 
   const list = useRef<FlatList<T> | null>(null)
   const attach = useCallback(
@@ -216,10 +218,10 @@ export function TranscriptList<T>({
         seekingEnd.current = setTimeout(() => {
           seekingEnd.current = undefined
         }, SEEK_END_MS)
-        toEnd(animated)
+        toEnd(animated && !reducedMotion)
       },
     }),
-    [toEnd],
+    [reducedMotion, toEnd],
   )
 
   useEffect(
