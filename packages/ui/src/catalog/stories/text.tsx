@@ -15,5 +15,5 @@ export const textScale = defineStory<{
     title: { size: '$title' },
     heading: { size: '$heading' },
   },
-  render: ({ size }) => <Text size={size}>The quick brown fox jumps over the lazy dog</Text>,
+  render: ({ size }) => <Text size={size}>The quick brown fox jumps over the sleeping dog</Text>,
 })
