@@ -9,7 +9,7 @@ export const keyCombo = defineStory<KeyComboProps>({
   component: 'keyCombo',
   story: 'variants',
   // Room for the longest, so a cell never wraps a combination.
-  width: 160,
+  width: 200,
   sensitive: { rtl: true },
   variants: {
     mac: { keys: ['mod', 'slash'], names: 'mac', testID: 'catalog-key-combo-mac' },
