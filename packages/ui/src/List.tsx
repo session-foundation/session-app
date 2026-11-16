@@ -56,8 +56,11 @@ const FLING_BEGINS_MS = 150
 const SEEK_END_MS = 1000
 /** How long after a scroll to a row the list's position is its own doing, not the reader's. */
 const LANDING_MS = 1500
-/** How much of the list's height from its first row counts as reaching the start. */
-const START_REACHED_VIEWPORTS = 0.5
+/**
+ * How many list heights from its first row count as reaching the start: far enough out that a
+ * fling does not reach the first row before the page above it arrives.
+ */
+const START_REACHED_VIEWPORTS = 2
 /** Native: a row within this many rows of what is on screen is near enough to animate to. */
 const NEAR_ROWS = 8
 /** How long an animated scroll is given to stop where nothing says that it has. */
@@ -185,7 +188,7 @@ export interface ListProps<T> {
    */
   startsAtEnd?: boolean | undefined
   /**
-   * The first row is within half a list's height, or the rows do not fill the list: once per
+   * The first row is within two list heights, or the rows do not fill the list: once per
    * content height, so a page that arrives and still leaves the start in reach asks again.
    */
   onStartReached?: (() => void) | undefined
