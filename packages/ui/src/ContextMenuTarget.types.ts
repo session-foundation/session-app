@@ -17,9 +17,9 @@ export interface ContextMenuTargetProps {
   alignSelf?: 'flex-start' | 'flex-end' | undefined
   maxWidth?: number | `${number}%` | undefined
   /**
-   * A double-click on it that selects no words: on its padding, a picture or whitespace. One on a
-   * word selects the word instead. The desktop's pointer only: a finger's double tap is not
-   * offered.
+   * A double-click on it that selects no words: on its padding or whitespace. One on a word
+   * selects the word instead, and one on a control is the control's, a picture that opens
+   * included. The desktop's pointer only: a finger's double tap is not offered.
    */
   onDoublePress?: (() => void) | undefined
   children: ReactNode
