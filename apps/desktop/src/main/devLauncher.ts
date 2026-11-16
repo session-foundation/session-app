@@ -15,6 +15,21 @@ const { app } = electron
  */
 export const DEV_DESKTOP_NAME = 'session-app-dev.desktop'
 
+/**
+ * Which parts of the dev identity a run takes on. Only an unpackaged Linux run is renamed, and
+ * only one under the dev server writes the launcher: e2e and CI runs load the built renderer, and
+ * a home folder on a runner is not ours to add to. A `pnpm start` run is renamed without one, so
+ * it shows the icon only once a dev-server run has written it.
+ */
+export function devLauncherSteps(input: {
+  packaged: boolean
+  platform: NodeJS.Platform
+  env: Readonly<Record<string, string | undefined>>
+}): { rename: boolean; writeLauncher: boolean } {
+  const rename = !input.packaged && input.platform === 'linux'
+  return { rename, writeLauncher: rename && input.env['ELECTRON_RENDERER_URL'] !== undefined }
+}
+
 /** `$XDG_DATA_HOME/applications`, the user's own launchers. The spec ignores a relative value. */
 export function applicationsDir(input: {
   env: Readonly<Record<string, string | undefined>>
@@ -39,31 +54,19 @@ function stringValue(text: string): string {
 }
 
 /**
- * One `Exec` argument. The quoting escapes come first and the string escapes over them, which is
- * the order the spec reads them back in; `%%` keeps a `%` from reading as a field code.
- */
-function execArgument(arg: string): string {
-  return stringValue(`"${arg.replace(/["`$\\]/g, '\\$&')}"`).replace(/%/g, '%%')
-}
-
-/**
  * The launcher, which exists so the shell has an icon for the window and is never listed among
- * the apps. `Exec` is required: it starts this checkout's last build, not the dev server.
+ * the apps. `Exec` is required, and `false` on purpose: a dev run needs the dev server and its
+ * environment, which a click from the dash would start without.
  */
-export function devDesktopEntry(input: {
-  name: string
-  execPath: string
-  appPath: string
-  iconPath: string
-}): string {
+export function devDesktopEntry(input: { name: string; iconPath: string }): string {
   return [
     '[Desktop Entry]',
     'Type=Application',
     `Name=${stringValue(`${input.name} (dev)`)}`,
-    `Exec=${execArgument(input.execPath)} ${execArgument(input.appPath)}`,
+    'Exec=false',
     `Icon=${stringValue(input.iconPath)}`,
     'NoDisplay=true',
-    // Or GNOME offers "New Window", a second process on the same database.
+    // Or GNOME offers a "New Window" that would run `Exec`.
     'SingleMainWindow=true',
     '',
   ].join('\n')
@@ -91,23 +94,19 @@ export async function writeDesktopEntry(dir: string, entry: string): Promise<str
 }
 
 /**
- * Names an unpackaged Linux run, and under the dev server installs its launcher. **Before the app
- * is ready**, which is when a window first reads the desktop name.
- *
- * The launcher only under the dev server, which is the one sign of a developer at the machine:
- * e2e and CI runs load the built renderer and leave the home folder alone.
+ * Takes on the steps `devLauncherSteps` picks. **Before the app is ready**, which is when a window
+ * first reads the desktop name.
  */
 export function installDevLauncher(iconPath: string): Promise<string | null> {
-  if (app.isPackaged || process.platform !== 'linux') return Promise.resolve(null)
-  app.setDesktopName(DEV_DESKTOP_NAME)
-  if (process.env['ELECTRON_RENDERER_URL'] === undefined) return Promise.resolve(null)
+  const steps = devLauncherSteps({
+    packaged: app.isPackaged,
+    platform: process.platform,
+    env: process.env,
+  })
+  if (steps.rename) app.setDesktopName(DEV_DESKTOP_NAME)
+  if (!steps.writeLauncher) return Promise.resolve(null)
   return writeDesktopEntry(
     applicationsDir({ env: process.env, home: app.getPath('home') }),
-    devDesktopEntry({
-      name: app.getName(),
-      execPath: process.execPath,
-      appPath: app.getAppPath(),
-      iconPath,
-    }),
+    devDesktopEntry({ name: app.getName(), iconPath }),
   )
 }

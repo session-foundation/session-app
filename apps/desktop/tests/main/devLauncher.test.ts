@@ -8,17 +8,15 @@ import {
   applicationsDir,
   DEV_DESKTOP_NAME,
   devDesktopEntry,
+  devLauncherSteps,
   writeDesktopEntry,
 } from '#src/main/devLauncher'
 
 const HOME = '/home/alice'
 
-const PLAIN = {
-  name: 'session-app',
-  execPath: '/src/node_modules/electron/dist/electron',
-  appPath: '/src/apps/desktop',
-  iconPath: '/src/apps/desktop/resources/icon.png',
-}
+const PLAIN = { name: 'session-app', iconPath: '/src/apps/desktop/resources/icon.png' }
+
+const DEV_SERVER = { ELECTRON_RENDERER_URL: 'http://localhost:5173' }
 
 function scratch(): string {
   return mkdtempSync(join(tmpdir(), 'dev-launcher-'))
@@ -28,6 +26,35 @@ describe('the dev desktop name', () => {
   it("is never the shipped client's launcher, which Electron would derive from the package name", () => {
     expect(DEV_DESKTOP_NAME).not.toBe('session-desktop.desktop')
     expect(DEV_DESKTOP_NAME).toMatch(/\.desktop$/)
+  })
+})
+
+describe('devLauncherSteps', () => {
+  it('leaves a packaged build alone, whatever its environment says', () => {
+    expect(devLauncherSteps({ packaged: true, platform: 'linux', env: DEV_SERVER })).toEqual({
+      rename: false,
+      writeLauncher: false,
+    })
+  })
+
+  it('leaves macOS and Windows alone', () => {
+    for (const platform of ['darwin', 'win32'] as const) {
+      expect(devLauncherSteps({ packaged: false, platform, env: DEV_SERVER })).toEqual({
+        rename: false,
+        writeLauncher: false,
+      })
+    }
+  })
+
+  it('renames every unpackaged Linux run, and writes the launcher under the dev server only', () => {
+    expect(devLauncherSteps({ packaged: false, platform: 'linux', env: DEV_SERVER })).toEqual({
+      rename: true,
+      writeLauncher: true,
+    })
+    expect(devLauncherSteps({ packaged: false, platform: 'linux', env: {} })).toEqual({
+      rename: true,
+      writeLauncher: false,
+    })
   })
 })
 
@@ -49,25 +76,18 @@ describe('applicationsDir', () => {
 })
 
 describe('devDesktopEntry', () => {
-  it('names the icon, starts this checkout and stays out of the app list', () => {
+  it('names the icon, starts nothing and stays out of the app list', () => {
     expect(devDesktopEntry(PLAIN)).toBe(
       [
         '[Desktop Entry]',
         'Type=Application',
         'Name=session-app (dev)',
-        'Exec="/src/node_modules/electron/dist/electron" "/src/apps/desktop"',
+        'Exec=false',
         'Icon=/src/apps/desktop/resources/icon.png',
         'NoDisplay=true',
         'SingleMainWindow=true',
         '',
       ].join('\n'),
-    )
-  })
-
-  it('quotes Exec arguments, then escapes them as a string, with % kept from field codes', () => {
-    const entry = devDesktopEntry({ ...PLAIN, appPath: '/my dir/$x"y`z\\w%u' })
-    expect(entry).toContain(
-      'Exec="/src/node_modules/electron/dist/electron" "/my dir/\\\\$x\\\\"y\\\\`z\\\\\\\\w%%u"',
     )
   })
 
