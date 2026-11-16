@@ -164,4 +164,17 @@ export const MESSAGE_SCENARIOS: readonly AnyStory[] = [
   message('repliesAccent', ['Yes, 7pm', 'No worries', 'Where is this?', 'What did it say?'], {
     accent: true,
   }),
+  // A reply carrying files of its own, drawn whole as the transcript draws it: the quote, the
+  // words, the album or the file, and the footer under them. Ours and theirs.
+  message(
+    'repliesWithFiles',
+    [
+      'Here are the three',
+      'Reply to Any pictures?',
+      'Signed and attached',
+      'Reply to Pictures please',
+      'The lease, signed',
+    ],
+    { rtl: true },
+  ),
 ]

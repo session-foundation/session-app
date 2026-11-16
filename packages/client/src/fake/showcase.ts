@@ -59,6 +59,21 @@ function seedReplies(world: FakeWorld, self: FakeAccount, peer: FakeAccount): vo
   const regretted = sent('Wrong chat, ignore that')
   answeredBy('Too late, I read it', regretted)
   self.deleteMessage(regretted, 'here')
+
+  // Replies that carry files of their own under their quote, ours and theirs: an album with words
+  // and without, and a document. One with no words is found by what it answers.
+  const sentWith = (body: string, answering: number, attachments: Attachment[]): void => {
+    const original = self.messages(peer.sessionId).find((m) => m.id === answering)
+    if (!original) throw new Error(`nothing to answer with "${body}"`)
+    world.advance()
+    self.seedSending(peer.sessionId, body, attachments, 'sent', attachments.length, original)
+    world.settle()
+  }
+  sentWith('Here are the three', received('Send them over'), set(image(3)))
+  sentWith('', received('Any pictures?'), set(image(2)))
+  sentWith('Signed and attached', received('The lease?'), set(['pdf']))
+  answeredBy('', sent('Pictures please'), set(image(2)))
+  answeredBy('The lease, signed', sent('Can you send the lease?'), set(['pdf']))
 }
 
 /**
