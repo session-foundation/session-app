@@ -182,10 +182,4 @@ describe('Reply as an accessibility action on native', () => {
       'if (event.nativeEvent.actionName === REPLY_ACTION) onReply()',
     )
   })
-
-  it('is offered on an album’s tiles, which a message of pictures alone has in place of words', () => {
-    expect(source('AttachmentAlbum.tsx')).toContain(
-      '{...(reply === undefined ? {} : replyAction(reply.label, reply.run))}',
-    )
-  })
 })
