@@ -23,6 +23,9 @@ export function ContextMenuTarget({
       <Pressable
         style={{ alignSelf, maxWidth }}
         accessible={false}
+        // Android makes a long-pressable view a focusable node whatever `accessible` says, folding
+        // the bubble into one element that a double tap reaches with nothing to do.
+        importantForAccessibility="no"
         onLongPress={(event) => {
           onOpen({ kind: 'point', x: event.nativeEvent.pageX, y: event.nativeEvent.pageY })
         }}

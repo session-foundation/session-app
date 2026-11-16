@@ -1,5 +1,5 @@
 import { RADII, SPACING } from '@session/theme-tokens'
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useEffect, type ReactNode, type RefObject } from 'react'
 import { AccessibilityInfo, findNodeHandle } from 'react-native'
 import { isWeb, YStack } from 'tamagui'
 
@@ -28,6 +28,11 @@ export interface MessageFrameProps {
   /** The highlight at full strength and held, for a picture of a landing. */
   highlightHeld?: boolean | undefined
   /**
+   * What VoiceOver and TalkBack are moved to when a jump lands here, which has to be an element
+   * of its own, such as the body's text: on a phone the bubble is not one. Unset, they stay put.
+   */
+  landingFocus?: RefObject<unknown> | undefined
+  /**
    * A message the desktop keyboard moves to: its list row's stop, an article to a screen reader,
    * ringed while focused. Desktop only; a phone's reader moves between messages by itself.
    */
@@ -46,6 +51,7 @@ export function MessageFrame({
   maxWidth,
   highlightSerial,
   highlightHeld = false,
+  landingFocus,
   focusable = false,
   testID,
   children,
@@ -54,19 +60,17 @@ export function MessageFrame({
   const forcedFocus = useForcedFocus()
   const web = isWeb && focusable
 
-  // A highlight is invisible to VoiceOver and TalkBack, so a landing moves their focus here. The
+  // A highlight is invisible to VoiceOver and TalkBack, so a landing moves their focus. The
   // desktop's keyboard focus is the list's to move, to this row's stop.
-  const frame = useRef<null>(null)
   useEffect(() => {
-    if (isWeb || highlightSerial === undefined) return
-    const node = findNodeHandle(frame.current)
+    if (isWeb || highlightSerial === undefined || landingFocus === undefined) return
+    const node = findNodeHandle(landingFocus.current as never)
     if (typeof node === 'number') AccessibilityInfo.setAccessibilityFocus(node)
-  }, [highlightSerial])
+  }, [highlightSerial, landingFocus])
 
   return (
     <YStack
       {...(web && stop !== null ? { ref: stop.ref } : {})}
-      {...(isWeb ? {} : { ref: frame as never })}
       {...(alignSelf === undefined ? {} : { alignSelf })}
       {...(maxWidth === undefined ? {} : { maxWidth })}
       position="relative"
