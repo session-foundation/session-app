@@ -17,6 +17,7 @@ import { isCrowdinLocale, setLocale } from '@session/localization'
 
 import { appMenuTemplate } from './appMenu'
 import { createBridge, replaceDatabaseAndCreateBridge, type Bridge } from './bridge'
+import { installDevLauncher } from './devLauncher'
 import { editMenuItems } from './editMenu'
 import { serveFiles } from './files'
 import { hiddenRun } from './hiddenRun'
@@ -73,6 +74,12 @@ if (hidden !== null) {
 void openLogs()
 
 const here = fileURLToPath(new URL('.', import.meta.url))
+const iconPath = join(here, '../../resources/icon.png')
+
+// Before whenReady, the last point Electron takes a desktop name. See devLauncher.ts.
+void installDevLauncher(iconPath).then(async (failure) => {
+  if (failure !== null) (await openLogs()).logger.warn('main', failure)
+})
 
 // Before whenReady, which is the only point Electron accepts a privileged scheme.
 registerMediaScheme()
@@ -236,9 +243,9 @@ async function createWindow(): Promise<Electron.BrowserWindow> {
     // in. A floor rather than a scrolling column: a registration form that scrolls is worse than
     // one that cannot be made silly-small.
     minHeight: 380,
-    // Linux and Windows take the window icon from here; macOS ignores it and uses the bundle's,
-    // which is the packager's job rather than this file's.
-    icon: join(here, '../../resources/icon.png'),
+    // Drawn by Windows and most Linux shells. GNOME on Wayland only reads the launcher the app id
+    // names (devLauncher.ts), and macOS the bundle's, which is the packager's job.
+    icon: iconPath,
     // Shown straight away rather than on ready-to-show: that event is not dependable on a
     // headless display, and a window that never shows has no layout, which makes every element
     // in it invisible to a test. A hidden run is never shown and draws anyway: see hiddenRun.ts.
@@ -442,6 +449,11 @@ void app.whenReady().then(async () => {
   denyAllPermissions(session.defaultSession)
   zoom = readZoom(zoomFile())
   installAppMenu()
+  // An unpackaged run's bundle is Electron's own, and a hidden run has no Dock icon. The circle in
+  // icon.png would fill the whole tile, where Dock icons keep a margin.
+  if (!app.isPackaged && hidden === null) {
+    app.dock?.setIcon(join(here, '../../resources/icon-mac.png'))
+  }
 
   await createWindow()
 
