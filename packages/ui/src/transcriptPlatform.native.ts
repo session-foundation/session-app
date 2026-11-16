@@ -9,8 +9,8 @@ const START_VIEWPORTS = 2
 const KEEPS_PLACE = { minIndexForVisible: 0 } as const
 
 /**
- * Native: `maintainVisibleContentPosition` keeps the place, and moves the scroll itself to do it,
- * so a scroll is the reader's only while a finger, or the fling it left, is moving the list.
+ * Native: `maintainVisibleContentPosition` keeps the place, and moves the scroll itself to do it
+ * as rows change size. A finger, or the fling it left, is the reader's whenever it moves the list.
  */
 export function useTranscriptPlatform({
   firstPassRows,
