@@ -152,15 +152,17 @@ export interface Transcript {
  */
 export function useMessages(id: ConversationId | undefined): Transcript {
   const store = useSessionStore()
-  const window = useStore(store, (state) =>
-    id === undefined ? emptyWindow : (state.histories[id] ?? emptyWindow),
+  const transcript = useHeldMessages(id)
+  const { ready } = transcript
+  const fetching = useStore(store, (state) =>
+    id === undefined ? false : (state.histories[id]?.fetching ?? false),
   )
 
   useEffect(() => {
     if (id === undefined) return
     // Also covers history-replaced, which drops the window and leaves ready false.
-    if (!window.ready && !window.fetching) void store.actions.loadHistory(id)
-  }, [id, window.ready, window.fetching, store])
+    if (!ready && !fetching) void store.actions.loadHistory(id)
+  }, [id, ready, fetching, store])
 
   // Dropped when this stops showing `id`, and reloaded on the way back.
   //
@@ -173,6 +175,19 @@ export function useMessages(id: ConversationId | undefined): Transcript {
       store.actions.forgetHistory(id)
     }
   }, [id, store])
+
+  return transcript
+}
+
+/**
+ * A conversation's transcript as the store holds it, neither loading it nor forgetting it when
+ * this is no longer shown: for a view drawn beside another that owns it, such as the catalog's.
+ */
+export function useHeldMessages(id: ConversationId | undefined): Transcript {
+  const store = useSessionStore()
+  const window = useStore(store, (state) =>
+    id === undefined ? emptyWindow : (state.histories[id] ?? emptyWindow),
+  )
 
   const loadOlder = useCallback(() => {
     if (id !== undefined) void store.actions.loadOlder(id)

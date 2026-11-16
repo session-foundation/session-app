@@ -6,6 +6,7 @@ import {
   useAttachmentUploadLimit,
   useConversation,
   useMessage,
+  useHeldMessages,
   useMessages,
   useSessionActions,
   type Landing,
@@ -190,7 +191,8 @@ export function DetachedTranscript({
   conversationId: ConversationId
   landedOn: number
 }) {
-  const transcript = useMessages(conversationId)
+  // Not `useMessages`, which forgets the history when this goes, under the catalog's other rows.
+  const transcript = useHeldMessages(conversationId)
   const list = useRef<TranscriptListHandle | null>(null)
   const [highlight, setHighlight] = useState<Landing | null>(null)
   useLayoutEffect(() => {

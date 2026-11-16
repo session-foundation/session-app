@@ -19,6 +19,7 @@ export {
   useHydrated,
   useMessage,
   useMessageTransfers,
+  useHeldMessages,
   useMessages,
   useNetworkStatus,
   useRecoveryPasswordHidden,
