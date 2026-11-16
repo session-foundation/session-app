@@ -1,7 +1,7 @@
-import { useEffect, useRef } from 'react'
 import { Input as TamaguiInput, XStack } from 'tamagui'
 
 import type { InputProps } from './Input.types'
+import { useFocusSerial } from './useFocusSerial'
 import { domInputType, keyboardTypeToInputMode } from './nativeProps'
 import { logical } from './logicalEdges'
 
@@ -36,13 +36,7 @@ export function Input({
   errorText = false,
   testID,
 }: InputProps) {
-  const input = useRef<{ focus: () => void } | null>(null)
-  const focusedFor = useRef(focusSerial)
-  useEffect(() => {
-    if (focusSerial === focusedFor.current) return
-    focusedFor.current = focusSerial
-    if (focusSerial !== undefined) input.current?.focus()
-  }, [focusSerial])
+  const input = useFocusSerial(focusSerial)
 
   const field = (
     <TamaguiInput
