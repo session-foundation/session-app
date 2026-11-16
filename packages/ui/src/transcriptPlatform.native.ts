@@ -15,11 +15,12 @@ const KEEPS_PLACE = { minIndexForVisible: 0 } as const
 export function useTranscriptPlatform({
   firstPassRows,
   onReaderTouch,
+  onReaderDrag,
   onScrollStopped,
 }: TranscriptPlatformInput): TranscriptPlatform {
-  const told = useRef({ onReaderTouch, onScrollStopped })
+  const told = useRef({ onReaderTouch, onReaderDrag, onScrollStopped })
   useLayoutEffect(() => {
-    told.current = { onReaderTouch, onScrollStopped }
+    told.current = { onReaderTouch, onReaderDrag, onScrollStopped }
   })
   const touched = useRef(false)
   const everTouched = useRef(false)
@@ -31,6 +32,10 @@ export function useTranscriptPlatform({
     everTouched.current = true
     told.current.onReaderTouch()
   }, [])
+  const onDragBegin = useCallback(() => {
+    onTouchBegin()
+    told.current.onReaderDrag()
+  }, [onTouchBegin])
   const onTouchEnd = useCallback(() => {
     clearTimeout(touchEnding.current)
     // A fling goes on after the finger lifts, and says so only once it has begun.
@@ -53,7 +58,7 @@ export function useTranscriptPlatform({
     listProps: {
       initialNumToRender: firstPassRows,
       maintainVisibleContentPosition: KEEPS_PLACE,
-      onScrollBeginDrag: onTouchBegin,
+      onScrollBeginDrag: onDragBegin,
       onMomentumScrollBegin: onTouchBegin,
       onScrollEndDrag: onTouchEnd,
       onMomentumScrollEnd,

@@ -144,8 +144,7 @@ export function TranscriptList<T>({
   const onReaderTouch = useCallback(() => {
     clearTimeout(landing.current)
     landing.current = undefined
-    rows.onReaderTouch()
-  }, [rows])
+  }, [])
   const platform = useTranscriptPlatform({
     list,
     keys,
@@ -154,6 +153,7 @@ export function TranscriptList<T>({
     toEnd,
     onPlaced,
     onReaderTouch,
+    onReaderDrag: rows.onReaderTouch,
     onScrollStopped: rows.onScrollStopped,
   })
 
@@ -230,6 +230,9 @@ export function TranscriptList<T>({
       // opened full waits for the reader to move it before it asks for more.
       if (atEnd.current && here.untouched() && contentPx > viewportPx) return
       if (latest.current.rows.holdsStart()) return
+      // Just put on a row: rows added above it now are not held in place on Android, and the
+      // landing slides away. The reader's next scroll asks.
+      if (landing.current !== undefined) return
       startAskedAtPx.current = contentPx
       latest.current.onStartReached?.()
     }
