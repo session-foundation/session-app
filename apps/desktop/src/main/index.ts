@@ -74,7 +74,8 @@ if (hidden !== null) {
 void openLogs()
 
 const here = fileURLToPath(new URL('.', import.meta.url))
-const iconPath = join(here, '../../resources/icon.png')
+// An unpackaged run wears a DEV badge, so it is never mistaken for an installed client.
+const iconPath = join(here, `../../resources/${app.isPackaged ? 'icon.png' : 'icon-dev.png'}`)
 
 // Before whenReady, the last point Electron takes a desktop name. See devLauncher.ts.
 void installDevLauncher(iconPath).then(async (failure) => {
@@ -449,10 +450,10 @@ void app.whenReady().then(async () => {
   denyAllPermissions(session.defaultSession)
   zoom = readZoom(zoomFile())
   installAppMenu()
-  // An unpackaged run's bundle is Electron's own, and a hidden run has no Dock icon. The circle in
-  // icon.png would fill the whole tile, where Dock icons keep a margin.
+  // An unpackaged run's bundle is Electron's own, and a hidden run has no Dock icon. A tile of its
+  // own because the round icon would fill the whole tile, where Dock icons keep a margin.
   if (!app.isPackaged && hidden === null) {
-    app.dock?.setIcon(join(here, '../../resources/icon-mac.png'))
+    app.dock?.setIcon(join(here, '../../resources/icon-dev-mac.png'))
   }
 
   await createWindow()
