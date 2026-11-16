@@ -39,8 +39,11 @@ const AT_END_SLACK_PX = 8
 const FLING_BEGINS_MS = 150
 /** How long a scroll to the end is given to get there before the list stops holding to it. */
 const SEEK_END_MS = 1000
-/** How much of the list's height from its first row counts as reaching the start. */
-const START_REACHED_VIEWPORTS = 0.5
+/**
+ * How many list heights from its first row count as reaching the start: far enough out that a
+ * fling does not reach the first row before the page above it arrives.
+ */
+const START_REACHED_VIEWPORTS = 2
 
 const KEEPS_PLACE = { minIndexForVisible: 0 } as const
 const HIDDEN = { flex: 1, opacity: 0 } as const
@@ -92,7 +95,7 @@ export interface ListProps<T> {
    */
   startsAtEnd?: boolean | undefined
   /**
-   * The first row is within half a list's height, or the rows do not fill the list: once per
+   * The first row is within two list heights, or the rows do not fill the list: once per
    * content height, so a page that arrives and still leaves the start in reach asks again.
    */
   onStartReached?: (() => void) | undefined
