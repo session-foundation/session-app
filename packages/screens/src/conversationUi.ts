@@ -19,6 +19,11 @@ export interface ConversationUi {
   openMenu: (messageId: number, anchor: MenuAnchor) => void
   /** Starts a reply to a message of this conversation, in the composer. */
   reply: (messageId: number) => void
+  /**
+   * What to call whoever wrote a message here, as a quote names its author: worked out once for
+   * the screen, so a reply's row reads no account or conversation of its own.
+   */
+  nameOf: (author: string) => string
 }
 
 export const ConversationUiContext = createContext<ConversationUi | null>(null)

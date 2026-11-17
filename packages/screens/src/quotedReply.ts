@@ -20,8 +20,10 @@ export function quoteLabels(): QuoteLabels {
 }
 
 /** As much of a conversation as naming a message's author in it needs. */
-type AuthorsConversation = Pick<Conversation, 'id'> &
-  Partial<Pick<Conversation, 'nickname' | 'displayName'>>
+type AuthorsConversation = Pick<Conversation, 'id'> & {
+  nickname?: string | undefined
+  displayName?: string | undefined
+}
 
 /**
  * What to call whoever wrote a message: "You" for this account, so always in a note to self;
@@ -34,6 +36,14 @@ export function authorName(
 ): string {
   if (author === ownId) return tr('you')
   return conversationTitle(author === conversation.id ? conversation : { id: author })
+}
+
+/** `authorName` for one account and one conversation, for a screen to hand its rows. */
+export function namer(
+  ownId: string | undefined,
+  conversation: AuthorsConversation,
+): (author: string) => string {
+  return (author) => authorName(author, ownId, conversation)
 }
 
 /** The composer bar's heading: "Replying to" and the author, isolated from the words around it. */

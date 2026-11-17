@@ -9,6 +9,7 @@ function conversationUi(): ConversationUi {
   return {
     conversationId: 'c',
     requestAutoDownloadPrompt: vi.fn(),
+    nameOf: (author) => author,
     openViewer: vi.fn(),
     openSheet: vi.fn(),
     openMenu: vi.fn(),

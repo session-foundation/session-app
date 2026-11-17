@@ -1,5 +1,5 @@
 import type { ConversationId, Message } from '@session/client'
-import { useMessage, useSessionActions } from '@session/state'
+import { useAccount, useConversation, useMessage, useSessionActions } from '@session/state'
 import { tr } from '@session/localization'
 import { ELEMENT } from '@session/test-ids'
 import {
@@ -19,7 +19,7 @@ import { attachmentsWidthPx } from './attachmentsWidth'
 import { MessageAttachments } from './MessageAttachments'
 import { useAlbumGeometry } from './useAlbumGeometry'
 import { offersRetry } from './messageRetry'
-import { canReply } from './quotedReply'
+import { canReply, namer } from './quotedReply'
 import { ReplyQuote } from './ReplyQuote'
 import { useMessageMenuOpener } from './useMessageMenuOpener'
 
@@ -174,16 +174,21 @@ export function DetachedMessages({
   conversationId: ConversationId
   children: ReactNode
 }) {
+  const conversation = useConversation(conversationId)
+  const ownId = useAccount()?.sessionId
+  const nickname = conversation?.nickname
+  const displayName = conversation?.displayName
   const ui = useMemo<ConversationUi>(
     () => ({
       conversationId,
+      nameOf: namer(ownId, { id: conversationId, nickname, displayName }),
       requestAutoDownloadPrompt: ignore,
       openViewer: ignore,
       openSheet: ignore,
       openMenu: ignore,
       reply: ignore,
     }),
-    [conversationId],
+    [conversationId, ownId, nickname, displayName],
   )
   return <ConversationUiContext.Provider value={ui}>{children}</ConversationUiContext.Provider>
 }
