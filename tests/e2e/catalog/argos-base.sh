@@ -5,8 +5,9 @@
 # warns when the right build captured other files than this pull request is merged onto.
 # `reference`, first: prints, for $GITHUB_ENV, the build a stacked pull request compares with.
 # Takes GH_TOKEN, GITHUB_REPOSITORY and GITHUB_SHA; for `reference` PR_NUMBER and
-# GITHUB_DEFAULT_BRANCH; then the ARGOS_REFERENCE_COMMIT and ARGOS_BELOW_HEAD it printed, and for
-# `check` ARGOS_TOKEN, ARGOS_API_BASE_URL, CATALOG_TIER and UPLOAD_LOG.
+# GITHUB_DEFAULT_BRANCH; then what it printed (ARGOS_REFERENCE_COMMIT, ARGOS_BELOW_HEAD,
+# ARGOS_BELOW_REF, or ARGOS_BASELINE_UNKNOWN), and for `check` ARGOS_TOKEN, ARGOS_API_BASE_URL,
+# CATALOG_TIER and UPLOAD_LOG.
 set -uo pipefail
 
 mode=${1:?usage: argos-base.sh reference|await|check}
@@ -14,21 +15,31 @@ mode=${1:?usage: argos-base.sh reference|await|check}
 # GitHub merges a pull request onto main's head, or, in a stack, onto the pull request below: onto
 # its head in a stack of ordinary pull requests, onto its own merge commit in a native stack. Argos
 # stores a pull request's build under that merge commit, so the commit merged onto names the build
-# below either way. Runs are listed by the head they were built from: the base's head.
+# below either way. Runs are listed by the head they were built from: the head below, which is
+# read from that commit rather than from the pull request, whose base may have moved on since.
 reference() {
-  local onto status below
+  local onto status below ref
   if ! onto=$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA" --jq '.parents[0].sha') ||
-    ! status=$(gh api "repos/$GITHUB_REPOSITORY/compare/$onto...${GITHUB_DEFAULT_BRANCH:-main}" --jq .status) ||
-    ! below=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq '"\(.base.sha) \(.base.ref)"'); then
-    echo "::warning::Could not tell whether this pull request is stacked; Argos compares it with main" >&2
+    ! status=$(gh api "repos/$GITHUB_REPOSITORY/compare/$onto...${GITHUB_DEFAULT_BRANCH:-main}" --jq .status); then
+    echo "::warning::Could not tell whether this pull request is stacked, so its Argos baseline is not checked" >&2
+    echo "ARGOS_BASELINE_UNKNOWN=1"
     return 0
   fi
-  echo "Merged onto ${onto:0:8}; base ${below#* } at ${below:0:8}; the event says ${GITHUB_BASE_REF:-none}" >&2
+  echo "Merged onto ${onto:0:8}; the event's base is ${GITHUB_BASE_REF:-none}" >&2
   # On main's line: Argos takes main's build by itself.
   case $status in identical | ahead) return 0 ;; esac
+  # Only GitHub's own merge commit says "Merge <head> into <base>"; a branch's merges name branches.
+  if ! below=$(gh api "repos/$GITHUB_REPOSITORY/commits/$onto" --jq \
+    'if (.commit.message | test("^Merge [0-9a-f]{40} into [0-9a-f]{40}$")) then .parents[1].sha else .sha end'); then
+    echo "::warning::Could not read ${onto:0:8}, so this pull request's Argos baseline is not checked" >&2
+    echo "ARGOS_BASELINE_UNKNOWN=1"
+    return 0
+  fi
+  # Its name, for the messages only.
+  ref=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq .base.ref) || ref=${GITHUB_BASE_REF:-}
   echo "ARGOS_REFERENCE_COMMIT=$onto"
-  echo "ARGOS_BELOW_HEAD=${below%% *}"
-  echo "ARGOS_BELOW_REF=${below#* }"
+  echo "ARGOS_BELOW_HEAD=$below"
+  echo "ARGOS_BELOW_REF=${ref:-the pull request below}"
 }
 
 if [ "$mode" = reference ]; then
@@ -87,6 +98,10 @@ expected_build_status() {
 check() {
   local url build status used wanted expected why jobs
   local used_sha onto used_commit onto_tree used_tree used_head
+  if [ -n "${ARGOS_BASELINE_UNKNOWN:-}" ]; then
+    echo "::warning::Which build this pull request compares with is not known, so its baseline is not checked"
+    return 0
+  fi
   # The upload skips itself without a token.
   if [ -z "${ARGOS_TOKEN:-}" ]; then
     echo "::warning::No ARGOS_TOKEN, so no Argos baseline to check"

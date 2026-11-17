@@ -51,6 +51,17 @@ jobs:
           check-latest: true
           cache: pnpm
 
+      # A stacked pull request compares with the build of the one below it, which Argos otherwise
+      # passes over until it is approved: sets ARGOS_REFERENCE_COMMIT, read by the upload and by
+      # argos-base.sh, with ARGOS_BELOW_HEAD and ARGOS_BELOW_REF. First, while the merge commit
+      # it reads is the one checked out.
+      - if: github.event_name == 'pull_request'
+        run: tests/e2e/catalog/argos-base.sh reference >> "$GITHUB_ENV"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GITHUB_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @session/localization build
       - run: pnpm --filter @session/desktop build
@@ -72,16 +83,6 @@ jobs:
       # In the pinned image: see tests/e2e/catalog/Dockerfile.
       - id: capture
         run: pnpm --filter @session/e2e test:catalog
-
-      # A stacked pull request compares with the build of the one below it, which Argos otherwise
-      # passes over until it is approved: sets ARGOS_REFERENCE_COMMIT, read by the upload and by
-      # argos-base.sh, and ARGOS_BELOW_HEAD.
-      - if: github.event_name == 'pull_request' && (success() || failure())
-        run: tests/e2e/catalog/argos-base.sh reference >> "$GITHUB_ENV"
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          GITHUB_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
 
       # Argos compares with the build of main's head or of the pull request below, which another
       # runner can still be capturing.
