@@ -3,6 +3,7 @@ import type {
   AutoDownload,
   ConfigSize,
   ConversationId,
+  Message,
   MessagePage,
   OutgoingMessage,
   SendPlan,
@@ -113,7 +114,8 @@ export interface SessionActions {
   jumpToMessage: (id: ConversationId, messageId: number, from?: number) => Promise<JumpOutcome>
   /**
    * Walks back one jump, landing on the reply it started from and reading a window around it
-   * where it is no longer held. A reply deleted since is skipped for the one before it.
+   * where it is no longer held. A reply deleted since is skipped for the one before it. A read
+   * that fails rejects and keeps the jump, for the next press.
    */
   returnFromJump: (id: ConversationId) => Promise<void>
   /**
@@ -344,6 +346,33 @@ export function createSessionStore(
     }
   }
 
+  /** Per conversation, one map per read of its history that is out: what was announced since. */
+  const heardDuringReads = new Map<ConversationId, Set<Map<number, Message>>>()
+
+  /**
+   * Runs a read of a conversation's history, then applies again every message announced while it
+   * was out. A message stored after the read executed is not in its page, and one past the end of
+   * a window that does not reach the newest message, or of no window yet, was turned away by
+   * `applyEvent`: once the page has landed, the window decides afresh where each belongs. Every
+   * event carries a whole message, so applying one twice is harmless.
+   */
+  async function whileReading<T>(id: ConversationId, read: () => Promise<T>): Promise<T> {
+    const heard = new Map<number, Message>()
+    const reads = heardDuringReads.get(id) ?? new Set()
+    reads.add(heard)
+    heardDuringReads.set(id, reads)
+    try {
+      return await read()
+    } finally {
+      reads.delete(heard)
+      if (reads.size === 0) heardDuringReads.delete(id)
+      if (heard.size > 0) {
+        const messages = [...heard.values()]
+        store.setState((state) => applyEvent(state, { type: 'messages-updated', messages }))
+      }
+    }
+  }
+
   const unsubscribe = client.onEvent((event) => {
     // libsession's own logging, when the bridge was asked for it. Passed straight through
     // rather than stored: it is not state, and it is the only place the *reason* for a send
@@ -351,6 +380,11 @@ export function createSessionStore(
     if (event.type === 'log') {
       options.libsessionLog?.(event.level, event.category, event.message)
       return
+    }
+    if (event.type === 'messages-added' || event.type === 'messages-updated') {
+      for (const message of event.messages)
+        for (const heard of heardDuringReads.get(message.conversationId) ?? [])
+          heard.set(message.id, message)
     }
     store.setState((state) => applyEvent(state, event))
     // Before the first read a placement has nothing to land on, and that read clears it.
@@ -443,20 +477,22 @@ export function createSessionStore(
     }
     const generation = supersede(id)
     patchWindow(id, { fetchingOlder: false, fetchingNewer: false })
-    let page: MessagePage
-    try {
-      page = await client.getMessages(id, { limit: JUMP_WINDOW, around: messageId })
-    } catch (error) {
-      // Purged since the reply was drawn: not there to land on, as a deleted one is not.
-      if (error instanceof SessionClientError && error.code === MESSAGE_NOT_FOUND)
-        return generationOf(id) === generation ? 'absent' : 'superseded'
-      throw error
-    }
-    if (generationOf(id) !== generation) return 'superseded'
-    // A deleted message places the window and is left out of it.
-    if (!page.messages.some((m) => m.id === messageId)) return 'absent'
-    replaceWindow(id, page, { messageId, from })
-    return 'landed'
+    return whileReading(id, async (): Promise<JumpOutcome> => {
+      let page: MessagePage
+      try {
+        page = await client.getMessages(id, { limit: JUMP_WINDOW, around: messageId })
+      } catch (error) {
+        // Purged since the reply was drawn: not there to land on, as a deleted one is not.
+        if (error instanceof SessionClientError && error.code === MESSAGE_NOT_FOUND)
+          return generationOf(id) === generation ? 'absent' : 'superseded'
+        throw error
+      }
+      if (generationOf(id) !== generation) return 'superseded'
+      // A deleted message places the window and is left out of it.
+      if (!page.messages.some((m) => m.id === messageId)) return 'absent'
+      replaceWindow(id, page, { messageId, from })
+      return 'landed'
+    })
   }
 
   /**
@@ -628,9 +664,11 @@ export function createSessionStore(
       if (existing?.fetching) return
       patchWindow(id, { fetching: true })
       const generation = generationOf(id)
-      const page = await client.getMessages(id, { limit: FIRST_PAGE })
-      if (generationOf(id) !== generation) return
-      replaceWindow(id, page)
+      await whileReading(id, async () => {
+        const page = await client.getMessages(id, { limit: FIRST_PAGE })
+        if (generationOf(id) !== generation) return
+        replaceWindow(id, page)
+      })
     },
 
     async loadOlder(id): Promise<void> {
@@ -662,17 +700,19 @@ export function createSessionStore(
 
       patchWindow(id, { fetchingNewer: true })
       const generation = generationOf(id)
-      const page = await client
-        .getMessages(id, { limit: PAGE, after: { timestamp: newest.timestamp, id: newest.id } })
-        .catch((error: unknown) => {
-          if (generationOf(id) === generation) patchWindow(id, { fetchingNewer: false })
-          throw error
+      await whileReading(id, async () => {
+        const page = await client
+          .getMessages(id, { limit: PAGE, after: { timestamp: newest.timestamp, id: newest.id } })
+          .catch((error: unknown) => {
+            if (generationOf(id) === generation) patchWindow(id, { fetchingNewer: false })
+            throw error
+          })
+        if (generationOf(id) !== generation) return
+        patchWindow(id, {
+          fetchingNewer: false,
+          hasNewer: page.hasNewer,
+          messages: mergePages(store.getState().histories[id]?.messages ?? [], page.messages),
         })
-      if (generationOf(id) !== generation) return
-      patchWindow(id, {
-        fetchingNewer: false,
-        hasNewer: page.hasNewer,
-        messages: mergePages(store.getState().histories[id]?.messages ?? [], page.messages),
       })
     },
 
@@ -685,9 +725,19 @@ export function createSessionStore(
         const jumps = store.getState().histories[id]?.jumps ?? []
         const reply = jumps[jumps.length - 1]
         if (reply === undefined) return
-        patchWindow(id, { jumps: jumps.slice(0, -1) })
+        const rest = jumps.slice(0, -1)
+        patchWindow(id, { jumps: rest })
+        let outcome: JumpOutcome
+        try {
+          outcome = await reveal(id, reply)
+        } catch (error) {
+          log('warn', 'session', `could not walk back from a jump: ${String(error)}`)
+          // Kept for the next press, unless the way back has changed since.
+          if (store.getState().histories[id]?.jumps === rest) patchWindow(id, { jumps })
+          throw error
+        }
         // Deleted since: on to the reply before it. Anything else ends the walk.
-        if ((await reveal(id, reply)) !== 'absent') return
+        if (outcome !== 'absent') return
       }
     },
 
@@ -702,9 +752,14 @@ export function createSessionStore(
       if (window?.ready !== true || !window.hasNewer) return
       const generation = supersede(id)
       patchWindow(id, { fetchingOlder: false, fetchingNewer: false })
-      const page = await client.getMessages(id, { limit: FIRST_PAGE })
-      if (generationOf(id) !== generation) return
-      replaceWindow(id, page)
+      await whileReading(id, async () => {
+        const page = await client.getMessages(id, { limit: FIRST_PAGE }).catch((error: unknown) => {
+          log('warn', 'session', `could not read the newest page: ${String(error)}`)
+          throw error
+        })
+        if (generationOf(id) !== generation) return
+        replaceWindow(id, page)
+      })
     },
 
     forgetHistory(id): void {
@@ -724,10 +779,8 @@ export function createSessionStore(
       if (store.getState().histories[id]?.ready !== true) return
       patchWindow(id, { jumps: [] })
       // The message is stored: a read that fails after it must not be reported as a refusal,
-      // which keeps the draft and invites sending it twice.
-      await actions.showNewest(id).catch((error: unknown) => {
-        log('warn', 'session', `could not show the newest page after a send: ${String(error)}`)
-      })
+      // which keeps the draft and invites sending it twice. `showNewest` logs it.
+      await actions.showNewest(id).catch(() => undefined)
     },
 
     attachmentSendPlan(path, contentType): Promise<SendPlan> {

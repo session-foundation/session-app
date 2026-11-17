@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
-import { stepKey, stopKey } from '#src/listFocus'
+import { ListFocus, stepKey, stopKey } from '#src/listFocus'
 
 const KEYS = ['a', 'b', 'c', 'd', 'e']
 const ALL = new Set(KEYS)
@@ -44,5 +44,18 @@ describe('stepKey', () => {
 
   it('knows no step from a row it does not hold', () => {
     expect(stepKey(KEYS, 'z', 1)).toBeNull()
+  })
+})
+
+describe('ListFocus.focusRow', () => {
+  it('focuses a drawn row without scrolling to it, and says when the row is not drawn', () => {
+    const focus = vi.fn()
+    const lists = new ListFocus('last', false)
+    lists.setKeys(KEYS)
+    lists.draw('b', { focus } as unknown as HTMLElement)
+
+    expect(lists.focusRow('b')).toBe(true)
+    expect(focus).toHaveBeenCalledWith({ preventScroll: true })
+    expect(lists.focusRow('c')).toBe(false)
   })
 })

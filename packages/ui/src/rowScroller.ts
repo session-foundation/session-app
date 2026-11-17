@@ -100,13 +100,16 @@ export function useRowScroller({
   const onContentGrew = useCallback(() => {
     placeAgain.current?.()
   }, [])
+  const onReaderTouch = useCallback(() => {
+    placeAgain.current = null
+  }, [])
 
   return {
     scrollTo,
     cancel,
     onRowHeight: noop,
     onContentGrew,
-    onReaderTouch: noop,
+    onReaderTouch,
     onScrollStopped: noop,
     holdsStart: () => false,
     onScrollToIndexFailed,

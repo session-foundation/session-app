@@ -199,6 +199,37 @@ describe('a window on a long history', () => {
     expect(window().landing).toBeUndefined()
   })
 
+  it.each([
+    ['a page newer', (f: Fixture) => f.store.actions.loadNewer(f.bob)],
+    ['the newest page', (f: Fixture) => f.store.actions.showNewest(f.bob)],
+    ['a jump', (f: Fixture) => f.store.actions.jumpToMessage(f.bob, f.idOf('m99'))],
+    [
+      'the first page',
+      (f: Fixture) => {
+        f.store.actions.forgetHistory(f.bob)
+        return f.store.actions.loadHistory(f.bob)
+      },
+    ],
+  ])(
+    'takes a message stored after %s was read and announced before it landed',
+    async (_read, reads) => {
+      const { store, client, bob, idOf, window, bodies } = fixture
+      await store.actions.jumpToMessage(bob, idOf('m80'))
+      const read = client.getMessages.bind(client)
+      client.getMessages = async (...args) => {
+        const page = await read(...args)
+        client.getMessages = read
+        await client.sendMessage(bob, { body: 'late' })
+        return page
+      }
+
+      await reads(fixture)
+
+      expect(window().hasNewer).toBe(false)
+      expect(bodies().slice(-3)).toEqual(['m98', 'm99', 'late'])
+    },
+  )
+
   it('does not land on a message deleted while the window holds it', async () => {
     const { store, client, bob, idOf, window } = fixture
     await client.deleteMessage(idOf('m90'), 'here')
@@ -246,6 +277,21 @@ describe('the way back from a jump', () => {
     const landed = window().landing
     await store.actions.returnFromJump(bob)
     expect(window().landing).toBe(landed)
+  })
+
+  it('keeps the jump when the read back fails, for the next press', async () => {
+    const { store, client, bob, idOf, window } = fixture
+    await store.actions.jumpToMessage(bob, idOf('m10'), idOf('m99'))
+    const read = client.getMessages.bind(client)
+    client.getMessages = () => Promise.reject(new Error('the database is busy'))
+
+    await expect(store.actions.returnFromJump(bob)).rejects.toThrow('busy')
+    expect(window().jumps).toEqual([idOf('m99')])
+
+    client.getMessages = read
+    await store.actions.returnFromJump(bob)
+    expect(window().landing?.messageId).toBe(idOf('m99'))
+    expect(window().jumps).toEqual([])
   })
 
   it('skips a reply deleted since, for the one before it', async () => {

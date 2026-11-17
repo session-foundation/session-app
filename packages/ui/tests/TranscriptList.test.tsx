@@ -1,6 +1,6 @@
 import { fireEvent } from '@testing-library/react'
 import { createRef } from 'react'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { byId } from '@session/render-tier'
 import { ELEMENT } from '@session/test-ids'
@@ -99,5 +99,105 @@ describe('TranscriptList', () => {
     expect(byId(LIST).scrollTop).toBe(900)
 
     await new Promise((resolve) => setTimeout(resolve, SCROLL_END_MS))
+  })
+
+  describe('landing on a row', () => {
+    // jsdom lays nothing out and has no scrollIntoView: the landing's scroll is the test's.
+    const scrollIntoView = vi.fn()
+    beforeEach(() => {
+      Element.prototype.scrollIntoView = scrollIntoView
+    })
+    afterEach(() => {
+      Reflect.deleteProperty(Element.prototype, 'scrollIntoView')
+      scrollIntoView.mockReset()
+    })
+
+    function Landed({
+      handle,
+      onStartReached,
+      onAtEnd,
+    }: {
+      handle: React.Ref<TranscriptListHandle>
+      onStartReached?: () => void
+      onAtEnd?: () => void
+    }) {
+      return (
+        <TranscriptList
+          data={paged(30)}
+          keyExtractor={key}
+          handle={handle}
+          onStartReached={onStartReached}
+          onAtEnd={onAtEnd}
+          testID={LIST}
+          renderItem={(item, index) => <Text testID={ROW(index)}>{item.id}</Text>}
+        />
+      )
+    }
+
+    it('scrolls to the row by its own element, and says nothing of a key it does not hold', () => {
+      const handle = createRef<TranscriptListHandle>()
+      renderInUI(<Landed handle={handle} />)
+
+      handle.current?.scrollToKey('m3')
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: 'center', behavior: 'auto' })
+      expect(scrollIntoView.mock.contexts[0]).toBe(byId(ROW(3)).parentElement)
+
+      scrollIntoView.mockClear()
+      handle.current?.scrollToKey('m99')
+      expect(scrollIntoView).not.toHaveBeenCalled()
+      expect(handle.current?.isOnScreen('m99')).toBe(false)
+    })
+
+    it('says the reader is back at the end, which the landing itself never is', async () => {
+      const onAtEnd = vi.fn()
+      const handle = createRef<TranscriptListHandle>()
+      renderInUI(<Landed handle={handle} onAtEnd={onAtEnd} />)
+      await scrollTo(1600, 2000)
+      expect(onAtEnd).not.toHaveBeenCalled()
+
+      handle.current?.scrollToKey('m25')
+      // The rows drawn around the landing leave the scroll at the window's end.
+      await scrollTo(1600, 2000)
+      expect(onAtEnd).not.toHaveBeenCalled()
+
+      fireEvent.wheel(byId(LIST))
+      await scrollTo(1200, 2000)
+      await scrollTo(1600, 2000)
+      await scrollTo(1600, 2000)
+      expect(onAtEnd).toHaveBeenCalledTimes(1)
+
+      await new Promise((resolve) => setTimeout(resolve, SCROLL_END_MS))
+    })
+
+    it.each([
+      ['a wheel', (scroller: HTMLElement) => fireEvent.wheel(scroller)],
+      ['a scroll key', (scroller: HTMLElement) => fireEvent.keyDown(scroller, { key: 'PageUp' })],
+      ['the scrollbar', (scroller: HTMLElement) => fireEvent.pointerDown(scroller)],
+    ])(
+      'asks for no page above while landing, until the reader moves the list by %s',
+      async (_by, move) => {
+        const onStartReached = vi.fn()
+        const handle = createRef<TranscriptListHandle>()
+        renderInUI(<Landed handle={handle} onStartReached={onStartReached} />)
+        await scrollTo(1600, 2000)
+        onStartReached.mockClear()
+
+        handle.current?.scrollToKey('m3')
+        // The rows drawn around the landing leave the scroll at the window's start.
+        await scrollTo(0, 2000)
+        expect(onStartReached).not.toHaveBeenCalled()
+
+        // A key that scrolls nothing is not the reader moving the list.
+        fireEvent.keyDown(byId(LIST), { key: 'a' })
+        await scrollTo(5, 2000)
+        expect(onStartReached).not.toHaveBeenCalled()
+
+        move(byId(LIST))
+        await scrollTo(10, 2000)
+        expect(onStartReached).toHaveBeenCalledTimes(1)
+
+        await new Promise((resolve) => setTimeout(resolve, SCROLL_END_MS))
+      },
+    )
   })
 })

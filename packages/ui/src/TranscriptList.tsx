@@ -60,6 +60,8 @@ export interface TranscriptListProps<T> extends RovingRowsProps {
   onFarFromEnd?: ((far: boolean) => void) | undefined
   /** Within half a list's height of the last row. */
   onEndReached?: (() => void) | undefined
+  /** Back at the last row after leaving it, and not by a landing's own placing. */
+  onAtEnd?: (() => void) | undefined
   /** The keys of the rows drawn inside the viewport, each time that set changes. */
   onRowsOnScreen?: ((keys: ReadonlySet<string>) => void) | undefined
 }
@@ -99,6 +101,7 @@ export function TranscriptList<T>({
   onStartReached,
   onFarFromEnd,
   onEndReached,
+  onAtEnd,
   onRowsOnScreen,
 }: TranscriptListProps<T>) {
   const rowHeights = useRef(new Map<string, number>())
@@ -209,12 +212,20 @@ export function TranscriptList<T>({
     [focus],
   )
 
-  const latest = useRef({ keys, onStartReached, onFarFromEnd, onRowsOnScreen, platform, rows })
+  const latest = useRef({
+    keys,
+    onStartReached,
+    onFarFromEnd,
+    onAtEnd,
+    onRowsOnScreen,
+    platform,
+    rows,
+  })
   // The rows before the ones now held: what is on screen is known of those until these are drawn.
   const keysBefore = useRef(keys)
   useLayoutEffect(() => {
     if (latest.current.keys !== keys) keysBefore.current = latest.current.keys
-    latest.current = { keys, onStartReached, onFarFromEnd, onRowsOnScreen, platform, rows }
+    latest.current = { keys, onStartReached, onFarFromEnd, onAtEnd, onRowsOnScreen, platform, rows }
   })
 
   /** Reports what the scroller's position means, from wherever it was learnt. */
@@ -288,8 +299,10 @@ export function TranscriptList<T>({
       } else if (landing.current !== undefined) {
         // Not the reader's scroll: where it is counts once the landing is over.
       } else if (byReader || reachesEnd) {
+        const arrived = reachesEnd && !atEnd.current
         atEnd.current = reachesEnd
         if (byReader && !reachesEnd) readerMoved.current = true
+        if (arrived) latest.current.onAtEnd?.()
       }
       // The list moved itself to keep its place as rows changed above: at the end, that is not
       // the reader leaving it.

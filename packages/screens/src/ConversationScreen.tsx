@@ -76,6 +76,7 @@ function Transcript({
   held,
   list,
   onFarFromEnd,
+  onAtEnd,
   onRowsOnScreen,
 }: {
   conversationId: ConversationId
@@ -86,6 +87,7 @@ function Transcript({
   held: boolean
   list: Ref<TranscriptListHandle>
   onFarFromEnd: (far: boolean) => void
+  onAtEnd: () => void
   onRowsOnScreen: (keys: ReadonlySet<string>) => void
 }) {
   const { messages, loadOlder, loadNewer } = transcript
@@ -109,6 +111,7 @@ function Transcript({
       onStartReached={loadOlder}
       onEndReached={loadNewer}
       onFarFromEnd={onFarFromEnd}
+      onAtEnd={onAtEnd}
       onRowsOnScreen={onRowsOnScreen}
       // TODO: enter on the oldest unread message once the bridge carries libsession's
       // `first_unread`; a conversation's unread count is all it gives today.
@@ -213,6 +216,7 @@ export function DetachedTranscript({
       held
       list={list}
       onFarFromEnd={ignore}
+      onAtEnd={ignore}
       onRowsOnScreen={ignore}
     />
   )
@@ -344,16 +348,26 @@ function Conversation({ conversationId }: { conversationId: ConversationId }) {
     },
     [returnsTo, actions, conversationId],
   )
+  // Reached by scrolling, with no button shown on the way, the newest message ends the detour too.
+  const { hasNewer } = transcript
+  const reachedEnd = useCallback(() => {
+    if (!hasNewer) actions.forgetJumps(conversationId, 'all')
+  }, [hasNewer, actions, conversationId])
+
+  // A read that fails leaves the button as it was, to press again; the store logs it.
   function toLatest(): void {
     if (returnsToReply) {
-      void actions.returnFromJump(conversationId)
+      actions.returnFromJump(conversationId).catch(() => undefined)
       return
     }
     // Read in afresh, the newest page is simply where the list is put: nothing to animate from.
     const animated = !transcript.hasNewer
-    void actions.showNewest(conversationId).then(() => {
-      list.current?.scrollToEnd({ animated })
-    })
+    actions.showNewest(conversationId).then(
+      () => {
+        list.current?.scrollToEnd({ animated })
+      },
+      () => undefined,
+    )
   }
 
   // The id stands in for the conversation as well as for the name: opening one from a route
@@ -405,6 +419,7 @@ function Conversation({ conversationId }: { conversationId: ConversationId }) {
                     highlight={highlight}
                     list={list}
                     onFarFromEnd={setFarFromEnd}
+                    onAtEnd={reachedEnd}
                     onRowsOnScreen={followRows}
                   />
                 </QuoteJumpContext.Provider>

@@ -13,11 +13,14 @@ export interface TranscriptPlatformInput {
   toEnd: (animated: boolean) => void
   /** The list is at its end and can be shown. */
   onPlaced: () => void
-  /** Native: the reader moved the list, by a finger or the fling it left. */
+  /**
+   * The reader moved the list: by a finger or the fling it left on native, by a wheel, a touch,
+   * the scrollbar or a key on the web.
+   */
   onReaderTouch: () => void
   /**
-   * Native: a finger took the scroll. Not a fling's start, which a jump's own scroll can report
-   * too, while its row is still to be placed.
+   * The reader took the scroll: a finger on native, not a fling's start, which a jump's own scroll
+   * can report too while its row is still to be placed; on the web, as `onReaderTouch`.
    */
   onReaderDrag: () => void
   /** Native: a fling or an animated scroll came to rest. */

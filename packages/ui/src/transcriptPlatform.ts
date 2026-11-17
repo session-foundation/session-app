@@ -1,8 +1,8 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import type { TranscriptPlatform, TranscriptPlatformInput } from './transcriptPlatform.types'
 
-interface WebScroller {
+interface WebScroller extends EventTarget {
   scrollTop: number
   scrollHeight: number
 }
@@ -17,6 +17,19 @@ const scrollerOf = (list: unknown): WebScroller | null =>
  */
 const START_VIEWPORTS = 0.5
 
+/** How the reader moves the list on the web, besides the keys below. */
+const READER_EVENTS = ['wheel', 'touchstart', 'pointerdown'] as const
+/** The keys that scroll the list, or step the focus through its rows. */
+const SCROLL_KEYS: ReadonlySet<string> = new Set([
+  'ArrowUp',
+  'ArrowDown',
+  'PageUp',
+  'PageDown',
+  'Home',
+  'End',
+  ' ',
+])
+
 /** The web: Chromium's scroll anchoring keeps the place, with the help it needs here. */
 export function useTranscriptPlatform({
   list,
@@ -25,6 +38,8 @@ export function useTranscriptPlatform({
   firstPassRows,
   toEnd,
   onPlaced,
+  onReaderTouch,
+  onReaderDrag,
 }: TranscriptPlatformInput): TranscriptPlatform {
   // Anchoring needs the rows on screen to stay mounted through the commit that adds a page above
   // them: FlatList drops every row past the ones it always draws when its data changes. So those
@@ -56,6 +71,30 @@ export function useTranscriptPlatform({
     heldFirstKey.current = keys[0]
     heldHeightPx.current = node.scrollHeight
   }, [keys, list, atEnd])
+
+  const told = useRef({ onReaderTouch, onReaderDrag })
+  useLayoutEffect(() => {
+    told.current = { onReaderTouch, onReaderDrag }
+  })
+  // Every scroll on the web is taken for the reader's, but a landing's own placing goes on until
+  // the reader is seen to move the list, which a scroll event cannot tell from that placing.
+  useEffect(() => {
+    const node = scrollerOf(list.current)
+    if (node === null) return undefined
+    const reader = (event: Event) => {
+      if (event instanceof KeyboardEvent && !SCROLL_KEYS.has(event.key)) return
+      // On the scroller itself, not a row: its scrollbar.
+      if (event.type === 'pointerdown' && event.target !== node) return
+      told.current.onReaderTouch()
+      told.current.onReaderDrag()
+    }
+    for (const type of READER_EVENTS) node.addEventListener(type, reader, { passive: true })
+    node.addEventListener('keydown', reader)
+    return () => {
+      for (const type of READER_EVENTS) node.removeEventListener(type, reader)
+      node.removeEventListener('keydown', reader)
+    }
+  }, [list])
 
   return {
     listProps: { initialNumToRender: alwaysDrawn.rows },
