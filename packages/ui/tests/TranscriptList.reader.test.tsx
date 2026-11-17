@@ -1,11 +1,12 @@
 import { fireEvent } from '@testing-library/react'
+import { createRef } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { byId } from '@session/render-tier'
 import { ELEMENT } from '@session/test-ids'
 
 import { Text } from '#src/Text'
-import { TranscriptList } from '#src/TranscriptList'
+import { TranscriptList, type TranscriptListHandle } from '#src/TranscriptList'
 
 import { renderInUI } from './support/render'
 
@@ -99,6 +100,57 @@ describe('TranscriptList, scrolled by no finger', () => {
     await scrollTo(1640, 2200)
     expect(byId(LIST).scrollTop).not.toBe(1640)
 
+    await wait(150)
+  })
+})
+
+describe('TranscriptList, sent to its end', () => {
+  // jsdom scrolls nothing: what the list asks of its scroller is the test's.
+  const scroll = vi.fn()
+  afterEach(() => {
+    Reflect.deleteProperty(Element.prototype, 'scroll')
+    Reflect.deleteProperty(Element.prototype, 'scrollTo')
+    scroll.mockReset()
+  })
+
+  function List({ handle }: { handle: React.Ref<TranscriptListHandle> }) {
+    return (
+      <TranscriptList
+        data={paged(15)}
+        keyExtractor={(item) => item.id}
+        handle={handle}
+        testID={LIST}
+        renderItem={(item, index) => <Text testID={ROW(index)}>{item.id}</Text>}
+      />
+    )
+  }
+
+  it('jumps to a list height from the end first, from many pages back, and animates the rest', async () => {
+    const handle = createRef<TranscriptListHandle>()
+    renderInUI(<List handle={handle} />)
+    await scrollTo(0, 20_000)
+    Element.prototype.scroll = scroll
+    Element.prototype.scrollTo = scroll
+
+    handle.current?.scrollToEnd({ animated: true })
+
+    const moves = scroll.mock.calls.map(([to]) => to as { top: number; behavior: string })
+    expect(moves[0]).toMatchObject({ top: 20_000 - 800, behavior: 'auto' })
+    expect(moves.at(-1)).toMatchObject({ behavior: 'smooth' })
+    await wait(150)
+  })
+
+  it('animates all the way from within two list heights', async () => {
+    const handle = createRef<TranscriptListHandle>()
+    renderInUI(<List handle={handle} />)
+    await scrollTo(19_000, 20_000)
+    Element.prototype.scroll = scroll
+    Element.prototype.scrollTo = scroll
+
+    handle.current?.scrollToEnd({ animated: true })
+
+    const moves = scroll.mock.calls.map(([to]) => to as { behavior: string })
+    expect(moves.map((to) => to.behavior)).toEqual(['smooth'])
     await wait(150)
   })
 })

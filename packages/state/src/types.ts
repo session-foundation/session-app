@@ -43,8 +43,16 @@ export interface MessageWindow {
   hasNewer: boolean
   /** The first page is being read. */
   fetching: boolean
+  /**
+   * The last read of the first page failed. Nothing asks for it again by itself: the transcript
+   * asks whenever nothing is being read, so a failure that only cleared `fetching` would ask in a
+   * loop. Reading it again clears this.
+   */
+  firstPageFailed: boolean
   /** Guard against asking for a page twice while the first request is still out. */
   fetchingOlder: boolean
+  /** The last read of the page before the window failed; reading it again clears this. */
+  olderPageFailed: boolean
   fetchingNewer: boolean
   /**
    * The replies whose quotes were followed, oldest jump first, each the message to return to.
@@ -61,7 +69,9 @@ export const emptyWindow: MessageWindow = {
   hasOlder: false,
   hasNewer: false,
   fetching: false,
+  firstPageFailed: false,
   fetchingOlder: false,
+  olderPageFailed: false,
   fetchingNewer: false,
   jumps: [],
 }

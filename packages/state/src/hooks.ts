@@ -140,8 +140,16 @@ export interface Transcript {
   returnsTo: number | undefined
   /** The last message a jump landed on, to scroll to and highlight. */
   landing: Landing | undefined
+  /** The last read of the first page failed, and nothing will ask for it again until `reload`. */
+  firstPageFailed: boolean
+  /** The page before the window is being read. */
+  fetchingOlder: boolean
+  /** The last read of the page before the window failed: `loadOlder` asks again. */
+  olderPageFailed: boolean
   loadOlder: () => void
   loadNewer: () => void
+  /** Reads the first page again, after it failed. */
+  reload: () => void
 }
 
 /**
@@ -153,16 +161,17 @@ export interface Transcript {
 export function useMessages(id: ConversationId | undefined): Transcript {
   const store = useSessionStore()
   const transcript = useHeldMessages(id)
-  const { ready } = transcript
+  const { ready, firstPageFailed } = transcript
   const fetching = useStore(store, (state) =>
     id === undefined ? false : (state.histories[id]?.fetching ?? false),
   )
 
   useEffect(() => {
     if (id === undefined) return
-    // Also covers history-replaced, which drops the window and leaves ready false.
-    if (!ready && !fetching) void store.actions.loadHistory(id)
-  }, [id, ready, fetching, store])
+    // Also covers history-replaced, which drops the window and leaves ready false. A failed read
+    // waits for `reload`, or this would ask again the moment it failed.
+    if (!ready && !fetching && !firstPageFailed) void store.actions.loadHistory(id)
+  }, [id, ready, fetching, firstPageFailed, store])
 
   // Dropped when this stops showing `id`, and reloaded on the way back.
   //
@@ -195,6 +204,9 @@ export function useHeldMessages(id: ConversationId | undefined): Transcript {
   const loadNewer = useCallback(() => {
     if (id !== undefined) void store.actions.loadNewer(id)
   }, [id, store])
+  const reload = useCallback(() => {
+    if (id !== undefined) void store.actions.loadHistory(id)
+  }, [id, store])
 
   return useMemo(
     () => ({
@@ -205,10 +217,14 @@ export function useHeldMessages(id: ConversationId | undefined): Transcript {
       jumpCount: window.jumps.length,
       returnsTo: window.jumps[window.jumps.length - 1],
       landing: window.landing,
+      firstPageFailed: window.firstPageFailed,
+      fetchingOlder: window.fetchingOlder,
+      olderPageFailed: window.olderPageFailed,
       loadOlder,
       loadNewer,
+      reload,
     }),
-    [window, loadOlder, loadNewer],
+    [window, loadOlder, loadNewer, reload],
   )
 }
 

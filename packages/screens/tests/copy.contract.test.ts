@@ -140,6 +140,7 @@ describe('screen copy', () => {
       'attachmentCacheUsage',
       'attachmentCacheLimit',
       'attachmentCacheNoLimit',
+      'messagesLoadFailed',
       'attachmentCount',
       'attachmentViewGallery',
       'attachmentViewList',
