@@ -80,6 +80,7 @@ function conversation(): ConversationUi {
   return {
     conversationId: CONVERSATION,
     requestAutoDownloadPrompt: vi.fn(),
+    nameOf: (author) => author,
     openViewer: vi.fn(),
     openSheet: vi.fn(),
     openMenu: vi.fn(),

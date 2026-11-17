@@ -21,6 +21,11 @@ export interface ConversationUi {
   reply: (messageId: number) => void
   /** A press on the quote heading a reply: goes to its original, or says it is not found. */
   openQuote: (replyId: number) => void
+  /**
+   * What to call whoever wrote a message here, as a quote names its author: worked out once for
+   * the screen, so a reply's row reads no account or conversation of its own.
+   */
+  nameOf: (author: string) => string
 }
 
 /** The reply whose quote is being followed while its original is read in, or null. */

@@ -53,6 +53,7 @@ import { showsDateHeader } from './dateHeaders'
 import {
   authorName,
   canReply,
+  namer,
   originalFound,
   quotedMessage,
   replyingToHeading,
@@ -258,10 +259,20 @@ function Conversation({ conversationId }: { conversationId: ConversationId }) {
   const [sheet, setSheet] = useState<number | null>(null)
   const [menu, setMenu] = useState<MessageMenuTarget | null>(null)
 
+  // On the names alone: the conversation itself changes with every message it receives.
+  const ownId = account?.sessionId
+  const nickname = conversation?.nickname
+  const displayName = conversation?.displayName
+  const nameOf = useMemo(
+    () => namer(ownId, { id: conversationId, nickname, displayName }),
+    [ownId, conversationId, nickname, displayName],
+  )
+
   // Memoised so typing in the composer does not re-render every message through the context.
   const ui = useMemo(
     (): ConversationUi => ({
       conversationId,
+      nameOf,
       requestAutoDownloadPrompt: () => {
         if (autoDownload === undefined) setPrompting(true)
       },
@@ -304,7 +315,7 @@ function Conversation({ conversationId }: { conversationId: ConversationId }) {
           })
       },
     }),
-    [conversationId, autoDownload, actions, toasts],
+    [conversationId, autoDownload, actions, toasts, nameOf],
   )
 
   // Shown by where the reader is alone: a jump to return from changes what a press does, never

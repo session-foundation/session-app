@@ -4,11 +4,14 @@ import { tr } from '@session/localization'
 /**
  * As much of a conversation as naming it needs: its id, and whatever names it has yet.
  *
- * Partial so a screen that has the id and not the conversation - the moment a route opens one
- * the store has not hydrated - can ask the same question.
+ * The names are optional so a screen that has the id and not the conversation - the moment a route
+ * opens one the store has not hydrated - can ask the same question.
  */
-type Named = Pick<Conversation, 'id'> &
-  Partial<Pick<Conversation, 'nickname' | 'displayName' | 'noteToSelf'>>
+type Named = Pick<Conversation, 'id'> & {
+  nickname?: string | undefined
+  displayName?: string | undefined
+  noteToSelf?: boolean | undefined
+}
 
 /**
  * What to call a conversation on screen.
