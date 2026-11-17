@@ -69,6 +69,8 @@ export interface TranscriptListProps<T> extends RovingRowsProps {
   onRowsOnScreen?: ((keys: ReadonlySet<string>) => void) | undefined
   /** Drawn above the first row, scrolled with the rows: what is happening past the start. */
   header?: React.JSX.Element | undefined
+  /** Drawn below the last row, scrolled with the rows: what is happening past the end. */
+  footer?: React.JSX.Element | undefined
 }
 
 /** How close to its end a list still counts as at it, and follows content that grows. */
@@ -115,6 +117,7 @@ export function TranscriptList<T>({
   onAtEnd,
   onRowsOnScreen,
   header,
+  footer,
 }: TranscriptListProps<T>) {
   const rowHeights = useRef(new Map<string, number>())
   const rowNodes = useRef(new Map<string, unknown>())
@@ -438,6 +441,7 @@ export function TranscriptList<T>({
       onViewableItemsChanged={onViewableItemsChanged}
       viewabilityConfig={VIEWABILITY}
       ListHeaderComponent={header}
+      ListFooterComponent={footer}
       data={data}
       renderItem={renderRow}
       keyExtractor={keyExtractor}

@@ -62,6 +62,8 @@ export const ELEMENT = {
     firstPageRetry: 'conversation-first-page-retry',
     olderPageLoading: 'conversation-older-page-loading',
     olderPageRetry: 'conversation-older-page-retry',
+    newerPageLoading: 'conversation-newer-page-loading',
+    newerPageRetry: 'conversation-newer-page-retry',
     attachment: 'message-attachment',
     attachmentTile: 'message-attachment-tile',
     attachmentLead: 'message-attachment-lead',

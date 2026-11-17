@@ -91,7 +91,15 @@ function Transcript({
   onAtEnd: () => void
   onRowsOnScreen: (keys: ReadonlySet<string>) => void
 }) {
-  const { messages, loadOlder, loadNewer, fetchingOlder, olderPageFailed } = transcript
+  const {
+    messages,
+    loadOlder,
+    loadNewer,
+    fetchingOlder,
+    olderPageFailed,
+    fetchingNewer,
+    newerPageFailed,
+  } = transcript
   const { openMenu } = useConversationUi()
   // A row's key is its message's id; see `messageKey`.
   const openRowMenu = useCallback(
@@ -121,6 +129,15 @@ function Transcript({
           onRetry={loadOlder}
           loadingTestID={ELEMENT.conversation.olderPageLoading}
           retryTestID={ELEMENT.conversation.olderPageRetry}
+        />
+      }
+      footer={
+        <PageStatus
+          fetching={fetchingNewer}
+          failed={newerPageFailed}
+          onRetry={loadNewer}
+          loadingTestID={ELEMENT.conversation.newerPageLoading}
+          retryTestID={ELEMENT.conversation.newerPageRetry}
         />
       }
       // TODO: enter on the oldest unread message once the bridge carries libsession's
