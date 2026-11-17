@@ -35,9 +35,6 @@ jobs:
     env:
       CATALOG_TIER: ${{ inputs.tier || (github.event_name == 'schedule' && 'nightly') || 'pr' }}
       CATALOG_OUT: ${{ github.workspace }}/test-results/catalog
-      # A stacked pull request compares with the build of the one below it, which Argos otherwise
-      # passes over until it is approved. Read by the upload and by argos-base.sh.
-      ARGOS_REFERENCE_COMMIT: ${{ github.event_name == 'pull_request' && github.base_ref != github.event.repository.default_branch && github.event.pull_request.base.sha || '' }}
       ARGOS_API_BASE_URL: ${{ vars.ARGOS_API_BASE_URL }}
     steps:
       - uses: actions/checkout@v5
@@ -53,6 +50,17 @@ jobs:
           node-version-file: .nvmrc
           check-latest: true
           cache: pnpm
+
+      # A stacked pull request compares with the build of the one below it, which Argos otherwise
+      # passes over until it is approved: sets ARGOS_REFERENCE_COMMIT, read by the upload and by
+      # argos-base.sh, with ARGOS_BELOW_HEAD and ARGOS_BELOW_REF. First, while the merge commit
+      # it reads is the one checked out.
+      - if: github.event_name == 'pull_request'
+        run: tests/e2e/catalog/argos-base.sh reference >> "$GITHUB_ENV"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GITHUB_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @session/localization build

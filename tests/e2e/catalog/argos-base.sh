@@ -3,12 +3,50 @@
 # at once. `await`, before the upload: waits while the run that build comes from is capturing.
 # `check`, after it: fails when Argos compared with another build and a rerun would fix that, and
 # warns when the right build captured other files than this pull request is merged onto.
-# Takes GH_TOKEN, GITHUB_REPOSITORY, GITHUB_SHA and GITHUB_BASE_REF, ARGOS_REFERENCE_COMMIT for a
-# stacked pull request, and for `check` ARGOS_TOKEN, ARGOS_API_BASE_URL, CATALOG_TIER and
-# UPLOAD_LOG.
+# `reference`, first: prints, for $GITHUB_ENV, the build a stacked pull request compares with.
+# Takes GH_TOKEN, GITHUB_REPOSITORY and GITHUB_SHA; for `reference` PR_NUMBER and
+# GITHUB_DEFAULT_BRANCH; then what it printed (ARGOS_REFERENCE_COMMIT, ARGOS_BELOW_HEAD,
+# ARGOS_BELOW_REF, or ARGOS_BASELINE_UNKNOWN), and for `check` ARGOS_TOKEN, ARGOS_API_BASE_URL,
+# CATALOG_TIER and UPLOAD_LOG.
 set -uo pipefail
 
-mode=${1:?usage: argos-base.sh await|check}
+mode=${1:?usage: argos-base.sh reference|await|check}
+
+# GitHub merges a pull request onto main's head, or, in a stack, onto the pull request below: onto
+# its head in a stack of ordinary pull requests, onto its own merge commit in a native stack. Argos
+# stores a pull request's build under that merge commit, so the commit merged onto names the build
+# below either way. Runs are listed by the head they were built from: the head below, which is
+# read from that commit rather than from the pull request, whose base may have moved on since.
+reference() {
+  local onto status below ref
+  if ! onto=$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA" --jq '.parents[0].sha') ||
+    ! status=$(gh api "repos/$GITHUB_REPOSITORY/compare/$onto...${GITHUB_DEFAULT_BRANCH:-main}" --jq .status); then
+    echo "::warning::Could not tell whether this pull request is stacked, so its Argos baseline is not checked" >&2
+    echo "ARGOS_BASELINE_UNKNOWN=1"
+    return 0
+  fi
+  echo "Merged onto ${onto:0:8}; the event's base is ${GITHUB_BASE_REF:-none}" >&2
+  # On main's line: Argos takes main's build by itself.
+  case $status in identical | ahead) return 0 ;; esac
+  # Only GitHub's own merge commit says "Merge <head> into <base>"; a branch's merges name branches.
+  if ! below=$(gh api "repos/$GITHUB_REPOSITORY/commits/$onto" --jq \
+    'if (.commit.message | test("^Merge [0-9a-f]{40} into [0-9a-f]{40}$")) then .parents[1].sha else .sha end'); then
+    echo "::warning::Could not read ${onto:0:8}, so this pull request's Argos baseline is not checked" >&2
+    echo "ARGOS_BASELINE_UNKNOWN=1"
+    return 0
+  fi
+  # Its name, for the messages only.
+  ref=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq .base.ref) || ref=${GITHUB_BASE_REF:-}
+  echo "ARGOS_REFERENCE_COMMIT=$onto"
+  echo "ARGOS_BELOW_HEAD=$below"
+  echo "ARGOS_BELOW_REF=${ref:-the pull request below}"
+}
+
+if [ "$mode" = reference ]; then
+  reference
+  exit 0
+fi
+
 stacked=${ARGOS_REFERENCE_COMMIT:-}
 
 # Argos takes the merge base with main of the commit built, GitHub's merge commit: main's head when
@@ -22,7 +60,7 @@ fi
 # scheduled run uploads a nightly build; a dispatched one is on the pr tier unless told otherwise.
 unfinished_jobs() {
   local runs
-  runs=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$base&per_page=50" --jq \
+  runs=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=${ARGOS_BELOW_HEAD:-$base}&per_page=50" --jq \
     '.workflow_runs[] | select(.name == "catalog" and .status != "completed" and .event != "schedule") | .id') ||
     return 1
   for run in $runs; do
@@ -60,6 +98,10 @@ expected_build_status() {
 check() {
   local url build status used wanted expected why jobs
   local used_sha onto used_commit onto_tree used_tree used_head
+  if [ -n "${ARGOS_BASELINE_UNKNOWN:-}" ]; then
+    echo "::warning::Which build this pull request compares with is not known, so its baseline is not checked"
+    return 0
+  fi
   # The upload skips itself without a token.
   if [ -z "${ARGOS_TOKEN:-}" ]; then
     echo "::warning::No ARGOS_TOKEN, so no Argos baseline to check"
@@ -98,7 +140,7 @@ check() {
   used=$(jq -r 'if .base then "\(.base.branch)@\(.base.sha[0:8])" else "no build" end' <<<"$build")
   used_sha=$(jq -r '.base.sha // ""' <<<"$build")
   if [ -n "$stacked" ]; then
-    wanted="the build of $GITHUB_BASE_REF at ${base:0:8}, the pull request below"
+    wanted="the build of ${ARGOS_BELOW_REF:-$GITHUB_BASE_REF} at ${base:0:8}, the pull request below"
   else
     wanted="main's build of ${base:0:8}, the commit this pull request is merged onto"
   fi
@@ -121,7 +163,7 @@ check() {
     [ "$used_tree" = "$onto_tree" ] && return 0
     # A rerun captures the same merge commit and gets the same build, so only a push can fix this.
     if [ -n "$stacked" ] && { [ "$used_sha" = "$base" ] || [ "$used_head" = "$base" ]; }; then
-      echo "::warning::$url compared with $used, the build of $GITHUB_BASE_REF at ${base:0:8}, but that build captured other files than this pull request is merged onto, so it may show changes that are not this pull request's. Merge main into $GITHUB_BASE_REF and up through the stack, then push."
+      echo "::warning::$url compared with $used, the build of ${ARGOS_BELOW_REF:-$GITHUB_BASE_REF} at ${base:0:8}, but that build captured other files than this pull request is merged onto, so it may show changes that are not this pull request's. Merge main into ${ARGOS_BELOW_REF:-$GITHUB_BASE_REF} and up through the stack, then push."
       return 0
     fi
   fi
@@ -154,5 +196,5 @@ check() {
 case $mode in
   await) await ;;
   check) check ;;
-  *) echo "usage: argos-base.sh await|check" >&2 && exit 2 ;;
+  *) echo "usage: argos-base.sh reference|await|check" >&2 && exit 2 ;;
 esac
