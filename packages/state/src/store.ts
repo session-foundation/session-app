@@ -106,7 +106,10 @@ export interface SessionActions {
    * that fails is logged and marks the window `olderPageFailed` rather than rejecting.
    */
   loadOlder: (id: ConversationId) => Promise<void>
-  /** The page after the window's newest message, for a window that does not reach the newest. */
+  /**
+   * The page after the window's newest message, for a window that does not reach the newest. A
+   * read that fails is logged and marks the window `newerPageFailed` rather than rejecting.
+   */
   loadNewer: (id: ConversationId) => Promise<void>
   /**
    * Puts the reader on a message: `landing` names it, and where the window does not hold it the
@@ -455,6 +458,7 @@ export function createSessionStore(
         fetchingOlder: false,
         olderPageFailed: false,
         fetchingNewer: false,
+        newerPageFailed: false,
         jumps: previous.jumps,
         ...(land === undefined ? {} : landed(previous.jumps, land.messageId, land.from)),
       }
@@ -697,24 +701,26 @@ export function createSessionStore(
 
       patchWindow(id, { fetchingOlder: true, olderPageFailed: false })
       const generation = generationOf(id)
-      let page: MessagePage
-      try {
-        page = await client.getMessages(id, {
-          limit: PAGE,
-          before: { timestamp: oldest.timestamp, id: oldest.id },
+      await whileReading(id, async () => {
+        let page: MessagePage
+        try {
+          page = await client.getMessages(id, {
+            limit: PAGE,
+            before: { timestamp: oldest.timestamp, id: oldest.id },
+          })
+        } catch (error) {
+          log('warn', 'session', `could not read an older page: ${String(error)}`)
+          // Free to ask again: a flag left set would end paging for as long as the window lives.
+          if (generationOf(id) === generation)
+            patchWindow(id, { fetchingOlder: false, olderPageFailed: true })
+          return
+        }
+        if (generationOf(id) !== generation) return
+        patchWindow(id, {
+          fetchingOlder: false,
+          hasOlder: page.hasOlder,
+          messages: mergePages(page.messages, store.getState().histories[id]?.messages ?? []),
         })
-      } catch (error) {
-        log('warn', 'session', `could not read an older page: ${String(error)}`)
-        // Free to ask again: a flag left set would end paging for as long as the window lives.
-        if (generationOf(id) === generation)
-          patchWindow(id, { fetchingOlder: false, olderPageFailed: true })
-        return
-      }
-      if (generationOf(id) !== generation) return
-      patchWindow(id, {
-        fetchingOlder: false,
-        hasOlder: page.hasOlder,
-        messages: mergePages(page.messages, store.getState().histories[id]?.messages ?? []),
       })
     },
 
@@ -723,15 +729,21 @@ export function createSessionStore(
       const newest = window?.messages[window.messages.length - 1]
       if (!window?.ready || window.fetchingNewer || !window.hasNewer || newest === undefined) return
 
-      patchWindow(id, { fetchingNewer: true })
+      patchWindow(id, { fetchingNewer: true, newerPageFailed: false })
       const generation = generationOf(id)
       await whileReading(id, async () => {
-        const page = await client
-          .getMessages(id, { limit: PAGE, after: { timestamp: newest.timestamp, id: newest.id } })
-          .catch((error: unknown) => {
-            if (generationOf(id) === generation) patchWindow(id, { fetchingNewer: false })
-            throw error
+        let page: MessagePage
+        try {
+          page = await client.getMessages(id, {
+            limit: PAGE,
+            after: { timestamp: newest.timestamp, id: newest.id },
           })
+        } catch (error) {
+          log('warn', 'session', `could not read a newer page: ${String(error)}`)
+          if (generationOf(id) === generation)
+            patchWindow(id, { fetchingNewer: false, newerPageFailed: true })
+          return
+        }
         if (generationOf(id) !== generation) return
         patchWindow(id, {
           fetchingNewer: false,

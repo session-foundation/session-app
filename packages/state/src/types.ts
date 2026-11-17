@@ -53,7 +53,10 @@ export interface MessageWindow {
   fetchingOlder: boolean
   /** The last read of the page before the window failed; reading it again clears this. */
   olderPageFailed: boolean
+  /** Guard against asking for the page after the window twice. */
   fetchingNewer: boolean
+  /** The last read of the page after the window failed; reading it again clears this. */
+  newerPageFailed: boolean
   /**
    * The replies whose quotes were followed, oldest jump first, each the message to return to.
    * At most `MAX_JUMPS`. Dropped with the window, so leaving the conversation empties it.
@@ -73,6 +76,7 @@ export const emptyWindow: MessageWindow = {
   fetchingOlder: false,
   olderPageFailed: false,
   fetchingNewer: false,
+  newerPageFailed: false,
   jumps: [],
 }
 

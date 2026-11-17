@@ -230,6 +230,28 @@ describe('a window on a long history', () => {
     },
   )
 
+  it('takes a message stored after a page older was read, timestamped inside that page', async () => {
+    const { store, world, client, bob, idOf, bodies } = fixture
+    await store.actions.jumpToMessage(bob, idOf('m80'))
+    const read = client.getMessages.bind(client)
+    client.getMessages = async (...args) => {
+      const page = await read(...args)
+      client.getMessages = read
+      // From a peer that was offline: sent while m50 was, stored only now.
+      const at = page.messages.find((m) => m.body === 'm50')?.timestamp ?? 0
+      world.account('Alice').deliverFrom(world.account('Bob'), 'late', at)
+      return page
+    }
+
+    await store.actions.loadOlder(bob)
+
+    expect(bodies().slice(bodies().indexOf('m50'), bodies().indexOf('m50') + 3)).toEqual([
+      'm50',
+      'late',
+      'm51',
+    ])
+  })
+
   it('does not land on a message deleted while the window holds it', async () => {
     const { store, client, bob, idOf, window } = fixture
     await client.deleteMessage(idOf('m90'), 'here')
@@ -399,18 +421,19 @@ describe('a page read that fails', () => {
     client.getMessages = () => Promise.reject(new Error('the database is busy'))
 
     await expect(store.actions.loadOlder(bob)).resolves.toBeUndefined()
-    await expect(store.actions.loadNewer(bob)).rejects.toThrow('busy')
-    expect([window().fetchingOlder, window().olderPageFailed, window().fetchingNewer]).toEqual([
-      false,
-      true,
-      false,
-    ])
+    await expect(store.actions.loadNewer(bob)).resolves.toBeUndefined()
+    expect([
+      window().fetchingOlder,
+      window().olderPageFailed,
+      window().fetchingNewer,
+      window().newerPageFailed,
+    ]).toEqual([false, true, false, true])
 
     client.getMessages = read
     await store.actions.loadOlder(bob)
     await store.actions.loadNewer(bob)
     expect(bodies()).toEqual(run(0, 85))
-    expect(window().olderPageFailed).toBe(false)
+    expect([window().olderPageFailed, window().newerPageFailed]).toEqual([false, false])
   })
 
   it('says the first page failed, rather than saying it is still being read', async () => {
@@ -433,14 +456,25 @@ describe('a page read that fails', () => {
 })
 
 describe('a history-replaced while a read is out', () => {
+  const forget = (f: Fixture) => {
+    f.store.actions.forgetHistory(f.bob)
+    return Promise.resolve()
+  }
+  const jumpBack = async (f: Fixture) => {
+    await f.store.actions.jumpToMessage(f.bob, f.idOf('m10'))
+  }
+  const nothing = () => Promise.resolve()
   it.each([
-    ['the first page', (f: Fixture) => f.store.actions.loadHistory(f.bob)],
-    ['a page older', (f: Fixture) => f.store.actions.loadOlder(f.bob)],
-  ])('drops %s, read before the messages it holds were deleted', async (_read, reads) => {
+    ['the first page', forget, (f: Fixture) => f.store.actions.loadHistory(f.bob)],
+    ['a page older', nothing, (f: Fixture) => f.store.actions.loadOlder(f.bob)],
+    ['a page newer', jumpBack, (f: Fixture) => f.store.actions.loadNewer(f.bob)],
+    ['the newest page', jumpBack, (f: Fixture) => f.store.actions.showNewest(f.bob)],
+    ['a jump', nothing, (f: Fixture) => f.store.actions.jumpToMessage(f.bob, f.idOf('m10'))],
+  ])('drops %s, read before the messages it holds were deleted', async (_read, before, reads) => {
     const fixture = await longHistory()
     const { store, world, client, bob, window } = fixture
     await store.actions.loadHistory(bob)
-    if (_read === 'the first page') store.actions.forgetHistory(bob)
+    await before(fixture)
     // Read at once, answered when released: the page predates what happens in between.
     const held: Array<() => void> = []
     const read = client.getMessages.bind(client)
@@ -457,7 +491,7 @@ describe('a history-replaced while a read is out', () => {
     await stale
 
     expect(window().messages).toEqual([])
-    expect(window().hasOlder).toBe(false)
+    expect([window().hasOlder, window().hasNewer]).toEqual([false, false])
   })
 })
 

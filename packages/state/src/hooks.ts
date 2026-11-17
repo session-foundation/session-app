@@ -146,6 +146,10 @@ export interface Transcript {
   fetchingOlder: boolean
   /** The last read of the page before the window failed: `loadOlder` asks again. */
   olderPageFailed: boolean
+  /** The page after the window is being read. */
+  fetchingNewer: boolean
+  /** The last read of the page after the window failed: `loadNewer` asks again. */
+  newerPageFailed: boolean
   loadOlder: () => void
   loadNewer: () => void
   /** Reads the first page again, after it failed. */
@@ -220,6 +224,8 @@ export function useHeldMessages(id: ConversationId | undefined): Transcript {
       firstPageFailed: window.firstPageFailed,
       fetchingOlder: window.fetchingOlder,
       olderPageFailed: window.olderPageFailed,
+      fetchingNewer: window.fetchingNewer,
+      newerPageFailed: window.newerPageFailed,
       loadOlder,
       loadNewer,
       reload,
