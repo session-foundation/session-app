@@ -1,6 +1,6 @@
 import {
   AccountHeader,
-  AttachmentCacheSection,
+  AttachmentCacheFigures,
   KeyboardShortcutsPage,
   RecoveryPasswordPage,
 } from '@session/screens'
@@ -35,12 +35,16 @@ const CATALOG_LONG_SECRET = {
 /** A phone's width, as the settings row's own story draws at. */
 const SECTION_WIDTH = 390
 
+/** Desktop's limit, and a usage in the megabytes a few downloads make. No folder, as the fake's. */
+const CATALOG_CACHE_SETTINGS = { cacheDir: '', usageBytes: 12_582_912, limitBytes: 5_000_000_000 }
+
 /** Made up, never an account's: a standard Account ID, for the avatar's colour and the code. */
 const CATALOG_ACCOUNT_ID = '05b2c7e1d4a8f3906e5c1b7d2a4f8e3c9b6d1a5e7f2c4b8d3a9e6f1c5b7d2a4e8f'
 
 /**
- * The attachment cache's figures against the showcase, whose prepared downloads give it a usage. A
- * right-to-left page sets each size at the leading edge, still number first.
+ * The attachment cache's figures, fixed: the showcase's usage moves with whatever its transfers
+ * have finished by the time the shot is taken. A right-to-left page sets each size at the leading
+ * edge, still number first.
  *
  * The keyboard shortcuts as a Mac and a PC name them. Right to left, the rows mirror and each key
  * combination keeps its order.
@@ -52,7 +56,7 @@ export const SETTINGS_SCENARIOS: readonly AnyStory[] = [
     width: SECTION_WIDTH,
     sensitive: { rtl: true },
     variants: { resting: {} },
-    render: () => <AttachmentCacheSection />,
+    render: () => <AttachmentCacheFigures settings={CATALOG_CACHE_SETTINGS} />,
   }),
   // The fake's words and seed, never an account's, and the longest a password gets. Both views,
   // since the page cannot be pressed here; at a phone's width, where the Hide row's description
