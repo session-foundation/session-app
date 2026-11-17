@@ -22,8 +22,15 @@ export function PageStatusRow({ state, onRetry, testID }: PageStatusRowProps) {
       </XStack>
     )
   return (
-    <YStack padding="$md" alignItems="center">
-      <Spinner size="small" color="$textSecondary" aria-label={tr('loading')} testID={testID} />
+    // Named on the row: the spinner draws a progress bar of its own that takes no name.
+    <YStack
+      padding="$md"
+      alignItems="center"
+      role="status"
+      aria-label={tr('loading')}
+      testID={testID}
+    >
+      <Spinner size="small" color="$textSecondary" aria-hidden />
     </YStack>
   )
 }
