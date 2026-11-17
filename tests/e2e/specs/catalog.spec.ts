@@ -100,6 +100,8 @@ async function launchCatalog(): Promise<DesktopApp> {
       EXPO_PUBLIC_SESSION_FLAG_COMPONENT_CATALOG: '1',
     },
   })
+  // Which element the resting pointer leaves hovered depends on the pages drawn before.
+  await app.ignorePointer()
   await sizeWindow(app, CAPTURE_WINDOW)
   await app.page.emulateMedia({ reducedMotion: 'reduce' })
   await app.page.waitForFunction(
