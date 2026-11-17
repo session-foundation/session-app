@@ -48,4 +48,10 @@ export interface TranscriptPlatform {
   untouched: () => boolean
   /** How many list heights from its first row count as reaching the start. */
   startViewports: number
+  /**
+   * Whether what is drawn past an end is pinned over the list's edge rather than scrolled with
+   * the rows: native keeps the first row in place, so a row added above it at the top is
+   * scrolled just out of view.
+   */
+  pinsEdges: boolean
 }

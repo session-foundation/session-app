@@ -13,6 +13,7 @@ import {
   type LayoutChangeEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  View,
 } from 'react-native'
 
 import { ROW_FRAMES } from './indexTarget'
@@ -55,8 +56,8 @@ export interface TranscriptListProps<T> extends RovingRowsProps {
   handle?: Ref<TranscriptListHandle> | undefined
   /**
    * The first row is in reach (two list heights on native, half of one on the web), or the rows do
-   * not fill the list: once per content height, so a page that arrives and still leaves the start
-   * in reach asks again.
+   * not fill the list: once per first row, so a page that arrives and still leaves the start in
+   * reach asks again, and again once the reader leaves the start and comes back.
    */
   onStartReached?: (() => void) | undefined
   /** Whether the end is more than one list's height away, said when that changes. */
@@ -67,9 +68,13 @@ export interface TranscriptListProps<T> extends RovingRowsProps {
   onAtEnd?: (() => void) | undefined
   /** The keys of the rows drawn inside the viewport, each time that set changes. */
   onRowsOnScreen?: ((keys: ReadonlySet<string>) => void) | undefined
-  /** Drawn above the first row, scrolled with the rows: what is happening past the start. */
+  /**
+   * What is happening past the start. Drawn above the first row on the web; on native, pinned over
+   * the list's top edge while the start is in reach, since a list that keeps its first row in place
+   * would scroll a row added above it at the top just out of view.
+   */
   header?: React.JSX.Element | undefined
-  /** Drawn below the last row, scrolled with the rows: what is happening past the end. */
+  /** What is happening past the end: drawn and pinned as `header` is, at the bottom. */
   footer?: React.JSX.Element | undefined
 }
 
@@ -96,6 +101,8 @@ const VIEWABILITY = { itemVisiblePercentThreshold: 1 } as const
 
 const FILLS = { flex: 1 } as const
 const HIDDEN = { flex: 1, opacity: 0 } as const
+const PINNED_TOP = { position: 'absolute', top: 0, left: 0, right: 0 } as const
+const PINNED_BOTTOM = { position: 'absolute', bottom: 0, left: 0, right: 0 } as const
 
 /**
  * A conversation's messages, a page at a time: opens on its last row and follows its end as rows
@@ -135,7 +142,13 @@ export function TranscriptList<T>({
   })
   const atEnd = useRef(true)
   const far = useRef(false)
-  const startAskedAtPx = useRef(-1)
+  // Whether a pinned header is drawn, as state that changes only when the start comes in reach.
+  const startInReach = useRef(false)
+  const [showsStart, setShowsStart] = useState(false)
+  // The end is in reach while it is not far: `far` starts false, so this starts true.
+  const [showsEnd, setShowsEnd] = useState(true)
+  /** The first row when the page before was last asked for: undefined to ask afresh. */
+  const startAskedAt = useRef<string | undefined>(undefined)
   // On its way to the end, by `scrollToEnd`: an animated scroll reports every offset it passes,
   // none of them the end, and the rows drawn as it nears change where the end is.
   const seekingEnd = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -254,6 +267,7 @@ export function TranscriptList<T>({
     const isFar = contentPx - offsetPx - viewportPx > viewportPx
     if (isFar !== far.current) {
       far.current = isFar
+      setShowsEnd(!isFar)
       latest.current.onFarFromEnd?.(isFar)
     }
     // Following the end, the offset is reckoned from the height, so it is never out of date.
@@ -261,10 +275,17 @@ export function TranscriptList<T>({
       ? offsetPx <= viewportPx * here.startViewports
       : nearStart(scroll.current, here.startViewports)
     if (atStart === null) return
+    if (atStart !== startInReach.current) {
+      startInReach.current = atStart
+      setShowsStart(atStart)
+    }
+    // Asked once per first row: a page that lands brings a new one. A height alone is no reason,
+    // as the row past the start that says a page failed changes it too, which asked in a loop.
+    const first = latest.current.keys[0]
     if (!atStart) {
-      // Coming back to the start asks again: a page that failed left the height as it was.
-      startAskedAtPx.current = -1
-    } else if (startAskedAtPx.current !== contentPx) {
+      // Coming back to the start asks again, which is how a reader retries without Retry.
+      startAskedAt.current = undefined
+    } else if (first !== undefined && startAskedAt.current !== first) {
       // Native shows rows added above a list at its end as a jump there and back. A list that
       // opened full waits for the reader to move it before it asks for more.
       if (atEnd.current && !readerMoved.current && here.untouched() && contentPx > viewportPx)
@@ -273,7 +294,7 @@ export function TranscriptList<T>({
       // Just put on a row: rows added above it now are not held in place on Android, and the
       // landing slides away. The reader's next scroll asks.
       if (landing.current !== undefined) return
-      startAskedAtPx.current = contentPx
+      startAskedAt.current = first
       latest.current.onStartReached?.()
     }
   }, [])
@@ -428,7 +449,8 @@ export function TranscriptList<T>({
     [],
   )
 
-  return withFocus(
+  const pinned = platform.pinsEdges
+  const listElement = (
     <FlatList
       style={placed ? FILLS : HIDDEN}
       ref={attach}
@@ -440,8 +462,8 @@ export function TranscriptList<T>({
       onScrollToIndexFailed={rows.onScrollToIndexFailed}
       onViewableItemsChanged={onViewableItemsChanged}
       viewabilityConfig={VIEWABILITY}
-      ListHeaderComponent={header}
-      ListFooterComponent={footer}
+      ListHeaderComponent={pinned ? undefined : header}
+      ListFooterComponent={pinned ? undefined : footer}
       data={data}
       renderItem={renderRow}
       keyExtractor={keyExtractor}
@@ -451,6 +473,25 @@ export function TranscriptList<T>({
       keyboardDismissMode="on-drag"
       {...(testID === undefined ? {} : { testID })}
       {...(onEndReached === undefined ? {} : { onEndReached, onEndReachedThreshold: 0.5 })}
-    />,
+    />
+  )
+  return withFocus(
+    pinned && (header !== undefined || footer !== undefined) ? (
+      <View style={FILLS}>
+        {listElement}
+        {showsStart && header !== undefined ? (
+          <View style={PINNED_TOP} pointerEvents="box-none">
+            {header}
+          </View>
+        ) : null}
+        {showsEnd && footer !== undefined ? (
+          <View style={PINNED_BOTTOM} pointerEvents="box-none">
+            {footer}
+          </View>
+        ) : null}
+      </View>
+    ) : (
+      listElement
+    ),
   )
 }

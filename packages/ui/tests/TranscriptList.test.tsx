@@ -59,19 +59,24 @@ describe('TranscriptList', () => {
     expect(document.querySelectorAll('[data-testid^="message-row-"]').length).toBeLessThan(200)
   })
 
-  it('asks for the page before its start once per height, and again on coming back to it', async () => {
+  it('asks for the page before its start once per first row, and again on coming back to it', async () => {
     const onStartReached = vi.fn()
-    renderInUI(<Paged data={paged(12)} onStartReached={onStartReached} />)
+    const { rerender } = renderInUI(<Paged data={paged(12)} onStartReached={onStartReached} />)
     await scrollTo(0, 2000)
     await scrollTo(10, 2000)
     expect(onStartReached).toHaveBeenCalledTimes(1)
 
-    // The page never arrived, so the height is what it was: leaving and returning asks again.
-    await scrollTo(900, 2000)
-    await scrollTo(0, 2000)
+    // What is drawn past the start grows, as Retry does where a spinner was: no page arrived.
+    await scrollTo(0, 2060)
+    expect(onStartReached).toHaveBeenCalledTimes(1)
+
+    // Leaving the start and coming back asks again.
+    await scrollTo(900, 2060)
+    await scrollTo(0, 2060)
     expect(onStartReached).toHaveBeenCalledTimes(2)
 
-    // A page that did arrive is a new height to ask from.
+    // A page that did arrive is a new first row to ask from.
+    rerender(<Paged data={[{ id: 'older' }, ...paged(12)]} onStartReached={onStartReached} />)
     await scrollTo(0, 3000)
     expect(onStartReached).toHaveBeenCalledTimes(3)
 

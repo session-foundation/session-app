@@ -18,6 +18,7 @@ vi.mock('#src/transcriptPlatform', () => ({
     readerScrolled: () => false,
     untouched: () => true,
     startViewports: 2,
+    pinsEdges: true,
   }),
 }))
 
@@ -151,6 +152,33 @@ describe('TranscriptList, sent to its end', () => {
 
     const moves = scroll.mock.calls.map(([to]) => to as { behavior: string })
     expect(moves.map((to) => to.behavior)).toEqual(['smooth'])
+    await wait(150)
+  })
+})
+
+describe('TranscriptList, with something to say past its start', () => {
+  it('pins it over the top edge while the start is in reach, outside the scrolled rows', async () => {
+    renderInUI(
+      <TranscriptList
+        data={paged(15)}
+        keyExtractor={(item) => item.id}
+        testID={LIST}
+        header={<Text testID="past-start">loading</Text>}
+        renderItem={(item, index) => <Text testID={ROW(index)}>{item.id}</Text>}
+      />,
+    )
+    await scrollTo(1600, 2000)
+    await wait(AFTER_RESIZE_MS)
+    expect(document.querySelector('[data-testid="past-start"]')).toBeNull()
+
+    // Within two list heights of the start.
+    await scrollTo(600, 2000)
+    const pinned = document.querySelector('[data-testid="past-start"]')
+    expect(pinned).not.toBeNull()
+    expect(byId(LIST).contains(pinned)).toBe(false)
+
+    await scrollTo(1500, 2000)
+    expect(document.querySelector('[data-testid="past-start"]')).toBeNull()
     await wait(150)
   })
 })

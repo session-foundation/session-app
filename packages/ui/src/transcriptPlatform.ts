@@ -101,5 +101,6 @@ export function useTranscriptPlatform({
     readerScrolled: () => true,
     untouched: () => false,
     startViewports: START_VIEWPORTS,
+    pinsEdges: false,
   }
 }
