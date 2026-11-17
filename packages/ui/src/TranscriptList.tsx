@@ -119,7 +119,7 @@ export function TranscriptList<T>({
   })
   const atEnd = useRef(true)
   const far = useRef(false)
-  // Whether a pinned header is drawn: state, changed only when the start comes into or out of reach.
+  // Whether a pinned header is drawn, as state that changes only when the start comes in reach.
   const startInReach = useRef(false)
   const [showsStart, setShowsStart] = useState(false)
   /** The first row when the page before was last asked for: undefined to ask afresh. */

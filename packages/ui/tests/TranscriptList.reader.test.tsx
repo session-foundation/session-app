@@ -173,7 +173,8 @@ describe('TranscriptList, with something to say past its start', () => {
 
     // Within two list heights of the start.
     await scrollTo(600, 2000)
-    const pinned = byId('past-start')
+    const pinned = document.querySelector('[data-testid="past-start"]')
+    expect(pinned).not.toBeNull()
     expect(byId(LIST).contains(pinned)).toBe(false)
 
     await scrollTo(1500, 2000)
