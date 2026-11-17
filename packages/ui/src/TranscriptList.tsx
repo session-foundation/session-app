@@ -22,7 +22,10 @@ import { useReducedMotion } from './useReducedMotion'
 
 /** What a screen moves a transcript by. */
 export interface TranscriptListHandle {
-  /** To the last row, where the list then stays. `animated` is dropped for reduced motion. */
+  /**
+   * To the last row, where the list then stays. `animated` is dropped for reduced motion, and from
+   * more than two list heights away the list first jumps to one list height from the end.
+   */
   scrollToEnd: (options?: { animated?: boolean }) => void
 }
 
@@ -40,12 +43,20 @@ export interface TranscriptListProps<T> extends RovingRowsProps {
   onStartReached?: (() => void) | undefined
   /** Whether the end is more than one list's height away, said when that changes. */
   onFarFromEnd?: ((far: boolean) => void) | undefined
+  /** Drawn above the first row, scrolled with the rows: what is happening past the start. */
+  header?: React.JSX.Element | undefined
 }
 
 /** How close to its end a list still counts as at it, and follows content that grows. */
 const AT_END_SLACK_PX = 8
 /** How long a scroll to the end is given to get there before the list stops holding to it. */
 const SEEK_END_MS = 1000
+/**
+ * How many list heights from its end a scroll there is animated all the way. Further, the rows on
+ * the way have not been measured, and their real heights keep moving the end an animated scroll
+ * is heading for: legacy mobile jumped close first too.
+ */
+const ANIMATED_END_VIEWPORTS = 2
 /**
  * How long after the content or the list changed size a scroll is taken for the list's own: one
  * that keeps the place as rows change above, or follows the end. Any other is the reader's, a
@@ -72,6 +83,7 @@ export function TranscriptList<T>({
   handle,
   onStartReached,
   onFarFromEnd,
+  header,
 }: TranscriptListProps<T>) {
   const { focus, renderRow, withFocus } = useRovingRows({
     rovingFocus,
@@ -243,7 +255,11 @@ export function TranscriptList<T>({
         seekingEnd.current = setTimeout(() => {
           seekingEnd.current = undefined
         }, SEEK_END_MS)
-        toEnd(animated && !reducedMotion)
+        const smooth = animated && !reducedMotion
+        const { offsetPx, viewportPx, contentPx } = scroll.current
+        if (smooth && contentPx - offsetPx - viewportPx > viewportPx * ANIMATED_END_VIEWPORTS)
+          list.current?.scrollToOffset({ offset: contentPx - 2 * viewportPx, animated: false })
+        toEnd(smooth)
       },
     }),
     [reducedMotion, toEnd],
@@ -265,6 +281,7 @@ export function TranscriptList<T>({
       onContentSizeChange={onContentSizeChange}
       onLayout={onLayout}
       {...platform.listProps}
+      ListHeaderComponent={header}
       data={data}
       renderItem={renderRow}
       keyExtractor={keyExtractor}

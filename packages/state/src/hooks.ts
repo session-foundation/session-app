@@ -134,7 +134,15 @@ export interface Transcript {
   /** Whether history goes on past the window's oldest and newest messages. */
   hasOlder: boolean
   hasNewer: boolean
+  /** The last read of the first page failed, and nothing will ask for it again until `reload`. */
+  firstPageFailed: boolean
+  /** The page before the window is being read. */
+  fetchingOlder: boolean
+  /** The last read of the page before the window failed: `loadOlder` asks again. */
+  olderPageFailed: boolean
   loadOlder: () => void
+  /** Reads the first page again, after it failed. */
+  reload: () => void
 }
 
 /**
@@ -151,9 +159,11 @@ export function useMessages(id: ConversationId | undefined): Transcript {
 
   useEffect(() => {
     if (id === undefined) return
-    // Also covers history-replaced, which drops the window and leaves ready false.
-    if (!window.ready && !window.fetching) void store.actions.loadHistory(id)
-  }, [id, window.ready, window.fetching, store])
+    // Also covers history-replaced, which drops the window and leaves ready false. A failed read
+    // waits for `reload`, or this would ask again the moment it failed.
+    if (!window.ready && !window.fetching && !window.firstPageFailed)
+      void store.actions.loadHistory(id)
+  }, [id, window.ready, window.fetching, window.firstPageFailed, store])
 
   // Dropped when this stops showing `id`, and reloaded on the way back.
   //
@@ -170,6 +180,9 @@ export function useMessages(id: ConversationId | undefined): Transcript {
   const loadOlder = useCallback(() => {
     if (id !== undefined) void store.actions.loadOlder(id)
   }, [id, store])
+  const reload = useCallback(() => {
+    if (id !== undefined) void store.actions.loadHistory(id)
+  }, [id, store])
 
   return useMemo(
     () => ({
@@ -177,9 +190,13 @@ export function useMessages(id: ConversationId | undefined): Transcript {
       ready: window.ready,
       hasOlder: window.hasOlder,
       hasNewer: window.hasNewer,
+      firstPageFailed: window.firstPageFailed,
+      fetchingOlder: window.fetchingOlder,
+      olderPageFailed: window.olderPageFailed,
       loadOlder,
+      reload,
     }),
-    [window, loadOlder],
+    [window, loadOlder, reload],
   )
 }
 

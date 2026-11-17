@@ -41,6 +41,8 @@ export function useTranscriptPlatform({
   return {
     listProps: {
       initialNumToRender: firstPassRows,
+      // Neither legacy mobile client draws one, and on a paged list it jumps as each page lands.
+      showsVerticalScrollIndicator: false,
       maintainVisibleContentPosition: KEEPS_PLACE,
       onScrollBeginDrag: onTouchBegin,
       onMomentumScrollBegin: onTouchBegin,

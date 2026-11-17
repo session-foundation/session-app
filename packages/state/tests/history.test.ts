@@ -101,18 +101,66 @@ describe('a window on a long history', () => {
 })
 
 describe('a page read that fails', () => {
-  it('leaves the window free to ask for that page again', async () => {
+  it('says the older page failed, and leaves the window free to ask for it again', async () => {
     const { store, client, bob, window, bodies } = await longHistory()
     await store.actions.loadHistory(bob)
     const read = client.getMessages.bind(client)
     client.getMessages = () => Promise.reject(new Error('the database is busy'))
 
-    await expect(store.actions.loadOlder(bob)).rejects.toThrow('busy')
-    expect(window().fetchingOlder).toBe(false)
+    await expect(store.actions.loadOlder(bob)).resolves.toBeUndefined()
+    expect([window().fetchingOlder, window().olderPageFailed]).toEqual([false, true])
 
     client.getMessages = read
     await store.actions.loadOlder(bob)
     expect(bodies()).toEqual(run(55, 99))
+    expect(window().olderPageFailed).toBe(false)
+  })
+
+  it('says the first page failed, rather than saying it is still being read', async () => {
+    const { store, client, bob, window, bodies } = await longHistory()
+    const read = client.getMessages.bind(client)
+    client.getMessages = () => Promise.reject(new Error('the database is busy'))
+
+    await expect(store.actions.loadHistory(bob)).resolves.toBeUndefined()
+    expect([window().ready, window().fetching, window().firstPageFailed]).toEqual([
+      false,
+      false,
+      true,
+    ])
+
+    client.getMessages = read
+    await store.actions.loadHistory(bob)
+    expect(bodies()).toEqual(run(85, 99))
+    expect(window().firstPageFailed).toBe(false)
+  })
+})
+
+describe('a history-replaced while a read is out', () => {
+  it.each([
+    ['the first page', (f: Fixture) => f.store.actions.loadHistory(f.bob)],
+    ['a page older', (f: Fixture) => f.store.actions.loadOlder(f.bob)],
+  ])('drops %s, read before the messages it holds were deleted', async (_read, reads) => {
+    const fixture = await longHistory()
+    const { store, world, client, bob, window } = fixture
+    await store.actions.loadHistory(bob)
+    if (_read === 'the first page') store.actions.forgetHistory(bob)
+    // Read at once, answered when released: the page predates what happens in between.
+    const held: Array<() => void> = []
+    const read = client.getMessages.bind(client)
+    client.getMessages = (...args): Promise<MessagePage> => {
+      const page = read(...args)
+      return new Promise((resolve) => held.push(() => resolve(page)))
+    }
+    const stale = reads(fixture)
+
+    world.account('Alice').clearHistory(bob)
+    client.getMessages = read
+    await store.actions.loadHistory(bob)
+    held[0]?.()
+    await stale
+
+    expect(window().messages).toEqual([])
+    expect(window().hasOlder).toBe(false)
   })
 })
 

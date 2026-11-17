@@ -3,6 +3,7 @@ import type { AnyStory } from '@session/ui/catalog'
 import { COMPOSER_SCENARIOS } from './composer'
 import { HEADER_SCENARIOS } from './header'
 import { MESSAGE_SCENARIOS } from './messages'
+import { PAGE_STATUS_SCENARIOS } from './pageStatus'
 import { RAIL_SCENARIOS } from './rail'
 import { SETTINGS_SCENARIOS } from './settings'
 import { SHEET_SCENARIOS } from './sheet'
@@ -19,4 +20,5 @@ export const SCENARIOS: readonly AnyStory[] = [
   ...SHEET_SCENARIOS,
   ...SETTINGS_SCENARIOS,
   ...STARTUP_FAILED_SCENARIOS,
+  ...PAGE_STATUS_SCENARIOS,
 ]

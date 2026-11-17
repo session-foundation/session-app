@@ -21,6 +21,7 @@ export interface TranscriptPlatform {
   listProps: { initialNumToRender: number } & Pick<
     ScrollViewProps,
     | 'maintainVisibleContentPosition'
+    | 'showsVerticalScrollIndicator'
     | 'onScrollBeginDrag'
     | 'onMomentumScrollBegin'
     | 'onScrollEndDrag'

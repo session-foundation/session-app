@@ -17,6 +17,8 @@ export const PENDING_COPY = {
   attachmentCacheUsage: 'Space used',
   attachmentCacheLimit: 'Limit',
   attachmentCacheNoLimit: 'No limit',
+  /** Beside Retry, where a conversation's messages, or a page of them, could not be read. */
+  messagesLoadFailed: 'Unable to load messages',
   /**
    * A function, because this one takes a count.
    *

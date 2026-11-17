@@ -40,6 +40,7 @@ import { BackButton } from './BackButton'
 import { ConversationHeader } from './ConversationHeader'
 import { conversationAvatarName, conversationTitle } from './conversationTitle'
 import { DateHeaderRow } from './DateHeaderRow'
+import { PageStatus, PageStatusRow } from './PageStatus'
 import { showsDateHeader } from './dateHeaders'
 import { authorName, canReply, namer, quotedMessage, replyingToHeading } from './quotedReply'
 import { TranscriptWidth } from './TranscriptWidth'
@@ -58,7 +59,7 @@ function Transcript({
   list: Ref<TranscriptListHandle>
   onFarFromEnd: (far: boolean) => void
 }) {
-  const { messages, loadOlder } = transcript
+  const { messages, loadOlder, fetchingOlder, olderPageFailed } = transcript
   const { openMenu } = useConversationUi()
   // A row's key is its message's id; see `messageKey`.
   const openRowMenu = useCallback(
@@ -78,6 +79,15 @@ function Transcript({
       handle={list}
       onStartReached={loadOlder}
       onFarFromEnd={onFarFromEnd}
+      header={
+        <PageStatus
+          fetching={fetchingOlder}
+          failed={olderPageFailed}
+          onRetry={loadOlder}
+          loadingTestID={ELEMENT.conversation.olderPageLoading}
+          retryTestID={ELEMENT.conversation.olderPageRetry}
+        />
+      }
       // TODO: enter on the oldest unread message once the bridge carries libsession's
       // `first_unread`; a conversation's unread count is all it gives today.
       rovingFocus="last"
@@ -97,8 +107,8 @@ function Conversation({ conversationId }: { conversationId: ConversationId }) {
   const conversation = useConversation(conversationId)
   const account = useAccount()
   const transcript = useMessages(conversationId)
-  const { messages, ready } = transcript
-  const showLoading = useShowAfter(!ready)
+  const { messages, ready, firstPageFailed, reload } = transcript
+  const showLoading = useShowAfter(!ready && !firstPageFailed)
   const actions = useSessionActions()
   const list = useRef<TranscriptListHandle | null>(null)
   const [farFromEnd, setFarFromEnd] = useState(false)
@@ -238,7 +248,15 @@ function Conversation({ conversationId }: { conversationId: ConversationId }) {
             </TranscriptWidth>
           ) : (
             <YStack flex={1} padding="$md" alignItems="center" justifyContent="center">
-              {showLoading ? <Text tone="secondary">{tr('loading')}</Text> : null}
+              {firstPageFailed ? (
+                <PageStatusRow
+                  state="failed"
+                  onRetry={reload}
+                  testID={ELEMENT.conversation.firstPageRetry}
+                />
+              ) : showLoading ? (
+                <Text tone="secondary">{tr('loading')}</Text>
+              ) : null}
             </YStack>
           )}
 
