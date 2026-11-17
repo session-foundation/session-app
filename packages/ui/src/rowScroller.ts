@@ -9,19 +9,36 @@ interface WebBox {
 
 interface WebScroller extends WebBox {
   clientHeight: number
+  scrollBy: (options: { top: number; behavior: 'smooth' | 'auto' }) => void
   addEventListener: (type: 'scrollend', listener: () => void, options: { once: true }) => void
   removeEventListener: (type: 'scrollend', listener: () => void) => void
 }
 
 interface WebRow extends WebBox {
   offsetHeight: number
-  scrollIntoView: (options: { block: 'start' | 'center'; behavior?: 'smooth' | 'auto' }) => void
 }
 
 const scrollerOf = (list: unknown): WebScroller | null =>
   (list as { getScrollableNode?: () => WebScroller | null } | null)?.getScrollableNode?.() ?? null
 
 const noop = () => undefined
+
+/**
+ * Brings a row to the middle of the list, or its top to the list's top. Moves the list's own
+ * scroller alone: `scrollIntoView` scrolls every ancestor that can, the page around the list too.
+ */
+function bringIn(
+  scroller: WebScroller,
+  node: WebRow,
+  block: 'start' | 'center',
+  behavior: 'smooth' | 'auto',
+): void {
+  const row = node.getBoundingClientRect()
+  const box = scroller.getBoundingClientRect()
+  const top =
+    block === 'start' ? row.top - box.top : (row.top + row.bottom) / 2 - (box.top + box.bottom) / 2
+  scroller.scrollBy({ top, behavior })
+}
 
 /**
  * The web scrolls to a row by the row's own element: rows just handed to the list have no
@@ -65,7 +82,7 @@ export function useRowScroller({
         const awayPx = Math.abs((row.top + row.bottom) / 2 - (box.top + box.bottom) / 2)
         const smooth = animated && awayPx <= box.bottom - box.top
         if (seen) {
-          node.scrollIntoView({ block, behavior: smooth ? 'smooth' : 'auto' })
+          bringIn(scroller, node, block, smooth ? 'smooth' : 'auto')
           return
         }
         if (smooth && onArrived !== undefined) {
@@ -80,10 +97,10 @@ export function useRowScroller({
           scroller.addEventListener('scrollend', arrive, { once: true })
           setTimeout(arrive, ANIMATED_SCROLL_MS)
         }
-        node.scrollIntoView({ block, behavior: smooth ? 'smooth' : 'auto' })
+        bringIn(scroller, node, block, smooth ? 'smooth' : 'auto')
         if (!smooth) {
           placeAgain.current = () => {
-            node.scrollIntoView({ block })
+            bringIn(scroller, node, block, 'auto')
           }
           if (onArrived !== undefined) requestAnimationFrame(onArrived)
         }

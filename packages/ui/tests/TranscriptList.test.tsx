@@ -102,13 +102,17 @@ describe('TranscriptList', () => {
   })
 
   describe('landing on a row', () => {
-    // jsdom lays nothing out and has no scrollIntoView: the landing's scroll is the test's.
+    // jsdom lays nothing out and scrolls nothing: the landing's scroll is the test's.
+    const scrollBy = vi.fn()
     const scrollIntoView = vi.fn()
     beforeEach(() => {
+      Element.prototype.scrollBy = scrollBy
       Element.prototype.scrollIntoView = scrollIntoView
     })
     afterEach(() => {
+      Reflect.deleteProperty(Element.prototype, 'scrollBy')
       Reflect.deleteProperty(Element.prototype, 'scrollIntoView')
+      scrollBy.mockReset()
       scrollIntoView.mockReset()
     })
 
@@ -134,17 +138,19 @@ describe('TranscriptList', () => {
       )
     }
 
-    it('scrolls to the row by its own element, and says nothing of a key it does not hold', () => {
+    it('scrolls its own scroller to the row, never the page around it', () => {
       const handle = createRef<TranscriptListHandle>()
       renderInUI(<Landed handle={handle} />)
 
       handle.current?.scrollToKey('m3')
-      expect(scrollIntoView).toHaveBeenCalledWith({ block: 'center', behavior: 'auto' })
-      expect(scrollIntoView.mock.contexts[0]).toBe(byId(ROW(3)).parentElement)
-
-      scrollIntoView.mockClear()
-      handle.current?.scrollToKey('m99')
+      expect(scrollBy).toHaveBeenCalledTimes(1)
+      expect(scrollBy.mock.contexts[0]).toBe(byId(LIST))
+      // scrollIntoView would move every scrolling ancestor, a catalog page or a pane included.
       expect(scrollIntoView).not.toHaveBeenCalled()
+
+      scrollBy.mockClear()
+      handle.current?.scrollToKey('m99')
+      expect(scrollBy).not.toHaveBeenCalled()
       expect(handle.current?.isOnScreen('m99')).toBe(false)
     })
 
