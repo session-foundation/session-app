@@ -67,7 +67,11 @@ export interface TranscriptListProps<T> extends RovingRowsProps {
   onStartReached?: (() => void) | undefined
   /** Whether the end is more than one list's height away, said when that changes. */
   onFarFromEnd?: ((far: boolean) => void) | undefined
-  /** Within half a list's height of the last row. */
+  /**
+   * The reader's own scroll brought the last row within half a list's height: once per last row,
+   * so a page that lands asks again only at the reader's next scroll, and never while a landing
+   * is being placed or a scroll to the end is under way.
+   */
   onEndReached?: (() => void) | undefined
   /**
    * Shown only once at its end rather than on its first layout, for a list drawn afresh where
@@ -108,6 +112,8 @@ const ANIMATED_END_VIEWPORTS = 2
  * finger's, a screen reader's or a keyboard's.
  */
 const OWN_SCROLL_MS = 300
+/** How many list heights from the last row the page after is asked for. */
+const END_VIEWPORTS = 0.5
 /** How long a list waits, hidden, for the scroll to its end to report before it shows anyway. */
 const PLACE_AT_END_MS = 300
 
@@ -171,6 +177,8 @@ export function TranscriptList<T>({
   const surface = usePaneSurface()
   /** The first row when the page before was last asked for: undefined to ask afresh. */
   const startAskedAt = useRef<string | undefined>(undefined)
+  /** The last row when the page after was last asked for: undefined to ask afresh. */
+  const endAskedAt = useRef<string | undefined>(undefined)
   // On its way to the end, by `scrollToEnd`: an animated scroll reports every offset it passes,
   // none of them the end, and the rows drawn as it nears change where the end is.
   const seekingEnd = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -225,9 +233,13 @@ export function TranscriptList<T>({
     rowHeights: rowHeights.current,
     onScreen,
   })
+  // Set below, once what it reads is declared: the reader's input checks the end as well.
+  const askEndIfNear = useRef<() => void>(() => undefined)
   const onReaderTouch = useCallback(() => {
     clearTimeout(landing.current)
     landing.current = undefined
+    // A reader resting at the last row scrolls nothing and reports no scroll: their input does.
+    askEndIfNear.current()
   }, [])
   const platform = useTranscriptPlatform({
     list,
@@ -283,6 +295,7 @@ export function TranscriptList<T>({
   const latest = useRef({
     keys,
     onStartReached,
+    onEndReached,
     onFarFromEnd,
     onAtEnd,
     onRowsOnScreen,
@@ -293,7 +306,16 @@ export function TranscriptList<T>({
   const keysBefore = useRef(keys)
   useLayoutEffect(() => {
     if (latest.current.keys !== keys) keysBefore.current = latest.current.keys
-    latest.current = { keys, onStartReached, onFarFromEnd, onAtEnd, onRowsOnScreen, platform, rows }
+    latest.current = {
+      keys,
+      onStartReached,
+      onEndReached,
+      onFarFromEnd,
+      onAtEnd,
+      onRowsOnScreen,
+      platform,
+      rows,
+    }
   })
 
   /** Reports what the scroller's position means, from wherever it was learnt. */
@@ -340,6 +362,22 @@ export function TranscriptList<T>({
     }
   }, [])
 
+  askEndIfNear.current = () => {
+    if (landing.current !== undefined || seekingEnd.current !== undefined) return
+    const { offsetPx, viewportPx, contentPx } = scroll.current
+    // Rows with no height yet are not laid out: nothing is near the end of them.
+    const nearEnd =
+      viewportPx > 0 &&
+      contentPx > 0 &&
+      contentPx - offsetPx - viewportPx <= viewportPx * END_VIEWPORTS
+    const last = latest.current.keys[latest.current.keys.length - 1]
+    if (!nearEnd) endAskedAt.current = undefined
+    else if (last !== undefined && endAskedAt.current !== last) {
+      endAskedAt.current = last
+      latest.current.onEndReached?.()
+    }
+  }
+
   const followEnd = useCallback(() => {
     if (atEnd.current) toEnd(false)
   }, [toEnd])
@@ -385,6 +423,8 @@ export function TranscriptList<T>({
       // The list moved itself to keep its place as rows changed above: at the end, that is not
       // the reader leaving it.
       else followEnd()
+      // Not the list's own: following its end, keeping its place, landing, or seeking the end.
+      if (Date.now() - resizedAtMs.current > OWN_SCROLL_MS) askEndIfNear.current()
       report()
     },
     [followEnd, place, report],
@@ -526,7 +566,6 @@ export function TranscriptList<T>({
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
       {...(testID === undefined ? {} : { testID })}
-      {...(onEndReached === undefined ? {} : { onEndReached, onEndReachedThreshold: 0.5 })}
     />
   )
   return withFocus(

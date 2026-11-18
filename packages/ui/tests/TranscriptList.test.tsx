@@ -18,6 +18,11 @@ interface Item {
 
 const key = (item: Item) => item.id
 
+/** Past the moment after a resize in which a scroll is taken for the list's own. */
+const AFTER_RESIZE_MS = 400
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
 describe('TranscriptList', () => {
   const LIST = ELEMENT.conversation.screen
   /** Past the 100 ms after its last event at which react-native-web calls a scroll ended. */
@@ -104,6 +109,88 @@ describe('TranscriptList', () => {
     expect(byId(LIST).scrollTop).toBe(900)
 
     await new Promise((resolve) => setTimeout(resolve, SCROLL_END_MS))
+  })
+
+  describe('asking for the page after its end', () => {
+    function Newer({ data, onEndReached }: { data: readonly Item[]; onEndReached: () => void }) {
+      return (
+        <TranscriptList
+          data={data}
+          keyExtractor={key}
+          onEndReached={onEndReached}
+          testID={LIST}
+          renderItem={(item, index) => <Text testID={ROW(index)}>{item.id}</Text>}
+        />
+      )
+    }
+
+    it('asks once per last row, on the reader’s scroll, and again once a page has landed', async () => {
+      const onEndReached = vi.fn()
+      const { rerender } = renderInUI(<Newer data={paged(30)} onEndReached={onEndReached} />)
+      await scrollTo(800, 2000)
+      await wait(AFTER_RESIZE_MS)
+      expect(onEndReached).not.toHaveBeenCalled()
+
+      // Within half a list height of the last row.
+      await scrollTo(1450, 2000)
+      expect(onEndReached).toHaveBeenCalledTimes(1)
+      // Nearer still, and rows growing under it, are not a new page.
+      await scrollTo(1550, 2000)
+      await scrollTo(1550, 2100)
+      await wait(AFTER_RESIZE_MS)
+      expect(onEndReached).toHaveBeenCalledTimes(1)
+
+      // A page that lands asks again only at the reader's next scroll near its end.
+      rerender(<Newer data={[...paged(30), { id: 'newer' }]} onEndReached={onEndReached} />)
+      await scrollTo(1550, 2200)
+      await wait(AFTER_RESIZE_MS)
+      expect(onEndReached).toHaveBeenCalledTimes(1)
+      await scrollTo(1650, 2200)
+      expect(onEndReached).toHaveBeenCalledTimes(2)
+
+      await new Promise((resolve) => setTimeout(resolve, SCROLL_END_MS))
+    })
+
+    it('asks at the reader’s wheel when they rest at the last row, which scrolls nothing', async () => {
+      const onEndReached = vi.fn()
+      const { rerender } = renderInUI(<Newer data={paged(30)} onEndReached={onEndReached} />)
+      await scrollTo(800, 2000)
+      await wait(AFTER_RESIZE_MS)
+      await scrollTo(1600, 2000)
+      expect(onEndReached).toHaveBeenCalledTimes(1)
+
+      // The page lands with the reader still at the last row: no scroll follows it.
+      rerender(<Newer data={[...paged(30), { id: 'newer' }]} onEndReached={onEndReached} />)
+      fireEvent.wheel(byId(LIST))
+      expect(onEndReached).toHaveBeenCalledTimes(2)
+
+      await new Promise((resolve) => setTimeout(resolve, SCROLL_END_MS))
+    })
+
+    it('does not ask while a landing is being placed', async () => {
+      Element.prototype.scrollBy = vi.fn()
+      const onEndReached = vi.fn()
+      const handle = createRef<TranscriptListHandle>()
+      renderInUI(
+        <TranscriptList
+          data={paged(30)}
+          keyExtractor={key}
+          handle={handle}
+          onEndReached={onEndReached}
+          testID={LIST}
+          renderItem={(item, index) => <Text testID={ROW(index)}>{item.id}</Text>}
+        />,
+      )
+      await scrollTo(800, 2000)
+      await wait(AFTER_RESIZE_MS)
+      handle.current?.scrollToKey('m28')
+      // The rows drawn around the landing leave the scroll at the window's end.
+      await scrollTo(1600, 2000)
+      expect(onEndReached).not.toHaveBeenCalled()
+      Reflect.deleteProperty(Element.prototype, 'scrollBy')
+
+      await new Promise((resolve) => setTimeout(resolve, SCROLL_END_MS))
+    })
   })
 
   describe('landing on a row', () => {
