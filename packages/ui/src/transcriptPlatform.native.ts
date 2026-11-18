@@ -52,7 +52,6 @@ export function useTranscriptPlatform({
     readerScrolled: () => touched.current,
     untouched: () => !everTouched.current,
     startViewports: START_VIEWPORTS,
-    pinsEdges: true,
     beforeStartAsked: () => undefined,
   }
 }
