@@ -267,6 +267,31 @@ function Conversation({ conversationId }: { conversationId: ConversationId }) {
   const list = useRef<TranscriptListHandle | null>(null)
   const highlight = useLanding(transcript, list)
   const [farFromEnd, setFarFromEnd] = useState(false)
+  // Bumped to draw the transcript afresh, as when it opens: every row on the first pass, shown
+  // once at its end. Swapping a whole window under a list that stays mounted, Android's
+  // place-keeping and the list's following of its end pull against each other as rows measure.
+  const [listEpoch, setListEpoch] = useState(0)
+  // The first message of the window the newest page is replacing, while it is read. The new
+  // window is drawn by a new list in the very render it arrives in: a frame of it in the old one
+  // shows its top.
+  const [reloadingFrom, setReloadingFrom] = useState<number | null>(null)
+  const firstHeld = transcript.messages[0]?.id
+  const reloaded = reloadingFrom !== null && firstHeld !== reloadingFrom
+  const listKey = listEpoch + (reloaded ? 1 : 0)
+  // The read is over: set once it answers, so the render that sees it holds what it read.
+  const [reloadAnswered, setReloadAnswered] = useState(false)
+  useEffect(() => {
+    if (reloaded) {
+      // A new list says only what changes, and starts at its end.
+      setFarFromEnd(false)
+      setListEpoch((epoch) => epoch + 1)
+    } else if (reloadAnswered && reloadingFrom !== null) {
+      // The newest page began where the window did: no new list, only the way to its end.
+      list.current?.scrollToEnd({ animated: false })
+    } else return
+    setReloadingFrom(null)
+    setReloadAnswered(false)
+  }, [reloaded, reloadAnswered, reloadingFrom])
   // Held here beside the draft, not in the store: which message this screen is answering is
   // nothing another screen or device shares. As it was when the reply started, for when a jump
   // has taken it out of the window.
@@ -402,11 +427,15 @@ function Conversation({ conversationId }: { conversationId: ConversationId }) {
     }
     // Read in afresh, the newest page is simply where the list is put: nothing to animate from,
     // and the pages above it are dropped rather than scrolled through.
+    setReloadingFrom(transcript.messages[0]?.id ?? null)
+    setReloadAnswered(false)
     actions.showNewest(conversationId, { evenWhenHeld: true }).then(
       () => {
-        list.current?.scrollToEnd({ animated: false })
+        setReloadAnswered(true)
       },
-      () => undefined,
+      () => {
+        setReloadingFrom(null)
+      },
     )
   }
 
@@ -452,6 +481,7 @@ function Conversation({ conversationId }: { conversationId: ConversationId }) {
               <YStack flex={1} position="relative">
                 <QuoteJumpContext.Provider value={followingQuoteOf}>
                   <Transcript
+                    key={listKey}
                     conversationId={conversationId}
                     transcript={transcript}
                     // With animations off, for tests that would race the fade, it is held.
