@@ -19,6 +19,7 @@ vi.mock('#src/transcriptPlatform', () => ({
     untouched: () => true,
     startViewports: 2,
     pinsEdges: true,
+    beforeStartAsked: () => undefined,
   }),
 }))
 

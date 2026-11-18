@@ -199,6 +199,7 @@ export function TranscriptList<T>({
       if (atEnd.current && !readerMoved.current && here.untouched() && contentPx > viewportPx)
         return
       startAskedAt.current = first
+      here.beforeStartAsked()
       latest.current.onStartReached?.()
     }
   }, [])
