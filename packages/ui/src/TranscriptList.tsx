@@ -306,6 +306,7 @@ export function TranscriptList<T>({
       // landing slides away. The reader's next scroll asks.
       if (landing.current !== undefined) return
       startAskedAt.current = first
+      here.beforeStartAsked()
       latest.current.onStartReached?.()
     }
   }, [])

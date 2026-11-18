@@ -69,5 +69,6 @@ export function useTranscriptPlatform({
     untouched: () => !everTouched.current,
     startViewports: START_VIEWPORTS,
     pinsEdges: true,
+    beforeStartAsked: () => undefined,
   }
 }

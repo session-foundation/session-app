@@ -54,4 +54,6 @@ export interface TranscriptPlatform {
    * scrolled just out of view.
    */
   pinsEdges: boolean
+  /** Just before the page above is asked for: what the platform needs to keep the reader's row. */
+  beforeStartAsked: () => void
 }

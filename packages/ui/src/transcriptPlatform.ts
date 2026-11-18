@@ -5,6 +5,7 @@ import type { TranscriptPlatform, TranscriptPlatformInput } from './transcriptPl
 interface WebScroller extends EventTarget {
   scrollTop: number
   scrollHeight: number
+  clientHeight: number
 }
 
 const scrollerOf = (list: unknown): WebScroller | null =>
@@ -101,6 +102,14 @@ export function useTranscriptPlatform({
     readerScrolled: () => true,
     untouched: () => false,
     startViewports: START_VIEWPORTS,
+    // Chromium anchors nothing at offset 0, so the page about to land above a reader resting there
+    // would be shown from its first row, or, with the list's height left as it was, never asked
+    // past. A pixel down, its anchoring keeps the reader's row where it was.
+    beforeStartAsked: () => {
+      const node = scrollerOf(list.current)
+      if (node !== null && node.scrollTop < 1 && node.scrollHeight > node.clientHeight)
+        node.scrollTop = 1
+    },
     pinsEdges: false,
   }
 }
