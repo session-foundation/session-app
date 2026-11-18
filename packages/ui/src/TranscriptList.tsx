@@ -13,6 +13,7 @@ import {
   type LayoutChangeEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  View,
 } from 'react-native'
 
 import { YStack } from 'tamagui'
@@ -73,8 +74,8 @@ export interface TranscriptListProps<T> extends RovingRowsProps {
   /**
    * What is happening past the start. Drawn above the first row on the web; on native, pinned over
    * the list's top edge on the pane's surface while the start is in reach, since a list that keeps
-   * its first row in place would scroll a row added above it at the top just out of view. The list
-   * is padded by its height meanwhile, so the first row can still be scrolled clear of it.
+   * its first row in place would scroll a row added above it at the top just out of view. A spacer
+   * of its height leads the list meanwhile, so the first row can still be scrolled clear of it.
    */
   header?: React.JSX.Element | undefined
   /** What is happening past the end: drawn and pinned as `header` is, at the bottom. */
@@ -462,10 +463,10 @@ export function TranscriptList<T>({
   const pinned = platform.pinsEdges
   const padStartPx = pinned && showsStart && header !== undefined ? headerPx : 0
   const padEndPx = pinned && showsEnd && footer !== undefined ? footerPx : 0
-  const contentPadding = useMemo(
-    () => ({ paddingTop: padStartPx, paddingBottom: padEndPx }),
-    [padStartPx, padEndPx],
-  )
+  // Room for the pinned rows as rows of the list's own, not as padding: a padding change that
+  // lands in the same pass as a page's rows being measured is not kept in place on Android.
+  const startSpacer = useMemo(() => <View style={{ height: padStartPx }} />, [padStartPx])
+  const endSpacer = useMemo(() => <View style={{ height: padEndPx }} />, [padEndPx])
   const listElement = (
     <FlatList
       style={placed ? FILLS : HIDDEN}
@@ -478,9 +479,8 @@ export function TranscriptList<T>({
       onScrollToIndexFailed={rows.onScrollToIndexFailed}
       onViewableItemsChanged={onViewableItemsChanged}
       viewabilityConfig={VIEWABILITY}
-      ListHeaderComponent={pinned ? undefined : header}
-      ListFooterComponent={pinned ? undefined : footer}
-      contentContainerStyle={contentPadding}
+      ListHeaderComponent={pinned ? startSpacer : header}
+      ListFooterComponent={pinned ? endSpacer : footer}
       data={data}
       renderItem={renderRow}
       keyExtractor={keyExtractor}
