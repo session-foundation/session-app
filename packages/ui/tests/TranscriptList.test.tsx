@@ -105,4 +105,26 @@ describe('TranscriptList', () => {
 
     await new Promise((resolve) => setTimeout(resolve, SCROLL_END_MS))
   })
+
+  it('pins what is past its start over the top edge while the start is in reach, outside the rows', async () => {
+    renderInUI(
+      <TranscriptList
+        data={paged(15)}
+        keyExtractor={key}
+        testID={LIST}
+        header={<Text testID="past-start">loading</Text>}
+        renderItem={(item, index) => <Text testID={ROW(index)}>{item.id}</Text>}
+      />,
+    )
+    await scrollTo(1600, 2000)
+    expect(document.querySelector('[data-testid="past-start"]')).toBeNull()
+
+    // Within half a list height of the start.
+    await scrollTo(100, 2000)
+    const pinned = document.querySelector('[data-testid="past-start"]')
+    expect(pinned).not.toBeNull()
+    expect(byId(LIST).contains(pinned)).toBe(false)
+
+    await new Promise((resolve) => setTimeout(resolve, SCROLL_END_MS))
+  })
 })
