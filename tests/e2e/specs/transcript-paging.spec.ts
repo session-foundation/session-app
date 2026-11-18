@@ -68,3 +68,17 @@ test('keeps its place as older pages arrive above, one page per reach of the sta
     await app.close()
   }
 })
+
+test('reaches the first message by a fast wheel, page after page, without stopping at the top @desktop @high-risk', async () => {
+  const app = await launchLongConversation()
+  try {
+    await messageSaying(app, REPLIES.newest).hover()
+    // Faster than a page arrives: the reader is at the top of the window each time one lands.
+    await expect(async () => {
+      for (let wheel = 0; wheel < 5; wheel++) await app.page.mouse.wheel(0, -600)
+      await expect(messageSaying(app, REPLIES.meet)).toBeInViewport({ timeout: 500 })
+    }).toPass({ timeout: 30_000 })
+  } finally {
+    await app.close()
+  }
+})
