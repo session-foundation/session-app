@@ -84,10 +84,10 @@ export interface TranscriptListProps<T> extends RovingRowsProps {
   /** The keys of the rows drawn inside the viewport, each time that set changes. */
   onRowsOnScreen?: ((keys: ReadonlySet<string>) => void) | undefined
   /**
-   * What is happening past the start. Drawn above the first row on the web; on native, pinned over
-   * the list's top edge on the pane's surface while the start is in reach, since a list that keeps
-   * its first row in place would scroll a row added above it at the top just out of view. A spacer
-   * of its height leads the list meanwhile, so the first row can still be scrolled clear of it.
+   * What is happening past the start, pinned over the list's top edge on the pane's surface while
+   * the start is in reach: a list that keeps its first row in place, as native does, would scroll a
+   * row added above it at the top just out of view. A spacer of its height leads the list
+   * meanwhile, so the first row can still be scrolled clear of it.
    */
   header?: React.JSX.Element | undefined
   /** What is happening past the end: drawn and pinned as `header` is, at the bottom. */
@@ -537,9 +537,8 @@ export function TranscriptList<T>({
     [],
   )
 
-  const pinned = platform.pinsEdges
-  const padStartPx = pinned && showsStart && header !== undefined ? headerPx : 0
-  const padEndPx = pinned && showsEnd && footer !== undefined ? footerPx : 0
+  const padStartPx = showsStart && header !== undefined ? headerPx : 0
+  const padEndPx = showsEnd && footer !== undefined ? footerPx : 0
   // Room for the pinned rows as rows of the list's own, not as padding: a padding change that
   // lands in the same pass as a page's rows being measured is not kept in place on Android.
   const startSpacer = useMemo(() => <View style={{ height: padStartPx }} />, [padStartPx])
@@ -556,8 +555,8 @@ export function TranscriptList<T>({
       onScrollToIndexFailed={rows.onScrollToIndexFailed}
       onViewableItemsChanged={onViewableItemsChanged}
       viewabilityConfig={VIEWABILITY}
-      ListHeaderComponent={pinned ? startSpacer : header}
-      ListFooterComponent={pinned ? endSpacer : footer}
+      ListHeaderComponent={startSpacer}
+      ListFooterComponent={endSpacer}
       data={data}
       renderItem={renderRow}
       keyExtractor={keyExtractor}
@@ -569,7 +568,7 @@ export function TranscriptList<T>({
     />
   )
   return withFocus(
-    pinned && (header !== undefined || footer !== undefined) ? (
+    header !== undefined || footer !== undefined ? (
       <YStack flex={1} position="relative">
         {listElement}
         {showsStart && header !== undefined ? (

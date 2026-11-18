@@ -110,6 +110,5 @@ export function useTranscriptPlatform({
       if (node !== null && node.scrollTop < 1 && node.scrollHeight > node.clientHeight)
         node.scrollTop = 1
     },
-    pinsEdges: false,
   }
 }

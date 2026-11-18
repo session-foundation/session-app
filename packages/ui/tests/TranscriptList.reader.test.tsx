@@ -18,7 +18,6 @@ vi.mock('#src/transcriptPlatform', () => ({
     readerScrolled: () => false,
     untouched: () => true,
     startViewports: 2,
-    pinsEdges: true,
     beforeStartAsked: () => undefined,
   }),
 }))
