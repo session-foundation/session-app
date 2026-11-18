@@ -84,6 +84,7 @@ function Transcript({
   held,
   list,
   onFarFromEnd,
+  showsOnceAtEnd,
   onAtEnd,
   onRowsOnScreen,
 }: {
@@ -95,6 +96,8 @@ function Transcript({
   held: boolean
   list: Ref<TranscriptListHandle>
   onFarFromEnd: (far: boolean) => void
+  /** See `TranscriptListProps.showsOnceAtEnd`. */
+  showsOnceAtEnd?: boolean | undefined
   onAtEnd: () => void
   onRowsOnScreen: (keys: ReadonlySet<string>) => void
 }) {
@@ -127,6 +130,7 @@ function Transcript({
       onStartReached={loadOlder}
       onEndReached={loadNewer}
       onFarFromEnd={onFarFromEnd}
+      showsOnceAtEnd={showsOnceAtEnd}
       onAtEnd={onAtEnd}
       onRowsOnScreen={onRowsOnScreen}
       header={
@@ -482,6 +486,8 @@ function Conversation({ conversationId }: { conversationId: ConversationId }) {
                 <QuoteJumpContext.Provider value={followingQuoteOf}>
                   <Transcript
                     key={listKey}
+                    // Drawn afresh in place, with no screen sliding over it.
+                    showsOnceAtEnd={listKey > 0}
                     conversationId={conversationId}
                     transcript={transcript}
                     // With animations off, for tests that would race the fade, it is held.

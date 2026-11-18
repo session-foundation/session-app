@@ -69,6 +69,12 @@ export interface TranscriptListProps<T> extends RovingRowsProps {
   onFarFromEnd?: ((far: boolean) => void) | undefined
   /** Within half a list's height of the last row. */
   onEndReached?: (() => void) | undefined
+  /**
+   * Shown only once at its end rather than on its first layout, for a list drawn afresh where
+   * nothing covers it: on native the scroll to the end lands a frame or more later, and its start
+   * would show meanwhile. A screen that opens slides over that frame, and opens sooner without it.
+   */
+  showsOnceAtEnd?: boolean | undefined
   /** Back at the last row after leaving it, and not by a landing's own placing. */
   onAtEnd?: (() => void) | undefined
   /** The keys of the rows drawn inside the viewport, each time that set changes. */
@@ -102,6 +108,8 @@ const ANIMATED_END_VIEWPORTS = 2
  * finger's, a screen reader's or a keyboard's.
  */
 const OWN_SCROLL_MS = 300
+/** How long a list waits, hidden, for the scroll to its end to report before it shows anyway. */
+const PLACE_AT_END_MS = 300
 
 const VIEWABILITY = { itemVisiblePercentThreshold: 1 } as const
 
@@ -125,6 +133,7 @@ export function TranscriptList<T>({
   onStartReached,
   onFarFromEnd,
   onEndReached,
+  showsOnceAtEnd = false,
   onAtEnd,
   onRowsOnScreen,
   header,
@@ -180,6 +189,24 @@ export function TranscriptList<T>({
   const onPlaced = useCallback(() => {
     setPlaced(true)
   }, [])
+  // Shown once it is at its end, not on its first layout: the scroll to the end lands a frame
+  // later, and a list nothing covers, drawn afresh in place, would show its start for that frame.
+  const placing = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const place = useCallback(() => {
+    clearTimeout(placing.current)
+    setPlaced(true)
+  }, [])
+  const waitsForEnd = useRef(showsOnceAtEnd)
+  const placeAtEnd = useCallback(() => {
+    if (!waitsForEnd.current) {
+      place()
+      return
+    }
+    const { viewportPx, contentPx } = scroll.current
+    if (viewportPx === 0 || contentPx === 0) return
+    if (contentPx - viewportPx <= AT_END_SLACK_PX) place()
+    else placing.current ??= setTimeout(place, PLACE_AT_END_MS)
+  }, [place])
 
   /**
    * To the scroll view's own end. The list's `scrollToEnd` reckons the end from its rows'
@@ -336,6 +363,7 @@ export function TranscriptList<T>({
       }
       const reachesEnd =
         contentSize.height - contentOffset.y - layoutMeasurement.height <= AT_END_SLACK_PX
+      if (reachesEnd) place()
       const byReader =
         latest.current.platform.readerScrolled() || Date.now() - resizedAtMs.current > OWN_SCROLL_MS
       // Heading for the end, a scroll back up is the reader taking over.
@@ -359,7 +387,7 @@ export function TranscriptList<T>({
       else followEnd()
       report()
     },
-    [followEnd, report],
+    [followEnd, place, report],
   )
 
   const onContentSizeChange = useCallback(
@@ -368,10 +396,10 @@ export function TranscriptList<T>({
       scroll.current.contentPx = height
       if (landing.current !== undefined) latest.current.rows.onContentGrew()
       followEnd()
-      setPlaced(true)
+      placeAtEnd()
       report()
     },
-    [followEnd, report],
+    [followEnd, placeAtEnd, report],
   )
 
   const onLayout = useCallback(
@@ -380,10 +408,10 @@ export function TranscriptList<T>({
         resizedAtMs.current = Date.now()
       scroll.current.viewportPx = event.nativeEvent.layout.height
       followEnd()
-      setPlaced(true)
+      placeAtEnd()
       report()
     },
-    [followEnd, report],
+    [followEnd, placeAtEnd, report],
   )
 
   const onViewableItemsChanged = useCallback(
@@ -464,6 +492,7 @@ export function TranscriptList<T>({
     () => () => {
       clearTimeout(seekingEnd.current)
       clearTimeout(landing.current)
+      clearTimeout(placing.current)
     },
     [],
   )
