@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 
 import { isLayoutRtl } from './layoutDirection'
+import type { MediaViewerArrowKeysOptions } from './mediaViewerArrowKeys.types'
 import { mediaViewerKeyIndex } from './mediaViewerKeys'
 
 /**
@@ -14,12 +15,7 @@ export function useMediaViewerArrowKeys({
   index,
   count,
   onIndex,
-}: {
-  enabled: boolean
-  index: number
-  count: number
-  onIndex: (index: number) => void
-}): void {
+}: MediaViewerArrowKeysOptions): void {
   useEffect(() => {
     if (!enabled) return
     const onKeyDown = (event: KeyboardEvent): void => {

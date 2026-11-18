@@ -131,6 +131,8 @@ export const PENDING_COPY = {
    * Navigate to Conversation, which is a different command.
    */
   messageNavigate: 'Move Between Messages',
+  /** Left and Right in the full-screen viewer, in the list of keyboard shortcuts. */
+  attachmentNavigate: 'Move Between Attachments in Full Screen',
   /**
    * What a press on a reply's quote does, said after its name. Android's "Reply to message" is no
    * catalogue string either, and `reply` already names the action that starts one.
