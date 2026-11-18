@@ -114,6 +114,8 @@ const ANIMATED_END_VIEWPORTS = 2
 const OWN_SCROLL_MS = 300
 /** How many list heights from the last row the page after is asked for. */
 const END_VIEWPORTS = 0.5
+/** How long the reader's last scroll, or touch, wheel or key, says which way they are heading. */
+const HEADING_MS = 1000
 /** How long a list waits, hidden, for the scroll to its end to report before it shows anyway. */
 const PLACE_AT_END_MS = 300
 
@@ -179,6 +181,25 @@ export function TranscriptList<T>({
   const startAskedAt = useRef<string | undefined>(undefined)
   /** The last row when the page after was last asked for: undefined to ask afresh. */
   const endAskedAt = useRef<string | undefined>(undefined)
+  // The content's height at each edge's last ask: a page has landed in the data before its rows
+  // are laid out, and the scroll read until then still says the reader is at that edge.
+  const startAskedAtPx = useRef(-1)
+  const endAskedAtPx = useRef(-1)
+  /** Which way the reader's own last scroll went, and when. */
+  const heading = useRef<{ toward: 'start' | 'end'; atMs: number } | null>(null)
+  /** The reader's last touch, fling, wheel, scroll key or scrollbar press. */
+  const readerInputAtMs = useRef(0)
+  /**
+   * Whether the reader is heading for an edge: their last scroll went that way within the last
+   * moment, or, resting, they touched or wheeled the list. An edge asks only then, so a page that
+   * lands, or a landing's own scroll, does not ask for the next, nor the other edge for its own.
+   */
+  const headsFor = useCallback((edge: 'start' | 'end') => {
+    const now = Date.now()
+    const last = heading.current
+    if (last !== null && now - last.atMs < HEADING_MS) return last.toward === edge
+    return now - readerInputAtMs.current < HEADING_MS
+  }, [])
   // On its way to the end, by `scrollToEnd`: an animated scroll reports every offset it passes,
   // none of them the end, and the rows drawn as it nears change where the end is.
   const seekingEnd = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -236,6 +257,7 @@ export function TranscriptList<T>({
   // Set below, once what it reads is declared: the reader's input checks the end as well.
   const askEndIfNear = useRef<() => void>(() => undefined)
   const onReaderTouch = useCallback(() => {
+    readerInputAtMs.current = Date.now()
     clearTimeout(landing.current)
     landing.current = undefined
     // A reader resting at the last row scrolls nothing and reports no scroll: their input does.
@@ -347,7 +369,11 @@ export function TranscriptList<T>({
     if (!atStart) {
       // Coming back to the start asks again, which is how a reader retries without Retry.
       startAskedAt.current = undefined
+      startAskedAtPx.current = -1
     } else if (first !== undefined && startAskedAt.current !== first) {
+      // Rows that do not fill the list ask whoever moved it.
+      if (contentPx > viewportPx && !headsFor('start')) return
+      if (startAskedAtPx.current === contentPx) return
       // Native shows rows added above a list at its end as a jump there and back. A list that
       // opened full waits for the reader to move it before it asks for more.
       if (atEnd.current && !readerMoved.current && here.untouched() && contentPx > viewportPx)
@@ -357,10 +383,11 @@ export function TranscriptList<T>({
       // landing slides away. The reader's next scroll asks.
       if (landing.current !== undefined) return
       startAskedAt.current = first
+      startAskedAtPx.current = contentPx
       here.beforeStartAsked()
       latest.current.onStartReached?.()
     }
-  }, [])
+  }, [headsFor])
 
   askEndIfNear.current = () => {
     if (landing.current !== undefined || seekingEnd.current !== undefined) return
@@ -371,9 +398,17 @@ export function TranscriptList<T>({
       contentPx > 0 &&
       contentPx - offsetPx - viewportPx <= viewportPx * END_VIEWPORTS
     const last = latest.current.keys[latest.current.keys.length - 1]
-    if (!nearEnd) endAskedAt.current = undefined
-    else if (last !== undefined && endAskedAt.current !== last) {
+    if (!nearEnd) {
+      endAskedAt.current = undefined
+      endAskedAtPx.current = -1
+    } else if (
+      last !== undefined &&
+      endAskedAt.current !== last &&
+      endAskedAtPx.current !== contentPx &&
+      headsFor('end')
+    ) {
       endAskedAt.current = last
+      endAskedAtPx.current = contentPx
       latest.current.onEndReached?.()
     }
   }
@@ -393,6 +428,17 @@ export function TranscriptList<T>({
       if (resized) resizedAtMs.current = Date.now()
       // An animated scroll to the end only ever moves down.
       const movedUp = !resized && contentOffset.y < scroll.current.offsetPx - AT_END_SLACK_PX
+      const movedDown = !resized && contentOffset.y > scroll.current.offsetPx + AT_END_SLACK_PX
+      // The list's own scrolls (following its end, keeping its place as rows land above, the
+      // web's step off the top) only ever go down, a landing's aside: up is always the reader's,
+      // a screen reader's included. Down is theirs with no resize just before, or with their
+      // finger or wheel on it.
+      const nowMs = Date.now()
+      const readersDown =
+        nowMs - resizedAtMs.current > OWN_SCROLL_MS || nowMs - readerInputAtMs.current < HEADING_MS
+      if (movedUp && landing.current === undefined)
+        heading.current = { toward: 'start', atMs: nowMs }
+      else if (movedDown && readersDown) heading.current = { toward: 'end', atMs: nowMs }
       scroll.current = {
         offsetPx: contentOffset.y,
         viewportPx: layoutMeasurement.height,

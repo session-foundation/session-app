@@ -64,25 +64,54 @@ describe('TranscriptList', () => {
     expect(document.querySelectorAll('[data-testid^="message-row-"]').length).toBeLessThan(200)
   })
 
+  it('asks for no page above while the reader heads down through the start’s reach', async () => {
+    const onStartReached = vi.fn()
+    const { rerender } = renderInUI(<Paged data={paged(12)} onStartReached={onStartReached} />)
+    await scrollTo(1600, 2000)
+    await wait(AFTER_RESIZE_MS)
+    await scrollTo(800, 2000)
+    await scrollTo(100, 2000)
+    expect(onStartReached).toHaveBeenCalledTimes(1)
+
+    // The page lands once the reader has paused; still within reach of the new start, they head
+    // down. A page landing while they still head up would rightly ask for the next.
+    await wait(1100)
+    rerender(<Paged data={[{ id: 'older' }, ...paged(12)]} onStartReached={onStartReached} />)
+    await scrollTo(100, 3000)
+    await wait(AFTER_RESIZE_MS)
+    await scrollTo(150, 3000)
+    expect(onStartReached).toHaveBeenCalledTimes(1)
+
+    // Heading back up asks.
+    await scrollTo(120, 3000)
+    expect(onStartReached).toHaveBeenCalledTimes(2)
+
+    await new Promise((resolve) => setTimeout(resolve, SCROLL_END_MS))
+  })
+
   it('asks for the page before its start once per first row, and again on coming back to it', async () => {
     const onStartReached = vi.fn()
     const { rerender } = renderInUI(<Paged data={paged(12)} onStartReached={onStartReached} />)
-    await scrollTo(0, 2000)
+    // Laid out at its end, then the reader scrolls up to its start.
+    await scrollTo(1600, 2000)
+    await wait(AFTER_RESIZE_MS)
+    await scrollTo(800, 2000)
     await scrollTo(10, 2000)
     expect(onStartReached).toHaveBeenCalledTimes(1)
 
     // What is drawn past the start grows, as Retry does where a spinner was: no page arrived.
-    await scrollTo(0, 2060)
+    await scrollTo(10, 2060)
     expect(onStartReached).toHaveBeenCalledTimes(1)
 
     // Leaving the start and coming back asks again.
+    await wait(AFTER_RESIZE_MS)
     await scrollTo(900, 2060)
-    await scrollTo(0, 2060)
+    await scrollTo(10, 2060)
     expect(onStartReached).toHaveBeenCalledTimes(2)
 
     // A page that did arrive is a new first row to ask from.
     rerender(<Paged data={[{ id: 'older' }, ...paged(12)]} onStartReached={onStartReached} />)
-    await scrollTo(0, 3000)
+    await scrollTo(10, 3000)
     expect(onStartReached).toHaveBeenCalledTimes(3)
 
     // react-native-web ends a scroll on a timer of its own, which must not outlive the page.
@@ -127,8 +156,10 @@ describe('TranscriptList', () => {
     it('asks once per last row, on the reader’s scroll, and again once a page has landed', async () => {
       const onEndReached = vi.fn()
       const { rerender } = renderInUI(<Newer data={paged(30)} onEndReached={onEndReached} />)
-      await scrollTo(800, 2000)
+      // Laid out at its end, then the reader scrolls up away from it.
+      await scrollTo(1600, 2000)
       await wait(AFTER_RESIZE_MS)
+      await scrollTo(800, 2000)
       expect(onEndReached).not.toHaveBeenCalled()
 
       // Within half a list height of the last row.
@@ -154,13 +185,18 @@ describe('TranscriptList', () => {
     it('asks at the reader’s wheel when they rest at the last row, which scrolls nothing', async () => {
       const onEndReached = vi.fn()
       const { rerender } = renderInUI(<Newer data={paged(30)} onEndReached={onEndReached} />)
-      await scrollTo(800, 2000)
+      await scrollTo(1600, 2000)
       await wait(AFTER_RESIZE_MS)
+      await scrollTo(800, 2000)
       await scrollTo(1600, 2000)
       expect(onEndReached).toHaveBeenCalledTimes(1)
 
-      // The page lands with the reader still at the last row: no scroll follows it.
+      // The page is in the data before its rows are laid out: the old height still says the end.
       rerender(<Newer data={[...paged(30), { id: 'newer' }]} onEndReached={onEndReached} />)
+      fireEvent.wheel(byId(LIST))
+      expect(onEndReached).toHaveBeenCalledTimes(1)
+      // Laid out, with the reader still at the last row.
+      await scrollTo(1600, 2100)
       fireEvent.wheel(byId(LIST))
       expect(onEndReached).toHaveBeenCalledTimes(2)
 
