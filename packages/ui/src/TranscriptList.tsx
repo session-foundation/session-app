@@ -13,6 +13,7 @@ import {
   type LayoutChangeEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  View,
 } from 'react-native'
 
 import { YStack } from 'tamagui'
@@ -49,8 +50,8 @@ export interface TranscriptListProps<T> extends RovingRowsProps {
   /**
    * What is happening past the start. Drawn above the first row on the web; on native, pinned over
    * the list's top edge on the pane's surface while the start is in reach, since a list that keeps
-   * its first row in place would scroll a row added above it at the top just out of view. The list
-   * is padded by its height meanwhile, so the first row can still be scrolled clear of it.
+   * its first row in place would scroll a row added above it at the top just out of view. A spacer
+   * of its height leads the list meanwhile, so the first row can still be scrolled clear of it.
    */
   header?: React.JSX.Element | undefined
 }
@@ -298,7 +299,9 @@ export function TranscriptList<T>({
 
   const pinned = platform.pinsEdges
   const padStartPx = pinned && showsStart && header !== undefined ? headerPx : 0
-  const contentPadding = useMemo(() => ({ paddingTop: padStartPx }), [padStartPx])
+  // Room for the pinned row as a row of the list's own, not as padding: a padding change that
+  // lands in the same pass as a page's rows being measured is not kept in place on Android.
+  const startSpacer = useMemo(() => <View style={{ height: padStartPx }} />, [padStartPx])
   const listElement = (
     <FlatList
       style={placed ? FILLS : HIDDEN}
@@ -308,8 +311,7 @@ export function TranscriptList<T>({
       onContentSizeChange={onContentSizeChange}
       onLayout={onLayout}
       {...platform.listProps}
-      ListHeaderComponent={pinned ? undefined : header}
-      contentContainerStyle={contentPadding}
+      ListHeaderComponent={pinned ? startSpacer : header}
       data={data}
       renderItem={renderRow}
       keyExtractor={keyExtractor}
