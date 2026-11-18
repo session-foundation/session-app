@@ -186,6 +186,20 @@ describe('a window on a long history', () => {
     expect([window().hasOlder, window().hasNewer]).toEqual([true, false])
   })
 
+  it('replaces a window that reaches the newest message only when asked to, dropping the pages above', async () => {
+    const { store, bob, window, bodies } = fixture
+    await store.actions.loadOlder(bob)
+    await store.actions.loadOlder(bob)
+    expect(bodies()).toEqual(run(25, 99))
+
+    await store.actions.showNewest(bob)
+    expect(bodies()).toEqual(run(25, 99))
+
+    await store.actions.showNewest(bob, { evenWhenHeld: true })
+    expect(bodies()).toEqual(run(85, 99))
+    expect([window().hasOlder, window().hasNewer]).toEqual([true, false])
+  })
+
   it('says a deleted or unknown message is not there, and keeps the window', async () => {
     const { store, client, bob, idOf, window, bodies } = fixture
     await client.deleteMessage(idOf('m40'), 'here')

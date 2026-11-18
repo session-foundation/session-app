@@ -132,8 +132,14 @@ export interface SessionActions {
    * or with `all`, every jump, once the reader is back at the newest message.
    */
   forgetJumps: (id: ConversationId, which: 'latest' | 'all') => void
-  /** Replaces a window that does not reach the newest message with the newest page. */
-  showNewest: (id: ConversationId) => Promise<void>
+  /**
+   * Replaces a window that does not reach the newest message with the newest page. With
+   * `evenWhenHeld`, a window that does reach it is replaced too, dropping the pages above.
+   */
+  showNewest: (
+    id: ConversationId,
+    options?: { evenWhenHeld?: boolean | undefined },
+  ) => Promise<void>
   /**
    * Rejects, storing nothing, when libsession refuses it: a file that cannot be read, say. Once
    * stored, the window shows the newest page, where the message is, and forgets its jumps.
@@ -784,9 +790,9 @@ export function createSessionStore(
       patchWindow(id, { jumps: which === 'all' ? [] : jumps.slice(0, -1) })
     },
 
-    async showNewest(id): Promise<void> {
+    async showNewest(id, { evenWhenHeld = false } = {}): Promise<void> {
       const window = store.getState().histories[id]
-      if (window?.ready !== true || !window.hasNewer) return
+      if (window?.ready !== true || (!window.hasNewer && !evenWhenHeld)) return
       const generation = supersede(id)
       patchWindow(id, { fetchingOlder: false, fetchingNewer: false })
       await whileReading(id, async () => {

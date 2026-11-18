@@ -66,6 +66,13 @@ const messageKey = (message: Message) => String(message.id)
 /** One toast however often it is asked for: a second press shows it again, not twice. */
 const ORIGINAL_NOT_FOUND_TOAST = 'original-not-found'
 
+/**
+ * How many list heights from the newest message the button still scrolls there. Further, it reads
+ * the newest page in afresh, as Telegram does: scrolling through the pages between is slow and
+ * keeps them all held.
+ */
+const LATEST_ANIMATED_VIEWPORTS = 3
+
 /** How long a landing's highlight stays mounted: its fade, and a margin for the frames around. */
 const HIGHLIGHT_HOLD_MS = LANDING_FADE_MS + 400
 
@@ -387,11 +394,17 @@ function Conversation({ conversationId }: { conversationId: ConversationId }) {
       actions.returnFromJump(conversationId).catch(() => undefined)
       return
     }
-    // Read in afresh, the newest page is simply where the list is put: nothing to animate from.
-    const animated = !transcript.hasNewer
-    actions.showNewest(conversationId).then(
+    const nearby =
+      !transcript.hasNewer && (list.current?.viewportsFromEnd() ?? 0) <= LATEST_ANIMATED_VIEWPORTS
+    if (nearby) {
+      list.current?.scrollToEnd({ animated: true })
+      return
+    }
+    // Read in afresh, the newest page is simply where the list is put: nothing to animate from,
+    // and the pages above it are dropped rather than scrolled through.
+    actions.showNewest(conversationId, { evenWhenHeld: true }).then(
       () => {
-        list.current?.scrollToEnd({ animated })
+        list.current?.scrollToEnd({ animated: false })
       },
       () => undefined,
     )

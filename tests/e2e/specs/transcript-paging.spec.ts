@@ -82,3 +82,24 @@ test('reaches the first message by a fast wheel, page after page, without stoppi
     await app.close()
   }
 })
+
+test('goes to the newest message from far back by reading it in afresh, not scrolling through @desktop @medium-risk', async () => {
+  const app = await launchLongConversation()
+  try {
+    const button = app.locator(CONVERSATION.scrollToLatest)
+    await messageSaying(app, REPLIES.newest).hover()
+    // Back to the first message: every page between is held.
+    await expect(async () => {
+      for (let wheel = 0; wheel < 5; wheel++) await app.page.mouse.wheel(0, -600)
+      await expect(messageSaying(app, REPLIES.meet)).toBeInViewport({ timeout: 500 })
+    }).toPass({ timeout: 30_000 })
+
+    await button.click()
+    await expect(messageSaying(app, REPLIES.newest)).toBeInViewport({ ratio: 1 })
+    await expect(button).toHaveCount(0)
+    // Only the newest page is held now: the first message has gone with the pages above it.
+    await expect(messageSaying(app, REPLIES.meet)).toHaveCount(0)
+  } finally {
+    await app.close()
+  }
+})

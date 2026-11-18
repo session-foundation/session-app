@@ -44,6 +44,8 @@ export interface TranscriptListHandle {
   ) => void
   /** Whether any of the row is drawn inside the list's viewport, as last reported. */
   isOnScreen: (key: string) => boolean
+  /** How many list heights below the viewport the last row ends, as last reported. */
+  viewportsFromEnd: () => number
   /**
    * To the last row, where the list then stays. `animated` is dropped for reduced motion, and from
    * more than two list heights away the list first jumps to one list height from the end.
@@ -433,6 +435,11 @@ export function TranscriptList<T>({
         const index = latest.current.keys.indexOf(key)
         const shown = onScreen.current
         return index !== -1 && shown !== null && index >= shown.first && index <= shown.last
+      },
+      viewportsFromEnd() {
+        const { offsetPx, viewportPx, contentPx } = scroll.current
+        if (viewportPx === 0) return 0
+        return Math.max(0, contentPx - offsetPx - viewportPx) / viewportPx
       },
       scrollToEnd({ animated = false } = {}) {
         atEnd.current = true
