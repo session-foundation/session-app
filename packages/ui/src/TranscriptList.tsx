@@ -13,12 +13,14 @@ import {
   type LayoutChangeEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
-  View,
 } from 'react-native'
+
+import { YStack } from 'tamagui'
 
 import { ROW_FRAMES } from './indexTarget'
 import { nearStart, type ScrollReading } from './listEdges'
 import { MeasuredRow } from './MeasuredRow'
+import { usePaneSurface } from './paneSurface'
 import { useRovingRows, type RovingRowsProps } from './rovingRows'
 import { useRowScroller } from './rowScroller'
 import type { RowsOnScreen } from './rowScroller.types'
@@ -70,8 +72,9 @@ export interface TranscriptListProps<T> extends RovingRowsProps {
   onRowsOnScreen?: ((keys: ReadonlySet<string>) => void) | undefined
   /**
    * What is happening past the start. Drawn above the first row on the web; on native, pinned over
-   * the list's top edge while the start is in reach, since a list that keeps its first row in place
-   * would scroll a row added above it at the top just out of view.
+   * the list's top edge on the pane's surface while the start is in reach, since a list that keeps
+   * its first row in place would scroll a row added above it at the top just out of view. The list
+   * is padded by its height meanwhile, so the first row can still be scrolled clear of it.
    */
   header?: React.JSX.Element | undefined
   /** What is happening past the end: drawn and pinned as `header` is, at the bottom. */
@@ -101,8 +104,6 @@ const VIEWABILITY = { itemVisiblePercentThreshold: 1 } as const
 
 const FILLS = { flex: 1 } as const
 const HIDDEN = { flex: 1, opacity: 0 } as const
-const PINNED_TOP = { position: 'absolute', top: 0, left: 0, right: 0 } as const
-const PINNED_BOTTOM = { position: 'absolute', bottom: 0, left: 0, right: 0 } as const
 
 /**
  * A conversation's messages, a page at a time: opens on its last row and follows its end as rows
@@ -147,6 +148,15 @@ export function TranscriptList<T>({
   const [showsStart, setShowsStart] = useState(false)
   // The end is in reach while it is not far: `far` starts false, so this starts true.
   const [showsEnd, setShowsEnd] = useState(true)
+  const [headerPx, setHeaderPx] = useState(0)
+  const onHeaderLayout = useCallback((event: LayoutChangeEvent) => {
+    setHeaderPx(event.nativeEvent.layout.height)
+  }, [])
+  const [footerPx, setFooterPx] = useState(0)
+  const onFooterLayout = useCallback((event: LayoutChangeEvent) => {
+    setFooterPx(event.nativeEvent.layout.height)
+  }, [])
+  const surface = usePaneSurface()
   /** The first row when the page before was last asked for: undefined to ask afresh. */
   const startAskedAt = useRef<string | undefined>(undefined)
   // On its way to the end, by `scrollToEnd`: an animated scroll reports every offset it passes,
@@ -450,6 +460,12 @@ export function TranscriptList<T>({
   )
 
   const pinned = platform.pinsEdges
+  const padStartPx = pinned && showsStart && header !== undefined ? headerPx : 0
+  const padEndPx = pinned && showsEnd && footer !== undefined ? footerPx : 0
+  const contentPadding = useMemo(
+    () => ({ paddingTop: padStartPx, paddingBottom: padEndPx }),
+    [padStartPx, padEndPx],
+  )
   const listElement = (
     <FlatList
       style={placed ? FILLS : HIDDEN}
@@ -464,6 +480,7 @@ export function TranscriptList<T>({
       viewabilityConfig={VIEWABILITY}
       ListHeaderComponent={pinned ? undefined : header}
       ListFooterComponent={pinned ? undefined : footer}
+      contentContainerStyle={contentPadding}
       data={data}
       renderItem={renderRow}
       keyExtractor={keyExtractor}
@@ -477,19 +494,33 @@ export function TranscriptList<T>({
   )
   return withFocus(
     pinned && (header !== undefined || footer !== undefined) ? (
-      <View style={FILLS}>
+      <YStack flex={1} position="relative">
         {listElement}
         {showsStart && header !== undefined ? (
-          <View style={PINNED_TOP} pointerEvents="box-none">
+          <YStack
+            position="absolute"
+            top={0}
+            left={0}
+            right={0}
+            backgroundColor={surface}
+            onLayout={onHeaderLayout}
+          >
             {header}
-          </View>
+          </YStack>
         ) : null}
         {showsEnd && footer !== undefined ? (
-          <View style={PINNED_BOTTOM} pointerEvents="box-none">
+          <YStack
+            position="absolute"
+            bottom={0}
+            left={0}
+            right={0}
+            backgroundColor={surface}
+            onLayout={onFooterLayout}
+          >
             {footer}
-          </View>
+          </YStack>
         ) : null}
-      </View>
+      </YStack>
     ) : (
       listElement
     ),
