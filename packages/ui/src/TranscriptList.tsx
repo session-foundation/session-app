@@ -325,19 +325,21 @@ export function TranscriptList<T>({
   return withFocus(
     header !== undefined ? (
       <YStack flex={1} position="relative">
-        {listElement}
+        {/* Before the list, as it is drawn above it: a screen reader and Tab reach it first. */}
         {showsStart ? (
           <YStack
             position="absolute"
             top={0}
             left={0}
             right={0}
+            zIndex={1}
             backgroundColor={surface}
             onLayout={onHeaderLayout}
           >
             {header}
           </YStack>
         ) : null}
+        {listElement}
       </YStack>
     ) : (
       listElement
