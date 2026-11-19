@@ -86,6 +86,32 @@ describe('TranscriptList', () => {
     await new Promise((resolve) => setTimeout(resolve, SCROLL_END_MS))
   })
 
+  it('does not follow a window’s end to the newest message when the page reaching it lands', async () => {
+    function Window({ count, moreAfter }: { count: number; moreAfter: boolean }) {
+      return (
+        <TranscriptList
+          data={paged(count)}
+          keyExtractor={key}
+          moreAfter={moreAfter}
+          testID={LIST}
+          renderItem={(item, index) => <Text testID={ROW(index)}>{item.id}</Text>}
+        />
+      )
+    }
+    const { rerender } = renderInUI(<Window count={30} moreAfter />)
+    // Resting at the last row of a window short of the newest message.
+    await scrollTo(1600, 2000)
+    await new Promise((resolve) => setTimeout(resolve, 400))
+    await scrollTo(1600, 2000)
+
+    // The page that reaches the newest message lands below: the reader has not read it.
+    rerender(<Window count={60} moreAfter={false} />)
+    await scrollTo(1600, 4000)
+    expect(byId(LIST).scrollTop).toBe(1600)
+
+    await new Promise((resolve) => setTimeout(resolve, SCROLL_END_MS))
+  })
+
   it('lets a reader who scrolls up on the way to the end stay there when a row arrives', async () => {
     const handle = createRef<TranscriptListHandle>()
     renderInUI(

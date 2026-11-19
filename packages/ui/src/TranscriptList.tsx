@@ -184,7 +184,12 @@ export function TranscriptList<T>({
   // puts the reader's rows back a frame or more after the page lands, and the rows reported
   // meanwhile are the page's own, at the start: read as they are, they ask for the next page at
   // once, and two pages landing mid-shift blanked the list and lost the reader's place.
-  const settlingAbove = useRef<{ first: string; untilMs: number } | null>(null)
+  const settlingAbove = useRef<{
+    first: string
+    untilMs: number
+    /** The report the landing came after: nothing it says is news. */
+    report: { first: string; last: string }
+  } | null>(null)
   // On its way to the end, by `scrollToEnd`: an animated scroll reports every offset it passes,
   // none of them the end, and the rows drawn as it nears change where the end is.
   const seekingEnd = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -320,7 +325,18 @@ export function TranscriptList<T>({
       const shown = onScreenKeys.current
       // Rows added above the ones held, rather than a window replaced by another.
       if (wasFirst !== undefined && keys.indexOf(wasFirst) > 0 && shown !== null)
-        settlingAbove.current = { first: shown.first, untilMs: Date.now() + SETTLE_ABOVE_MS }
+        settlingAbove.current = {
+          first: shown.first,
+          untilMs: Date.now() + SETTLE_ABOVE_MS,
+          report: shown,
+        }
+      // Rows added after the last one held, in a window short of the newest: its end has moved
+      // away from a reader resting there, who is not to be followed to the newest message when the
+      // page that reaches it lands.
+      const wasLast = latest.current.keys[latest.current.keys.length - 1]
+      const lastAt = wasLast === undefined ? -1 : keys.indexOf(wasLast)
+      if (latest.current.moreAfter && lastAt !== -1 && lastAt < keys.length - 1)
+        atEnd.current = false
     }
     latest.current = {
       keys,
@@ -360,6 +376,8 @@ export function TranscriptList<T>({
     if (shown === null) return
     const settling = settlingAbove.current
     if (settling !== null) {
+      // Only a report made since the landing says where the rows are now.
+      if (shown === settling.report) return
       const { keys: rowsHeld } = latest.current
       const at = rowsHeld.indexOf(settling.first)
       const back = at >= rowsHeld.indexOf(shown.first) && at <= rowsHeld.indexOf(shown.last)
