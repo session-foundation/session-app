@@ -37,6 +37,13 @@ _ls_layout=v2
 # _ls_hashes's working files; named so that pruning sweeps up an abandoned one.
 _ls_scratch="$_ls_cache/entries/.incoming-$$-files"
 
+# The country table libsession generates rather than commits, which git-ignored files would
+# otherwise leave out of the list.
+_LS_COUNTRY_TABLE=src/network/ip_country/data.cpp
+_ls_generated() {
+    [ ! -f "$_LS_COUNTRY_TABLE" ] || echo "$_LS_COUNTRY_TABLE"
+}
+
 # Prints, one per line, every tracked path across every submodule and every untracked one not
 # ignored, so a new file counts (libsession globs its schema migrations). Nothing is left out: the
 # build reads files no filter would keep, down to a README listed as a source.
@@ -46,7 +53,8 @@ _ls_files() {
     files=$(cd "$1" && git ls-files --recurse-submodules \
             && git ls-files --others --exclude-standard \
             && git submodule foreach --quiet --recursive \
-                'git ls-files --others --exclude-standard | sed "s|^|$displaypath/|"') || files=""
+                'git ls-files --others --exclude-standard | sed "s|^|$displaypath/|"' \
+            && _ls_generated) || files=""
     # An empty list hashes the same for every source state, and every edit would hit the cache.
     if [ -z "$files" ]; then
         echo "cannot list libsession's files with git in $1" >&2
@@ -242,7 +250,13 @@ libsession_bundle() {
     # the download partway often enough to fail cold builds. Hashes are still checked. The snapshot
     # has no .git for libsession's submodule check, so _ls_check_submodules runs it on the clone.
     set -- "$@" -DLOCAL_MIRROR="${SESSION_BRIDGE_DEPS_MIRROR:-https://builds.session.codes/deps}" \
-        -DSUBMODULE_CHECK=OFF
+        -DSUBMODULE_CHECK=OFF -DWITH_IP_GEOLOCATION=ON
+
+    # The path screen names each relay's country from this table. Generated once per clone, since
+    # it is a ~4.5MB download that libsession does not commit, and kept until somebody refreshes it.
+    if [ ! -f "$libsession/$_LS_COUNTRY_TABLE" ] && [ -f "$libsession/utils/update-ip-country-db.py" ]; then
+        python3 "$libsession/utils/update-ip-country-db.py" || return
+    fi
 
     _ls_check_submodules "$libsession" || return
     # Set by the iOS script, which hashes the tree once for every slice.

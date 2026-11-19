@@ -42,6 +42,8 @@ export function createFakeBridge(): BridgeTransport {
     EXPO_PUBLIC_SESSION_FAKE_CROWD_PEERS: process.env['EXPO_PUBLIC_SESSION_FAKE_CROWD_PEERS'],
     EXPO_PUBLIC_SESSION_FAKE_CROWD_HISTORY: process.env['EXPO_PUBLIC_SESSION_FAKE_CROWD_HISTORY'],
     EXPO_PUBLIC_SESSION_FAKE_SLOWDOWN: process.env['EXPO_PUBLIC_SESSION_FAKE_SLOWDOWN'],
+    EXPO_PUBLIC_SESSION_FAKE_PATHS: process.env['EXPO_PUBLIC_SESSION_FAKE_PATHS'],
+    EXPO_PUBLIC_SESSION_ROUTER: process.env['EXPO_PUBLIC_SESSION_ROUTER'],
     // TODO: a Developer Settings switch that fails the next launch, once that screen exists, so a
     // build without this variable can reach the failure screen too.
     EXPO_PUBLIC_SESSION_FAKE_FAILED_START: process.env['EXPO_PUBLIC_SESSION_FAKE_FAILED_START'],

@@ -560,6 +560,16 @@ export class DesktopApp implements ISessionApp, IPerformanceProbe, IFileChooser 
     }, windowMs)
   }
 
+  /**
+   * Lets the pointer pass through the window, so nothing in it is hovered or pressed by wherever
+   * the pointer happens to rest on the screen.
+   */
+  async ignorePointer(): Promise<void> {
+    await this.app.evaluate(({ BrowserWindow }) => {
+      BrowserWindow.getAllWindows()[0]?.setIgnoreMouseEvents(true)
+    })
+  }
+
   async close(): Promise<void> {
     await this.app.close()
     rmSync(this.dataDir, { recursive: true, force: true })

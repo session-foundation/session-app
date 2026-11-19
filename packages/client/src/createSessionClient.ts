@@ -8,6 +8,7 @@ import type {
   ConversationId,
   Deletion,
   Frame,
+  NetworkPaths,
   NetworkStatus,
   Request,
   Response,
@@ -376,6 +377,11 @@ export function createSessionClient(transport: BridgeTransport): SessionClient {
 
     async setThumbnailEdge(edgePx): Promise<void> {
       await call({ type: 'setThumbnailEdge', ...(edgePx === undefined ? {} : { edgePx }) })
+    },
+
+    async getNetworkPaths(): Promise<NetworkPaths> {
+      const response = await call({ type: 'getNetworkPaths' })
+      return resultOf(response, 'networkPaths').snapshot
     },
 
     async getConfigSizes(): Promise<ConfigSize[]> {

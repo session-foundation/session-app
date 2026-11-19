@@ -11,6 +11,7 @@ import type {
   ListPlacement,
   Message,
   MessageCursor,
+  NetworkPaths,
   NetworkStatus,
   OutgoingAttachment,
   SendPlan,
@@ -373,6 +374,12 @@ export type Command =
    * Empty before there is an account: the configs are built from it.
    */
   | { type: 'getConfigSizes' }
+  /**
+   * Every path the network is holding open, with how each is performing and how many requests
+   * have gone along it, for the path screen. A snapshot: ask again for a fresher one. Empty under
+   * onion requests or with no network attached.
+   */
+  | { type: 'getNetworkPaths' }
   // App preferences, stored in libsession's globals table so they sit beside the account
   // instead of in a second store the app would have to keep in step.
   | { type: 'getPref'; key: string }
@@ -454,6 +461,7 @@ export type Result =
   | { type: 'edge'; edgePx: number }
   | { type: 'configSizes'; sizes: ConfigSize[] }
   | { type: 'networkStatus'; status: NetworkStatus }
+  | { type: 'networkPaths'; snapshot: NetworkPaths }
 
 export interface Response {
   id: number

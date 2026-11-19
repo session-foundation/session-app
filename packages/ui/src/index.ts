@@ -53,6 +53,15 @@ export type { TopTab, TopTabsProps } from './TopTabs.types'
 export { SafeArea, type SafeAreaProps } from './SafeArea'
 export { useTokenColor } from './useTokenColor'
 export { useWindowSize } from './useWindowSize'
+export {
+  PathFlow,
+  pathFlowColor,
+  pathFlowTripMs,
+  type PathFlowKind,
+  type PathFlowPacket,
+  type PathFlowPath,
+  type PathFlowProps,
+} from './PathFlow'
 export { ProgressRing } from './ProgressRing'
 export { inkFor, ON_ACCENT_SECONDARY_OPACITY, type InkTone } from './ink'
 export type { AvatarProps } from './Avatar'
@@ -137,6 +146,7 @@ export { UIProvider } from './UIProvider'
 export type { UIProviderProps } from './UIProvider'
 export type { BackdropBlur, BackdropBlurProps } from './backdropBlur'
 export type { Glass, GlassProps } from './glass'
+export type { PathSprite, PathSpriteLayer, PathSprites, PathSpritesProps } from './pathSprites'
 export {
   useTopBarControlsPadding,
   WindowControlsInsetProvider,

@@ -75,6 +75,31 @@ test('centres the chevrons on the picture @desktop', async () => {
   }
 })
 
+/** The arrow keys page through the set as the chevrons do, and stop at its ends. */
+test('steps through the set with the arrow keys @desktop', async () => {
+  const app = await DesktopApp.launch('alice')
+  try {
+    await openViewer(app)
+    expect(await app.isDisabled(ELEMENT.conversation.mediaViewerPrevious)).toBe(true)
+
+    await app.page.keyboard.press('ArrowRight')
+    await expect
+      .poll(async () => app.isDisabled(ELEMENT.conversation.mediaViewerPrevious))
+      .toBe(false)
+
+    await app.page.keyboard.press('ArrowLeft')
+    await expect
+      .poll(async () => app.isDisabled(ELEMENT.conversation.mediaViewerPrevious))
+      .toBe(true)
+    // Already at the start: a further press leaves the viewer open on the same picture.
+    await app.page.keyboard.press('ArrowLeft')
+    expect(await app.isVisible(ELEMENT.conversation.mediaViewer)).toBe(true)
+    expect(await app.isDisabled(ELEMENT.conversation.mediaViewerPrevious)).toBe(true)
+  } finally {
+    await app.close()
+  }
+})
+
 /**
  * A picture's row opens it once it is here, as its thumbnail does, and fetches it before. Its
  * control still exports it, so the row is the only thing that changed meaning.

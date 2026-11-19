@@ -5,7 +5,7 @@ import { isWeb, Spinner, XStack, YStack } from 'tamagui'
 import type { ElementId } from '@session/test-ids'
 
 import { FileName } from './FileName'
-import { ON_ACCENT_SECONDARY_OPACITY, type inkFor } from './ink'
+import type { inkFor } from './ink'
 import { PressArea } from './PressArea'
 import { PRESS_PASSTHROUGH } from './pressPassthrough'
 import {
@@ -199,7 +199,8 @@ function QuoteBody({
         heading={author}
         preview={preview}
         ink={ink}
-        secondary={{ color: ink, opacity: ON_ACCENT_SECONDARY_OPACITY }}
+        // Undimmed: the tint and the hover layer already spend the margin a dimmed ink relies on.
+        secondary={{ color: ink, opacity: 1 }}
         stripe={onAccent ? '$onAccent' : '$primaryColor'}
         summaryLines={2}
         busy={busy && preview.visual === null}

@@ -95,6 +95,15 @@ export const FLAGS = {
    * new plumbing.
    */
   componentCatalog: false,
+
+  /**
+   * Open the path screen from the onion path's light and its Settings row: every path the client
+   * is using, drawn as a country flow with each request travelling it.
+   *
+   * Off while the design is being tried with real accounts; its figures and labels are English
+   * that has no catalogue keys yet.
+   */
+  pathScreen: false,
 } as const
 
 export type FlagName = keyof typeof FLAGS

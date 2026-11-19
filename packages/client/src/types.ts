@@ -22,6 +22,7 @@ import type {
   Frame,
   Message,
   MessageCursor,
+  NetworkPaths,
   NetworkStatus,
   OutgoingAttachment,
   PixelSize,
@@ -236,6 +237,12 @@ export interface SessionClient {
   setThumbnailEdge(edgePx?: number): Promise<void>
   /** Each config and the size of its dump, for an exported log's header; empty with no account. */
   getConfigSizes(): Promise<ConfigSize[]>
+  /**
+   * Every path the network holds open, with each one's round trip and request totals, for the
+   * path screen. A snapshot to poll while the screen is open; empty without a connected network
+   * or under onion requests.
+   */
+  getNetworkPaths(): Promise<NetworkPaths>
 
   getPref(key: string): Promise<string | undefined>
   setPref(key: string, value: string): Promise<void>
