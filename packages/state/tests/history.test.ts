@@ -89,8 +89,8 @@ describe('a window on a long history', () => {
 
     expect(await store.actions.jumpToMessage(bob, idOf('m40'))).toBe('landed')
 
-    // The message in the middle: 14 older, itself, and 15 newer.
-    expect(bodies()).toEqual(run(26, 55))
+    // The message in the middle: 29 older, itself, and 30 newer.
+    expect(bodies()).toEqual(run(11, 70))
     expect([window().hasOlder, window().hasNewer]).toEqual([true, true])
     expect(window().landing?.messageId).toBe(idOf('m40'))
   })
@@ -98,7 +98,7 @@ describe('a window on a long history', () => {
   it('fills the window from the other side near an end of the conversation', async () => {
     const { store, bob, idOf, window, bodies } = fixture
     await store.actions.jumpToMessage(bob, idOf('m3'))
-    expect(bodies()).toEqual(run(0, 29))
+    expect(bodies()).toEqual(run(0, 59))
     expect([window().hasOlder, window().hasNewer]).toEqual([false, true])
   })
 
@@ -115,10 +115,9 @@ describe('a window on a long history', () => {
     await store.actions.jumpToMessage(bob, idOf('m3'))
 
     await store.actions.loadNewer(bob)
-    expect(bodies()).toEqual(run(0, 59))
+    expect(bodies()).toEqual(run(0, 89))
     expect(window().hasNewer).toBe(true)
 
-    await store.actions.loadNewer(bob)
     await store.actions.loadNewer(bob)
     expect(bodies()).toEqual(run(0, 99))
     expect(window().hasNewer).toBe(false)
@@ -131,14 +130,14 @@ describe('a window on a long history', () => {
   it('pages older from a jumped window', async () => {
     const { store, bob, idOf, window, bodies } = fixture
     await store.actions.jumpToMessage(bob, idOf('m60'))
-    expect(bodies()).toEqual(run(46, 75))
+    expect(bodies()).toEqual(run(31, 90))
 
     await store.actions.loadOlder(bob)
-    expect(bodies()).toEqual(run(16, 75))
+    expect(bodies()).toEqual(run(1, 90))
     expect(window().hasOlder).toBe(true)
 
     await store.actions.loadOlder(bob)
-    expect(bodies()).toEqual(run(0, 75))
+    expect(bodies()).toEqual(run(0, 90))
     expect(window().hasOlder).toBe(false)
   })
 
@@ -164,7 +163,7 @@ describe('a window on a long history', () => {
 
     await client.sendMessage(bob, { body: 'late' })
     world.settle()
-    expect(bodies()).toEqual(run(0, 29))
+    expect(bodies()).toEqual(run(0, 59))
 
     await store.actions.loadNewer(bob)
     await store.actions.loadNewer(bob)
@@ -228,7 +227,7 @@ describe('a window on a long history', () => {
     'takes a message stored after %s was read and announced before it landed',
     async (_read, reads) => {
       const { store, client, bob, idOf, window, bodies } = fixture
-      await store.actions.jumpToMessage(bob, idOf('m80'))
+      await store.actions.jumpToMessage(bob, idOf('m40'))
       const read = client.getMessages.bind(client)
       client.getMessages = async (...args) => {
         const page = await read(...args)
@@ -251,18 +250,18 @@ describe('a window on a long history', () => {
     client.getMessages = async (...args) => {
       const page = await read(...args)
       client.getMessages = read
-      // From a peer that was offline: sent while m50 was, stored only now.
-      const at = page.messages.find((m) => m.body === 'm50')?.timestamp ?? 0
+      // From a peer that was offline: sent while m20 was, stored only now.
+      const at = page.messages.find((m) => m.body === 'm20')?.timestamp ?? 0
       world.account('Alice').deliverFrom(world.account('Bob'), 'late', at)
       return page
     }
 
     await store.actions.loadOlder(bob)
 
-    expect(bodies().slice(bodies().indexOf('m50'), bodies().indexOf('m50') + 3)).toEqual([
-      'm50',
+    expect(bodies().slice(bodies().indexOf('m20'), bodies().indexOf('m20') + 3)).toEqual([
+      'm20',
       'late',
-      'm51',
+      'm21',
     ])
   })
 
@@ -298,11 +297,11 @@ describe('the way back from a jump', () => {
     const { store, bob, idOf, window, bodies } = fixture
     await store.actions.jumpToMessage(bob, idOf('m80'), idOf('m99'))
     await store.actions.jumpToMessage(bob, idOf('m10'), idOf('m80'))
-    expect(bodies()).toEqual(run(0, 29))
+    expect(bodies()).toEqual(run(0, 59))
 
     await store.actions.returnFromJump(bob)
     expect(window().landing?.messageId).toBe(idOf('m80'))
-    expect(bodies()).toEqual(run(66, 95))
+    expect(bodies()).toEqual(run(40, 99))
     expect(window().jumps).toEqual([idOf('m99')])
 
     await store.actions.returnFromJump(bob)
@@ -446,7 +445,7 @@ describe('a page read that fails', () => {
     client.getMessages = read
     await store.actions.loadOlder(bob)
     await store.actions.loadNewer(bob)
-    expect(bodies()).toEqual(run(0, 85))
+    expect(bodies()).toEqual(run(0, 99))
     expect([window().olderPageFailed, window().newerPageFailed]).toEqual([false, false])
   })
 
@@ -547,7 +546,7 @@ describe('a read that is still out', () => {
     // Overtaken, which is not the message being missing.
     expect(await first).toBe('superseded')
 
-    expect(bodies()).toEqual(run(26, 55))
+    expect(bodies()).toEqual(run(11, 70))
     expect(window().landing?.messageId).toBe(idOf('m40'))
     expect(window().jumps).toEqual([idOf('m99')])
   })
@@ -561,7 +560,7 @@ describe('a read that is still out', () => {
     held[0]?.()
     await older
 
-    expect(bodies()).toEqual(run(0, 29))
+    expect(bodies()).toEqual(run(0, 59))
     // The page was dropped, so the window is free to ask for it again.
     expect(window().fetchingOlder).toBe(false)
   })

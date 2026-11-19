@@ -306,8 +306,12 @@ const PAGE = 30
  * drawn before the transcript is shown, and the page before is read once the start is in reach.
  */
 const FIRST_PAGE = 15
-/** What a jump reads around the message it lands on: every row of it is drawn again. */
-const JUMP_WINDOW = PAGE
+/**
+ * What a jump reads around the message it lands on: about a page either side, so even a tall
+ * window lands with rows held beyond what it shows, rather than asking for a page each way at
+ * once. Every row of it is drawn again, which on a phone is about 120 ms more than one page.
+ */
+const JUMP_WINDOW = 2 * PAGE
 const LIST_NAMES: readonly ListName[] = ['conversations', 'requests']
 
 export function createSessionStore(
