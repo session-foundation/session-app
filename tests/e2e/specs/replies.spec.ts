@@ -157,13 +157,14 @@ test('forgets the way back once the reader is at the newest message again by han
     await expectLandedOn(app, REPLIES.station)
     await expect(button).toHaveAccessibleName(PENDING_COPY.messageBackToReply)
 
-    // Down by the wheel, through the pages between, until the button goes.
+    // Down by the wheel, through the pages between, to the newest message. The button goes within a
+    // list's height of it, which a wheel can stop at short of the newest row.
     await row(app, REPLIES.station).hover()
     await expect(async () => {
       await app.page.mouse.wheel(0, 3000)
-      await expect(button).toHaveCount(0, { timeout: 500 })
+      await expect(row(app, REPLIES.newest)).toBeInViewport({ timeout: 500 })
     }).toPass({ timeout: 30_000 })
-    await expect(row(app, REPLIES.newest)).toBeInViewport()
+    await expect(button).toHaveCount(0)
 
     for (let wheel = 0; wheel < 12; wheel++) await app.page.mouse.wheel(0, -600)
     await expect(button).toHaveAccessibleName(PENDING_COPY.messageScrollToLatest)
