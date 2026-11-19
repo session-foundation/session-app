@@ -23,6 +23,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context'
 
 import { mobileBackdropBlur } from '../src/backdrop'
 import { mobileGlass } from '../src/glass'
+import { mobilePathSprites } from '../src/pathSprites'
 import { MobileCameraProvider } from '../src/camera'
 import { mobileHaptics } from '../src/haptics'
 import { MobileNavProvider } from '../src/nav'
@@ -85,7 +86,11 @@ function AppTree() {
           // screen rather than anything of its own, so a slow start fades from the splash to the
           // same mark in the same place whichever of the two it reaches.
           held ? null : (
-            <UIProvider backdropBlur={mobileBackdropBlur} glass={mobileGlass}>
+            <UIProvider
+              backdropBlur={mobileBackdropBlur}
+              glass={mobileGlass}
+              pathSprites={mobilePathSprites}
+            >
               <ModalStackProvider>
                 <StartingScreen />
               </ModalStackProvider>
@@ -94,7 +99,11 @@ function AppTree() {
           )
         ) : (
           <SessionStoreProvider store={store}>
-            <StoredThemeProvider backdropBlur={mobileBackdropBlur} glass={mobileGlass}>
+            <StoredThemeProvider
+              backdropBlur={mobileBackdropBlur}
+              glass={mobileGlass}
+              pathSprites={mobilePathSprites}
+            >
               <HideSplashOnMount />
               <MobileNavProvider>
                 <MobileCameraProvider>

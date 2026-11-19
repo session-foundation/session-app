@@ -19,6 +19,8 @@ export type KeyName =
   | 'alt'
   | 'up'
   | 'down'
+  | 'left'
+  | 'right'
   | 'enter'
   | 'space'
   | 'f'
@@ -32,7 +34,12 @@ export type KeyName =
  * The arrows as icons: as characters they are a hairline at caption size. The cap is named with
  * the character, which screen readers read as the arrow's name.
  */
-const ICONS: Partial<Record<KeyName, IconName>> = { up: 'arrowUp', down: 'arrowDown' }
+const ICONS: Partial<Record<KeyName, IconName>> = {
+  up: 'arrowUp',
+  down: 'arrowDown',
+  left: 'arrowLeft',
+  right: 'arrowRight',
+}
 
 /** Legends as the keyboards print them, which no locale translates; the catalogue has none. */
 const SHARED: Record<
@@ -41,6 +48,8 @@ const SHARED: Record<
 > = {
   up: '↑',
   down: '↓',
+  left: '←',
+  right: '→',
   f: 'F',
   f11: 'F11',
   plus: '+',

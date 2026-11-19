@@ -1,4 +1,4 @@
-import { requirePorts, URLS, useDebugMode, useNav, routes } from '@session/app'
+import { flag, requirePorts, URLS, useDebugMode, useNav, routes } from '@session/app'
 import { PENDING_COPY, toPlainText, tr } from '@session/localization'
 import {
   useAccount,
@@ -24,6 +24,7 @@ import {
 } from '@session/ui'
 import { useState } from 'react'
 
+import { PathPage } from '../path/PathPage'
 import { AccountHeader } from './AccountHeader'
 import { confirmLink } from './confirmLink'
 import { ConversationsPage } from './ConversationsPage'
@@ -182,9 +183,7 @@ export function SettingsRootPage() {
           confirmLink(modals, URLS.donationsApp)
         },
       },
-      // The path's live state, as a dot named in words. TODO: open the path screen, which needs
-      // the nodes of the current path that libsession's `get_path_to` has and the bridge does not
-      // carry yet.
+      // The path's live state, as a dot named in words, opening the path screen where it is on.
       {
         label: tr('onionRoutingPath'),
         icon: (
@@ -200,6 +199,13 @@ export function SettingsRootPage() {
           </Text>
         ),
         testID: row('onion-path'),
+        ...(flag('pathScreen')
+          ? {
+              onPress: () => {
+                modals.push({ title: tr('onionRoutingPath'), render: () => <PathPage /> })
+              },
+            }
+          : {}),
       },
       { label: tr('networkName'), icon: SessionTokenMark, testID: row('network') },
     ],
@@ -298,6 +304,14 @@ export function SettingsRootPage() {
       <SessionInfo />
     </YStack>
   )
+}
+
+/** Opens the path screen on its own, from the rail's path light. */
+export function useOpenPathScreen(): () => void {
+  const modals = useModals()
+  return () => {
+    modals.present({ initial: { title: tr('onionRoutingPath'), render: () => <PathPage /> } })
+  }
 }
 
 /** Opens settings over whatever is on screen. */

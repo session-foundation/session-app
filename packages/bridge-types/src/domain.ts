@@ -503,3 +503,106 @@ export interface AccountInfo {
  * reported, and also its answer when the two disagree in a way it cannot name.
  */
 export type NetworkStatus = 'unknown' | 'connecting' | 'connected' | 'disconnected'
+
+/**
+ * What a path leads to. `ownSwarm` is the storage node the account's subscription is held with;
+ * `storageNode` is any other, which is a group's swarm, a contact's a message was sent to, or a
+ * proxy a community request went through; `fileServer` is the file server, which is reached as a
+ * client behind a relay of its own choosing rather than as a node on the network.
+ *
+ * Under onion requests a path is built before any destination is chosen and carries requests to
+ * all of them: `anyFile` is one of those kept for file transfers, `anyNode` one for everything
+ * else.
+ */
+export type PathDestination = 'ownSwarm' | 'storageNode' | 'fileServer' | 'anyNode' | 'anyFile'
+
+/** One relay of a path, as the path screen shows it. */
+export interface PathHop {
+  /** The relay's Ed25519 public key, hex: what identifies it from one snapshot to the next. */
+  pubkeyHex: string
+  /**
+   * The ISO 3166-1 alpha-2 code of the country its address is registered in, from the IP table
+   * libsession bundles. Absent when the address is not in the table, or the build carries none.
+   */
+  country?: string
+}
+
+/**
+ * A path the client is holding open. Every figure covers the whole path, out and back: the router
+ * does not time individual hops.
+ */
+export interface NetworkPath {
+  /**
+   * Who the path's session is with, hex. Stays the same when the path itself is replaced. For an
+   * `anyNode` or `anyFile` path, which has no one remote, the router's name for the path instead:
+   * a replacement has a new one.
+   */
+  remoteHex: string
+  destination: PathDestination
+  /**
+   * A spare the router holds ready for the same remote and sends nothing along. Each remote has
+   * one path that is not, and that one carries the request counts; a standby path's are zero.
+   */
+  standby: boolean
+  /**
+   * The hops, nearest first. To a storage node there are four and the last is the node itself; to
+   * the file server there are three and the last is the relay it is reached through; an `anyNode`
+   * or `anyFile` path has three, the last a relay that forwards to whatever each request names.
+   */
+  hops: PathHop[]
+  /**
+   * Mean round trip of the router's pings along it. Zero until the first one is answered. Onion
+   * requests send no pings, so an `anyNode` path's is its requests' round trips, which include the
+   * destination's time to answer; an `anyFile` path's is always zero, since a file transfer's round
+   * trip times the file as much as the path.
+   */
+  latencyMs: number
+  /**
+   * Mean difference between consecutive pings' round trips. Always zero on an `anyNode` or
+   * `anyFile` path: requests differ too much in kind and size to measure it by.
+   */
+  jitterMs: number
+  /**
+   * Requests sent to `remoteHex` since the network started, and how many of them were passed on
+   * to a server outside the network (a community, or the file server's web interface). Totals, so
+   * that two snapshots tell how many went in between; they carry over when the path is replaced,
+   * except on an `anyNode` or `anyFile` path, whose counts are its own.
+   */
+  requestsSent: number
+  proxiedRequestsSent: number
+  /**
+   * How long ago the last of `requestsSent` went, so one snapshot tells which paths are in use.
+   * Absent on a standby path and for a remote nothing has been sent to.
+   */
+  msSinceLastRequest?: number
+  /**
+   * The router's pings answered along it since it was built. A total that starts again from zero
+   * when the path is replaced, which a change in `hops` tells. Always zero under onion requests.
+   */
+  pingsAnswered: number
+}
+
+/** How many service nodes one country holds. */
+export interface CountryNodes {
+  /** The ISO 3166-1 alpha-2 code, from the same IP table as a hop's `country`. */
+  country: string
+  nodes: number
+}
+
+/** Every path the client is holding open, for the path screen. */
+export interface NetworkPaths {
+  /** In no particular order. Empty with no network, or one that sends without paths. */
+  paths: NetworkPath[]
+  /**
+   * How many service nodes each country holds, most first, from the node cache: the network as
+   * this client knows it, which changes over hours rather than between snapshots. Nodes the table
+   * cannot place are left out. Empty until the cache is first fetched, with no network, or in a
+   * build without the country table.
+   */
+  nodesByCountry: CountryNodes[]
+  /**
+   * The credit the country table's licence requires wherever its results are shown, or empty when
+   * the build carries no table.
+   */
+  countryAttribution: string
+}

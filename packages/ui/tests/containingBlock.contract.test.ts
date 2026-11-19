@@ -54,6 +54,8 @@ describe('an absolutely positioned child', () => {
     'LandingHighlight.tsx',
     'LanguagePicker.tsx',
     'Modal.tsx',
+    // The path flow's requests, laid over the flow's own card, which is `relative`.
+    'PathSpritesHost.tsx',
     'ScanQrPane.tsx',
     'TooltipArrow.tsx',
     'TrayEdgeFade.tsx',

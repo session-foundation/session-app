@@ -10,6 +10,7 @@
 #include <session/image/thumbnail.hpp>
 #include <session/logging.hpp>
 #include <session/mnemonics.hpp>
+#include <session/network/ip_country.hpp>
 #include <session/network/network_opt.hpp>
 #include <session/network/session_network.hpp>
 #include <session/sqlite.hpp>
@@ -32,6 +33,7 @@
 #include <filesystem>
 #include <functional>
 #include <limits>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -373,6 +375,44 @@ struct ClientBridge::Impl {
     /// Where staged thumbnails are made. Shared, so a callback on Core's loop can reach it
     /// without reaching back through `this`.
     std::shared_ptr<StagedThumbnails> staged = std::make_shared<StagedThumbnails>(make_staged);
+    /// Your swarm's members, for telling which of the router's paths reach it: every member can
+    /// carry your traffic, and Core names the one it polls only once that one has answered. Filled
+    /// by the network's swarm lookup, which answers on its own loop, so shared and locked.
+    struct OwnSwarm {
+        std::mutex lock;
+        std::vector<::session::network::ed25519_pubkey> members;
+    };
+    std::shared_ptr<OwnSwarm> own_swarm = std::make_shared<OwnSwarm>();
+    /// How many nodes each country holds, counted at most every `COUNTRY_RECOUNT`: the node cache
+    /// changes over hours, and counting it copies every node and looks each one up.
+    struct CountryCounts {
+        std::mutex lock;
+        std::chrono::steady_clock::time_point at{};
+        std::vector<CountryNodes> counts;
+    };
+    static constexpr auto COUNTRY_RECOUNT = std::chrono::minutes{10};
+    std::shared_ptr<CountryCounts> country_counts = std::make_shared<CountryCounts>();
+
+    /// The node cache by country, most first; recounted while still empty, so it fills as soon as
+    /// the cache does.
+    std::vector<CountryNodes> nodes_by_country(::session::network::Network& net) {
+        std::lock_guard l{country_counts->lock};
+        auto now = std::chrono::steady_clock::now();
+        if (!country_counts->counts.empty() && now - country_counts->at < COUNTRY_RECOUNT)
+            return country_counts->counts;
+        std::map<std::string, int, std::less<>> by_country;
+        for (const auto& node : net.get_cached_nodes())
+            if (auto country = ::session::ip_country::lookup(node.ip))
+                ++by_country[std::string{*country}];
+        std::vector<CountryNodes> counts;
+        counts.reserve(by_country.size());
+        for (const auto& [country, nodes] : by_country)
+            counts.emplace_back(country, static_cast<double>(nodes));
+        std::ranges::stable_sort(counts, std::ranges::greater{}, &CountryNodes::nodes);
+        country_counts->counts = counts;
+        country_counts->at = now;
+        return counts;
+    }
     /// Held while a network status is read and emitted, by the network's hook and by
     /// `getNetworkStatus` alike, so the two reach the stream in the order the status changed: an
     /// answer read before a change is emitted before that change's event, never after it.
@@ -1390,6 +1430,75 @@ struct ClientBridge::Impl {
             std::ranges::sort(sizes, {}, &ConfigSize::name);
             respond(id, ConfigSizesResult{std::move(sizes)});
         }));
+    }
+
+    void handle(double id, const GetNetworkPathsCommand&) {
+        std::vector<NetworkPath> paths;
+        std::vector<CountryNodes> countries;
+        if (auto* net = client->core.network()) {
+            countries = nodes_by_country(*net);
+            // On Core's loop, which is where the subscription moves it.
+            auto [own, pubkey] = client->core.loop().call_get([&] {
+                return std::pair{client->core.swarm_node(), client->core.globals.pubkey_x25519()};
+            });
+            // From the node cache once the swarm is known, so this answers a poll or two late
+            // at most, and only the first time.
+            net->get_swarm(pubkey, false, [cache = own_swarm](auto, auto swarm) {
+                if (swarm.empty())
+                    return;
+                std::lock_guard l{cache->lock};
+                cache->members.clear();
+                for (const auto& node : swarm)
+                    cache->members.push_back(node.remote_pubkey);
+            });
+            std::vector<::session::network::ed25519_pubkey> members;
+            {
+                std::lock_guard l{own_swarm->lock};
+                members = own_swarm->members;
+            }
+            auto in_own_swarm = [&](const ::session::network::ed25519_pubkey& remote) {
+                return (own && own->remote_pubkey == remote) ||
+                       std::ranges::find(members, remote) != members.end();
+            };
+            for (auto& open : net->get_open_paths()) {
+                std::vector<PathHop> hops;
+                hops.reserve(open.path.hops.size());
+                for (auto& hop : open.path.hops) {
+                    auto country = ::session::ip_country::lookup(hop.ip);
+                    hops.emplace_back(
+                            hop.pubkey.hex(),
+                            country ? std::optional<std::string>{*country} : std::nullopt);
+                }
+                // An onion-request path has no remote: it is named by the router instead.
+                auto destination =
+                        open.any_destination
+                                ? (*open.any_destination == ::session::network::PathCategory::file
+                                           ? PathDestination::any_file
+                                           : PathDestination::any_node)
+                        : open.remote_is_client      ? PathDestination::file_server
+                        : in_own_swarm(open.remote) ? PathDestination::own_swarm
+                                                    : PathDestination::storage_node;
+                paths.emplace_back(
+                        open.any_destination ? open.id : open.remote.hex(),
+                        destination,
+                        open.standby,
+                        std::move(hops),
+                        static_cast<double>(open.performance.latency.count()),
+                        static_cast<double>(open.performance.jitter.count()) / 1000.0,
+                        static_cast<double>(open.requests_sent),
+                        static_cast<double>(open.proxied_requests_sent),
+                        open.since_last_request
+                                ? std::optional<double>{static_cast<double>(
+                                          open.since_last_request->count())}
+                                : std::nullopt,
+                        static_cast<double>(open.performance.ping_responses));
+            }
+        }
+        respond(id,
+                NetworkPathsResult{NetworkPaths{
+                        std::move(paths),
+                        std::move(countries),
+                        std::string{::session::ip_country::attribution()}}});
     }
 
     void handle(double id, const GetPrefCommand& cmd) {

@@ -1,4 +1,6 @@
 import { ArrowDown } from '@tamagui/lucide-icons-2/icons/ArrowDown'
+import { ArrowLeft } from '@tamagui/lucide-icons-2/icons/ArrowLeft'
+import { ArrowRight } from '@tamagui/lucide-icons-2/icons/ArrowRight'
 import { ArrowUp } from '@tamagui/lucide-icons-2/icons/ArrowUp'
 import { Ban } from '@tamagui/lucide-icons-2/icons/Ban'
 import { BellOff } from '@tamagui/lucide-icons-2/icons/BellOff'
@@ -81,6 +83,8 @@ import { isLayoutRtl } from './layoutDirection'
  */
 const GLYPHS = {
   arrowDown: ArrowDown,
+  arrowLeft: ArrowLeft,
+  arrowRight: ArrowRight,
   arrowUp: ArrowUp,
   ban: Ban,
   bellOff: BellOff,

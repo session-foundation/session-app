@@ -695,6 +695,49 @@ describeEcho('the generated converters', () => {
       },
     },
     { type: 'response', response: { id: 900_019, result: { type: 'configSizes', sizes: [] } } },
+    // Every PathDestination once, and a hop with no country beside one with.
+    {
+      type: 'response',
+      response: {
+        id: 900_060,
+        result: {
+          type: 'networkPaths',
+          snapshot: {
+            // Every PathDestination once: the enum's names are what the converters spell.
+            paths: (['ownSwarm', 'storageNode', 'fileServer', 'anyNode', 'anyFile'] as const).map(
+              (destination, i) => ({
+                remoteHex: String(i).repeat(64),
+                destination,
+                standby: i === 1,
+                hops: [{ pubkeyHex: 'a'.repeat(64), country: 'DE' }, { pubkeyHex: 'b'.repeat(64) }],
+                latencyMs: 240 + i,
+                jitterMs: 12.5,
+                requestsSent: 9_007_199_254_740_991,
+                proxiedRequestsSent: 0,
+                // Present on one path only: absent is its own case, a remote nothing went to.
+                ...(i === 0 ? { msSinceLastRequest: 1_234 } : {}),
+                pingsAnswered: 2_147_483_647,
+              }),
+            ),
+            nodesByCountry: [
+              { country: 'DE', nodes: 412 },
+              { country: 'US', nodes: 230 },
+            ],
+            countryAttribution: 'IP Geolocation by DB-IP (https://db-ip.com)',
+          },
+        },
+      },
+    },
+    {
+      type: 'response',
+      response: {
+        id: 900_061,
+        result: {
+          type: 'networkPaths',
+          snapshot: { paths: [], nodesByCountry: [], countryAttribution: '' },
+        },
+      },
+    },
     ...(
       [
         'reencoded',

@@ -18,7 +18,8 @@ export interface KeyboardShortcutGroup {
 /**
  * Every key the desktop app handles beyond typing and Tab, as each platform presses it.
  *
- * Only what is handled: the transcript's keys (`listFocus.ts` in `@session/ui`) and the menu bar's
+ * Only what is handled: the transcript's keys (`listFocus.ts` in `@session/ui`), the media viewer's
+ * (`mediaViewerArrowKeys.ts` there) and the menu bar's
  * accelerators (`appMenu.ts` in the desktop app). Full screen is Electron's own accelerator, ⌃⌘F
  * on a Mac and F11 elsewhere. Built per call, so the labels follow the language.
  */
@@ -32,6 +33,11 @@ export function keyboardShortcuts(names: KeyNames): readonly KeyboardShortcutGro
         { name: 'navigate', label: PENDING_COPY.messageNavigate, combos: [['up'], ['down']] },
         // Shift+F10 and the Menu key work too, as the platform's, but are not what to learn.
         { name: 'menu', label: tr('openMessageContextMenu'), combos: [['enter'], ['space']] },
+        {
+          name: 'attachment-navigate',
+          label: PENDING_COPY.attachmentNavigate,
+          combos: [['left'], ['right']],
+        },
       ],
     },
     {

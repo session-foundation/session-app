@@ -6,7 +6,7 @@ import { MESSAGE_QUOTE_ID, messageQuote } from '@session/expectations'
 import { MessageQuote, type MessageQuoteProps } from '#src/MessageQuote'
 import { QUOTE_LABELS } from '#src/catalog/quoteLabels'
 
-import { byId, nodeOf } from '@session/render-tier'
+import { byId, declared, nodeOf } from '@session/render-tier'
 import { renderInUI } from './support/render'
 
 const HINT = 'Shows the original message'
@@ -79,5 +79,26 @@ describe('a press on a quote', () => {
     renderInUI(<MessageQuote {...quote({ onPress, message: undefined })} />)
     await user.click(byId(MESSAGE_QUOTE_ID))
     expect(onPress).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('a quote’s summary', () => {
+  const body = 'Lunch at one?'
+  const summary = () =>
+    [...byId(MESSAGE_QUOTE_ID).querySelectorAll('*')].find(
+      (element) => element.children.length === 0 && element.textContent === body,
+    )!
+
+  // The quote's tint and the hover layer leave no margin for a dimmed ink at caption size.
+  it.each([
+    ['received', false],
+    ['sent', true],
+  ])('is drawn at full ink on a %s bubble', (_bubble, onAccent) => {
+    renderInUI(
+      <MessageQuote
+        {...quote({ onAccent, message: { id: 3, outgoing: false, body, attachments: [] } })}
+      />,
+    )
+    expect(declared(summary()).opacity ?? '1').toBe('1')
   })
 })

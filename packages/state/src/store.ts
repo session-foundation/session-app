@@ -4,6 +4,7 @@ import type {
   ConfigSize,
   ConversationId,
   MessagePage,
+  NetworkPaths,
   OutgoingMessage,
   SendPlan,
   SessionClient,
@@ -74,6 +75,8 @@ export interface SessionActions {
    * account; rejects where the bridge cannot answer, which a failed start is.
    */
   getConfigSizes: () => Promise<ConfigSize[]>
+  /** Every path the network holds open, for the path screen to poll while it is showing. */
+  getNetworkPaths: () => Promise<NetworkPaths>
   /**
    * Stores the account's theme and accent and shows them. The rail's light/dark toggle calls it;
    * the Appearance screen, once built, will too.
@@ -447,6 +450,10 @@ export function createSessionStore(
 
     getConfigSizes(): Promise<ConfigSize[]> {
       return client.getConfigSizes()
+    },
+
+    getNetworkPaths(): Promise<NetworkPaths> {
+      return client.getNetworkPaths()
     },
 
     async getPreference(key): Promise<string | undefined> {

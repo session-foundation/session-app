@@ -11,6 +11,13 @@ describe('a key combination', () => {
     expect(screen.getByRole('img', { name: '↑' })).toBeTruthy()
   })
 
+  it('draws left and right as icons too', () => {
+    renderInUI(<KeyCombo keys={['left']} names="pc" testID="left" />)
+    renderInUI(<KeyCombo keys={['right']} names="pc" testID="right" />)
+    expect(screen.getByRole('img', { name: '←' })).toBeTruthy()
+    expect(screen.getByRole('img', { name: '→' })).toBeTruthy()
+  })
+
   it('leaves a key drawn as a word to its text', () => {
     renderInUI(<KeyCombo keys={['mod', 'slash']} names="mac" testID="open" />)
     expect(screen.queryAllByRole('img')).toEqual([])

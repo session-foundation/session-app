@@ -37,10 +37,12 @@ import {
   type Deletion,
   type ListPlacement,
   type Message,
+  type NetworkPaths,
   type NetworkStatus,
   type OutgoingAttachment,
   type QuotedMessage,
   type Reply,
+  type RouterKind,
   type SendPlan,
   type SendState,
   type SessionEvent,
@@ -49,6 +51,7 @@ import {
 
 import { SessionClientError } from '../errors'
 
+import { fakeNetworkPaths, type FakePathTraffic } from './paths'
 import { inferContentType } from './contentType'
 import { fakeSendPlan, isReencoded, reencodedContentType } from './sendPlan'
 
@@ -334,7 +337,11 @@ export class FakeAccount {
    * not the account's, so the account made next goes online on it too.
    */
   networkPlanned = false
+  /** How the accepted network sends, which decides what paths it reports. */
+  networkRouter: RouterKind = 'session-router'
   networkStatus: NetworkStatus = 'disconnected'
+  /** When the network last connected, on the paths' clock; null while it is not connected. */
+  connectedAtMs: number | null = null
   /**
    * When a restored profile becomes visible, or 0 where there is nothing outstanding.
    *
@@ -433,6 +440,7 @@ export class FakeAccount {
   setNetworkStatus(status: NetworkStatus): void {
     if (this.networkStatus === status) return
     this.networkStatus = status
+    this.connectedAtMs = status === 'connected' ? (this.world?.pathNow() ?? Date.now()) : null
     this.emit({ type: 'network-status-changed', status })
   }
 
@@ -1298,6 +1306,16 @@ export class FakeAccount {
     this.cacheLimitBytes = limitBytes
   }
 
+  /** The paths the network holds, which are none until it has connected. */
+  networkPaths(): NetworkPaths {
+    const now = this.world?.pathNow() ?? Date.now()
+    return fakeNetworkPaths(
+      this.connectedAtMs === null ? null : now - this.connectedAtMs,
+      this.world?.pathTraffic ?? 'quiet',
+      this.networkRouter,
+    )
+  }
+
   /**
    * libsession's five configs and a size for each, growing with what they hold. Not their real
    * sizes - the fake keeps no dumps - but in the same order, under the same names, and empty before
@@ -1560,6 +1578,20 @@ export class FakeWorld {
 
   now(): number {
     return this.clock
+  }
+
+  /** How much the accounts' paths carry; see `FakePathTraffic`. */
+  pathTraffic: FakePathTraffic = 'quiet'
+
+  /**
+   * The clock the paths' traffic is timed by: the world's, unless an app sets the wall clock. An
+   * app's dev loop only settles the world rather than running its clock, and a path screen with
+   * no time passing has nothing to draw.
+   */
+  pathClock: (() => number) | undefined = undefined
+
+  pathNow(): number {
+    return this.pathClock?.() ?? this.clock
   }
 
   account(name: string, options?: Partial<FakeAccountOptions>): FakeAccount {

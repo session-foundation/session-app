@@ -668,6 +668,127 @@ struct NetworkStatusResult {
             status{std::move(status_)} {}
 };
 
+/// What a path leads to. `ownSwarm` is the storage node the account's subscription is held with;
+/// `storageNode` is any other, which is a group's swarm, a contact's a message was sent to, or a
+/// proxy a community request went through; `fileServer` is the file server, which is reached as a
+/// client behind a relay of its own choosing rather than as a node on the network.
+///
+/// Under onion requests a path is built before any destination is chosen and carries requests to
+/// all of them: `anyFile` is one of those kept for file transfers, `anyNode` one for everything
+/// else.
+enum class PathDestination {
+    own_swarm,
+    storage_node,
+    file_server,
+    any_node,
+    any_file,
+};
+
+template <>
+struct EnumTraits<PathDestination> {
+    static constexpr std::string_view name = "PathDestination";
+    static constexpr std::array<std::string_view, 5> names{"ownSwarm", "storageNode", "fileServer", "anyNode", "anyFile"};
+
+    static constexpr std::string_view to_string(PathDestination value) {
+        return names[static_cast<std::size_t>(value)];
+    }
+
+    static constexpr std::optional<PathDestination> parse(std::string_view text) {
+        for (std::size_t i = 0; i < names.size(); i++)
+            if (names[i] == text)
+                return static_cast<PathDestination>(i);
+        return std::nullopt;
+    }
+};
+
+/// One relay of a path, as the path screen shows it.
+struct PathHop {
+    /// The relay's Ed25519 public key, hex: what identifies it from one snapshot to the next.
+    std::string pubkey_hex;
+    /// The ISO 3166-1 alpha-2 code of the country its address is registered in, from the IP table
+    /// libsession bundles. Absent when the address is not in the table, or the build carries none.
+    std::optional<std::string> country;
+
+    PathHop(std::string pubkey_hex_, std::optional<std::string> country_) :
+            pubkey_hex{std::move(pubkey_hex_)}, country{std::move(country_)} {}
+};
+
+/// A path the client is holding open. Every figure covers the whole path, out and back: the router
+/// does not time individual hops.
+struct NetworkPath {
+    /// Who the path's session is with, hex. Stays the same when the path itself is replaced. For an
+    /// `anyNode` or `anyFile` path, which has no one remote, the router's name for the path instead:
+    /// a replacement has a new one.
+    std::string remote_hex;
+    ::session_bridge::PathDestination destination;
+    /// A spare the router holds ready for the same remote and sends nothing along. Each remote has
+    /// one path that is not, and that one carries the request counts; a standby path's are zero.
+    bool standby;
+    /// The hops, nearest first. To a storage node there are four and the last is the node itself; to
+    /// the file server there are three and the last is the relay it is reached through; an `anyNode`
+    /// or `anyFile` path has three, the last a relay that forwards to whatever each request names.
+    std::vector<::session_bridge::PathHop> hops;
+    /// Mean round trip of the router's pings along it. Zero until the first one is answered. Onion
+    /// requests send no pings, so an `anyNode` path's is its requests' round trips, which include the
+    /// destination's time to answer; an `anyFile` path's is always zero, since a file transfer's round
+    /// trip times the file as much as the path.
+    double latency_ms;
+    /// Mean difference between consecutive pings' round trips. Always zero on an `anyNode` or
+    /// `anyFile` path: requests differ too much in kind and size to measure it by.
+    double jitter_ms;
+    /// Requests sent to `remoteHex` since the network started, and how many of them were passed on
+    /// to a server outside the network (a community, or the file server's web interface). Totals, so
+    /// that two snapshots tell how many went in between; they carry over when the path is replaced,
+    /// except on an `anyNode` or `anyFile` path, whose counts are its own.
+    double requests_sent;
+    double proxied_requests_sent;
+    /// How long ago the last of `requestsSent` went, so one snapshot tells which paths are in use.
+    /// Absent on a standby path and for a remote nothing has been sent to.
+    std::optional<double> ms_since_last_request;
+    /// The router's pings answered along it since it was built. A total that starts again from zero
+    /// when the path is replaced, which a change in `hops` tells. Always zero under onion requests.
+    double pings_answered;
+
+    NetworkPath(std::string remote_hex_, ::session_bridge::PathDestination destination_, bool standby_, std::vector<::session_bridge::PathHop> hops_, double latency_ms_, double jitter_ms_, double requests_sent_, double proxied_requests_sent_, std::optional<double> ms_since_last_request_, double pings_answered_) :
+            remote_hex{std::move(remote_hex_)}, destination{std::move(destination_)}, standby{std::move(standby_)}, hops{std::move(hops_)}, latency_ms{std::move(latency_ms_)}, jitter_ms{std::move(jitter_ms_)}, requests_sent{std::move(requests_sent_)}, proxied_requests_sent{std::move(proxied_requests_sent_)}, ms_since_last_request{std::move(ms_since_last_request_)}, pings_answered{std::move(pings_answered_)} {}
+};
+
+/// How many service nodes one country holds.
+struct CountryNodes {
+    /// The ISO 3166-1 alpha-2 code, from the same IP table as a hop's `country`.
+    std::string country;
+    double nodes;
+
+    CountryNodes(std::string country_, double nodes_) :
+            country{std::move(country_)}, nodes{std::move(nodes_)} {}
+};
+
+/// Every path the client is holding open, for the path screen.
+struct NetworkPaths {
+    /// In no particular order. Empty with no network, or one that sends without paths.
+    std::vector<::session_bridge::NetworkPath> paths;
+    /// How many service nodes each country holds, most first, from the node cache: the network as
+    /// this client knows it, which changes over hours rather than between snapshots. Nodes the table
+    /// cannot place are left out. Empty until the cache is first fetched, with no network, or in a
+    /// build without the country table.
+    std::vector<::session_bridge::CountryNodes> nodes_by_country;
+    /// The credit the country table's licence requires wherever its results are shown, or empty when
+    /// the build carries no table.
+    std::string country_attribution;
+
+    NetworkPaths(std::vector<::session_bridge::NetworkPath> paths_, std::vector<::session_bridge::CountryNodes> nodes_by_country_, std::string country_attribution_) :
+            paths{std::move(paths_)}, nodes_by_country{std::move(nodes_by_country_)}, country_attribution{std::move(country_attribution_)} {}
+};
+
+struct NetworkPathsResult {
+    static constexpr std::string_view type_tag = "networkPaths";
+
+    ::session_bridge::NetworkPaths snapshot;
+
+    explicit NetworkPathsResult(::session_bridge::NetworkPaths snapshot_) :
+            snapshot{std::move(snapshot_)} {}
+};
+
 /// What a Response carries when the command succeeded.
 using Result = std::variant<
         EmptyResult,
@@ -686,7 +807,8 @@ using Result = std::variant<
         SendPlanResult,
         EdgeResult,
         ConfigSizesResult,
-        NetworkStatusResult>;
+        NetworkStatusResult,
+        NetworkPathsResult>;
 
 struct Response {
     double id;
@@ -1625,6 +1747,13 @@ struct GetConfigSizesCommand {
     static constexpr std::string_view type_tag = "getConfigSizes";
 };
 
+/// Every path the network is holding open, with how each is performing and how many requests
+/// have gone along it, for the path screen. A snapshot: ask again for a fresher one. Empty under
+/// onion requests or with no network attached.
+struct GetNetworkPathsCommand {
+    static constexpr std::string_view type_tag = "getNetworkPaths";
+};
+
 struct GetPrefCommand {
     static constexpr std::string_view type_tag = "getPref";
 
@@ -1774,6 +1903,7 @@ using Command = std::variant<
         GetThumbnailEdgeCommand,
         SetThumbnailEdgeCommand,
         GetConfigSizesCommand,
+        GetNetworkPathsCommand,
         GetPrefCommand,
         SetPrefCommand,
         DeliverTestMessageCommand,

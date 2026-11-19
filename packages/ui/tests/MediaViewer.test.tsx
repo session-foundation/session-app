@@ -1,5 +1,6 @@
 import { ELEMENT } from '@session/test-ids'
-import { describe, expect, it } from 'vitest'
+import { fireEvent } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
 
 import { MediaViewer, type MediaViewerItem } from '#src/MediaViewer'
 
@@ -9,13 +10,17 @@ function viewer(items: readonly MediaViewerItem[], open = true) {
   return renderInUI(viewerElement(items, open))
 }
 
-function viewerElement(items: readonly MediaViewerItem[], open: boolean) {
+function viewerElement(
+  items: readonly MediaViewerItem[],
+  open: boolean,
+  { index = 0, onIndex = () => {} }: { index?: number; onIndex?: (index: number) => void } = {},
+) {
   return (
     <MediaViewer
       open={open}
       items={items}
-      index={0}
-      onIndex={() => {}}
+      index={index}
+      onIndex={onIndex}
       onClose={() => {}}
       onExport={() => {}}
       positionLabel="1 / 1"
@@ -63,5 +68,37 @@ describe('the viewer opening and closing', () => {
     const { baseElement, rerender } = viewer([picture])
     rerender(viewerElement([picture], false))
     expect(image(baseElement)).not.toBeNull()
+  })
+})
+
+describe('the viewer paged from the keyboard', () => {
+  const pictures: readonly MediaViewerItem[] = [
+    { uri: 'file:///one.jpg' },
+    { uri: 'file:///two.jpg' },
+    { uri: 'file:///three.jpg' },
+  ]
+
+  it('pages forward and back with the arrow keys', () => {
+    const onIndex = vi.fn()
+    renderInUI(viewerElement(pictures, true, { index: 1, onIndex }))
+    fireEvent.keyDown(document, { key: 'ArrowRight' })
+    fireEvent.keyDown(document, { key: 'ArrowLeft' })
+    expect(onIndex.mock.calls).toEqual([[2], [0]])
+  })
+
+  it('leaves an arrow held with a modifier to the system', () => {
+    const onIndex = vi.fn()
+    renderInUI(viewerElement(pictures, true, { index: 1, onIndex }))
+    fireEvent.keyDown(document, { key: 'ArrowRight', altKey: true })
+    fireEvent.keyDown(document, { key: 'ArrowRight', metaKey: true })
+    expect(onIndex).not.toHaveBeenCalled()
+  })
+
+  it('stops listening once closed', () => {
+    const onIndex = vi.fn()
+    const { rerender } = renderInUI(viewerElement(pictures, true, { index: 1, onIndex }))
+    rerender(viewerElement(pictures, false, { index: 1, onIndex }))
+    fireEvent.keyDown(document, { key: 'ArrowRight' })
+    expect(onIndex).not.toHaveBeenCalled()
   })
 })
