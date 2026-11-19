@@ -117,6 +117,33 @@ describe('TranscriptList', () => {
     await new Promise((resolve) => setTimeout(resolve, SCROLL_END_MS))
   })
 
+  it('says the newest message is near once a newer read finds nothing past its window', async () => {
+    const onFarFromEnd = vi.fn()
+    function Window({ moreAfter }: { moreAfter: boolean }) {
+      return (
+        <TranscriptList
+          data={paged(30)}
+          keyExtractor={key}
+          moreAfter={moreAfter}
+          onFarFromEnd={onFarFromEnd}
+          testID={LIST}
+          renderItem={(item, index) => <Text testID={ROW(index)}>{item.id}</Text>}
+        />
+      )
+    }
+    const { rerender } = renderInUI(<Window moreAfter />)
+    await scrollTo(1600, 2000)
+    await new Promise((resolve) => setTimeout(resolve, 400))
+    await scrollTo(1600, 2000)
+    expect(onFarFromEnd).toHaveBeenLastCalledWith(true)
+
+    // The messages past the window were deleted meanwhile: no rows, and nothing changes size.
+    rerender(<Window moreAfter={false} />)
+    expect(onFarFromEnd).toHaveBeenLastCalledWith(false)
+
+    await new Promise((resolve) => setTimeout(resolve, SCROLL_END_MS))
+  })
+
   it('lets a reader who scrolls up on the way to the end stay there when a row arrives', async () => {
     const handle = createRef<TranscriptListHandle>()
     renderInUI(

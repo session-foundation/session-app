@@ -595,6 +595,16 @@ export function TranscriptList<T>({
     readEdges.current()
   }, [keys, moreBefore, moreAfter])
 
+  // A newer read that finds nothing ends the window at the newest message and changes no size, so
+  // nothing else says how far the end is. Rows that did arrive say it once they are measured: told
+  // now, before then, the newest message would be near for a moment.
+  const lastKeyHeld = useRef(keys[keys.length - 1])
+  useEffect(() => {
+    const lastKey = keys[keys.length - 1]
+    if (lastKeyHeld.current === lastKey) report()
+    lastKeyHeld.current = lastKey
+  }, [keys, moreAfter, report])
+
   useEffect(
     () => () => {
       clearTimeout(seekingEnd.current)
