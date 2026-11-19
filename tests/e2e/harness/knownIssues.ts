@@ -69,27 +69,11 @@ const KNOWN_ISSUES: Record<Audit, Readonly<Record<string, Known>>> = {
     'color-contrast message-attachment-show-all': "the roll's Show all count: the same ink",
   },
   'showcase-android': {
-    'target-size conversation-back': {
-      why: 'a bar button, drawn at 40dp: under 48 and not in the bounds',
-      only: 'phone',
-    },
-    'target-size message-attachment-view-list':
-      "drawn at 32dp; its hitSlop fills the footer's 48 row, which the tree does not show",
-    'target-size message-attachment-action':
-      'the same: attachment-footer.spec.ts taps the row edges',
     'target-size message-attachment-show-all': 'a PressArea 32dp tall, with no hitSlop at all',
   },
   'showcase-ios': {
     'XCUIAccessibilityAuditTypeSufficientElementDescription message-attachment-tile':
       "a tile is named by its filename, which Apple's audit reads as no human-readable label",
-    'target-size conversation-back': {
-      why: 'a bar button, drawn at 40pt: under 44 and not in the bounds',
-      only: 'phone',
-    },
-    'target-size message-attachment-view-list':
-      "drawn at 32pt; its hitSlop fills the footer's 48 row, which the tree does not show",
-    'target-size message-attachment-action':
-      'the same: attachment-footer.spec.ts taps the row edges',
     'target-size message-attachment-show-all': 'a PressArea 32pt tall, with no hitSlop at all',
   },
 }

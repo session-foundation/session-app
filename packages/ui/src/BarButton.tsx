@@ -3,7 +3,9 @@ import { useGlass } from './glass'
 import { Icon } from './Icon'
 import type { IconName } from './Icon.types'
 import { PressArea } from './PressArea'
+import { ROW_TOUCH_TARGET } from './rowTouchTarget'
 import { SIZE_SCALE } from './scales'
+import { touchReach } from './touchReach'
 import { useThemeIsDark } from './UIProvider'
 import { useTokenColor } from './useTokenColor'
 
@@ -46,6 +48,7 @@ export function BarButton({
         variant="ghost"
         size="md"
         circular
+        touchTarget={ROW_TOUCH_TARGET}
         accessibilityLabel={accessibilityLabel}
         {...(testID === undefined ? {} : { testID })}
         onPress={onPress}
@@ -60,6 +63,7 @@ export function BarButton({
       {...(testID === undefined ? {} : { testID })}
       onPress={onPress}
       disabled={disabled}
+      reach={touchReach(glassDiameter, ROW_TOUCH_TARGET)}
     >
       {(_pressed, hovered) => (
         <Glass size={glassDiameter} dark={dark} highlight={hovered ? hoverColor : null}>

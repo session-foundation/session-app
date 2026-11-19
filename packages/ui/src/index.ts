@@ -22,6 +22,7 @@ export {
 export { HeroImage } from './HeroImage'
 export { KeyboardAvoiding } from './KeyboardAvoiding'
 export { PressArea } from './PressArea'
+export { BUBBLE_TAKES_PRESS, BubblePress } from './BubblePress'
 export { QrCode, type QrCodeProps } from './QrCode'
 export { QrViewer, type QrViewerAction, type QrViewerMenu, type QrViewerProps } from './QrViewer'
 export { RadioIndicator } from './RadioIndicator'

@@ -3,6 +3,8 @@ import { useMessage, useSessionActions } from '@session/state'
 import { tr } from '@session/localization'
 import { ELEMENT } from '@session/test-ids'
 import {
+  BUBBLE_TAKES_PRESS,
+  BubblePress,
   ContextMenuTarget,
   MessageFrame,
   ON_ACCENT_SECONDARY_OPACITY,
@@ -14,6 +16,7 @@ import { memo, useMemo, type ReactNode } from 'react'
 
 import { ConversationUiContext, type ConversationUi } from './conversationUi'
 import { attachmentsWidthPx } from './attachmentsWidth'
+import { layoutLine } from './layoutLine'
 import { MessageAttachments } from './MessageAttachments'
 import { useAlbumGeometry } from './useAlbumGeometry'
 import { offersRetry } from './messageRetry'
@@ -88,8 +91,54 @@ export const MessageRow = memo(function MessageRow({
   const attachmentsWidth =
     message.attachments.length === 0 ? undefined : attachmentsWidthPx(message, geometry)
 
-  const label = message.outgoing ? stateLabel(message) : undefined
+  const state = message.outgoing ? stateLabel(message) : undefined
   const retryable = offersRetry(message)
+  // A word of caption is too small a target for a finger, and the bubble has no room to draw it
+  // bigger: on a phone the whole bubble retries.
+  const bubbleRetries = retryable && BUBBLE_TAKES_PRESS
+  const label =
+    state !== undefined && bubbleRetries ? layoutLine(' · ', state, tr('tapToRetry')) : state
+  const retry = () => {
+    // Resumes rather than restarts. The state comes back as an update, so there is nothing to do
+    // here.
+    void actions.retry(message.id)
+  }
+
+  const frame = (
+    <MessageFrame
+      outgoing={message.outgoing}
+      focusable
+      testID={ELEMENT.conversation.messageRow(index)}
+    >
+      {message.body.length === 0 ? null : (
+        <Text
+          size="$body"
+          color={message.outgoing ? '$onAccent' : '$messageBubbleIncomingText'}
+          {...(attachmentsWidth === undefined ? {} : { maxWidth: attachmentsWidth })}
+          testID={ELEMENT.conversation.messageBody}
+        >
+          {message.body}
+        </Text>
+      )}
+      {attachmentsWidth === undefined ? null : (
+        <MessageAttachments message={message} width={attachmentsWidth} />
+      )}
+      {label === undefined ? null : (
+        <XStack alignItems="center" gap="$xs">
+          {/* On the fill, not on the page: a label only ever appears on an outgoing message. */}
+          <Text
+            size="$caption"
+            color="$onAccent"
+            opacity={ON_ACCENT_SECONDARY_OPACITY}
+            testID={ELEMENT.conversation.messageState}
+          >
+            {label}
+          </Text>
+          {retryable && !bubbleRetries ? <RetryLink onPress={retry} /> : null}
+        </XStack>
+      )}
+    </MessageFrame>
+  )
 
   return (
     <ContextMenuTarget
@@ -99,47 +148,13 @@ export const MessageRow = memo(function MessageRow({
       // as a share of it that fits the row, and their caption wraps at them.
       maxWidth={attachmentsWidth === undefined ? '80%' : '100%'}
     >
-      <MessageFrame
-        outgoing={message.outgoing}
-        focusable
-        testID={ELEMENT.conversation.messageRow(index)}
-      >
-        {message.body.length === 0 ? null : (
-          <Text
-            size="$body"
-            color={message.outgoing ? '$onAccent' : '$messageBubbleIncomingText'}
-            {...(attachmentsWidth === undefined ? {} : { maxWidth: attachmentsWidth })}
-            testID={ELEMENT.conversation.messageBody}
-          >
-            {message.body}
-          </Text>
-        )}
-        {attachmentsWidth === undefined ? null : (
-          <MessageAttachments message={message} width={attachmentsWidth} />
-        )}
-        {label === undefined ? null : (
-          <XStack alignItems="center" gap="$xs">
-            {/* On the fill, not on the page: a label only ever appears on an outgoing message. */}
-            <Text
-              size="$caption"
-              color="$onAccent"
-              opacity={ON_ACCENT_SECONDARY_OPACITY}
-              testID={ELEMENT.conversation.messageState}
-            >
-              {label}
-            </Text>
-            {retryable ? (
-              <RetryLink
-                onPress={() => {
-                  // Resumes rather than restarts. The state comes back as an update, so
-                  // there is nothing to do here.
-                  void actions.retry(message.id)
-                }}
-              />
-            ) : null}
-          </XStack>
-        )}
-      </MessageFrame>
+      {bubbleRetries ? (
+        <BubblePress onPress={retry} testID={ELEMENT.conversation.messageRetry}>
+          {frame}
+        </BubblePress>
+      ) : (
+        frame
+      )}
     </ContextMenuTarget>
   )
 })

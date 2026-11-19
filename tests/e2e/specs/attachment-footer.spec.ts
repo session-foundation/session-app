@@ -15,11 +15,17 @@ const ROW_TOUCH_TARGET = 48
 /** How far inside an edge a tap lands: clear of the drawn button, which is 8 in from the row's. */
 const EDGE = 2
 
-/** iOS's tree gives each frame in whole points. */
+/**
+ * iOS's tree gives each frame in whole points, and Android lays out on whole pixels, which at a
+ * density such as 2.625 puts an edge up to a third of a dp from where it was asked to be.
+ */
 const ROUNDING = 1
 
-/** The most the row may start below what is above it: the line's gap, or the sheet's rule. */
+/** The most the row may start below what is above it: the line's gap. */
 const MAX_CLEARANCE = SPACING['2xs'] + ROUNDING
+
+/** The rule the sheet draws above its footer, between the rows and the footer's gap. */
+const SHEET_RULE = 1
 
 const FOOTER = ELEMENT.conversation.attachmentFooter
 
@@ -75,21 +81,31 @@ function expectRowHeight(app: ISessionApp, row: Frame): void {
 
 /**
  * A touch on what is above lands there only if the footer's row starts below it. Soft, so the tap
- * that follows says what the overlap does as well.
+ * that follows says what the overlap does as well. `between` is what is drawn in the gap, such as
+ * the sheet's rule.
  */
-function expectClearOf(row: Frame, aboveBottom: number): void {
+function expectClearOf(row: Frame, aboveBottom: number, between = 0): void {
   expect
     .soft(row.y - aboveBottom, 'the footer row starts below what is above it')
     .toBeGreaterThanOrEqual(-ROUNDING)
   expect
     .soft(row.y - aboveBottom, 'the row hands its growth back')
-    .toBeLessThanOrEqual(MAX_CLEARANCE)
+    .toBeLessThanOrEqual(MAX_CLEARANCE + between)
+}
+
+/**
+ * What a footer button draws, in the middle of its box: on a phone the box is the row's full height
+ * and the button is drawn at the line's.
+ */
+function drawnOf(box: Frame): Frame {
+  return { ...box, y: box.y + (box.height - FOOTER_HEIGHT) / 2, height: FOOTER_HEIGHT }
 }
 
 /** A point `EDGE` in from the row's edge must miss the button's drawn box, or it proves nothing. */
-function expectOutsideDrawn(app: ISessionApp, y: number, button: Frame): void {
+function expectOutsideDrawn(app: ISessionApp, y: number, box: Frame): void {
   if (app.platform === 'desktop') return
-  expect(y < button.y || y > bottom(button), 'the tap misses the drawn button').toBe(true)
+  const drawn = drawnOf(box)
+  expect(y < drawn.y || y > bottom(drawn), 'the tap misses the drawn button').toBe(true)
 }
 
 sessionTest({
@@ -108,11 +124,19 @@ sessionTest({
 
     // Above the toggle, where the footer's row would take the touch if it reached over the tile.
     const toggle = await frameOf(alice, ELEMENT.conversation.attachmentViewList)
+    expectRowHeight(alice, toggle)
     await alice.tapPoint(centreX(toggle), above - EDGE)
     await alice.waitForVisible(ELEMENT.conversation.autoDownloadPrompt)
     // A phone's prompt hides the transcript from the tree, so the view is read once it is gone.
     await alice.tap(ELEMENT.conversation.autoDownloadNo)
-    await alice.waitForVisible(ELEMENT.conversation.attachmentViewList)
+    await expect
+      .poll(async () => alice.isVisible(ELEMENT.conversation.autoDownloadPrompt), {
+        timeout: 5_000,
+      })
+      .toBe(false)
+    // The tap fetched the pictures, and a picture that arrives takes its own shape, which can
+    // push the footer below the screen.
+    await alice.reveal(ELEMENT.conversation.attachmentViewList, ELEMENT.conversation.screen)
     expect(await alice.count(ELEMENT.conversation.attachmentViewGallery)).toBe(0)
   },
 })
@@ -144,6 +168,40 @@ sessionTest({
     const verbTop = (await frameOf(alice, FOOTER)).y + EDGE
     expectOutsideDrawn(alice, verbTop, verb)
     await alice.tapPoint(centreX(verb), verbTop)
+    await alice.waitForVisible(ELEMENT.conversation.autoDownloadPrompt)
+  },
+})
+
+/**
+ * A point `EDGE` inside the end of a button's box that reaches past the row's, which only a box
+ * that takes touches beyond its parent's edge answers.
+ */
+function pastRow(box: Frame, row: Frame): number {
+  if (box.x < row.x) return box.x + EDGE
+  const end = box.x + box.width
+  if (end > row.x + row.width) return end - EDGE
+  throw new Error('the box does not reach past the row')
+}
+
+sessionTest({
+  title: 'takes a touch on the footer buttons’ boxes past the row’s ends',
+  risk: 'medium',
+  clients: { alice: EACH },
+  run: async ({ alice }) => {
+    if (!alice) throw new Error('the harness did not open alice')
+    // The phones only: the desktop draws each button at its box.
+    if (alice.platform === 'desktop') return
+
+    await openFirstConversation(alice)
+    await alice.waitForVisible(ALBUM_TILE_ID)
+
+    const toList = await frameOf(alice, ELEMENT.conversation.attachmentViewList)
+    const row = await frameOf(alice, FOOTER)
+    await alice.tapPoint(pastRow(toList, row), toList.y + toList.height / 2)
+    await alice.waitForVisible(ELEMENT.conversation.attachmentViewGallery)
+
+    const verb = await frameOf(alice, FOOTER_ACTION_ID)
+    await alice.tapPoint(pastRow(verb, await frameOf(alice, FOOTER)), verb.y + verb.height / 2)
     await alice.waitForVisible(ELEMENT.conversation.autoDownloadPrompt)
   },
 })
@@ -186,7 +244,7 @@ sessionTest({
     const row = await requiredInside(alice, FOOTER, sheet)
     const list = await frameOf(alice, ELEMENT.conversation.attachmentSheetList)
     expectRowHeight(alice, row)
-    expectClearOf(row, bottom(list))
+    expectClearOf(row, bottom(list), SHEET_RULE)
 
     const verb = await requiredInside(alice, FOOTER_ACTION_ID, sheet)
     await alice.tapPoint(centreX(verb), bottom(list) - EDGE)

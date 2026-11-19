@@ -9,6 +9,7 @@ import {
   ComposerNotice,
   Icon,
   Input,
+  ROW_TOUCH_TARGET,
   StagedTile,
   StagedTray,
   XStack,
@@ -44,6 +45,8 @@ function Notices({ staging }: { staging: StagingState }) {
     </>
   )
 }
+
+const ATTACH_SIZE = 'md'
 
 /** The bottom of a conversation: what is staged, what was refused, and the line being typed. */
 export function Composer({
@@ -156,11 +159,12 @@ export function Composer({
       <XStack gap="$sm" alignItems="center">
         <Button
           variant="tonal"
-          size="md"
+          size={ATTACH_SIZE}
           circular
           disabled={full || sending}
           icon={<Icon name="plus" size="md" color="$textPrimary" />}
           accessibilityLabel={tr('attachmentsAdd')}
+          touchTarget={ROW_TOUCH_TARGET}
           onPress={attach}
           testID={ELEMENT.conversation.attachButton}
         />

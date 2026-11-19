@@ -54,9 +54,6 @@ const ROW_OVERHANG = (ROW_HEIGHT - FOOTER_HEIGHT) / 2
  */
 export const FOOTER_CLEARANCE = SPACE_SCALE['2xs'] + ROW_OVERHANG
 
-/** Each button takes the row's full height on touch. */
-const ACTION_SLOP = ROW_OVERHANG
-
 /**
  * The least the caption keeps beside the two buttons: a size such as "2.4 MB", which leads any
  * caption that has one, or its start.
@@ -207,7 +204,8 @@ export function AttachmentFooter({
           circular
           icon={<Icon name={SWITCH_TO[view].icon} size="sm" color="$textPrimary" />}
           accessibilityLabel={SWITCH_TO[view].label}
-          hitSlop={ACTION_SLOP}
+          // The row's full height, as a box a screen reader and an audit read as the button.
+          touchTarget={ROW_HEIGHT}
           onAccent={onAccent}
           onPress={() => {
             onView(SWITCH_TO[view].view)
@@ -245,7 +243,7 @@ export function AttachmentFooter({
           circular
           icon={<Icon name={verbIcon(set, sending !== undefined)} size="sm" color="$textPrimary" />}
           accessibilityLabel={action}
-          hitSlop={ACTION_SLOP}
+          touchTarget={ROW_HEIGHT}
           destructive={sending === undefined && set.state === 'failed'}
           onAccent={onAccent}
           onPress={onAction}

@@ -3,10 +3,11 @@ import type { ComponentProps, ReactNode } from 'react'
 import { isWeb, Spinner, styled, XStack, YStack } from 'tamagui'
 
 import { INHERITED_LABEL } from './labelColor'
-import { hitSlopFor } from './buttonHitTarget'
+import { MIN_HIT_TARGET, buttonHeight } from './buttonHitTarget'
 import type { FocusRingShape } from './keyboardPress'
 import { PRESS_PASSTHROUGH } from './pressPassthrough'
 import { PressArea } from './PressArea'
+import { touchReach } from './touchReach'
 import { Concealed } from './Concealed'
 import { Text } from './Text'
 import { LABEL_MAX_SCALE } from './fontScaleCaps'
@@ -367,10 +368,12 @@ export interface ButtonProps {
    */
   borderRadius?: ComponentProps<typeof Frame>['borderRadius']
   /**
-   * Overrides how far the touch target reaches past each side, which is otherwise just enough to
-   * reach `MIN_HIT_TARGET`. For a button in a row that offers more, so the whole row takes the tap.
+   * The size of the control's box on a phone, with the button drawn at its own size in the middle:
+   * the box takes the touch, and a screen reader and an accessibility audit read it as the
+   * control's size. Given back as margin, so nothing round it moves. Ignored on the web, where a
+   * pointer needs no more.
    */
-  hitSlop?: number | undefined
+  touchTarget?: number | undefined
   /**
    * Colour the label danger without filling the button.
    *
@@ -434,7 +437,7 @@ export function Button({
   focusOnMount = false,
   paddingHorizontal,
   borderRadius,
-  hitSlop,
+  touchTarget = 0,
   onAccent = false,
   icon,
   accessibilityLabel,
@@ -466,6 +469,7 @@ export function Button({
     destructive && !INVERTS_ON_PRESS.has(variant) ? '$dangerColor' : PRESSED_LABEL[variant]
 
   const inert = disabled || loading
+  const reach = touchReach(buttonHeight(size), touchTarget)
   /**
    * The name a screen reader gives the button. While loading the label is hidden, and Android
    * drops a fully transparent child from the accessibility tree, so the label's text is passed
@@ -488,7 +492,8 @@ export function Button({
       disabled={inert}
       // Grown outwards rather than drawn larger: the control keeps the size the designs give it and
       // the target reaches the floor. Ignored on the web, where a pointer does not need it.
-      hitSlop={hitSlop ?? hitSlopFor(size)}
+      hitSlop={reach > 0 ? 0 : touchReach(buttonHeight(size), MIN_HIT_TARGET)}
+      reach={reach}
       {...(name === undefined ? {} : { accessibilityLabel: name })}
       busy={loading}
       {...(testID === undefined ? {} : { testID })}
@@ -499,7 +504,8 @@ export function Button({
           // spinner's absolute offsets would otherwise resolve against the page.
           position="relative"
           {...(fill ? { flex: 1 } : {})}
-          {...FRAME_ROLE}
+          // A box reaching past the frame is the button; a role here reads as a smaller one.
+          {...(reach > 0 ? {} : FRAME_ROLE)}
           variant={variant}
           size={size}
           circular={circular}

@@ -49,6 +49,7 @@ vi.mock('@session/ui', () => {
     Icon: named('Icon'),
     Input: named('Input'),
     PressArea: named('PressArea'),
+    ROW_TOUCH_TARGET: 0,
     Sheet: named('Sheet'),
     StagedTile: named('StagedTile'),
     StagedTray: named('StagedTray'),

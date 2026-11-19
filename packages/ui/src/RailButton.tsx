@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { isWeb, YStack } from 'tamagui'
 
 import { MIN_HIT_TARGET } from './buttonHitTarget'
+import { touchReach } from './touchReach'
 import { focusRing, type FocusRingShape } from './keyboardPress'
 import { PressArea } from './PressArea'
 import { PRESS_PASSTHROUGH } from './pressPassthrough'
@@ -66,7 +67,7 @@ export function RailButton({
       accessibilityLabel={accessibilityLabel}
       onPress={onPress}
       ring={RING}
-      hitSlop={Math.max(0, (MIN_HIT_TARGET - sidePx) / 2)}
+      hitSlop={touchReach(sidePx, MIN_HIT_TARGET)}
       {...(testID === undefined ? {} : { testID })}
     >
       {(pressed, hovered) => (

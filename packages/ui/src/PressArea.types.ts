@@ -13,6 +13,12 @@ export interface PressAreaProps {
   disabled?: boolean
   /** How far outside the control a touch still counts. Native only; a pointer needs no slop. */
   hitSlop?: number
+  /**
+   * How far the control's own box reaches past what it draws, on each side, given back as margin
+   * so nothing round it moves. Native only. Unlike `hitSlop`, it is the box a screen reader and an
+   * accessibility audit take for the control's size.
+   */
+  reach?: number | undefined
   /** Takes an equal share of the row it is in, so a dialog's actions can share their width. */
   fill?: boolean
   accessibilityLabel?: string

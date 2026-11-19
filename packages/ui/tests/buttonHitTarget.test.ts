@@ -3,20 +3,23 @@ import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { MIN_HIT_TARGET, buttonHeight, hitSlopFor, type ButtonSize } from '#src/buttonHitTarget'
+import { MIN_HIT_TARGET, buttonHeight, type ButtonSize } from '#src/buttonHitTarget'
 import { SIZE_SCALE } from '#src/scales'
+import { touchReach } from '#src/touchReach'
+
+const floorSlop = (size: ButtonSize) => touchReach(buttonHeight(size), MIN_HIT_TARGET)
 
 describe('a small button’s touch target', () => {
   it('reaches the floor however small the control is drawn', () => {
     // `xs` is an icon button drawn at the size of its glyph -- 24 tall, which is the right look and
     // a target barely half what a thumb needs. Both onboarding's back and language buttons are one.
-    expect(24 + hitSlopFor('xs') * 2).toBe(MIN_HIT_TARGET)
-    expect(32 + hitSlopFor('sm') * 2).toBe(MIN_HIT_TARGET)
+    expect(24 + floorSlop('xs') * 2).toBe(MIN_HIT_TARGET)
+    expect(32 + floorSlop('sm') * 2).toBe(MIN_HIT_TARGET)
   })
 
   it('adds nothing to a control that is already big enough', () => {
-    expect(hitSlopFor('md')).toBe(0)
-    expect(hitSlopFor('lg')).toBe(0)
+    expect(floorSlop('md')).toBe(0)
+    expect(floorSlop('lg')).toBe(0)
   })
 })
 

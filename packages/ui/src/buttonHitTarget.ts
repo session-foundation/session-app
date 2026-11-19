@@ -23,13 +23,3 @@ export type ButtonSize = keyof typeof SIZE_TOKEN
 export function buttonHeight(size: ButtonSize): number {
   return SIZE_SCALE[SIZE_TOKEN[size]]
 }
-
-/**
- * How far a button of this size has to grow on each side to reach the floor.
- *
- * Half the shortfall, because `hitSlop` applies to every side. Zero where the control is already
- * big enough, so nothing is added where nothing is needed.
- */
-export function hitSlopFor(size: ButtonSize): number {
-  return Math.max(0, (MIN_HIT_TARGET - buttonHeight(size)) / 2)
-}

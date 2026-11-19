@@ -64,6 +64,7 @@ export function PressArea({
   disabled = false,
   fill = false,
   hitSlop,
+  reach = 0,
   accessibilityLabel,
   accessibilityHint,
   role = 'button',
@@ -92,7 +93,10 @@ export function PressArea({
     <Pressable
       // The zero basis spelled out: under `flex: 1` alone each label's width leaks into the split,
       // and two fill buttons with different labels come out different widths.
-      {...(fill ? { style: { flexGrow: 1, flexShrink: 1, flexBasis: 0 } } : {})}
+      style={{
+        ...(fill ? { flexGrow: 1, flexShrink: 1, flexBasis: 0 } : {}),
+        ...(reach > 0 ? { padding: reach, margin: -reach } : {}),
+      }}
       accessibilityRole={role}
       disabled={disabled}
       onPress={onPress}

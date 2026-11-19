@@ -2,7 +2,6 @@ import { XStack } from 'tamagui'
 
 import type { ElementId } from '@session/test-ids'
 
-import { hitSlopFor } from './buttonHitTarget'
 import { Icon } from './Icon'
 import { PressArea } from './PressArea'
 import { PRESS_PASSTHROUGH } from './pressPassthrough'
@@ -36,7 +35,6 @@ export function ScrollToLatest({
       <PressArea
         onPress={onPress}
         accessibilityLabel={accessibilityLabel}
-        hitSlop={hitSlopFor('md')}
         ring={{ onAccent: false, offset: 2, radius: '$full' }}
         {...(testID === undefined ? {} : { testID })}
       >

@@ -8,15 +8,13 @@ import { inkFor } from './ink'
 import { QuoteLines, STRIPE_OVERHANG_PX } from './MessageQuote'
 import { isQuotable, quotePreview, type QuoteLabels, type QuotedMessage } from './quotePreview'
 import { QuoteThumb } from './QuoteThumb'
+import { ROW_TOUCH_TARGET } from './rowTouchTarget'
 
 /** Smaller than the quote's square: the bar holds one line of summary, not two. */
 const COMPOSER_REPLY_THUMB_SIDE_PX = 36
 
 /** From the bar's edge to its text; no box, so its content starts at the composer's edge. */
 const BAR_TEXT_INSET_BLOCK_PX = 10
-
-/** Takes the X's 32 px to the 48 a finger needs; a pointer needs no slop. */
-const CLOSE_HIT_SLOP_PX = 8
 
 export interface ComposerReplyProps {
   /**
@@ -83,7 +81,7 @@ export function ComposerReply({
         variant="ghost"
         size="sm"
         circular
-        hitSlop={CLOSE_HIT_SLOP_PX}
+        touchTarget={ROW_TOUCH_TARGET}
         icon={<Icon name="x" size="sm" color="$textSecondary" />}
         accessibilityLabel={closeLabel}
         onPress={onClose}

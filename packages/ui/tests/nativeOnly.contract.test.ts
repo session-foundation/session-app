@@ -100,7 +100,7 @@ describe('a Button on native', () => {
   it('puts the role on its frame, which is the element a native press reaches', () => {
     // Without it the PressArea round the frame still reads as the button on both phones.
     expect(button).toContain("const FRAME_ROLE = isWeb ? {} : ({ role: 'button' } as const)")
-    expect(button).toContain('{...FRAME_ROLE}')
+    expect(button).toContain('{...(reach > 0 ? {} : FRAME_ROLE)}')
   })
 
   /** The body of each `variant:` entry, keyed by name. */
