@@ -124,6 +124,10 @@ describe('TranscriptList', () => {
     const pinned = document.querySelector('[data-testid="past-start"]')
     expect(pinned).not.toBeNull()
     expect(byId(LIST).contains(pinned)).toBe(false)
+    // Before the list in the page, as it is drawn above it: read and tabbed to first.
+    expect(
+      (pinned as Node).compareDocumentPosition(byId(LIST)) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
 
     await new Promise((resolve) => setTimeout(resolve, SCROLL_END_MS))
   })
