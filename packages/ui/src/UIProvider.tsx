@@ -6,6 +6,7 @@ import { TamaguiProvider } from 'tamagui'
 import { BackdropBlurProvider, type BackdropBlur } from './backdropBlur'
 import { config } from './config'
 import { GlassProvider, type Glass } from './glass'
+import { PathSpritesProvider, type PathSprites } from './pathSprites'
 // Side-effecting: puts the compiled themes in the document on the web, and does nothing on native.
 // See tamaguiCSS.ts - without it every `$token` colour resolves to an undefined custom property.
 import './tamaguiCSS'
@@ -31,6 +32,8 @@ export interface UIProviderProps {
   backdropBlur?: BackdropBlur | null
   /** What draws a glass button, where the platform has glass. See `glass.ts`. */
   glass?: Glass | null
+  /** What moves the path screen's requests, where the platform can. See `pathSprites.ts`. */
+  pathSprites?: PathSprites | null
 }
 
 /**
@@ -45,6 +48,7 @@ export function UIProvider({
   accent = DEFAULT_ACCENT,
   backdropBlur,
   glass,
+  pathSprites,
 }: UIProviderProps) {
   // What tamagui is drawing. On the first mount the theme is registered before anything themed
   // exists to be woken by it, so the first frame is already in it. A theme that arrives later and
@@ -65,7 +69,9 @@ export function UIProvider({
     <TamaguiProvider config={config} defaultTheme={themeName(drawn.theme, drawn.accent)}>
       <ThemeIsDarkContext.Provider value={isDarkTheme(drawn.theme)}>
         <BackdropBlurProvider value={backdropBlur ?? null}>
-          <GlassProvider value={glass ?? null}>{children}</GlassProvider>
+          <GlassProvider value={glass ?? null}>
+            <PathSpritesProvider value={pathSprites ?? null}>{children}</PathSpritesProvider>
+          </GlassProvider>
         </BackdropBlurProvider>
       </ThemeIsDarkContext.Provider>
     </TamaguiProvider>

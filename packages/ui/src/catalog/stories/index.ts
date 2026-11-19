@@ -16,6 +16,7 @@ import { messageQuote, messageQuoteAuthors, messageQuoteFiles, messageQuotePictu
 import { scrollToLatest } from './scrollToLatest'
 import { messageQuoteReplies } from './replies'
 import { qrCode, qrViewer } from './qrCode'
+import { pathFlow } from './pathFlow'
 import { settingsRow } from './settingsRow'
 import { composerNotice, dropOverlay, stagedTile, stagedTray } from './staging'
 import { swipeToReply } from './swipeToReply'
@@ -62,4 +63,5 @@ export const STORIES: readonly AnyStory[] = [
   scrollToLatest,
   swipeToReply,
   messageQuoteReplies,
+  pathFlow,
 ]

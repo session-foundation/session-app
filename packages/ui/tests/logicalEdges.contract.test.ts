@@ -33,6 +33,8 @@ describe('a directional edge', () => {
     'SafeArea.native.tsx',
     'Screen.native.tsx',
     'PhoneChrome.tsx',
+    // The path flow's requests, placed in the drawing's own coordinates, which do not mirror.
+    'PathSpritesHost.tsx',
     // Icon names, not edges: a chevron that points left is a glyph, and which glyph a control
     // should use is the caller's decision rather than this file's.
     'Icon.types.ts',

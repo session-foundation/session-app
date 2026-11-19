@@ -271,6 +271,10 @@ const handlers: { [K in Command['type']]: Handler<K> } = {
     await client.setThumbnailEdge(cmd.edgePx)
     return empty
   },
+  getNetworkPaths: async (client) => ({
+    type: 'networkPaths',
+    snapshot: await client.getNetworkPaths(),
+  }),
   getConfigSizes: async (client) => ({
     type: 'configSizes',
     sizes: await client.getConfigSizes(),

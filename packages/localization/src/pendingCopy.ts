@@ -133,6 +133,8 @@ export const PENDING_COPY = {
    * Navigate to Conversation, which is a different command.
    */
   messageNavigate: 'Move Between Messages',
+  /** Left and Right in the full-screen viewer, in the list of keyboard shortcuts. */
+  attachmentNavigate: 'Move Between Attachments in Full Screen',
   /**
    * What a press on a reply's quote does, said after its name. Android's "Reply to message" is no
    * catalogue string either, and `reply` already names the action that starts one.
@@ -144,4 +146,58 @@ export const PENDING_COPY = {
    */
   messageScrollToLatest: 'Scroll to latest message',
   messageBackToReply: 'Back to reply',
+  /**
+   * The path screen's figures, under its country flow: a figure above each, so they read on as
+   * "3 paths in use". The catalogue has the path's node names (`onionRoutingPathEntryNode` and the
+   * rest) but nothing for counts or timings.
+   */
+  onionRoutingPathsInUse: 'paths in use',
+  onionRoutingPathCountries: 'countries crossed',
+  onionRoutingPathEntryNodes: 'entry nodes',
+  onionRoutingPathRebuilt: 'rebuilt since opening',
+  onionRoutingPathAverage: 'average round trip',
+  onionRoutingPathFastest: 'fastest path',
+  onionRoutingPathSlowest: 'slowest path',
+  onionRoutingPathJitter: 'jitter',
+  /** A round trip in milliseconds; the figure is a whole number. */
+  onionRoutingPathMilliseconds: '{ms} ms',
+  /** Jitter: how far round trips stray either side of each other, in whole milliseconds. */
+  onionRoutingPathJitterMilliseconds: '±{ms} ms',
+  /**
+   * The timings under onion requests, which send no pings: each figure is how long requests took
+   * to be answered, the destination's own time included, not a path's round trip.
+   */
+  onionRoutingPathAverageResponse: 'average response',
+  onionRoutingPathFastestResponse: 'fastest response',
+  onionRoutingPathSlowestResponse: 'slowest response',
+  /**
+   * In place of a figure that cannot be measured: jitter under onion requests, whose requests
+   * differ too much in kind and size for the gaps between their round trips to say anything of the
+   * path.
+   */
+  onionRoutingPathNotApplicable: 'N/A',
+  /**
+   * The path screen's introduction: `onionRoutingPathDescription` without its closing "This is
+   * your current path:", which introduced the single path the old screen drew.
+   */
+  onionRoutingPathIntro:
+    "Session hides your IP by routing your messages through multiple service nodes in Session's decentralized network.",
+  /**
+   * The flow's column headings for the first relay and the two after it. The catalogue's
+   * `onionRoutingPathEntryNode` and `onionRoutingPathServiceNode` are too wide for five columns
+   * across a phone: at 390 points they run into each other.
+   */
+  onionRoutingPathEntry: 'Entry',
+  onionRoutingPathRelay: 'Relay',
+  /** Over the drawing of a path being built, before the client has any. */
+  onionRoutingPathBuilding: 'Building paths',
+  /** The flow's last column for a path to the file server, which lies past its last relay. */
+  onionRoutingPathFileServer: 'File server',
+  /**
+   * The flow's legend: what each colour of path is for. Your swarm's paths carry your own
+   * messages; other storage nodes' carry what goes to contacts and groups. Communities use the
+   * catalogue's `conversationsCommunities`.
+   */
+  onionRoutingPathYourMessages: 'Your messages',
+  onionRoutingPathContactsGroups: 'Contacts and groups',
 } as const

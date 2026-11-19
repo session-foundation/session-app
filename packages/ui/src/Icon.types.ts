@@ -15,6 +15,8 @@ import type { Plus } from '@tamagui/lucide-icons-2/icons/Plus'
  */
 export type IconName =
   | 'arrowDown'
+  | 'arrowLeft'
+  | 'arrowRight'
   | 'arrowUp'
   | 'ban'
   | 'bellOff'

@@ -22,7 +22,7 @@ import {
   YStack,
 } from '@session/ui'
 
-import { useOpenSettings } from '../settings/SettingsRootPage'
+import { useOpenPathScreen, useOpenSettings } from '../settings/SettingsRootPage'
 import { pathStatusLabel, pathStatusTone } from '../pathStatus'
 import { useLocale } from '../useLocale'
 
@@ -83,18 +83,20 @@ function SettingsButton() {
 }
 
 /**
- * The onion path's light.
- *
- * TODO: open the path screen on a press. There is no path screen yet: it needs the nodes of the
- * current path, which libsession's `get_path_to` has and the bridge does not carry. Until then the
- * light is a status that names itself, with no press.
+ * The onion path's light: a status that names itself, opening the path screen where it is on.
  */
 function PathLight() {
   const status = useNetworkStatus()
   const label = pathStatusLabel(status)
+  const openPaths = useOpenPathScreen()
   return (
     <Tooltip label={label} testID={ELEMENT.rail.tooltip('path-status')}>
-      <RailButton sidePx={PATH_SIDE_PX} accessibilityLabel={label} testID={ELEMENT.rail.pathStatus}>
+      <RailButton
+        sidePx={PATH_SIDE_PX}
+        accessibilityLabel={label}
+        testID={ELEMENT.rail.pathStatus}
+        onPress={flag('pathScreen') ? openPaths : undefined}
+      >
         <StatusDot tone={pathStatusTone(status)} />
       </RailButton>
     </Tooltip>

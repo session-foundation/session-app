@@ -769,6 +769,126 @@ struct Codec<::session_bridge::NetworkStatusResult> {
 };
 
 template <>
+struct Codec<::session_bridge::PathDestination> {
+    static constexpr std::string_view name = "PathDestination";
+    static Napi::Value to(Napi::Env env, ::session_bridge::PathDestination value) {
+        auto text = ::session_bridge::EnumTraits<::session_bridge::PathDestination>::to_string(value);
+        return Napi::String::New(env, text.data(), text.size());
+    }
+    static ::session_bridge::PathDestination from(const Napi::Value& value, std::string_view where) {
+        std::string text = Codec<std::string>::from(value, where);
+        auto parsed = ::session_bridge::EnumTraits<::session_bridge::PathDestination>::parse(text);
+        if (!parsed)
+            throw std::invalid_argument(std::string{where} + ": \"" + text + "\" is not a PathDestination");
+        return *parsed;
+    }
+};
+
+template <>
+struct Codec<::session_bridge::PathHop> {
+    static constexpr std::string_view name = "PathHop";
+    static Napi::Value to(Napi::Env env, const ::session_bridge::PathHop& value) {
+        Napi::Object obj = Napi::Object::New(env);
+        obj.Set("pubkeyHex", Codec<std::string>::to(env, value.pubkey_hex));
+        if (value.country)
+            obj.Set("country", Codec<std::string>::to(env, *value.country));
+        return obj;
+    }
+    static ::session_bridge::PathHop from(const Napi::Value& value, std::string_view where) {
+        Napi::Object obj = object(value, where);
+        return ::session_bridge::PathHop(
+                Codec<std::string>::from(obj.Get("pubkeyHex"), "PathHop.pubkeyHex"),
+                optional<std::string>(obj.Get("country"), "PathHop.country"));
+    }
+};
+
+template <>
+struct Codec<::session_bridge::NetworkPath> {
+    static constexpr std::string_view name = "NetworkPath";
+    static Napi::Value to(Napi::Env env, const ::session_bridge::NetworkPath& value) {
+        Napi::Object obj = Napi::Object::New(env);
+        obj.Set("remoteHex", Codec<std::string>::to(env, value.remote_hex));
+        obj.Set("destination", Codec<::session_bridge::PathDestination>::to(env, value.destination));
+        obj.Set("standby", Codec<bool>::to(env, value.standby));
+        obj.Set("hops", Codec<std::vector<::session_bridge::PathHop>>::to(env, value.hops));
+        obj.Set("latencyMs", Codec<double>::to(env, value.latency_ms));
+        obj.Set("jitterMs", Codec<double>::to(env, value.jitter_ms));
+        obj.Set("requestsSent", Codec<double>::to(env, value.requests_sent));
+        obj.Set("proxiedRequestsSent", Codec<double>::to(env, value.proxied_requests_sent));
+        if (value.ms_since_last_request)
+            obj.Set("msSinceLastRequest", Codec<double>::to(env, *value.ms_since_last_request));
+        obj.Set("pingsAnswered", Codec<double>::to(env, value.pings_answered));
+        return obj;
+    }
+    static ::session_bridge::NetworkPath from(const Napi::Value& value, std::string_view where) {
+        Napi::Object obj = object(value, where);
+        return ::session_bridge::NetworkPath(
+                Codec<std::string>::from(obj.Get("remoteHex"), "NetworkPath.remoteHex"),
+                Codec<::session_bridge::PathDestination>::from(obj.Get("destination"), "NetworkPath.destination"),
+                Codec<bool>::from(obj.Get("standby"), "NetworkPath.standby"),
+                Codec<std::vector<::session_bridge::PathHop>>::from(obj.Get("hops"), "NetworkPath.hops"),
+                Codec<double>::from(obj.Get("latencyMs"), "NetworkPath.latencyMs"),
+                Codec<double>::from(obj.Get("jitterMs"), "NetworkPath.jitterMs"),
+                Codec<double>::from(obj.Get("requestsSent"), "NetworkPath.requestsSent"),
+                Codec<double>::from(obj.Get("proxiedRequestsSent"), "NetworkPath.proxiedRequestsSent"),
+                optional<double>(obj.Get("msSinceLastRequest"), "NetworkPath.msSinceLastRequest"),
+                Codec<double>::from(obj.Get("pingsAnswered"), "NetworkPath.pingsAnswered"));
+    }
+};
+
+template <>
+struct Codec<::session_bridge::CountryNodes> {
+    static constexpr std::string_view name = "CountryNodes";
+    static Napi::Value to(Napi::Env env, const ::session_bridge::CountryNodes& value) {
+        Napi::Object obj = Napi::Object::New(env);
+        obj.Set("country", Codec<std::string>::to(env, value.country));
+        obj.Set("nodes", Codec<double>::to(env, value.nodes));
+        return obj;
+    }
+    static ::session_bridge::CountryNodes from(const Napi::Value& value, std::string_view where) {
+        Napi::Object obj = object(value, where);
+        return ::session_bridge::CountryNodes(
+                Codec<std::string>::from(obj.Get("country"), "CountryNodes.country"),
+                Codec<double>::from(obj.Get("nodes"), "CountryNodes.nodes"));
+    }
+};
+
+template <>
+struct Codec<::session_bridge::NetworkPaths> {
+    static constexpr std::string_view name = "NetworkPaths";
+    static Napi::Value to(Napi::Env env, const ::session_bridge::NetworkPaths& value) {
+        Napi::Object obj = Napi::Object::New(env);
+        obj.Set("paths", Codec<std::vector<::session_bridge::NetworkPath>>::to(env, value.paths));
+        obj.Set("nodesByCountry", Codec<std::vector<::session_bridge::CountryNodes>>::to(env, value.nodes_by_country));
+        obj.Set("countryAttribution", Codec<std::string>::to(env, value.country_attribution));
+        return obj;
+    }
+    static ::session_bridge::NetworkPaths from(const Napi::Value& value, std::string_view where) {
+        Napi::Object obj = object(value, where);
+        return ::session_bridge::NetworkPaths(
+                Codec<std::vector<::session_bridge::NetworkPath>>::from(obj.Get("paths"), "NetworkPaths.paths"),
+                Codec<std::vector<::session_bridge::CountryNodes>>::from(obj.Get("nodesByCountry"), "NetworkPaths.nodesByCountry"),
+                Codec<std::string>::from(obj.Get("countryAttribution"), "NetworkPaths.countryAttribution"));
+    }
+};
+
+template <>
+struct Codec<::session_bridge::NetworkPathsResult> {
+    static constexpr std::string_view name = "NetworkPathsResult";
+    static Napi::Value to(Napi::Env env, const ::session_bridge::NetworkPathsResult& value) {
+        Napi::Object obj = Napi::Object::New(env);
+        obj.Set("type", Napi::String::New(env, ::session_bridge::NetworkPathsResult::type_tag.data(), ::session_bridge::NetworkPathsResult::type_tag.size()));
+        obj.Set("snapshot", Codec<::session_bridge::NetworkPaths>::to(env, value.snapshot));
+        return obj;
+    }
+    static ::session_bridge::NetworkPathsResult from(const Napi::Value& value, std::string_view where) {
+        Napi::Object obj = object(value, where);
+        return ::session_bridge::NetworkPathsResult(
+                Codec<::session_bridge::NetworkPaths>::from(obj.Get("snapshot"), "NetworkPathsResult.snapshot"));
+    }
+};
+
+template <>
 struct Codec<::session_bridge::Result> {
     static constexpr std::string_view name = "Result";
     static Napi::Value to(Napi::Env env, const ::session_bridge::Result& value) {
@@ -815,6 +935,8 @@ struct Codec<::session_bridge::Result> {
             return Codec<::session_bridge::ConfigSizesResult>::from(value, where);
         if (tag == "networkStatus")
             return Codec<::session_bridge::NetworkStatusResult>::from(value, where);
+        if (tag == "networkPaths")
+            return Codec<::session_bridge::NetworkPathsResult>::from(value, where);
         throw std::invalid_argument(std::string{where} + ": unknown type \"" + tag + "\"");
     }
 };
@@ -2072,6 +2194,21 @@ struct Codec<::session_bridge::GetConfigSizesCommand> {
 };
 
 template <>
+struct Codec<::session_bridge::GetNetworkPathsCommand> {
+    static constexpr std::string_view name = "GetNetworkPathsCommand";
+    static Napi::Value to(Napi::Env env, const ::session_bridge::GetNetworkPathsCommand& value) {
+        (void)value;
+        Napi::Object obj = Napi::Object::New(env);
+        obj.Set("type", Napi::String::New(env, ::session_bridge::GetNetworkPathsCommand::type_tag.data(), ::session_bridge::GetNetworkPathsCommand::type_tag.size()));
+        return obj;
+    }
+    static ::session_bridge::GetNetworkPathsCommand from(const Napi::Value& value, std::string_view where) {
+        object(value, where);
+        return ::session_bridge::GetNetworkPathsCommand{};
+    }
+};
+
+template <>
 struct Codec<::session_bridge::GetPrefCommand> {
     static constexpr std::string_view name = "GetPrefCommand";
     static Napi::Value to(Napi::Env env, const ::session_bridge::GetPrefCommand& value) {
@@ -2321,6 +2458,8 @@ struct Codec<::session_bridge::Command> {
             return Codec<::session_bridge::SetThumbnailEdgeCommand>::from(value, where);
         if (tag == "getConfigSizes")
             return Codec<::session_bridge::GetConfigSizesCommand>::from(value, where);
+        if (tag == "getNetworkPaths")
+            return Codec<::session_bridge::GetNetworkPathsCommand>::from(value, where);
         if (tag == "getPref")
             return Codec<::session_bridge::GetPrefCommand>::from(value, where);
         if (tag == "setPref")

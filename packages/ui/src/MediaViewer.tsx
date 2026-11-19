@@ -11,6 +11,7 @@ import { Icon } from './Icon'
 import type { IconName } from './Icon.types'
 import { SIZE_SCALE } from './scales'
 import { Image } from './Image'
+import { useMediaViewerArrowKeys } from './mediaViewerArrowKeys'
 import { SafeArea } from './SafeArea'
 import { Text } from './Text'
 import { useWindowSize } from './useWindowSize'
@@ -272,6 +273,13 @@ export function MediaViewer({ open, onClose, toasts, ...body }: MediaViewerProps
     setWasOpen(open)
     if (open) setOpening((count) => count + 1)
   }
+  // Here rather than in the body, which stays mounted after closing and is also drawn on a page.
+  useMediaViewerArrowKeys({
+    enabled: open,
+    index: body.index,
+    count: body.items.length,
+    onIndex: body.onIndex,
+  })
   return (
     <FullScreenModal open={open} onClose={onClose} toasts={toasts}>
       <MediaViewerBody key={opening} {...body} onClose={onClose} />

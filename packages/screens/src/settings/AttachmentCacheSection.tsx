@@ -41,6 +41,11 @@ export function AttachmentCacheSection() {
     }
   }, [actions])
 
+  return <AttachmentCacheFigures settings={settings} />
+}
+
+/** The section as it draws `settings`, or as loading while they are null. */
+export function AttachmentCacheFigures({ settings }: { settings: CacheSettings | null }) {
   return (
     <YStack>
       {/* The folder as the section's description: the catalogue has no word to label it with. Empty
