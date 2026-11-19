@@ -86,13 +86,15 @@ describe('TranscriptList', () => {
     await new Promise((resolve) => setTimeout(resolve, SCROLL_END_MS))
   })
 
-  it('does not follow a window’s end to the newest message when the page reaching it lands', async () => {
+  it('does not follow a window’s end to the newest message when the page reaching it lands, and was far from it all along', async () => {
+    const onFarFromEnd = vi.fn()
     function Window({ count, moreAfter }: { count: number; moreAfter: boolean }) {
       return (
         <TranscriptList
           data={paged(count)}
           keyExtractor={key}
           moreAfter={moreAfter}
+          onFarFromEnd={onFarFromEnd}
           testID={LIST}
           renderItem={(item, index) => <Text testID={ROW(index)}>{item.id}</Text>}
         />
@@ -103,11 +105,14 @@ describe('TranscriptList', () => {
     await scrollTo(1600, 2000)
     await new Promise((resolve) => setTimeout(resolve, 400))
     await scrollTo(1600, 2000)
+    // Far from the newest message, although at the window's end.
+    expect(onFarFromEnd).toHaveBeenLastCalledWith(true)
 
     // The page that reaches the newest message lands below: the reader has not read it.
     rerender(<Window count={60} moreAfter={false} />)
     await scrollTo(1600, 4000)
     expect(byId(LIST).scrollTop).toBe(1600)
+    expect(onFarFromEnd).not.toHaveBeenCalledWith(false)
 
     await new Promise((resolve) => setTimeout(resolve, SCROLL_END_MS))
   })

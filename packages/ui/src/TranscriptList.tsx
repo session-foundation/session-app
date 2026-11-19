@@ -67,7 +67,10 @@ export interface TranscriptListProps<T> extends RovingRowsProps {
   onStartReached?: (() => void) | undefined
   /** Whether history goes on before the first row: without it, nothing is asked for there. */
   moreBefore?: boolean | undefined
-  /** Whether the end is more than one list's height away, said when that changes. */
+  /**
+   * Whether the newest message is more than one list's height away, said when that changes. With
+   * `moreAfter`, it always is.
+   */
   onFarFromEnd?: ((far: boolean) => void) | undefined
   /** As `onStartReached`, for the page after the last row, and never while seeking the end. */
   onEndReached?: (() => void) | undefined
@@ -359,7 +362,9 @@ export function TranscriptList<T>({
     if (viewportPx === 0 || (contentPx === 0 && latest.current.keys.length > 0)) return
     // Following the end, the offset is where the scroll about to happen puts it.
     const offsetPx = atEnd.current ? Math.max(0, contentPx - viewportPx) : scroll.current.offsetPx
-    const isFar = contentPx - offsetPx - viewportPx > viewportPx
+    // A window short of the newest message is far from it wherever its own end is: the page that
+    // reaches the newest lands below a reader resting there.
+    const isFar = latest.current.moreAfter || contentPx - offsetPx - viewportPx > viewportPx
     if (isFar !== far.current) {
       far.current = isFar
       latest.current.onFarFromEnd?.(isFar)
