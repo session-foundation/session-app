@@ -1,6 +1,8 @@
 import type { RefObject } from 'react'
 import type { ScrollViewProps } from 'react-native'
 
+import type { RowsOnScreen } from './rowScroller.types'
+
 /** What the platform's half of a transcript list is given. */
 export interface TranscriptPlatformInput {
   /** The FlatList, or null before it is drawn. */
@@ -8,6 +10,8 @@ export interface TranscriptPlatformInput {
   keys: readonly string[]
   /** Whether the list is following its end. */
   atEnd: RefObject<boolean>
+  /** The rows inside the viewport, as last reported. */
+  onScreen: RefObject<RowsOnScreen>
   /** Rows the first pass drew: what opened the transcript. */
   firstPassRows: number
   toEnd: (animated: boolean) => void
@@ -46,8 +50,6 @@ export interface TranscriptPlatform {
   readerScrolled: () => boolean
   /** Whether no finger has touched the list since it opened: always false on the web. */
   untouched: () => boolean
-  /** How many list heights from its first row count as reaching the start. */
-  startViewports: number
   /** Just before the page above is asked for: what the platform needs to keep the reader's row. */
   beforeStartAsked: () => void
 }

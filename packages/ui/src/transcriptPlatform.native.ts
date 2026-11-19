@@ -4,8 +4,6 @@ import type { TranscriptPlatform, TranscriptPlatformInput } from './transcriptPl
 
 /** How long after a finger lifts its fling is waited for. */
 const FLING_BEGINS_MS = 150
-/** Far enough out that a fling does not reach the first row before the page above it arrives. */
-const START_VIEWPORTS = 2
 const KEEPS_PLACE = { minIndexForVisible: 0 } as const
 
 /**
@@ -67,7 +65,6 @@ export function useTranscriptPlatform({
     },
     readerScrolled: () => touched.current,
     untouched: () => !everTouched.current,
-    startViewports: START_VIEWPORTS,
     beforeStartAsked: () => undefined,
   }
 }

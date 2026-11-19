@@ -19,12 +19,12 @@ import {
 import { YStack } from 'tamagui'
 
 import { ROW_FRAMES } from './indexTarget'
-import { nearStart, type ScrollReading } from './listEdges'
 import { MeasuredRow } from './MeasuredRow'
+import { readEdges as readEdgesOf, type EdgesAsked } from './pageEdges'
 import { usePaneSurface } from './paneSurface'
 import { useRovingRows, type RovingRowsProps } from './rovingRows'
 import { useRowScroller } from './rowScroller'
-import type { RowsOnScreen } from './rowScroller.types'
+import type { RowsOnScreen, ScrollReading } from './rowScroller.types'
 import { useTranscriptPlatform } from './transcriptPlatform'
 import { useReducedMotion } from './useReducedMotion'
 
@@ -60,19 +60,19 @@ export interface TranscriptListProps<T> extends RovingRowsProps {
   testID?: string
   handle?: Ref<TranscriptListHandle> | undefined
   /**
-   * The first row is in reach (two list heights on native, half of one on the web), or the rows do
-   * not fill the list: once per first row, so a page that arrives and still leaves the start in
-   * reach asks again, and again once the reader leaves the start and comes back.
+   * The page before the first row is wanted: fewer than `ROWS_AHEAD` rows are held above those on
+   * screen and `moreBefore` says history goes on. Once per first row, and again once the rows on
+   * screen leave that reach and come back, so a page that failed waits for its Retry.
    */
   onStartReached?: (() => void) | undefined
+  /** Whether history goes on before the first row: without it, nothing is asked for there. */
+  moreBefore?: boolean | undefined
   /** Whether the end is more than one list's height away, said when that changes. */
   onFarFromEnd?: ((far: boolean) => void) | undefined
-  /**
-   * The reader's own scroll brought the last row within half a list's height: once per last row,
-   * so a page that lands asks again only at the reader's next scroll, and never while a landing
-   * is being placed or a scroll to the end is under way.
-   */
+  /** As `onStartReached`, for the page after the last row, and never while seeking the end. */
   onEndReached?: (() => void) | undefined
+  /** Whether history goes on after the last row. */
+  moreAfter?: boolean | undefined
   /**
    * Shown only once at its end rather than on its first layout, for a list drawn afresh where
    * nothing covers it: on native the scroll to the end lands a frame or more later, and its start
@@ -85,7 +85,8 @@ export interface TranscriptListProps<T> extends RovingRowsProps {
   onRowsOnScreen?: ((keys: ReadonlySet<string>) => void) | undefined
   /**
    * What is happening past the start, pinned over the list's top edge on the pane's surface while
-   * the start is in reach: a list that keeps its first row in place, as native does, would scroll a
+   * the rows on screen are within `ROWS_AHEAD` of the first: a list that keeps its first row in
+   * place, as native does, would scroll a
    * row added above it at the top just out of view. A spacer of its height leads the list
    * meanwhile, so the first row can still be scrolled clear of it.
    */
@@ -112,10 +113,6 @@ const ANIMATED_END_VIEWPORTS = 2
  * finger's, a screen reader's or a keyboard's.
  */
 const OWN_SCROLL_MS = 300
-/** How many list heights from the last row the page after is asked for. */
-const END_VIEWPORTS = 0.5
-/** How long the reader's last scroll, or touch, wheel or key, says which way they are heading. */
-const HEADING_MS = 1000
 /** How long a list waits, hidden, for the scroll to its end to report before it shows anyway. */
 const PLACE_AT_END_MS = 300
 
@@ -139,8 +136,10 @@ export function TranscriptList<T>({
   onRowMenu,
   handle,
   onStartReached,
+  moreBefore = false,
   onFarFromEnd,
   onEndReached,
+  moreAfter = false,
   showsOnceAtEnd = false,
   onAtEnd,
   onRowsOnScreen,
@@ -150,23 +149,20 @@ export function TranscriptList<T>({
   const rowHeights = useRef(new Map<string, number>())
   const rowNodes = useRef(new Map<string, unknown>())
   const onScreen = useRef<RowsOnScreen>(null)
+  // The same rows by key: a report of the rows on screen can come against the rows held before a
+  // page landed, whose indices the page has shifted.
+  const onScreenKeys = useRef<{ first: string; last: string } | null>(null)
   const keys = useMemo(() => data.map(keyExtractor), [data, keyExtractor])
   const reducedMotion = useReducedMotion()
 
   const list = useRef<FlatList<T> | null>(null)
   /** The scroller as last reported: scroll events do not say that content grew. */
-  const scroll = useRef<ScrollReading>({
-    offsetPx: 0,
-    viewportPx: 0,
-    contentPx: 0,
-    offsetAtContentPx: 0,
-  })
+  const scroll = useRef<ScrollReading>({ offsetPx: 0, viewportPx: 0, contentPx: 0 })
   const atEnd = useRef(true)
   const far = useRef(false)
-  // Whether a pinned header is drawn, as state that changes only when the start comes in reach.
-  const startInReach = useRef(false)
+  // Whether the pinned rows are drawn: state that changes only as the rows on screen come within
+  // `ROWS_AHEAD` of either end or leave it. The list opens at its end.
   const [showsStart, setShowsStart] = useState(false)
-  // The end is in reach while it is not far: `far` starts false, so this starts true.
   const [showsEnd, setShowsEnd] = useState(true)
   const [headerPx, setHeaderPx] = useState(0)
   const onHeaderLayout = useCallback((event: LayoutChangeEvent) => {
@@ -177,29 +173,7 @@ export function TranscriptList<T>({
     setFooterPx(event.nativeEvent.layout.height)
   }, [])
   const surface = usePaneSurface()
-  /** The first row when the page before was last asked for: undefined to ask afresh. */
-  const startAskedAt = useRef<string | undefined>(undefined)
-  /** The last row when the page after was last asked for: undefined to ask afresh. */
-  const endAskedAt = useRef<string | undefined>(undefined)
-  // The content's height at each edge's last ask: a page has landed in the data before its rows
-  // are laid out, and the scroll read until then still says the reader is at that edge.
-  const startAskedAtPx = useRef(-1)
-  const endAskedAtPx = useRef(-1)
-  /** Which way the reader's own last scroll went, and when. */
-  const heading = useRef<{ toward: 'start' | 'end'; atMs: number } | null>(null)
-  /** The reader's last touch, fling, wheel, scroll key or scrollbar press. */
-  const readerInputAtMs = useRef(0)
-  /**
-   * Whether the reader is heading for an edge: their last scroll went that way within the last
-   * moment, or, resting, they touched or wheeled the list. An edge asks only then, so a page that
-   * lands, or a landing's own scroll, does not ask for the next, nor the other edge for its own.
-   */
-  const headsFor = useCallback((edge: 'start' | 'end') => {
-    const now = Date.now()
-    const last = heading.current
-    if (last !== null && now - last.atMs < HEADING_MS) return last.toward === edge
-    return now - readerInputAtMs.current < HEADING_MS
-  }, [])
+  const edgesAsked = useRef<EdgesAsked>({ before: undefined, after: undefined })
   // On its way to the end, by `scrollToEnd`: an animated scroll reports every offset it passes,
   // none of them the end, and the rows drawn as it nears change where the end is.
   const seekingEnd = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -254,19 +228,19 @@ export function TranscriptList<T>({
     rowHeights: rowHeights.current,
     onScreen,
   })
-  // Set below, once what it reads is declared: the reader's input checks the end as well.
-  const askEndIfNear = useRef<() => void>(() => undefined)
+  // Set below, once what it reads is declared.
+  const readEdges = useRef<() => void>(() => undefined)
   const onReaderTouch = useCallback(() => {
-    readerInputAtMs.current = Date.now()
     clearTimeout(landing.current)
     landing.current = undefined
-    // A reader resting at the last row scrolls nothing and reports no scroll: their input does.
-    askEndIfNear.current()
+    // A landing or an untouched list held its asks back.
+    readEdges.current()
   }, [])
   const platform = useTranscriptPlatform({
     list,
     keys,
     atEnd,
+    onScreen,
     firstPassRows,
     toEnd,
     onPlaced,
@@ -316,6 +290,8 @@ export function TranscriptList<T>({
 
   const latest = useRef({
     keys,
+    moreBefore,
+    moreAfter,
     onStartReached,
     onEndReached,
     onFarFromEnd,
@@ -330,6 +306,8 @@ export function TranscriptList<T>({
     if (latest.current.keys !== keys) keysBefore.current = latest.current.keys
     latest.current = {
       keys,
+      moreBefore,
+      moreAfter,
       onStartReached,
       onEndReached,
       onFarFromEnd,
@@ -340,77 +318,57 @@ export function TranscriptList<T>({
     }
   })
 
-  /** Reports what the scroller's position means, from wherever it was learnt. */
+  /** Reports whether the end is far, from wherever the scroller's position was learnt. */
   const report = useCallback(() => {
     const { viewportPx, contentPx } = scroll.current
-    const { platform: here } = latest.current
-    // Rows with no height yet are not laid out: nothing is at the start or the end of them.
+    // Rows with no height yet are not laid out: nothing is far from the end of them.
     if (viewportPx === 0 || (contentPx === 0 && latest.current.keys.length > 0)) return
     // Following the end, the offset is where the scroll about to happen puts it.
     const offsetPx = atEnd.current ? Math.max(0, contentPx - viewportPx) : scroll.current.offsetPx
     const isFar = contentPx - offsetPx - viewportPx > viewportPx
     if (isFar !== far.current) {
       far.current = isFar
-      setShowsEnd(!isFar)
       latest.current.onFarFromEnd?.(isFar)
     }
-    // Following the end, the offset is reckoned from the height, so it is never out of date.
-    const atStart = atEnd.current
-      ? offsetPx <= viewportPx * here.startViewports
-      : nearStart(scroll.current, here.startViewports)
-    if (atStart === null) return
-    if (atStart !== startInReach.current) {
-      startInReach.current = atStart
-      setShowsStart(atStart)
-    }
-    // Asked once per first row: a page that lands brings a new one. A height alone is no reason,
-    // as the row past the start that says a page failed changes it too, which asked in a loop.
-    const first = latest.current.keys[0]
-    if (!atStart) {
-      // Coming back to the start asks again, which is how a reader retries without Retry.
-      startAskedAt.current = undefined
-      startAskedAtPx.current = -1
-    } else if (first !== undefined && startAskedAt.current !== first) {
-      // Rows that do not fill the list ask whoever moved it.
-      if (contentPx > viewportPx && !headsFor('start')) return
-      if (startAskedAtPx.current === contentPx) return
-      // Native shows rows added above a list at its end as a jump there and back. A list that
-      // opened full waits for the reader to move it before it asks for more.
-      if (atEnd.current && !readerMoved.current && here.untouched() && contentPx > viewportPx)
-        return
-      if (latest.current.rows.holdsStart()) return
-      // Just put on a row: rows added above it now are not held in place on Android, and the
-      // landing slides away. The reader's next scroll asks.
-      if (landing.current !== undefined) return
-      startAskedAt.current = first
-      startAskedAtPx.current = contentPx
+  }, [])
+
+  /**
+   * Asks for the page past either end the rows on screen are within `ROWS_AHEAD` of, once per end
+   * row: see `readEdges` in pageEdges.ts. Run whenever the rows on screen change, and when a
+   * landing or an untouched list stops holding the asks back.
+   */
+  readEdges.current = () => {
+    const shown = onScreenKeys.current
+    if (shown === null) return
+    const { keys: held, moreBefore: before, moreAfter: after, platform: here } = latest.current
+    const { contentPx, viewportPx } = scroll.current
+    // Just put on a row: rows added above it now are not held in place on Android, and the landing
+    // slides away; rows added below would be a page the reader has not reached. Asked once it ends.
+    const landingNow = landing.current !== undefined
+    const seekingNow = seekingEnd.current !== undefined
+    // Native shows rows added above a list at its end as a jump there and back: a list that opened
+    // full waits for the reader to move it before it asks for more.
+    const untouched =
+      atEnd.current && !readerMoved.current && here.untouched() && contentPx > viewportPx
+    const read = readEdgesOf({
+      shown,
+      held,
+      moreBefore: before,
+      moreAfter: after,
+      // Seeking the end is the list moving itself: a page landing above would shift it short.
+      holdBefore: landingNow || seekingNow || untouched || latest.current.rows.holdsStart(),
+      holdAfter: landingNow || seekingNow,
+      asked: edgesAsked.current,
+    })
+    if (read === null) return
+    edgesAsked.current = read.asked
+    setShowsStart(read.near.before)
+    setShowsEnd(read.near.after)
+    if (read.ask.before) {
       here.beforeStartAsked()
       latest.current.onStartReached?.()
     }
-  }, [headsFor])
-
-  askEndIfNear.current = () => {
-    if (landing.current !== undefined || seekingEnd.current !== undefined) return
-    const { offsetPx, viewportPx, contentPx } = scroll.current
-    // Rows with no height yet are not laid out: nothing is near the end of them.
-    const nearEnd =
-      viewportPx > 0 &&
-      contentPx > 0 &&
-      contentPx - offsetPx - viewportPx <= viewportPx * END_VIEWPORTS
-    const last = latest.current.keys[latest.current.keys.length - 1]
-    if (!nearEnd) {
-      endAskedAt.current = undefined
-      endAskedAtPx.current = -1
-    } else if (
-      last !== undefined &&
-      endAskedAt.current !== last &&
-      endAskedAtPx.current !== contentPx &&
-      headsFor('end')
-    ) {
-      endAskedAt.current = last
-      endAskedAtPx.current = contentPx
-      latest.current.onEndReached?.()
-    }
+    if (read.ask.after) latest.current.onEndReached?.()
   }
 
   const followEnd = useCallback(() => {
@@ -428,22 +386,10 @@ export function TranscriptList<T>({
       if (resized) resizedAtMs.current = Date.now()
       // An animated scroll to the end only ever moves down.
       const movedUp = !resized && contentOffset.y < scroll.current.offsetPx - AT_END_SLACK_PX
-      const movedDown = !resized && contentOffset.y > scroll.current.offsetPx + AT_END_SLACK_PX
-      // The list's own scrolls (following its end, keeping its place as rows land above, the
-      // web's step off the top) only ever go down, a landing's aside: up is always the reader's,
-      // a screen reader's included. Down is theirs with no resize just before, or with their
-      // finger or wheel on it.
-      const nowMs = Date.now()
-      const readersDown =
-        nowMs - resizedAtMs.current > OWN_SCROLL_MS || nowMs - readerInputAtMs.current < HEADING_MS
-      if (movedUp && landing.current === undefined)
-        heading.current = { toward: 'start', atMs: nowMs }
-      else if (movedDown && readersDown) heading.current = { toward: 'end', atMs: nowMs }
       scroll.current = {
         offsetPx: contentOffset.y,
         viewportPx: layoutMeasurement.height,
         contentPx: contentSize.height,
-        offsetAtContentPx: contentSize.height,
       }
       const reachesEnd =
         contentSize.height - contentOffset.y - layoutMeasurement.height <= AT_END_SLACK_PX
@@ -469,8 +415,6 @@ export function TranscriptList<T>({
       // The list moved itself to keep its place as rows changed above: at the end, that is not
       // the reader leaving it.
       else followEnd()
-      // Not the list's own: following its end, keeping its place, landing, or seeking the end.
-      if (Date.now() - resizedAtMs.current > OWN_SCROLL_MS) askEndIfNear.current()
       report()
     },
     [followEnd, place, report],
@@ -501,12 +445,23 @@ export function TranscriptList<T>({
   )
 
   const onViewableItemsChanged = useCallback(
-    ({ viewableItems }: { viewableItems: { index?: number | null | undefined }[] }) => {
+    ({
+      viewableItems,
+    }: {
+      viewableItems: { index?: number | null | undefined; key?: string | undefined }[]
+    }) => {
       const indices = viewableItems.flatMap(({ index }) =>
         typeof index === 'number' ? [index] : [],
       )
-      onScreen.current =
-        indices.length === 0 ? null : { first: Math.min(...indices), last: Math.max(...indices) }
+      const first = Math.min(...indices)
+      const last = Math.max(...indices)
+      onScreen.current = indices.length === 0 ? null : { first, last }
+      const keyAt = (at: number) => viewableItems.find(({ index }) => index === at)?.key
+      const firstKey = keyAt(first)
+      const lastKey = keyAt(last)
+      onScreenKeys.current =
+        firstKey === undefined || lastKey === undefined ? null : { first: firstKey, last: lastKey }
+      readEdges.current()
       const tell = latest.current.onRowsOnScreen
       if (tell === undefined) return
       const all = latest.current.keys
@@ -529,6 +484,7 @@ export function TranscriptList<T>({
           landing.current = undefined
           const { offsetPx, viewportPx, contentPx } = scroll.current
           atEnd.current = contentPx - offsetPx - viewportPx <= AT_END_SLACK_PX
+          readEdges.current()
         }, LANDING_MS)
         rows.scrollTo({
           key,
@@ -563,6 +519,7 @@ export function TranscriptList<T>({
         clearTimeout(seekingEnd.current)
         seekingEnd.current = setTimeout(() => {
           seekingEnd.current = undefined
+          readEdges.current()
         }, SEEK_END_MS)
         const smooth = animated && !reducedMotion
         const { offsetPx, viewportPx, contentPx } = scroll.current
@@ -573,6 +530,11 @@ export function TranscriptList<T>({
     }),
     [focus, reducedMotion, rows, toEnd],
   )
+
+  // A page landing, or an end becoming known, need not change which rows are on screen.
+  useEffect(() => {
+    readEdges.current()
+  }, [keys, moreBefore, moreAfter])
 
   useEffect(
     () => () => {

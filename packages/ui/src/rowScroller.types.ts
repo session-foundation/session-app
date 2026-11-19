@@ -1,6 +1,11 @@
 import type { RefObject } from 'react'
 
-import type { ScrollReading } from './listEdges'
+/** What a list's scroller last said. */
+export interface ScrollReading {
+  offsetPx: number
+  viewportPx: number
+  contentPx: number
+}
 
 /** The first and last rows drawn inside the viewport, as last reported. */
 export type RowsOnScreen = { first: number; last: number } | null

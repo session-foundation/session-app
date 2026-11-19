@@ -210,3 +210,22 @@ test('says an original is not found, for one never received and one deleted sinc
     await app.close()
   }
 })
+
+test('pages down from the first message to the newest by a fast wheel, without stopping @desktop @high-risk', async () => {
+  const app = await launch()
+  try {
+    await quoteOf(app, REPLIES.seeYou).click()
+    await expectLandedOn(app, REPLIES.station)
+    await quoteOf(app, REPLIES.station).click()
+    await expectLandedOn(app, REPLIES.meet)
+
+    // Faster than a page arrives: each is asked for before the reader reaches it.
+    await row(app, REPLIES.meet).hover()
+    await expect(async () => {
+      for (let wheel = 0; wheel < 5; wheel++) await app.page.mouse.wheel(0, 600)
+      await expect(row(app, REPLIES.newest)).toBeInViewport({ timeout: 500 })
+    }).toPass({ timeout: 30_000 })
+  } finally {
+    await app.close()
+  }
+})

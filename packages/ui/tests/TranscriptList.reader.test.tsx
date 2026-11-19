@@ -17,7 +17,6 @@ vi.mock('#src/transcriptPlatform', () => ({
     listProps: { initialNumToRender: firstPassRows },
     readerScrolled: () => false,
     untouched: () => true,
-    startViewports: 2,
     beforeStartAsked: () => undefined,
   }),
 }))
@@ -55,13 +54,11 @@ afterEach(() => {
 })
 
 describe('TranscriptList, scrolled by no finger', () => {
-  it('takes a screen reader’s scroll for the reader’s: it stays, and asks for the page above', async () => {
-    const onStartReached = vi.fn()
+  it('takes a screen reader’s scroll for the reader’s: it stays', async () => {
     renderInUI(
       <TranscriptList
         data={paged(15)}
         keyExtractor={(item) => item.id}
-        onStartReached={onStartReached}
         testID={LIST}
         renderItem={(item, index) => <Text testID={ROW(index)}>{item.id}</Text>}
       />,
@@ -69,12 +66,10 @@ describe('TranscriptList, scrolled by no finger', () => {
     // Opened at its end and laid out.
     await scrollTo(1600, 2000)
     await wait(AFTER_RESIZE_MS)
-    expect(onStartReached).not.toHaveBeenCalled()
 
     // A screen reader scrolls it up, with no drag: the list must not put it back at the end.
     await scrollTo(600, 2000)
     expect(byId(LIST).scrollTop).toBe(600)
-    expect(onStartReached).toHaveBeenCalledTimes(1)
 
     // A row arriving at the end does not pull the reader down to it.
     await scrollTo(600, 2100)
@@ -152,33 +147,6 @@ describe('TranscriptList, sent to its end', () => {
 
     const moves = scroll.mock.calls.map(([to]) => to as { behavior: string })
     expect(moves.map((to) => to.behavior)).toEqual(['smooth'])
-    await wait(150)
-  })
-})
-
-describe('TranscriptList, with something to say past its start', () => {
-  it('pins it over the top edge while the start is in reach, outside the scrolled rows', async () => {
-    renderInUI(
-      <TranscriptList
-        data={paged(15)}
-        keyExtractor={(item) => item.id}
-        testID={LIST}
-        header={<Text testID="past-start">loading</Text>}
-        renderItem={(item, index) => <Text testID={ROW(index)}>{item.id}</Text>}
-      />,
-    )
-    await scrollTo(1600, 2000)
-    await wait(AFTER_RESIZE_MS)
-    expect(document.querySelector('[data-testid="past-start"]')).toBeNull()
-
-    // Within two list heights of the start.
-    await scrollTo(600, 2000)
-    const pinned = document.querySelector('[data-testid="past-start"]')
-    expect(pinned).not.toBeNull()
-    expect(byId(LIST).contains(pinned)).toBe(false)
-
-    await scrollTo(1500, 2000)
-    expect(document.querySelector('[data-testid="past-start"]')).toBeNull()
     await wait(150)
   })
 })

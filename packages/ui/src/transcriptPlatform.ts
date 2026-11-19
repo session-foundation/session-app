@@ -11,13 +11,6 @@ interface WebScroller extends EventTarget {
 const scrollerOf = (list: unknown): WebScroller | null =>
   (list as { getScrollableNode?: () => WebScroller | null } | null)?.getScrollableNode?.() ?? null
 
-/**
- * The web scrolls by wheel and keys, all of it the reader's. Drawn a batch of rows at a time, a
- * page leaves a wide zone at the start in reach until it is all drawn, and asks for the next: so
- * half a list height.
- */
-const START_VIEWPORTS = 0.5
-
 /** How the reader moves the list on the web, besides the keys below. */
 const READER_EVENTS = ['wheel', 'touchstart', 'pointerdown'] as const
 /** The keys that scroll the list, or step the focus through its rows. */
@@ -36,6 +29,7 @@ export function useTranscriptPlatform({
   list,
   keys,
   atEnd,
+  onScreen,
   firstPassRows,
   toEnd,
   onPlaced,
@@ -44,11 +38,12 @@ export function useTranscriptPlatform({
 }: TranscriptPlatformInput): TranscriptPlatform {
   // Anchoring needs the rows on screen to stay mounted through the commit that adds a page above
   // them: FlatList drops every row past the ones it always draws when its data changes. So those
-  // reach past the page just added.
+  // reach past the page just added and the last row on screen before it.
   const [alwaysDrawn, setAlwaysDrawn] = useState({ firstKey: keys[0], rows: firstPassRows })
   if (alwaysDrawn.firstKey !== keys[0]) {
     const addedAbove = alwaysDrawn.firstKey === undefined ? -1 : keys.indexOf(alwaysDrawn.firstKey)
-    setAlwaysDrawn({ firstKey: keys[0], rows: Math.max(addedAbove, 0) + firstPassRows })
+    const reachedRows = Math.max(firstPassRows, (onScreen.current?.last ?? 0) + 1)
+    setAlwaysDrawn({ firstKey: keys[0], rows: Math.max(addedAbove, 0) + reachedRows })
   }
 
   // The first pass is drawn before this runs and painted after it, so the list is never seen at
@@ -101,10 +96,8 @@ export function useTranscriptPlatform({
     listProps: { initialNumToRender: alwaysDrawn.rows },
     readerScrolled: () => true,
     untouched: () => false,
-    startViewports: START_VIEWPORTS,
     // Chromium anchors nothing at offset 0, so the page about to land above a reader resting there
-    // would be shown from its first row, or, with the list's height left as it was, never asked
-    // past. A pixel down, its anchoring keeps the reader's row where it was.
+    // would be shown from its first row. A pixel down, its anchoring keeps the reader's row.
     beforeStartAsked: () => {
       const node = scrollerOf(list.current)
       if (node !== null && node.scrollTop < 1 && node.scrollHeight > node.clientHeight)

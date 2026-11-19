@@ -103,6 +103,8 @@ function Transcript({
 }) {
   const {
     messages,
+    hasOlder,
+    hasNewer,
     loadOlder,
     loadNewer,
     fetchingOlder,
@@ -128,7 +130,9 @@ function Transcript({
       onRowMenu={openRowMenu}
       handle={list}
       onStartReached={loadOlder}
+      moreBefore={hasOlder}
       onEndReached={loadNewer}
+      moreAfter={hasNewer}
       onFarFromEnd={onFarFromEnd}
       showsOnceAtEnd={showsOnceAtEnd}
       onAtEnd={onAtEnd}

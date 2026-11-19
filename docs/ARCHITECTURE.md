@@ -977,3 +977,12 @@ Append one paragraph per decision. Undocumented decisions are what rot.
   one past an end that history goes on beyond is left for paging to read. The transcript is not
   an inverted list: it opens at its end and follows it, so its rows stay in reading order for the
   keyboard, a screen reader and a text selection.
+- **2026-11-19 - A transcript pages by rows, not pixels.** It keeps `ROWS_AHEAD` (15) rows held
+  beyond those on screen at each end that history goes on past, read from which rows are on
+  screen whenever that changes, whatever moved the list (`readEdges` in
+  `packages/ui/src/pageEdges.ts`). Each end asks once per end row, and again once the rows on
+  screen leave its reach and come back, so a page that failed waits for its Retry. Keeping the
+  reader's place as rows land above is separate and per platform: `maintainVisibleContentPosition`
+  on native; Chromium's scroll anchoring on desktop, with the rows on screen kept mounted through
+  the update and the scroller a pixel off the top. The rows saying a page is being read or failed
+  are pinned over the list's edge on both, with a spacer of their height in the list.
