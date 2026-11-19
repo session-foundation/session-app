@@ -59,6 +59,33 @@ describe('TranscriptList', () => {
     expect(document.querySelectorAll('[data-testid^="message-row-"]').length).toBeLessThan(200)
   })
 
+  it('follows its end as rows arrive only when it holds the newest message', async () => {
+    function Window({ moreAfter }: { moreAfter: boolean }) {
+      return (
+        <TranscriptList
+          data={paged(30)}
+          keyExtractor={key}
+          moreAfter={moreAfter}
+          testID={LIST}
+          renderItem={(item, index) => <Text testID={ROW(index)}>{item.id}</Text>}
+        />
+      )
+    }
+    const { rerender } = renderInUI(<Window moreAfter />)
+    await scrollTo(1600, 2000)
+    // A page lands below a window short of the newest: the reader stays where they were.
+    await scrollTo(1600, 2500)
+    expect(byId(LIST).scrollTop).toBe(1600)
+
+    // Holding the newest, it follows what arrives.
+    rerender(<Window moreAfter={false} />)
+    await scrollTo(2100, 2500)
+    await scrollTo(2100, 2600)
+    expect(byId(LIST).scrollTop).not.toBe(2100)
+
+    await new Promise((resolve) => setTimeout(resolve, SCROLL_END_MS))
+  })
+
   it('lets a reader who scrolls up on the way to the end stay there when a row arrives', async () => {
     const handle = createRef<TranscriptListHandle>()
     renderInUI(

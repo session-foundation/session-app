@@ -115,6 +115,8 @@ const ANIMATED_END_VIEWPORTS = 2
 const OWN_SCROLL_MS = 300
 /** How long a list waits, hidden, for the scroll to its end to report before it shows anyway. */
 const PLACE_AT_END_MS = 300
+/** The longest a page landing above is given to have the reader's rows put back on screen. */
+const SETTLE_ABOVE_MS = 600
 
 const VIEWABILITY = { itemVisiblePercentThreshold: 1 } as const
 
@@ -164,6 +166,10 @@ export function TranscriptList<T>({
   // `ROWS_AHEAD` of either end or leave it. The list opens at its end.
   const [showsStart, setShowsStart] = useState(false)
   const [showsEnd, setShowsEnd] = useState(true)
+  // Set on the next frame, and only on a change: the rows on screen are reported in the middle of
+  // the list's own update, and re-rendering it there blanked it on Android as a page landed.
+  const shows = useRef({ start: false, end: true })
+  const showing = useRef<number | undefined>(undefined)
   const [headerPx, setHeaderPx] = useState(0)
   const onHeaderLayout = useCallback((event: LayoutChangeEvent) => {
     setHeaderPx(event.nativeEvent.layout.height)
@@ -174,6 +180,11 @@ export function TranscriptList<T>({
   }, [])
   const surface = usePaneSurface()
   const edgesAsked = useRef<EdgesAsked>({ before: undefined, after: undefined })
+  // The first row on screen when a page landed above, until it is reported on screen again. Native
+  // puts the reader's rows back a frame or more after the page lands, and the rows reported
+  // meanwhile are the page's own, at the start: read as they are, they ask for the next page at
+  // once, and two pages landing mid-shift blanked the list and lost the reader's place.
+  const settlingAbove = useRef<{ first: string; untilMs: number } | null>(null)
   // On its way to the end, by `scrollToEnd`: an animated scroll reports every offset it passes,
   // none of them the end, and the rows drawn as it nears change where the end is.
   const seekingEnd = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -303,7 +314,14 @@ export function TranscriptList<T>({
   // The rows before the ones now held: what is on screen is known of those until these are drawn.
   const keysBefore = useRef(keys)
   useLayoutEffect(() => {
-    if (latest.current.keys !== keys) keysBefore.current = latest.current.keys
+    if (latest.current.keys !== keys) {
+      keysBefore.current = latest.current.keys
+      const wasFirst = latest.current.keys[0]
+      const shown = onScreenKeys.current
+      // Rows added above the ones held, rather than a window replaced by another.
+      if (wasFirst !== undefined && keys.indexOf(wasFirst) > 0 && shown !== null)
+        settlingAbove.current = { first: shown.first, untilMs: Date.now() + SETTLE_ABOVE_MS }
+    }
     latest.current = {
       keys,
       moreBefore,
@@ -340,6 +358,14 @@ export function TranscriptList<T>({
   readEdges.current = () => {
     const shown = onScreenKeys.current
     if (shown === null) return
+    const settling = settlingAbove.current
+    if (settling !== null) {
+      const { keys: rowsHeld } = latest.current
+      const at = rowsHeld.indexOf(settling.first)
+      const back = at >= rowsHeld.indexOf(shown.first) && at <= rowsHeld.indexOf(shown.last)
+      if (!back && Date.now() < settling.untilMs) return
+      settlingAbove.current = null
+    }
     const { keys: held, moreBefore: before, moreAfter: after, platform: here } = latest.current
     const { contentPx, viewportPx } = scroll.current
     // Just put on a row: rows added above it now are not held in place on Android, and the landing
@@ -362,8 +388,15 @@ export function TranscriptList<T>({
     })
     if (read === null) return
     edgesAsked.current = read.asked
-    setShowsStart(read.near.before)
-    setShowsEnd(read.near.after)
+    if (read.near.before !== shows.current.start || read.near.after !== shows.current.end) {
+      shows.current = { start: read.near.before, end: read.near.after }
+      if (showing.current !== undefined) cancelAnimationFrame(showing.current)
+      showing.current = requestAnimationFrame(() => {
+        showing.current = undefined
+        setShowsStart(shows.current.start)
+        setShowsEnd(shows.current.end)
+      })
+    }
     if (read.ask.before) {
       here.beforeStartAsked()
       latest.current.onStartReached?.()
@@ -371,9 +404,12 @@ export function TranscriptList<T>({
     if (read.ask.after) latest.current.onEndReached?.()
   }
 
+  // Only the newest message is followed: a window short of it ends where the next page goes, and
+  // following that end as each page lands put the reader there again to ask for the next.
+  const followsEnd = useCallback(() => atEnd.current && !latest.current.moreAfter, [])
   const followEnd = useCallback(() => {
-    if (atEnd.current) toEnd(false)
-  }, [toEnd])
+    if (followsEnd()) toEnd(false)
+  }, [followsEnd, toEnd])
 
   const onScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -401,7 +437,7 @@ export function TranscriptList<T>({
         clearTimeout(seekingEnd.current)
         seekingEnd.current = undefined
       }
-      if (resized && atEnd.current) followEnd()
+      if (resized && followsEnd()) followEnd()
       else if (seekingEnd.current !== undefined) {
         // Held to the end until it gets there.
       } else if (landing.current !== undefined) {
@@ -417,7 +453,7 @@ export function TranscriptList<T>({
       else followEnd()
       report()
     },
-    [followEnd, place, report],
+    [followEnd, followsEnd, place, report],
   )
 
   const onContentSizeChange = useCallback(
@@ -541,6 +577,7 @@ export function TranscriptList<T>({
       clearTimeout(seekingEnd.current)
       clearTimeout(landing.current)
       clearTimeout(placing.current)
+      if (showing.current !== undefined) cancelAnimationFrame(showing.current)
     },
     [],
   )

@@ -985,4 +985,5 @@ Append one paragraph per decision. Undocumented decisions are what rot.
   reader's place as rows land above is separate and per platform: `maintainVisibleContentPosition`
   on native; Chromium's scroll anchoring on desktop, with the rows on screen kept mounted through
   the update and the scroller a pixel off the top. The rows saying a page is being read or failed
-  are pinned over the list's edge on both, with a spacer of their height in the list.
+  are pinned over the list's edge on both, with a spacer of their height in the list. Only the
+  newest message is followed as rows arrive: a window short of it ends where the next page goes.
