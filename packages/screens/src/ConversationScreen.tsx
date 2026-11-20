@@ -65,6 +65,7 @@ const messageKey = (message: Message) => String(message.id)
 
 /** One toast however often it is asked for: a second press shows it again, not twice. */
 const ORIGINAL_NOT_FOUND_TOAST = 'original-not-found'
+const ORIGINAL_UNREAD_TOAST = 'original-unread'
 
 /**
  * How many list heights from the newest message the button still scrolls there. Further, it reads
@@ -377,10 +378,16 @@ function Conversation({ conversationId }: { conversationId: ConversationId }) {
         const inPlace = list.current?.isOnScreen(String(reply.messageId)) === true
         actions
           .jumpToMessage(conversationId, reply.messageId, inPlace ? undefined : replyId)
-          .then((outcome) => {
-            // Overtaken by a later jump, it lands nowhere and nothing is missing.
-            if (outcome === 'absent') notFound()
-          }, notFound)
+          .then(
+            (outcome) => {
+              // Overtaken by a later jump, it lands nowhere and nothing is missing.
+              if (outcome === 'absent') notFound()
+            },
+            // The original may well be there: only the read failed, and a second press asks again.
+            () => {
+              toasts.show(PENDING_COPY.messagesLoadFailed, { id: ORIGINAL_UNREAD_TOAST })
+            },
+          )
           .finally(() => {
             setFollowingQuoteOf((following) => (following === replyId ? null : following))
           })
