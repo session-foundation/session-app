@@ -144,6 +144,39 @@ describe('TranscriptList', () => {
     await new Promise((resolve) => setTimeout(resolve, SCROLL_END_MS))
   })
 
+  it('says the reader resting at a window’s end is at the newest message once a newer read finds nothing', async () => {
+    const onAtEnd = vi.fn()
+    function Window({ moreAfter }: { moreAfter: boolean }) {
+      return (
+        <TranscriptList
+          data={paged(30)}
+          keyExtractor={key}
+          moreAfter={moreAfter}
+          onAtEnd={onAtEnd}
+          testID={LIST}
+          renderItem={(item, index) => <Text testID={ROW(index)}>{item.id}</Text>}
+        />
+      )
+    }
+    const { rerender } = renderInUI(<Window moreAfter />)
+    fireEvent.wheel(byId(LIST))
+    await scrollTo(1200, 2000)
+    await scrollTo(1600, 2000)
+    expect(onAtEnd).toHaveBeenCalledTimes(1)
+
+    rerender(<Window moreAfter={false} />)
+    expect(onAtEnd).toHaveBeenCalledTimes(2)
+
+    // Away from the end, a window found to reach the newest message is not the reader there.
+    rerender(<Window moreAfter />)
+    fireEvent.wheel(byId(LIST))
+    await scrollTo(1200, 2000)
+    rerender(<Window moreAfter={false} />)
+    expect(onAtEnd).toHaveBeenCalledTimes(2)
+
+    await new Promise((resolve) => setTimeout(resolve, SCROLL_END_MS))
+  })
+
   it('lets a reader who scrolls up on the way to the end stay there when a row arrives', async () => {
     const handle = createRef<TranscriptListHandle>()
     renderInUI(

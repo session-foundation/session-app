@@ -33,6 +33,7 @@ export const FAKE_FIXTURES = [
   'dates',
   'transcripts',
   'replies',
+  'repliesNearEnd',
 ] as const
 
 export type FakeFixture = (typeof FAKE_FIXTURES)[number]
@@ -179,6 +180,8 @@ export function pickFakeFixture(env: FakeDevEnv): FakeSetup & { fixture: FakeFix
       return { fixture, ...transcripts() }
     case 'replies':
       return { fixture, ...replies() }
+    case 'repliesNearEnd':
+      return { fixture, ...replies({ nearEnd: true }) }
     case 'friends':
       return { fixture, ...friendsWithAttachments(['Alice', 'Bob'], { history: 4 }) }
   }

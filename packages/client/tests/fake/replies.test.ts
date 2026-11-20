@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest'
 import { REPLIES, replies } from '#src/fake/replies'
 
 /** What the `replies` fixture promises whoever drives an app on it. */
-async function seeded() {
-  const { world, clients } = replies()
+async function seeded(options?: { nearEnd: boolean }) {
+  const { world, clients } = replies(options)
   const alice = clients['Alice']
   if (!alice) throw new Error('fixture did not produce a client')
   const bob = world.account('Bob').sessionId
@@ -42,6 +42,17 @@ describe('the replies fixture', () => {
     ])
       expect(newest, body).toContain(body)
     expect(newest).not.toContain(REPLIES.station)
+  })
+
+  it('answers, next to the newest, a message on the page it opens on, near its end alone', async () => {
+    const { alice, bob, saying } = await seeded({ nearEnd: true })
+    const newest = (await alice.getMessages(bob, { limit: 30 })).messages.map((m) => m.body)
+    expect(saying(REPLIES.homeNow).replyTo?.message?.body).toBe(REPLIES.homeAsk)
+    expect(newest).toContain(REPLIES.homeAsk)
+    expect(newest.at(-2)).toBe(REPLIES.homeNow)
+
+    const { messages } = await seeded()
+    expect(messages.map((m) => m.body)).not.toContain(REPLIES.homeNow)
   })
 
   it('answers a picture with the sender’s ThumbHash, not downloaded', async () => {

@@ -14,6 +14,8 @@ export const REPLIES = {
   meet: 'Where shall we meet on Saturday?',
   /** Ours, answering `meet` from far below it. */
   station: 'At the station, by the clock',
+  /** Ours, just above the page the conversation opens on: `repliesNearEnd` only. */
+  homeAsk: 'Text me when you get home',
   /** Bob's picture, and our answer to it. */
   view: 'The view from the top',
   whereIsThis: 'Where is this?',
@@ -23,6 +25,8 @@ export const REPLIES = {
   neverReceived: 'What did it say?',
   /** Bob's, answering a message of ours deleted since. */
   deletedSince: 'Too late, I read it',
+  /** Bob's, next to the newest, answering `homeAsk`: off screen, within a screen of the end. */
+  homeNow: 'Home now',
   /** The newest message. */
   newest: 'Good night',
 } as const
@@ -57,9 +61,11 @@ function filler(pair: Pair, from: number): void {
 
 /**
  * Alice and Bob with a long conversation full of replies: a chain to walk back through, a reply
- * to a picture, one to a message never received and one to a message deleted since.
+ * to a picture, one to a message never received and one to a message deleted since. With
+ * `nearEnd`, also `homeNow` and the `homeAsk` it answers: a separate world, as the two rows move
+ * the page every other spec on this one reads by where its rows sit.
  */
-export function replies(): FakeSetup {
+export function replies({ nearEnd = false }: { nearEnd?: boolean | undefined } = {}): FakeSetup {
   resetFakeIds()
   resetPhotos()
   const world = new FakeWorld()
@@ -73,6 +79,7 @@ export function replies(): FakeSetup {
   filler(pair, 1)
   say(pair, 'out', REPLIES.station, REPLIES.meet)
   filler(pair, 1 + FILLER)
+  if (nearEnd) say(pair, 'out', REPLIES.homeAsk)
 
   self.deliverFrom(peer, REPLIES.view, world.now(), set(['image'], { hashed: true }))
   world.advance()
@@ -94,6 +101,7 @@ export function replies(): FakeSetup {
   say(pair, 'in', REPLIES.deletedSince, regretted)
   self.deleteMessage(idsOf(pair, regretted).own, 'here')
 
+  if (nearEnd) say(pair, 'in', REPLIES.homeNow, REPLIES.homeAsk)
   say(pair, 'in', REPLIES.newest)
   return { world, clients: { [self.displayName]: new FakeSessionClient(self, world) } }
 }

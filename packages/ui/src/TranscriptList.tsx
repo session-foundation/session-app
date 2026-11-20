@@ -82,7 +82,10 @@ export interface TranscriptListProps<T> extends RovingRowsProps {
    * would show meanwhile. A screen that opens slides over that frame, and opens sooner without it.
    */
   showsOnceAtEnd?: boolean | undefined
-  /** Back at the last row after leaving it, and not by a landing's own placing. */
+  /**
+   * Back at the last row after leaving it, or resting there as `moreAfter` turns false; never by a
+   * landing's own placing.
+   */
   onAtEnd?: (() => void) | undefined
   /** The keys of the rows drawn inside the viewport, each time that set changes. */
   onRowsOnScreen?: ((keys: ReadonlySet<string>) => void) | undefined
@@ -599,10 +602,21 @@ export function TranscriptList<T>({
   // nothing else says how far the end is. Rows that did arrive say it once they are measured: told
   // now, before then, the newest message would be near for a moment.
   const lastKeyHeld = useRef(keys[keys.length - 1])
+  const moreAfterHeld = useRef(moreAfter)
   useEffect(() => {
     const lastKey = keys[keys.length - 1]
     if (lastKeyHeld.current === lastKey) report()
     lastKeyHeld.current = lastKey
+    // A reader resting on the window's last row is at the newest message once nothing follows it.
+    const endFound = moreAfterHeld.current && !moreAfter
+    moreAfterHeld.current = moreAfter
+    if (
+      endFound &&
+      atEnd.current &&
+      landing.current === undefined &&
+      seekingEnd.current === undefined
+    )
+      latest.current.onAtEnd?.()
   }, [keys, moreAfter, report])
 
   useEffect(

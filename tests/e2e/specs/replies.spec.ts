@@ -28,6 +28,7 @@ interface Scrolled {
   parentElement: Scrolled
   scrollHeight: number
   clientHeight: number
+  scrollTop: number
   getBoundingClientRect: () => { top: number; bottom: number }
 }
 
@@ -40,6 +41,18 @@ async function offCentrePx(app: DesktopApp, body: string): Promise<number> {
     const box = scroller.getBoundingClientRect()
     const at = message.getBoundingClientRect()
     return Math.abs((at.top + at.bottom) / 2 - (box.top + box.bottom) / 2)
+  })
+}
+
+/** How many of the transcript's heights its scroll is from the end, by the row's scroller. */
+async function viewportsFromEnd(app: DesktopApp, body: string): Promise<number> {
+  return row(app, body).evaluate((element: unknown) => {
+    const message = element as Scrolled
+    let scroller = message.parentElement
+    while (scroller.scrollHeight <= scroller.clientHeight + 1) scroller = scroller.parentElement
+    return (
+      (scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight) / scroller.clientHeight
+    )
   })
 }
 
@@ -127,6 +140,30 @@ test('jumps to an original far above the window, and walks back through the chai
   }
 })
 
+test('goes back to a reply whose original is off screen but near the newest message @desktop @high-risk', async () => {
+  const app = await launch('repliesNearEnd')
+  try {
+    const button = app.locator(CONVERSATION.scrollToLatest)
+    await expect(row(app, REPLIES.homeNow)).toBeInViewport({ ratio: 1 })
+    await expect(row(app, REPLIES.homeAsk)).not.toBeInViewport()
+
+    await quoteOf(app, REPLIES.homeNow).click()
+    await expectLandedOn(app, REPLIES.homeAsk)
+    // Within a list's height of the newest message, where the button would offer nothing else.
+    expect(await viewportsFromEnd(app, REPLIES.homeAsk)).toBeLessThan(1)
+    await expect(button).toHaveAccessibleName(PENDING_COPY.messageBackToReply)
+    // Past the landing, whose end at the bottom is not the reader coming back to it.
+    await app.page.waitForTimeout(2000)
+    await expect(button).toHaveAccessibleName(PENDING_COPY.messageBackToReply)
+
+    await button.click()
+    await expectLandedOn(app, REPLIES.homeNow)
+    await expect(button).toHaveCount(0)
+  } finally {
+    await app.close()
+  }
+})
+
 test('only highlights an original already on screen, with no button and nothing to return to @desktop @medium-risk', async () => {
   const app = await launch()
   try {
@@ -157,14 +194,13 @@ test('forgets the way back once the reader is at the newest message again by han
     await expectLandedOn(app, REPLIES.station)
     await expect(button).toHaveAccessibleName(PENDING_COPY.messageBackToReply)
 
-    // Down by the wheel, through the pages between, to the newest message. The button goes within a
-    // list's height of it, which a wheel can stop at short of the newest row.
+    // Down by the wheel, through the pages between, to the newest message, which ends the detour.
     await row(app, REPLIES.station).hover()
     await expect(async () => {
       await app.page.mouse.wheel(0, 3000)
-      await expect(row(app, REPLIES.newest)).toBeInViewport({ timeout: 500 })
+      await expect(button).toHaveCount(0, { timeout: 500 })
     }).toPass({ timeout: 30_000 })
-    await expect(button).toHaveCount(0)
+    await expect(row(app, REPLIES.newest)).toBeInViewport({ ratio: 1 })
 
     for (let wheel = 0; wheel < 12; wheel++) await app.page.mouse.wheel(0, -600)
     await expect(button).toHaveAccessibleName(PENDING_COPY.messageScrollToLatest)

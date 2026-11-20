@@ -40,10 +40,13 @@ export const SEEDED_RECEIPT = { format: 'JPG', size: '96.5 kB' } as const
 export const SEEDED_REPLIES = {
   meet: 'Where shall we meet on Saturday?',
   station: 'At the station, by the clock',
+  /** `repliesNearEnd` only, as `homeNow`. */
+  homeAsk: 'Text me when you get home',
   view: 'The view from the top',
   whereIsThis: 'Where is this?',
   seeYou: 'See you there',
   neverReceived: 'What did it say?',
   deletedSince: 'Too late, I read it',
+  homeNow: 'Home now',
   newest: 'Good night',
 } as const

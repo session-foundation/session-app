@@ -396,16 +396,11 @@ function Conversation({ conversationId }: { conversationId: ConversationId }) {
     [conversationId, autoDownload, actions, toasts, nameOf],
   )
 
-  // Shown by where the reader is alone: a jump to return from changes what a press does, never
-  // whether there is a button.
-  const offersLatest = transcript.hasNewer || farFromEnd
+  // Shown away from the newest message, and while there is a reply to go back to, however near the
+  // end its original is. Only what the reader does forgets the way back, never where a landing
+  // leaves the list.
   const returnsToReply = transcript.jumpCount > 0
-  // Back at the newest message, the detour is over.
-  const offered = useRef(offersLatest)
-  useEffect(() => {
-    if (offered.current && !offersLatest) actions.forgetJumps(conversationId, 'all')
-    offered.current = offersLatest
-  }, [offersLatest, actions, conversationId])
+  const offersLatest = transcript.hasNewer || farFromEnd || returnsToReply
 
   // A reply scrolled back to by hand is no longer somewhere to return to. Only once it has been
   // off screen: at the press, the reply is the row under the pointer.
@@ -422,7 +417,7 @@ function Conversation({ conversationId }: { conversationId: ConversationId }) {
     },
     [returnsTo, actions, conversationId],
   )
-  // Reached by scrolling, with no button shown on the way, the newest message ends the detour too.
+  // The newest message, reached by the reader rather than by a landing, ends the detour.
   const { hasNewer } = transcript
   const reachedEnd = useCallback(() => {
     if (!hasNewer) actions.forgetJumps(conversationId, 'all')

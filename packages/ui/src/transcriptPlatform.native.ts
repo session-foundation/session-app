@@ -41,6 +41,10 @@ export function useTranscriptPlatform({
       touched.current = false
     }, FLING_BEGINS_MS)
   }, [])
+  // Android begins momentum for a programmatic animated scroll too: only a fling's is the reader's.
+  const onMomentumBegin = useCallback(() => {
+    if (touched.current) onTouchBegin()
+  }, [onTouchBegin])
   const onMomentumScrollEnd = useCallback(() => {
     onTouchEnd()
     told.current.onScrollStopped()
@@ -59,7 +63,7 @@ export function useTranscriptPlatform({
       showsVerticalScrollIndicator: false,
       maintainVisibleContentPosition: KEEPS_PLACE,
       onScrollBeginDrag: onDragBegin,
-      onMomentumScrollBegin: onTouchBegin,
+      onMomentumScrollBegin: onMomentumBegin,
       onScrollEndDrag: onTouchEnd,
       onMomentumScrollEnd,
     },

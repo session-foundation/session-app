@@ -4,17 +4,19 @@ import { ELEMENT } from '@session/test-ids'
 import { openFirstConversationAtNewest } from './attachments'
 import { DesktopApp } from './DesktopApp'
 
-const FIXTURE = { env: { EXPO_PUBLIC_SESSION_FAKE_FIXTURE: 'replies' } }
-
 /**
- * Alice's desktop on the `replies` fixture, in Bob's conversation: several pages of history, so
+ * Alice's desktop on a `replies` fixture, in Bob's conversation: several pages of history, so
  * it opens on a window that does not reach the first message.
  *
  * Launched directly rather than through `sessionTest`: where a row sits in the window, a
  * right-click and a double-click are Playwright's to ask and do, not `ISessionApp`'s.
  */
-export async function launchLongConversation(): Promise<DesktopApp> {
-  const app = await DesktopApp.launch('alice', FIXTURE)
+export async function launchLongConversation(
+  fixture: 'replies' | 'repliesNearEnd' = 'replies',
+): Promise<DesktopApp> {
+  const app = await DesktopApp.launch('alice', {
+    env: { EXPO_PUBLIC_SESSION_FAKE_FIXTURE: fixture },
+  })
   await openFirstConversationAtNewest(app)
   await expect(app.locator(ELEMENT.conversation.headerName)).toHaveText('Bob')
   return app
