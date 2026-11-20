@@ -20,8 +20,9 @@ function ScenarioMessage({ body, landed = false }: ScenarioRow) {
   if (scenario === null || messageId === undefined) return null
   if (landed)
     return (
-      // Laid out as the conversation lays out its transcript, in a box of its own height.
-      <YStack height={TRANSCRIPT_HEIGHT_PX}>
+      // Laid out as the conversation lays out its transcript, in a box of its own height. Framed,
+      // so the rows cut at its edges read as a window onto a longer transcript.
+      <YStack height={TRANSCRIPT_HEIGHT_PX} borderWidth={1} borderColor="$bordersColor">
         <TranscriptWidth flex={1}>
           <YStack flex={1} position="relative">
             <DetachedTranscript conversationId={scenario.conversationId} landedOn={messageId} />
