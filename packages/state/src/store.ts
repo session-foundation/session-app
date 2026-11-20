@@ -489,6 +489,28 @@ export function createSessionStore(
     patchWindow(id, landed(store.getState().histories[id]?.jumps ?? [], messageId, from))
   }
 
+  /**
+   * Makes every read still out for `id` land nowhere, ahead of one that may replace the window.
+   * `resume` asks again for the pages that were on their way, for when that read leaves the window
+   * as it was: their ends would otherwise wait for a scroll, with no Retry row to press.
+   */
+  function interruptPaging(id: ConversationId): { generation: number; resume: () => void } {
+    const window = store.getState().histories[id]
+    const older = window?.fetchingOlder === true
+    const newer = window?.fetchingNewer === true
+    const generation = supersede(id)
+    patchWindow(id, { fetchingOlder: false, fetchingNewer: false })
+    return {
+      generation,
+      resume: () => {
+        if (generationOf(id) !== generation) return
+        // Each logs and marks its own failure.
+        if (older) void actions.loadOlder(id)
+        if (newer) void actions.loadNewer(id)
+      },
+    }
+  }
+
   /** Lands on a message, reading a window around it where the one held lacks it. */
   async function reveal(
     id: ConversationId,
@@ -503,13 +525,13 @@ export function createSessionStore(
       land(id, messageId, from)
       return 'landed'
     }
-    const generation = supersede(id)
-    patchWindow(id, { fetchingOlder: false, fetchingNewer: false })
+    const { generation, resume } = interruptPaging(id)
     return whileReading(id, async (): Promise<JumpOutcome> => {
       let page: MessagePage
       try {
         page = await client.getMessages(id, { limit: JUMP_WINDOW, around: messageId })
       } catch (error) {
+        resume()
         // Purged since the reply was drawn: not there to land on, as a deleted one is not.
         if (error instanceof SessionClientError && error.code === MESSAGE_NOT_FOUND)
           return generationOf(id) === generation ? 'absent' : 'superseded'
@@ -517,7 +539,10 @@ export function createSessionStore(
       }
       if (generationOf(id) !== generation) return 'superseded'
       // A deleted message places the window and is left out of it.
-      if (!page.messages.some((m) => m.id === messageId)) return 'absent'
+      if (!page.messages.some((m) => m.id === messageId)) {
+        resume()
+        return 'absent'
+      }
       replaceWindow(id, page, { messageId, from })
       return 'landed'
     })
@@ -804,11 +829,11 @@ export function createSessionStore(
     async showNewest(id, { evenWhenHeld = false } = {}): Promise<void> {
       const window = store.getState().histories[id]
       if (window?.ready !== true || (!window.hasNewer && !evenWhenHeld)) return
-      const generation = supersede(id)
-      patchWindow(id, { fetchingOlder: false, fetchingNewer: false })
+      const { generation, resume } = interruptPaging(id)
       await whileReading(id, async () => {
         const page = await client.getMessages(id, { limit: FIRST_PAGE }).catch((error: unknown) => {
           log('warn', 'session', `could not read the newest page: ${String(error)}`)
+          resume()
           throw error
         })
         if (generationOf(id) !== generation) return

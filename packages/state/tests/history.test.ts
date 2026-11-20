@@ -1,6 +1,6 @@
 import { friends, type FakeWorld } from '@session/client/fake'
 import type { MessagePage, SessionClient } from '@session/client'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createSessionStore, type SessionStore } from '#src/store'
 import { MAX_JUMPS, type MessageWindow } from '#src/types'
@@ -562,6 +562,64 @@ describe('a read that is still out', () => {
 
     expect(bodies()).toEqual(run(0, 59))
     // The page was dropped, so the window is free to ask for it again.
+    expect(window().fetchingOlder).toBe(false)
+  })
+
+  it('asks again for the page a jump to nothing cancelled', async () => {
+    const { store, bob, window, bodies } = fixture
+    const older = store.actions.loadOlder(bob)
+    const jumping = store.actions.jumpToMessage(bob, 987_654)
+    held[1]?.()
+    expect(await jumping).toBe('absent')
+    held[0]?.()
+    await older
+
+    expect(window().fetchingOlder).toBe(true)
+    held[2]?.()
+    await vi.waitFor(() => {
+      expect(window().fetchingOlder).toBe(false)
+    })
+    expect(bodies()).toEqual(run(55, 99))
+  })
+
+  it.each([
+    ['a jump', (f: Fixture) => f.store.actions.jumpToMessage(f.bob, f.idOf('m10'))],
+    [
+      'a read of the newest page',
+      (f: Fixture) => f.store.actions.showNewest(f.bob, { evenWhenHeld: true }),
+    ],
+  ])('asks again for the page cancelled by %s whose read fails', async (_read, reads) => {
+    const { store, client, bob, window, bodies } = fixture
+    const older = store.actions.loadOlder(bob)
+    const read = client.getMessages.bind(client)
+    client.getMessages = () => Promise.reject(new Error('offline'))
+    const reading = reads(fixture)
+    client.getMessages = read
+    await expect(reading).rejects.toThrow('offline')
+    held[0]?.()
+    await older
+
+    held[1]?.()
+    await vi.waitFor(() => {
+      expect(window().fetchingOlder).toBe(false)
+    })
+    expect(bodies()).toEqual(run(55, 99))
+  })
+
+  it('does not ask again for a page once a later read has replaced the window', async () => {
+    const { store, bob, idOf, window, bodies } = fixture
+    const older = store.actions.loadOlder(bob)
+    const nothing = store.actions.jumpToMessage(bob, 987_654)
+    const jumping = store.actions.jumpToMessage(bob, idOf('m40'))
+    held[2]?.()
+    await jumping
+    held[1]?.()
+    expect(await nothing).toBe('superseded')
+    held[0]?.()
+    await older
+
+    expect(held).toHaveLength(3)
+    expect(bodies()).toEqual(run(11, 70))
     expect(window().fetchingOlder).toBe(false)
   })
 })
