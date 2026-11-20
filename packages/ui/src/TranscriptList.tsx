@@ -156,7 +156,9 @@ export function TranscriptList<T>({
   const onScreen = useRef<RowsOnScreen>(null)
   // The same rows by key: a report of the rows on screen can come against the rows held before a
   // page landed, whose indices the page has shifted.
-  const onScreenKeys = useRef<{ first: string; last: string } | null>(null)
+  const onScreenKeys = useRef<{ first: string; last: string; all: ReadonlySet<string> } | null>(
+    null,
+  )
   const keys = useMemo(() => data.map(keyExtractor), [data, keyExtractor])
   const reducedMotion = useReducedMotion()
 
@@ -518,13 +520,13 @@ export function TranscriptList<T>({
       const keyAt = (at: number) => viewableItems.find(({ index }) => index === at)?.key
       const firstKey = keyAt(first)
       const lastKey = keyAt(last)
+      const all = new Set(viewableItems.flatMap(({ key }) => (key === undefined ? [] : [key])))
       onScreenKeys.current =
-        firstKey === undefined || lastKey === undefined ? null : { first: firstKey, last: lastKey }
+        firstKey === undefined || lastKey === undefined
+          ? null
+          : { first: firstKey, last: lastKey, all }
       readEdges.current()
-      const tell = latest.current.onRowsOnScreen
-      if (tell === undefined) return
-      const all = latest.current.keys
-      tell(new Set(indices.flatMap((index) => all[index] ?? [])))
+      latest.current.onRowsOnScreen?.(all)
     },
     [],
   )
@@ -561,9 +563,7 @@ export function TranscriptList<T>({
         requestAnimationFrame(tryFocus)
       },
       isOnScreen(key) {
-        const index = latest.current.keys.indexOf(key)
-        const shown = onScreen.current
-        return index !== -1 && shown !== null && index >= shown.first && index <= shown.last
+        return onScreenKeys.current?.all.has(key) === true
       },
       viewportsFromEnd() {
         const { offsetPx, viewportPx, contentPx } = scroll.current

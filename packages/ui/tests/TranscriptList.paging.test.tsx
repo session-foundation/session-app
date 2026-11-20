@@ -1,4 +1,5 @@
 import { act } from '@testing-library/react'
+import { createRef, type Ref } from 'react'
 import type * as ReactNative from 'react-native'
 import type { FlatListProps } from 'react-native'
 import { describe, expect, it, vi } from 'vitest'
@@ -6,7 +7,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { ELEMENT } from '@session/test-ids'
 
 import { Text } from '#src/Text'
-import { TranscriptList } from '#src/TranscriptList'
+import { TranscriptList, type TranscriptListHandle } from '#src/TranscriptList'
 
 import { renderInUI } from './support/render'
 
@@ -44,12 +45,24 @@ function report(held: readonly Item[], first: number, last: number): void {
   })
 }
 
-function Transcript({ held, onStartReached }: { held: Item[]; onStartReached: () => void }) {
+function Transcript({
+  held,
+  onStartReached,
+  onRowsOnScreen,
+  handle,
+}: {
+  held: Item[]
+  onStartReached: () => void
+  onRowsOnScreen?: ((keys: ReadonlySet<string>) => void) | undefined
+  handle?: Ref<TranscriptListHandle> | undefined
+}) {
   return (
     <TranscriptList
       data={held}
       keyExtractor={(item) => item.id}
       onStartReached={onStartReached}
+      onRowsOnScreen={onRowsOnScreen}
+      handle={handle}
       moreBefore
       testID={LIST}
       renderItem={(item, index) => <Text testID={ROW(index)}>{item.id}</Text>}
@@ -79,5 +92,21 @@ describe('TranscriptList, paged by the rows on screen', () => {
     // Going on up into the page that landed asks for the next.
     report(landed, 5, 13)
     expect(onStartReached).toHaveBeenCalledTimes(2)
+  })
+  it('names the rows a report was made against, after a page has landed above them', () => {
+    const onRowsOnScreen = vi.fn<(keys: ReadonlySet<string>) => void>()
+    const handle = createRef<TranscriptListHandle>()
+    const window = rows(60, 89)
+    const props = { onStartReached: vi.fn(), onRowsOnScreen, handle }
+    const { rerender } = renderInUI(<Transcript held={window} {...props} />)
+
+    const landed = [...rows(30, 59), ...window]
+    rerender(<Transcript held={landed} {...props} />)
+    // Made before the page landed: its indices count the rows held then.
+    report(window, 2, 10)
+
+    expect([...(onRowsOnScreen.mock.lastCall?.[0] ?? [])]).toEqual(rows(62, 70).map((r) => r.id))
+    expect(handle.current?.isOnScreen('m62')).toBe(true)
+    expect(handle.current?.isOnScreen('m32')).toBe(false)
   })
 })
