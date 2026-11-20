@@ -198,6 +198,9 @@ export function TranscriptList<T>({
     /** The report the landing came after: nothing it says is news. */
     report: { first: string; last: string }
   } | null>(null)
+  // Reads the edges again once `settlingAbove` lapses: a scroll that ends at the top of the page
+  // that landed leaves the rows on screen unchanged, so no report comes to read them.
+  const settled = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   // On its way to the end, by `scrollToEnd`: an animated scroll reports every offset it passes,
   // none of them the end, and the rows drawn as it nears change where the end is.
   const seekingEnd = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -391,7 +394,16 @@ export function TranscriptList<T>({
       const { keys: rowsHeld } = latest.current
       const at = rowsHeld.indexOf(settling.first)
       const back = at >= rowsHeld.indexOf(shown.first) && at <= rowsHeld.indexOf(shown.last)
-      if (!back && Date.now() < settling.untilMs) return
+      const leftMs = settling.untilMs - Date.now()
+      if (!back && leftMs > 0) {
+        clearTimeout(settled.current)
+        settled.current = setTimeout(() => {
+          settled.current = undefined
+          readEdges.current()
+        }, leftMs)
+        return
+      }
+      clearTimeout(settled.current)
       settlingAbove.current = null
     }
     const { keys: held, moreBefore: before, moreAfter: after, platform: here } = latest.current
@@ -623,6 +635,7 @@ export function TranscriptList<T>({
     () => () => {
       clearTimeout(seekingEnd.current)
       clearTimeout(landing.current)
+      clearTimeout(settled.current)
       clearTimeout(placing.current)
       if (showing.current !== undefined) cancelAnimationFrame(showing.current)
     },
