@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef } from 'react'
+import { Platform } from 'react-native'
 
 import type { TranscriptPlatform, TranscriptPlatformInput } from './transcriptPlatform.types'
 
@@ -15,10 +16,11 @@ export function useTranscriptPlatform({
   onReaderTouch,
   onReaderDrag,
   onScrollStopped,
+  onScrolledToTop,
 }: TranscriptPlatformInput): TranscriptPlatform {
-  const told = useRef({ onReaderTouch, onReaderDrag, onScrollStopped })
+  const told = useRef({ onReaderTouch, onReaderDrag, onScrollStopped, onScrolledToTop })
   useLayoutEffect(() => {
-    told.current = { onReaderTouch, onReaderDrag, onScrollStopped }
+    told.current = { onReaderTouch, onReaderDrag, onScrollStopped, onScrolledToTop }
   })
   const touched = useRef(false)
   const everTouched = useRef(false)
@@ -49,6 +51,9 @@ export function useTranscriptPlatform({
     onTouchEnd()
     told.current.onScrollStopped()
   }, [onTouchEnd])
+  const onScrollToTop = useCallback(() => {
+    told.current.onScrolledToTop()
+  }, [])
   useEffect(
     () => () => {
       clearTimeout(touchEnding.current)
@@ -66,7 +71,9 @@ export function useTranscriptPlatform({
       onMomentumScrollBegin: onMomentumBegin,
       onScrollEndDrag: onTouchEnd,
       onMomentumScrollEnd,
+      onScrollToTop,
     },
+    scrollsToTop: Platform.OS === 'ios',
     readerScrolled: () => touched.current,
     untouched: () => !everTouched.current,
     beforeStartAsked: () => undefined,

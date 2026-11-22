@@ -123,6 +123,12 @@ const OWN_SCROLL_MS = 300
 const PLACE_AT_END_MS = 300
 /** The longest a page landing above is given to have the reader's rows put back on screen. */
 const SETTLE_ABOVE_MS = 600
+/**
+ * How long after it last moved a scroll to the top that never says it ended is waited for. UIKit's
+ * runs on at the top, with no scroll reported, for most of a second, and ends by putting the list
+ * back there: a page held in place meanwhile is scrolled past.
+ */
+const TO_TOP_MS = 1500
 
 const VIEWABILITY = { itemVisiblePercentThreshold: 1 } as const
 
@@ -207,6 +213,9 @@ export function TranscriptList<T>({
   // Just put on a row: the rows drawn around it can leave the scroll at the window's end, which
   // is not the reader coming back to the newest message.
   const landing = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  // On its way to the top by a tap on the status bar: a page landing above before it stops is not
+  // held in place, and the screen jumps to the page's first rows.
+  const toTop = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   /** When the content or the list last changed size, after which the list may move itself. */
   const resizedAtMs = useRef(0)
   /** The reader has moved the list since it opened, by whatever means. */
@@ -260,7 +269,14 @@ export function TranscriptList<T>({
   const onReaderTouch = useCallback(() => {
     clearTimeout(landing.current)
     landing.current = undefined
-    // A landing or an untouched list held its asks back.
+    clearTimeout(toTop.current)
+    toTop.current = undefined
+    // A landing, a scroll to the top or an untouched list held its asks back.
+    readEdges.current()
+  }, [])
+  const onScrolledToTop = useCallback(() => {
+    clearTimeout(toTop.current)
+    toTop.current = undefined
     readEdges.current()
   }, [])
   const platform = useTranscriptPlatform({
@@ -274,6 +290,7 @@ export function TranscriptList<T>({
     onReaderTouch,
     onReaderDrag: rows.onReaderTouch,
     onScrollStopped: rows.onScrollStopped,
+    onScrolledToTop,
   })
 
   const onRowHeight = useCallback(
@@ -422,7 +439,12 @@ export function TranscriptList<T>({
       moreBefore: before,
       moreAfter: after,
       // Seeking the end is the list moving itself: a page landing above would shift it short.
-      holdBefore: landingNow || seekingNow || untouched || latest.current.rows.holdsStart(),
+      holdBefore:
+        landingNow ||
+        seekingNow ||
+        untouched ||
+        toTop.current !== undefined ||
+        latest.current.rows.holdsStart(),
       holdAfter: landingNow || seekingNow,
       asked: edgesAsked.current,
     })
@@ -462,6 +484,19 @@ export function TranscriptList<T>({
       if (resized) resizedAtMs.current = Date.now()
       // An animated scroll to the end only ever moves down.
       const movedUp = !resized && contentOffset.y < scroll.current.offsetPx - AT_END_SLACK_PX
+      const { platform: here } = latest.current
+      // Untouched and none of the list's own moves: the status bar's scroll to the top.
+      if (
+        here.scrollsToTop &&
+        Date.now() - resizedAtMs.current > OWN_SCROLL_MS &&
+        contentOffset.y < scroll.current.offsetPx &&
+        !here.readerScrolled() &&
+        landing.current === undefined &&
+        seekingEnd.current === undefined
+      ) {
+        clearTimeout(toTop.current)
+        toTop.current = setTimeout(onScrolledToTop, TO_TOP_MS)
+      }
       scroll.current = {
         offsetPx: contentOffset.y,
         viewportPx: layoutMeasurement.height,
@@ -493,7 +528,7 @@ export function TranscriptList<T>({
       else followEnd()
       report()
     },
-    [followEnd, followsEnd, place, report],
+    [followEnd, followsEnd, onScrolledToTop, place, report],
   )
 
   const onContentSizeChange = useCallback(
@@ -636,6 +671,7 @@ export function TranscriptList<T>({
       clearTimeout(seekingEnd.current)
       clearTimeout(landing.current)
       clearTimeout(settled.current)
+      clearTimeout(toTop.current)
       clearTimeout(placing.current)
       if (showing.current !== undefined) cancelAnimationFrame(showing.current)
     },

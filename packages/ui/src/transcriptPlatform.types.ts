@@ -29,6 +29,8 @@ export interface TranscriptPlatformInput {
   onReaderDrag: () => void
   /** Native: a fling or an animated scroll came to rest. */
   onScrollStopped: () => void
+  /** iOS: the scroll to the top a tap on the status bar starts came to rest. */
+  onScrolledToTop: () => void
 }
 
 /** How a transcript list keeps its place and tells the reader's scroll from its own. */
@@ -42,7 +44,13 @@ export interface TranscriptPlatform {
     | 'onMomentumScrollBegin'
     | 'onScrollEndDrag'
     | 'onMomentumScrollEnd'
+    | 'onScrollToTop'
   >
+  /**
+   * Whether a tap on the status bar scrolls the list to its top by itself, untouched, and says when
+   * it is done: iOS.
+   */
+  scrollsToTop: boolean
   /**
    * Whether the scroll just reported is surely the reader's, even right after a resize: every
    * scroll on the web, a finger or the fling it left on native.
