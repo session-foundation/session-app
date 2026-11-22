@@ -24,6 +24,12 @@ const SCROLL_KEYS: ReadonlySet<string> = new Set([
   ' ',
 ])
 
+/**
+ * Rows kept drawn below the screen while a page lands above. Cut at the screen's bottom, the
+ * content would end there for a frame, and a list at its end follows the rows drawn after it.
+ */
+const ROWS_KEPT_BELOW_SCREEN = 30
+
 /** The web: Chromium's scroll anchoring keeps the place, with the help it needs here. */
 export function useTranscriptPlatform({
   list,
@@ -38,11 +44,14 @@ export function useTranscriptPlatform({
 }: TranscriptPlatformInput): TranscriptPlatform {
   // Anchoring needs the rows on screen to stay mounted through the commit that adds a page above
   // them: FlatList drops every row past the ones it always draws when its data changes. So those
-  // reach past the page just added and the last row on screen before it.
+  // reach past the page just added, the last row on screen before it and the rows kept below it.
   const [alwaysDrawn, setAlwaysDrawn] = useState({ firstKey: keys[0], rows: firstPassRows })
   if (alwaysDrawn.firstKey !== keys[0]) {
     const addedAbove = alwaysDrawn.firstKey === undefined ? -1 : keys.indexOf(alwaysDrawn.firstKey)
-    const reachedRows = Math.max(firstPassRows, (onScreen.current?.last ?? 0) + 1)
+    const reachedRows = Math.max(
+      firstPassRows,
+      (onScreen.current?.last ?? 0) + 1 + ROWS_KEPT_BELOW_SCREEN,
+    )
     setAlwaysDrawn({ firstKey: keys[0], rows: Math.max(addedAbove, 0) + reachedRows })
   }
 
@@ -94,6 +103,7 @@ export function useTranscriptPlatform({
 
   return {
     listProps: { initialNumToRender: alwaysDrawn.rows },
+    scrollsToTop: false,
     readerScrolled: () => true,
     untouched: () => false,
     // Chromium anchors nothing at offset 0, so the page about to land above a reader resting there

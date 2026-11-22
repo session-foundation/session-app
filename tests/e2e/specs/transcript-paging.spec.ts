@@ -35,39 +35,43 @@ test('offers the way to the newest message once it is more than a screen away @d
   }
 })
 
-test('keeps its place as older pages arrive above, one page per reach of the start @desktop @high-risk', async () => {
-  const app = await launchLongConversation()
-  try {
-    const STEP_PX = 120
-    await messageSaying(app, REPLIES.newest).hover()
-    // Picks the row at the middle of the window; then says how far that same row has moved.
-    // In the page's own script: the e2e package is typed without the DOM.
-    const pickRow = () =>
-      app.page.evaluate(`{
+// The worlds land their pages at different rows: on `repliesNearEnd`, with the last row on screen
+// at the bottom of what is drawn.
+for (const fixture of ['replies', 'repliesNearEnd'] as const) {
+  test(`keeps its place as older pages arrive above, one page per reach of the start, on ${fixture} @desktop @high-risk`, async () => {
+    const app = await launchLongConversation(fixture)
+    try {
+      const STEP_PX = 120
+      await messageSaying(app, REPLIES.newest).hover()
+      // Picks the row at the middle of the window; then says how far that same row has moved.
+      // In the page's own script: the e2e package is typed without the DOM.
+      const pickRow = () =>
+        app.page.evaluate(`{
         const rows = [...document.querySelectorAll('[data-testid^="message-row-"]')]
         const row = rows.find((each) => each.getBoundingClientRect().bottom > innerHeight / 2)
         Object.assign(window, { pickedRow: row, pickedTop: row.getBoundingClientRect().top })
       }`)
-    const movedPx = (): Promise<number | null> =>
-      app.page.evaluate(
-        'pickedRow.isConnected ? pickedRow.getBoundingClientRect().top - pickedTop : null',
-      )
-    // Through three pages: each step moves what is on screen by the step and no further.
-    for (let step = 0; step < 40; step++) {
-      await pickRow()
-      await app.page.mouse.wheel(0, -STEP_PX)
-      await expect
-        .poll(movedPx, { message: `step ${step}`, timeout: 2000 })
-        .toBeCloseTo(STEP_PX, -1)
-      // A page that arrives late must leave it there.
-      await app.page.waitForTimeout(100)
-      expect(await movedPx(), `step ${step}, settled`).toBeCloseTo(STEP_PX, -1)
+      const movedPx = (): Promise<number | null> =>
+        app.page.evaluate(
+          'pickedRow.isConnected ? pickedRow.getBoundingClientRect().top - pickedTop : null',
+        )
+      // Through three pages: each step moves what is on screen by the step and no further.
+      for (let step = 0; step < 40; step++) {
+        await pickRow()
+        await app.page.mouse.wheel(0, -STEP_PX)
+        await expect
+          .poll(movedPx, { message: `step ${step}`, timeout: 2000 })
+          .toBeCloseTo(STEP_PX, -1)
+        // A page that arrives late must leave it there.
+        await app.page.waitForTimeout(100)
+        expect(await movedPx(), `step ${step}, settled`).toBeCloseTo(STEP_PX, -1)
+      }
+      await expect(messageSaying(app, REPLIES.meet)).toHaveCount(0)
+    } finally {
+      await app.close()
     }
-    await expect(messageSaying(app, REPLIES.meet)).toHaveCount(0)
-  } finally {
-    await app.close()
-  }
-})
+  })
+}
 
 test('reaches the first message by a fast wheel, page after page, without stopping at the top @desktop @high-risk', async () => {
   const app = await launchLongConversation()
