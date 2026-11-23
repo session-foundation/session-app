@@ -23,6 +23,12 @@ export type CameraAccess = 'unknown' | 'granted' | 'denied' | 'blocked'
  * "nothing here can see", never as "nothing here could".
  */
 export interface CameraPort {
+  /**
+   * Whether the device has a camera at all, whatever the permission: false in the iOS Simulator,
+   * on a Mac running the iPad app without one, and on an Android tablet or Chromebook with none.
+   * A screen offers scanning disabled rather than not at all, so it reads the same everywhere.
+   */
+  available: boolean
   /** What the OS says right now. `unknown` until it has been asked once. */
   access: CameraAccess
   /**

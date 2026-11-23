@@ -20,6 +20,7 @@ import { join } from 'node:path'
 
 import electron from 'electron'
 
+import { resolveBuildVariant } from '@session/app/buildVariant'
 import { flagOverrideRows } from '@session/app/flags'
 import {
   consoleDirectory,
@@ -269,7 +270,7 @@ function mainStartupBlock(writer: LogWriter): string[] {
     buildNumber: null,
     commit: build.commit,
     libsessionCommit: build.libsessionCommit,
-    variant: build.variant || 'unknown',
+    variant: resolveBuildVariant(build.variant, 'desktop'),
     install: 'unknown',
     model: arch(),
     os: osText(process.platform, process.getSystemVersion(), release()),

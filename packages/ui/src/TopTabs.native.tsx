@@ -65,6 +65,7 @@ export function TopTabs({ tabs, active, onChange, instant = false }: TopTabsProp
             fill
             {...(tab.testID === undefined ? {} : { testID: tab.testID })}
             accessibilityLabel={tab.label}
+            disabled={tab.disabled === true}
             onPress={() => {
               onChange(tab.key)
             }}
@@ -76,6 +77,7 @@ export function TopTabs({ tabs, active, onChange, instant = false }: TopTabsProp
                 <FitText
                   size="$bodyLarge"
                   weight="bold"
+                  tone={tab.disabled === true ? 'disabled' : 'primary'}
                   // The tab's width rather than the label's, so a long label has a box to fit.
                   maxWidth="100%"
                   maxFontSizeMultiplier={LABEL_MAX_SCALE}

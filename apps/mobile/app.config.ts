@@ -8,6 +8,7 @@ import type { ConfigContext, ExpoConfig } from 'expo/config'
 
 // Through the package's imports map: Expo evaluates this file with node's ESM resolver, which
 // needs an extension on a relative path and finds one in the map.
+import { withBuildVariants } from '#plugins/withBuildVariants'
 import { withSessionMedia } from '#plugins/withSessionMedia'
 
 /**
@@ -301,7 +302,9 @@ function appGroup(config: ConfigContext['config']): string {
 
 /** The plugins written in this file, which take the computed config rather than a plugin entry. */
 const withLocalPlugins: ConfigPlugins.ConfigPlugin = (config) =>
-  withSessionMedia(withExportStorageAccess(withNoBackups(withPermissionStrings(config))))
+  withBuildVariants(
+    withSessionMedia(withExportStorageAccess(withNoBackups(withPermissionStrings(config)))),
+  )
 
 /**
  * `app.json` plus the things that have to be computed.
@@ -315,7 +318,9 @@ export default ({ config }: ConfigContext): ExpoConfig =>
     slug: config.slug ?? 'session-app',
     plugins: [
       ...(config.plugins ?? []),
-      // The camera is the scanner behind the restore screen's QR tab.
+      // iOS's scanner behind the restore screen's QR tab. Android's is modules/qr-scanner:
+      // expo-camera is left out of Android autolinking (package.json), as its scanner there is
+      // Google's ML Kit.
       [
         'expo-camera',
         {

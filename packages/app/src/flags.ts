@@ -79,11 +79,12 @@ export const FLAGS = {
   disableAnimations: false,
 
   /**
-   * Debug mode: what reveals Developer Settings.
+   * Debug mode: what reveals Developer Settings, in any build.
    *
-   * The environment sets where it starts; ten presses on the build stamp in settings turn it over
-   * for the rest of the run, and a relaunch puts it back. Off, because a release build is not a
-   * debugging one.
+   * The environment sets where it starts. Ten presses on the build stamp in settings turn it on,
+   * stored with the account as a switched flag, so it stays on across launches; only its own switch
+   * at the top of Developer Settings turns it off, and that puts every other switched flag back.
+   * Off, because a release build is not a debugging one.
    */
   debugMode: false,
 
@@ -95,15 +96,6 @@ export const FLAGS = {
    * new plumbing.
    */
   componentCatalog: false,
-
-  /**
-   * Open the path screen from the onion path's light and its Settings row: every path the client
-   * is using, drawn as a country flow with each request travelling it.
-   *
-   * Off while the design is being tried with real accounts; its figures and labels are English
-   * that has no catalogue keys yet.
-   */
-  pathScreen: false,
 } as const
 
 export type FlagName = keyof typeof FLAGS
@@ -171,18 +163,79 @@ function falsy(value: string): boolean {
   return ['0', 'false', 'no', 'off'].includes(value.trim().toLowerCase())
 }
 
+/** Where a flag's value comes from: a developer setting, the environment, or the table. */
+export type FlagSource = 'toggle' | 'environment' | 'default'
+
 /**
- * Whether a flag is on, after any environment override.
+ * The flags someone has switched in Developer Settings, which win over the environment: the
+ * switch starts at whatever the environment says, so a flag turned on there shows as on, and once
+ * it is changed the change is what holds. Stored with the account (see `followFlagToggles`), and
+ * installed here so `flag` stays synchronous.
+ */
+let toggles: Partial<Record<FlagName, boolean>> = {}
+
+/** Told whenever the switched flags change, so a screen that reads one can draw again. */
+const toggleListeners = new Set<() => void>()
+
+/** Replaces the switched flags; anything not named goes back to the environment or the table. */
+export function setFlagToggles(next: Partial<Record<FlagName, boolean>>): void {
+  toggles = { ...next }
+  for (const listener of toggleListeners) listener()
+}
+
+/** Calls `listener` whenever the switched flags change; answers the unsubscribe. */
+export function subscribeFlagToggles(listener: () => void): () => void {
+  toggleListeners.add(listener)
+  return () => {
+    toggleListeners.delete(listener)
+  }
+}
+
+/**
+ * Every flag's value as the account opened, which is what anything read once at start is running
+ * with. Null until then.
+ */
+let atLaunch: Record<FlagName, boolean> | null = null
+
+/** Records the values the app is running with; see `followFlagToggles`. */
+export function markFlagsLaunched(): void {
+  atLaunch = flagSnapshot()
+}
+
+/**
+ * Whether a flag's value differs from the one the app opened with: for a flag read once at start,
+ * whether a restart is needed for the change to apply. False before the account has opened.
+ */
+export function changedSinceLaunch(name: FlagName): boolean {
+  return atLaunch !== null && atLaunch[name] !== flag(name)
+}
+
+/** Test seam: forgets the values recorded at launch. */
+export function forgetLaunchedFlags(): void {
+  atLaunch = null
+}
+
+/** The value a flag has without any developer setting: the environment's, else the table's. */
+function untoggled(name: FlagName): { value: boolean; source: FlagSource } {
+  const override = requirePorts().flags.override(envVarFor(name))
+  if (override !== null && truthy(override)) return { value: true, source: 'environment' }
+  if (override !== null && falsy(override)) return { value: false, source: 'environment' }
+  return { value: FLAGS[name], source: 'default' }
+}
+
+/** Where `flag(name)` gets its value from. */
+export function flagSource(name: FlagName): FlagSource {
+  return toggles[name] === undefined ? untoggled(name).source : 'toggle'
+}
+
+/**
+ * Whether a flag is on: a developer setting if there is one, then the environment, then the table.
  *
  * Reads the port every call rather than caching, because on mobile the value is live. The lookup
  * is a map read and a string compare, so there is nothing to save by holding it.
  */
 export function flag(name: FlagName): boolean {
-  const override = requirePorts().flags.override(envVarFor(name))
-  if (override === null) return FLAGS[name]
-  if (truthy(override)) return true
-  if (falsy(override)) return false
-  return FLAGS[name]
+  return toggles[name] ?? untoggled(name).value
 }
 
 /** Every flag and its effective value. For the debug menu, and for a bug report to quote. */

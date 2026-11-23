@@ -316,11 +316,14 @@ Session logs exported 2026-10-09 07:41:02Z (17:41 local, UTC+10:00)
 ### Where the header's facts come from
 
 - **Install:** iOS reads it in `modules/session-logs`: simulator, TestFlight (sandbox receipt),
-  development or ad hoc (embedded provisioning profile), otherwise App Store. Android names the
+  development or ad hoc (embedded provisioning profile), otherwise App Store, by the same checks as
+  the build variant. Android names the
   installing package: `Play Store`, `F-Droid` for any `org.fdroid.*`, `sideload or adb` where there
   is no installer, otherwise the package name. The Variant row is the authoritative signal for our
   own F-Droid build. Desktop says `unknown`.
-- **Variant:** baked in at build time from `EXPO_PUBLIC_SESSION_BUILD_VARIANT`; `unknown` when unset.
+- **Variant:** the build variant, one of `BUILD_VARIANTS` in `packages/app/src/buildVariant.ts`:
+  the Android flavour, how iOS says the app was installed, or `desktop`, unless
+  `EXPO_PUBLIC_SESSION_BUILD_VARIANT` overrides it. See `docs/BUILD_VARIANTS.md`.
 - **Device, OS, memory, low power, permissions:** the phones read them natively in
   `modules/session-logs`. Android cannot tell "never asked" from "denied" without an activity, so a
   permission reads `granted` or `not granted`, and `not declared` where the manifest does not

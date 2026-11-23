@@ -20,7 +20,9 @@ import { pathFlow } from './pathFlow'
 import { settingsRow } from './settingsRow'
 import { composerNotice, dropOverlay, stagedTile, stagedTray } from './staging'
 import { swipeToReply } from './swipeToReply'
+import { switchStates } from './switch'
 import { textScale } from './text'
+import { topTabs } from './topTabs'
 import { mediaViewer } from './viewer'
 
 export const STORIES: readonly AnyStory[] = [
@@ -33,6 +35,7 @@ export const STORIES: readonly AnyStory[] = [
   fileRowReceived,
   stagedTile,
   radio,
+  switchStates,
   avatar,
   progressRing,
   textScale,
@@ -64,4 +67,5 @@ export const STORIES: readonly AnyStory[] = [
   swipeToReply,
   messageQuoteReplies,
   pathFlow,
+  topTabs,
 ]

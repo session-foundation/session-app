@@ -1,4 +1,10 @@
-import { memoryPorts, setPorts, type MediaPort, type NotificationsPort } from '@session/app'
+import {
+  VARIANT_TRAITS,
+  memoryPorts,
+  resolveBuildVariant,
+  setPorts,
+  type MediaPort,
+} from '@session/app'
 import { mediaUrl } from '@session/app/mediaUrl'
 import { qrCodePng } from '@session/app/qrCodePng'
 import { parseNetworkName } from '@session/basic-types'
@@ -38,23 +44,13 @@ function sweepSharedQrCode(): void {
 }
 
 /**
- * Whose servers fast mode would use, which is what the onboarding screen has to name.
- *
- * **Not derivable from `Platform.OS`.** iOS is always Apple's, but Android depends on how the
- * build was assembled: a Play build talks to Google and a Huawei build to HMS, and the catalogue
- * carries a separate description of fast mode for each. An environment variable rather than a
- * guess, for the same reason the flags are overridable -- the answer belongs to whoever assembles
- * the build, and nothing here can see it.
- *
- * Google is the Android default because it is the only one wired up so far. An unrecognised value
- * falls back rather than throwing: a typo in a build script should not stop the app starting, and
- * the screen's unqualified description is honest about a mode that is unavailable anyway.
+ * Which build this is: the Android flavour, which the APK's manifest carries, or how iOS says the
+ * app was installed -- both read by `modules/session-logs` -- unless the environment overrides it.
  */
-const PUSH_SERVICE: NotificationsPort['pushService'] = ((): NotificationsPort['pushService'] => {
-  if (Platform.OS === 'ios') return 'apple'
-  const named = process.env['EXPO_PUBLIC_SESSION_PUSH_SERVICE']
-  return named === 'huawei' || named === 'google' ? named : 'google'
-})()
+const VARIANT = resolveBuildVariant(
+  process.env['EXPO_PUBLIC_SESSION_BUILD_VARIANT'],
+  SessionLogs?.buildVariant?.(),
+)
 
 /** The scheme, which a native image loader resolves on each platform: Fresco's, and React's. */
 const MEDIA: MediaPort = {
@@ -147,13 +143,14 @@ const ports = memoryPorts({
     // notification delivery something to choose rather than something that just happens. True on
     // a tablet as well as a phone: it is the OS that decides this, not the screen size.
     notificationModesApply: true,
-    // TODO: determine this properly per build rather than declaring it false everywhere. It is a
-    // fact about what was assembled -- an APNs entitlement on iOS, Play Services or HMS on
-    // Android -- so it has to be answered where the build is, not guessed at here. Saying false
-    // understates a build that can do it; saying true would offer a mode that silently never
-    // delivers, which is the worse of the two while nothing is wired up.
+    // TODO: true only when all three hold, which no build trait alone can say:
+    // - the variant names a push service (`VARIANT_TRAITS[VARIANT].pushService`);
+    // - registration with that service exists, which it does not yet;
+    // - on Android, the device has that service: Google Play Services (or microG) for Google's,
+    //   HMS Core for Huawei's. Asked at runtime, since a sideloaded or F-Droid install may lack it.
+    // Saying true before then would offer a mode that silently never delivers.
     fastModeAvailable: false,
-    pushService: PUSH_SERVICE,
+    pushService: VARIANT_TRAITS[VARIANT].pushService,
     requestPermission: () => Promise.resolve(true),
     show: () => Promise.resolve(),
     onTap: () => () => undefined,
@@ -171,8 +168,7 @@ const ports = memoryPorts({
         : Constants.expoConfig?.android?.versionCode === undefined
           ? null
           : String(Constants.expoConfig.android.versionCode),
-    // Said by whoever assembles the build, and inlined by Metro like the commit.
-    variant: process.env['EXPO_PUBLIC_SESSION_BUILD_VARIANT'] || 'unknown',
+    variant: VARIANT,
     // Stamped from the submodule by metro.config.js, beside the commit.
     libsessionCommit: process.env['EXPO_PUBLIC_SESSION_LIBSESSION_COMMIT'] || null,
   },

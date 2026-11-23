@@ -1,0 +1,5 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <uses-permission android:name="android.permission.CAMERA" />
+  <!-- Scanning is one way into an account, not a requirement of the app. -->
+  <uses-feature android:name="android.hardware.camera" android:required="false" />
+</manifest>

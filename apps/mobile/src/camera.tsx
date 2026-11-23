@@ -1,21 +1,28 @@
-import { CameraProvider, type CameraAccess, type CameraPort } from '@session/app'
+import { CameraProvider, type CameraPort } from '@session/app'
 import { CameraView, useCameraPermissions } from 'expo-camera'
-import { useMemo, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
+
+import { readCameraAccess } from './cameraAccess'
+import { QrScanner } from './qrScanner'
 
 /**
- * expo-camera, behind the port.
+ * expo-camera, behind the port: iOS's. Android's is `camera.android.tsx`, which does not use
+ * expo-camera at all.
  *
  * The preview is a component rather than a call, which is why this is a provider and not a row in
  * `platform.ts`: a camera is something drawn, and the frames it reads QR codes out of never leave
  * the native side.
  */
 export function MobileCameraProvider({ children }: { children: ReactNode }) {
+  // Read once, as Android's is: see `camera.android.tsx`.
+  const [available] = useState(() => QrScanner.hasCamera())
   const [permission, request] = useCameraPermissions()
 
   const camera = useMemo<CameraPort>(
     () => ({
-      access: read(permission),
-      request: async () => read(await request()),
+      available,
+      access: readCameraAccess(permission),
+      request: async () => readCameraAccess(await request()),
       Preview: ({ onScan, active = true, testID }) => (
         <CameraView
           style={{ flex: 1 }}
@@ -32,23 +39,8 @@ export function MobileCameraProvider({ children }: { children: ReactNode }) {
         />
       ),
     }),
-    [permission, request],
+    [available, permission, request],
   )
 
   return <CameraProvider camera={camera}>{children}</CameraProvider>
-}
-
-/**
- * What expo-camera reports, as the four states a screen actually has to draw.
- *
- * **`undetermined` is not a refusal**, which is the distinction worth keeping: it means nobody has
- * been asked, so the button offers to ask. `canAskAgain` is what separates a refusal that can be
- * asked about again from one only the settings page can undo.
- */
-function read(
-  permission: { granted: boolean; canAskAgain: boolean; status: string } | null,
-): CameraAccess {
-  if (!permission || permission.status === 'undetermined') return 'unknown'
-  if (permission.granted) return 'granted'
-  return permission.canAskAgain ? 'denied' : 'blocked'
 }

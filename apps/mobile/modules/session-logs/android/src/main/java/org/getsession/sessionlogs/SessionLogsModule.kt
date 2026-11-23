@@ -10,6 +10,7 @@ import android.content.Context
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.Bundle
 import android.os.Debug
 import android.os.PowerManager
 import android.os.StatFs
@@ -21,6 +22,10 @@ import java.util.zip.GZIPOutputStream
 
 // The device logs' native half: compression off the JS thread, and the facts the export header
 // needs that JavaScript cannot read. See the iOS module for why compression is here.
+// The manifest entry each product flavour writes; apps/mobile/plugins/withBuildVariants.ts names
+// the same key.
+private const val BUILD_VARIANT_KEY = "org.getsession.BUILD_VARIANT"
+
 class SessionLogsModule : Module() {
   // The writer's LOG_FILE_NAME in @session/logging, without its groups;
   // packages/app/tests/logFileName.contract.test.ts reads this line and fails when the two differ.
@@ -38,6 +43,14 @@ class SessionLogsModule : Module() {
     // so this is how a log learns the app was under pressure before it was killed. Only Android 13
     // and below send the levels that mean pressure; see `trimLevelName`.
     Events("onMemoryPressure")
+
+    // The product flavour the APK was built as, by its name in BUILD_VARIANTS in @session/app,
+    // which the flavour writes into the manifest; null in an APK built without one. Synchronous,
+    // since the ports are built at launch, and the system already holds the manifest.
+    Function("buildVariant") {
+      val context = appContext.reactContext ?: return@Function null
+      applicationMetaData(context)?.getString(BUILD_VARIANT_KEY)
+    }
 
     OnCreate {
       val context = appContext.reactContext?.applicationContext ?: return@OnCreate
@@ -191,6 +204,21 @@ class SessionLogsModule : Module() {
       else -> installer
     }
   }
+
+  private fun applicationMetaData(context: Context): Bundle? =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+      context.packageManager
+        .getApplicationInfo(
+          context.packageName,
+          PackageManager.ApplicationInfoFlags.of(PackageManager.GET_META_DATA.toLong()),
+        )
+        .metaData
+    } else {
+      @Suppress("DEPRECATION")
+      context.packageManager
+        .getApplicationInfo(context.packageName, PackageManager.GET_META_DATA)
+        .metaData
+    }
 
   private fun packageInfo(context: Context): PackageInfo =
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {

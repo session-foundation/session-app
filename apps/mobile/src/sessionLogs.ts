@@ -23,6 +23,11 @@ interface SessionLogsModule {
    * Android 11, which keeps no record, and where there is none to read.
    */
   previousExit?: (() => Promise<PreviousExit | null>) | undefined
+  /**
+   * The Android flavour the APK was built as, or how iOS says the app was installed; null where
+   * the APK carries none. Absent in a dev client built before it existed.
+   */
+  buildVariant?: (() => string | null) | undefined
   /** Android only: the system asking for memory back, by `onTrimMemory` level. */
   addListener(
     event: 'onMemoryPressure',

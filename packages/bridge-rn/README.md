@@ -14,7 +14,7 @@ above a `BridgeTransport` is meant to be unable to tell which one it has.
 ```
 pnpm --filter @session/bridge-rn build:libsession:android   # once per ABI, slow
 cd apps/mobile && npx expo prebuild --platform android
-cd android && ./gradlew :app:assembleDebug -PreactNativeArchitectures=x86_64 --no-configuration-cache
+cd android && ./gradlew :app:assemblePlayDebug -PreactNativeArchitectures=x86_64 --no-configuration-cache
 ```
 
 libsession is cross-compiled separately rather than from inside the Gradle CMake project, by

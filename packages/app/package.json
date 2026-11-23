@@ -17,6 +17,7 @@
     "./exportFileName": "./src/exportFileName.ts",
     "./mediaUrl": "./src/mediaUrl.ts",
     "./flags": "./src/flags.ts",
+    "./buildVariant": "./src/buildVariant.ts",
     "./qrCodePng": "./src/qrCodePng.ts"
   },
   "scripts": {
@@ -44,6 +45,7 @@
     "@session/basic-types": "workspace:*",
     "@session/client": "workspace:*",
     "@session/logging": "workspace:*",
+    "@session/state": "workspace:*",
     "uqr": "catalog:"
   }
 }

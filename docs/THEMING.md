@@ -67,7 +67,7 @@ Ask what the thing _is_, not what colour you want.
 | the page dimmed behind a dialog or panel                      | `scrim`                            |
 | a raised element's shadow                                     | `shadow`                           |
 | a control hovered / held, laid over whatever it sits on       | `hoverOverlay` / `pressedOverlay`  |
-| the unfilled part of a progress ring                          | `progressTrack`                    |
+| the unfilled part of a progress ring, a switch's off track    | `progressTrack`                    |
 
 No hex outside `@session/theme-tokens`. `pnpm --filter @session/ui test` fails on a token name that
 does not exist, because tamagui resolves a missing token to `0` silently.

@@ -1,4 +1,4 @@
-import { memoryPorts, setPorts } from '@session/app'
+import { memoryPorts, resolveBuildVariant, setPorts } from '@session/app'
 import { parseNetworkName } from '@session/basic-types'
 import { getLocale, subscribeLocale } from '@session/localization'
 
@@ -72,7 +72,7 @@ setPorts(
       version: import.meta.env.EXPO_PUBLIC_SESSION_BUILD_VERSION,
       commit: import.meta.env.EXPO_PUBLIC_SESSION_BUILD_COMMIT,
       buildNumber: null,
-      variant: import.meta.env.EXPO_PUBLIC_SESSION_BUILD_VARIANT || 'unknown',
+      variant: resolveBuildVariant(import.meta.env.EXPO_PUBLIC_SESSION_BUILD_VARIANT, 'desktop'),
       libsessionCommit: import.meta.env.EXPO_PUBLIC_SESSION_LIBSESSION_COMMIT,
     },
     window: {

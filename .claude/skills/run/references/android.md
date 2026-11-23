@@ -45,7 +45,7 @@ when only it changed (`packages/bridge-core/README.md`). `packages/bridge-rn/REA
 ## Install and launch
 
 ```sh
-timeout 300 $A install -r apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
+timeout 300 $A install -r apps/mobile/android/app/build/outputs/apk/play/debug/app-play-debug.apk
 timeout 20 $A reverse tcp:8081 tcp:8081     # so the dev client can reach Metro
 timeout 30 $A shell monkey -p org.getsession.session2 -c android.intent.category.LAUNCHER 1
 ```

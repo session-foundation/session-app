@@ -32,6 +32,10 @@ Nothing the apps store leaves the device: every file lives under a root that is 
 excluded from backup, and on mobile only `src/storage/` may reach the file system.
 `docs/STORAGE.md` has the roots, the platform mechanisms and what enforces them.
 
+One app ships as several builds -- Play, F-Droid, App Store, TestFlight and the rest -- that differ
+in what they can do. Each reports a variant, and shared code asks the variant's traits rather than
+its name; `docs/BUILD_VARIANTS.md` has the list and how each platform knows.
+
 Who may import whom is in `tooling/depcruise-config/root.cjs` and enforced by
 `pnpm boundaries`. The short version: `ui` imports no sibling but tokens and ids; `screens`
 imports ui, state, app, client and localization; nothing imports an app.
