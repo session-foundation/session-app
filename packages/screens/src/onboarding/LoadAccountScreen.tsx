@@ -60,6 +60,11 @@ const EXPORT_OVERHANG = SPACE_SCALE['2xs'] + SIZE_SCALE.xl
  * a tablet is wide and has a camera -- the two questions are different and reading one off the
  * other is what put a scanner on a desktop.
  *
+ * **A device with no camera still shows the tab, disabled**, and no pager behind it, so there is
+ * nothing to swipe to. The Simulator, a Mac running the iPad app and some Android tablets have
+ * none; the tab says what this screen offers elsewhere, where hiding it would make the screen
+ * differ by device for no stated reason.
+ *
  * The other half of this exchange is a client *showing* a recovery QR for another device to read,
  * which is what the desktop client does. A desktop that scans is the wrong end of it.
  */
@@ -71,7 +76,9 @@ export function LoadAccountScreen({
   busy = false,
 }: LoadAccountScreenProps) {
   // Null where no platform put a camera in the tree, which is the desktop app today.
-  const scanning = useCamera() !== null
+  const camera = useCamera()
+  const scanning = camera !== null
+  const canScan = camera?.available === true
   const wide = useMedia().gtSm
   const fontScale = useFontScale()
   // Above the default text size the wide column scrolls rather than holding a fixed height (see
@@ -96,7 +103,7 @@ export function LoadAccountScreen({
       padding={stepPadding}
       // Beside a camera the back control sits beside the pager (see below), so the pane draws none
       // of its own: one hanging off a page would show when the page is swiped past its edge.
-      onBack={scanning ? undefined : onBack}
+      onBack={canScan ? undefined : onBack}
       backDisabled={backDisabled}
       busy={busy}
       rejected={rejected}
@@ -132,13 +139,18 @@ export function LoadAccountScreen({
                 label: tr('sessionRecoveryPassword'),
                 testID: ELEMENT.onboarding.recoveryPhraseTab,
               },
-              { key: 'qr', label: tr('qrScan'), testID: ELEMENT.onboarding.scanQrTab },
+              {
+                key: 'qr',
+                label: tr('qrScan'),
+                testID: ELEMENT.onboarding.scanQrTab,
+                disabled: !canScan,
+              },
             ]}
           />
         ) : undefined
       }
     >
-      {scanning ? (
+      {canScan ? (
         /* Stretching, deliberately: the pager takes the row's height, and `alignItems="flex-start"`
            would collapse it. The back control keeps its own height and so does not stretch with
            it. */

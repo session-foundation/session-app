@@ -246,6 +246,8 @@ export function ModalStackHost({
                   </YStack>
                 </XStack>
 
+                {screen?.header === undefined ? null : screen.header()}
+
                 {/* Every screen stays mounted so back returns to it as it was left (scroll,
                     state); only the frontmost is visible. */}
                 {/* `relative`: on the web a stack is `static` by default, so absolute children

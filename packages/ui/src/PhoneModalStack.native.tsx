@@ -27,6 +27,7 @@ interface PhoneModalScreen {
   key: string
   title: string
   render: () => ReactNode
+  header?: (() => ReactNode) | undefined
   footer?: (() => ReactNode) | undefined
 }
 
@@ -125,6 +126,7 @@ export function PhoneModalStack({
               ) : undefined,
           }}
         >
+          {screen.header === undefined ? null : screen.header()}
           <ScrollView
             flex={1}
             {...(testID === undefined ? {} : { testID })}

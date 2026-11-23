@@ -95,7 +95,7 @@ describe('startLogger', () => {
           version: '1.2.3',
           commit: 'abc12345',
           buildNumber: '7',
-          variant: 'dev',
+          variant: 'development',
           libsessionCommit: '76d93c51',
         },
       }),

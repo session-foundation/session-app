@@ -85,6 +85,12 @@ export function useRecoveryPasswordHidden(): boolean {
   return useStore(store, (state) => state.recoveryPasswordHidden)
 }
 
+/** The flags switched in Developer Settings. See `flagToggles`. */
+export function useFlagToggles(): Readonly<Record<string, boolean>> {
+  const store = useSessionStore()
+  return useStore(store, (state) => state.flagToggles)
+}
+
 /** The file server's limit on one upload, encrypted and padded, or null before a start asked. */
 export function useAttachmentUploadLimit(): number | null {
   const store = useSessionStore()

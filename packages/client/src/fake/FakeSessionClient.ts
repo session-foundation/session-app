@@ -78,12 +78,6 @@ function compareToCursor(message: Message, cursor: MessageCursor): number {
 const FAKE_PROFILE_DELAY_MS = 2500
 
 /**
- * Where the bridge keeps the hidden flag: a globals key beside the app's preferences, so a device
- * that hid it as a preference is still hidden. Kept in the same place here, and wiped with them.
- */
-const RECOVERY_PASSWORD_HIDDEN_KEY = 'recoveryPassword.hidden'
-
-/**
  * The fake behind the same interface the real bridge implements.
  *
  * Everything here is synchronous underneath; the promises exist because the interface has
@@ -181,7 +175,16 @@ export class FakeSessionClient implements SessionClient {
 
   hideRecoveryPassword(): Promise<void> {
     this.assertOpen()
-    this.account.setPref(RECOVERY_PASSWORD_HIDDEN_KEY, 'true')
+    // As libsession refuses it: there is no recovery password to hide before the account exists,
+    // and a flag set then would hide the one made next.
+    if (!this.account.haveAccount) {
+      return Promise.reject(
+        new SessionClientError(
+          'This Session account has no identity yet; call create_account() or restore_account() first',
+        ),
+      )
+    }
+    this.account.recoveryPasswordHidden = true
     return Promise.resolve()
   }
 
@@ -191,7 +194,7 @@ export class FakeSessionClient implements SessionClient {
   }
 
   private recoveryPasswordHidden(): boolean {
-    return this.account.getPref(RECOVERY_PASSWORD_HIDDEN_KEY) === 'true'
+    return this.account.recoveryPasswordHidden
   }
 
   getSeedMnemonic(): Promise<string[] | null> {
@@ -588,12 +591,6 @@ export class FakeSessionClient implements SessionClient {
 
   setPref(key: string, value: string): Promise<void> {
     this.assertOpen()
-    // As the bridge refuses it: only hideRecoveryPassword writes the hidden flag.
-    if (key === RECOVERY_PASSWORD_HIDDEN_KEY) {
-      return Promise.reject(
-        new Error('recoveryPassword.hidden is set only by hideRecoveryPassword'),
-      )
-    }
     this.account.setPref(key, value)
     return Promise.resolve()
   }

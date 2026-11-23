@@ -47,6 +47,8 @@ const KNOWN_ISSUES: Record<Audit, Readonly<Record<string, Known>>> = {
     'color-contrast catalog-settings-row-trailing':
       'a secondary value on a pressed row, classic-light: 4.1:1',
     'color-contrast catalog-settings-row-arabic': 'its trailing value on a pressed row: the same',
+    'color-contrast catalog-settings-row-detailsSummary':
+      'its inactive detail, a secondary value, on a pressed row: the same',
     'color-contrast catalog-settings-row-destructive':
       'the danger ink on a light page, at label size: 4.3:1',
     'color-contrast recovery-password-hide':

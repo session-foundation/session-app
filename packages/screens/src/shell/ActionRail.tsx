@@ -83,7 +83,7 @@ function SettingsButton() {
 }
 
 /**
- * The onion path's light: a status that names itself, opening the path screen where it is on.
+ * The onion path's light: a status that names itself, opening the path screen.
  */
 function PathLight() {
   const status = useNetworkStatus()
@@ -95,7 +95,7 @@ function PathLight() {
         sidePx={PATH_SIDE_PX}
         accessibilityLabel={label}
         testID={ELEMENT.rail.pathStatus}
-        onPress={flag('pathScreen') ? openPaths : undefined}
+        onPress={openPaths}
       >
         <StatusDot tone={pathStatusTone(status)} />
       </RailButton>

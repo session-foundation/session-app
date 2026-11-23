@@ -18,6 +18,11 @@ export interface ModalScreen {
   /** Drawn in the modal's own header, so a screen does not draw a title of its own. */
   title: string
   render: () => ReactNode
+  /**
+   * Drawn under the title, outside the scrolling body, so it stays in view however far the screen
+   * is scrolled: a notice that belongs to the screen rather than to a place in it.
+   */
+  header?: () => ReactNode
   /** Actions along the bottom, outside the scrolling body. */
   footer?: () => ReactNode
 }

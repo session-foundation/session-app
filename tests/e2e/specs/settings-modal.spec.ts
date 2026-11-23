@@ -129,7 +129,7 @@ test('settings opens over the list, pushes Help, exports logs from it, and asks 
     await page.getByTestId(ELEMENT.toast.close).first().click()
     await expect(page.getByTestId(ELEMENT.toast.item)).toHaveCount(0)
 
-    // **The foot of the page names the build**, and ten presses on its commit turn debug mode over.
+    // **The foot of the page names the build**, and ten presses on its commit turn debug mode on.
     await expect(page.getByTestId(ELEMENT.settings.version).first()).toHaveText(/^v\d+\.\d+\.\d+$/)
     const commit = page.getByTestId(ELEMENT.settings.commit).first()
     await expect(commit).toHaveText(/^[0-9a-f]{8}(-dirty)?$/)
@@ -143,6 +143,14 @@ test('settings opens over the list, pushes Help, exports logs from it, and asks 
     await expect(page.getByTestId(ELEMENT.toast.item).first()).toHaveText(tr('debugModeEnabled'))
     await expect(page.getByTestId(ELEMENT.settings.row('developer-settings')).first()).toBeVisible()
     await page.getByTestId(ELEMENT.toast.close).first().click()
+
+    // Developer Settings opens from that row, and its Debug Mode switch turns debug mode off and
+    // leaves, taking the row with it.
+    await page.getByTestId(ELEMENT.settings.row('developer-settings')).first().click()
+    await expect(page.getByTestId(ELEMENT.developerSettings.page).first()).toBeVisible()
+    await page.getByTestId(ELEMENT.developerSettings.debugModeSwitch).first().click()
+    await expect(page.getByTestId(ELEMENT.developerSettings.page)).toHaveCount(0)
+    await expect(page.getByTestId(ELEMENT.settings.row('developer-settings'))).toHaveCount(0)
 
     // A second modal over the first, which is the case the platform's own nesting gets wrong.
     await page.getByTestId(ELEMENT.settings.clearData).first().click()

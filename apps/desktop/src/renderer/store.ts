@@ -1,3 +1,4 @@
+import { followFlagToggles } from '@session/app'
 import { createSessionClient } from '@session/client'
 import { createSessionStore } from '@session/state'
 
@@ -24,6 +25,8 @@ export const store = createSessionStore(client, {
   // when Electron is run with --enable-logging and the DevTools console otherwise.
   log: storeLog,
 })
+
+followFlagToggles(store)
 
 void startLogging(store).catch((error: unknown) => {
   console.error('[logs] could not start logging:', error)

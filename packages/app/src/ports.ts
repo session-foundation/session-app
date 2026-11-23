@@ -1,6 +1,8 @@
 import type { NetworkName, QrMark, WithSpan } from '@session/basic-types'
 import type { AttachmentRef, PixelSize } from '@session/client'
 import type { BuildFacts, DiagnosticsSnapshot, ExportPart, LogFileInfo } from '@session/logging'
+
+import type { BuildVariant } from './buildVariant'
 /**
  * What the app needs from the operating system, named so shared code can ask without
  * knowing which one it is running on.
@@ -226,8 +228,11 @@ export interface LinkingPort {
  * -- it would have to contain the hash of the commit it is in. Wanted by the settings stamp, and by
  * any log that has to say which binary produced it.
  */
-/** What the build says about itself; see `BuildFacts` in `@session/logging`. */
-export type BuildPort = Readonly<BuildFacts>
+/**
+ * What the build says about itself; see `BuildFacts` in `@session/logging`. The variant is one of
+ * `BUILD_VARIANTS` here, which the logs print as it is.
+ */
+export type BuildPort = Readonly<Omit<BuildFacts, 'variant'> & { variant: BuildVariant }>
 
 export interface SharePort {
   /**

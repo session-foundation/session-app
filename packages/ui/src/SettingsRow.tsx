@@ -51,6 +51,18 @@ function useSeparatorHeight(): number {
   return 1 / (scale * usePageZoom())
 }
 
+/** One line of a row's details: a setting's name, as the caller words it, and how it stands. */
+export interface SettingsRowDetail {
+  /** Punctuated by the caller, "Current:", since a colon is not the same in every language. */
+  label: string
+  value: string
+  /**
+   * Not in effect, as a mock that is off: in the secondary ink rather than the accent. Not the
+   * disabled ink, which on a row that is not disabled falls short of the contrast text needs.
+   */
+  inactive?: boolean | undefined
+}
+
 export interface SettingsRowProps {
   label: string
   /**
@@ -60,8 +72,16 @@ export interface SettingsRowProps {
   icon?: IconName | ComponentType<MarkProps> | ReactElement
   /** Draws the icon in the accent, as Donate's is. */
   accentIcon?: boolean
-  /** A second line under the label, for a row whose meaning is not obvious from its name. */
+  /**
+   * A second line under the label, for a row whose meaning is not obvious from its name. Its line
+   * breaks are kept, for an explanation with paragraphs or a list.
+   */
   subtitle?: string
+  /**
+   * How the row's settings stand, a line each under the subtitle: one for a setting, or a summary
+   * of a screen's settings on the row that opens it, as legacy iOS's developer settings have.
+   */
+  details?: readonly SettingsRowDetail[] | undefined
   /** A value, a switch, a button. No chevron by default. */
   trailing?: ReactNode
   /**
@@ -95,6 +115,7 @@ export function SettingsRow({
   label,
   icon,
   subtitle,
+  details,
   trailing,
   wideTrailing = false,
   trailingYields = false,
@@ -112,6 +133,7 @@ export function SettingsRow({
     label,
     icon,
     subtitle,
+    details,
     trailing,
     wideTrailing,
     trailingYields,
@@ -141,6 +163,7 @@ interface RowContentProps {
   label: string
   icon?: SettingsRowProps['icon'] | undefined
   subtitle?: string | undefined
+  details?: readonly SettingsRowDetail[] | undefined
   trailing?: ReactNode | undefined
   wideTrailing: boolean
   trailingYields: boolean
@@ -159,6 +182,7 @@ function RowContent({
   label,
   icon,
   subtitle,
+  details,
   trailing,
   wideTrailing,
   trailingYields,
@@ -255,9 +279,45 @@ function RowContent({
               size="$label"
               color={disabled ? '$textDisabled' : '$textPrimary'}
               maxFontSizeMultiplier={LABEL_MAX_SCALE}
+              whiteSpace="pre-line"
             >
               {subtitle}
             </Text>
+          )}
+          {details === undefined || details.length === 0 ? null : (
+            // Set apart from the subtitle, as a paragraph would be.
+            <YStack paddingTop="$xs">
+              {details.map((detail) => (
+                <Text
+                  key={detail.label}
+                  size="$label"
+                  color={disabled ? '$textDisabled' : '$textPrimary'}
+                  maxFontSizeMultiplier={LABEL_MAX_SCALE}
+                >
+                  <Text
+                    size="$label"
+                    weight="bold"
+                    color={disabled ? '$textDisabled' : '$textPrimary'}
+                  >
+                    {detail.label}
+                  </Text>{' '}
+                  {/* `accentText`, as for a link or an inline emphasis: the accent itself is too
+                      faint as text on a light ground. */}
+                  <Text
+                    size="$label"
+                    color={
+                      disabled
+                        ? '$textDisabled'
+                        : detail.inactive === true
+                          ? '$textSecondary'
+                          : '$accentText'
+                    }
+                  >
+                    {detail.value}
+                  </Text>
+                </Text>
+              ))}
+            </YStack>
           )}
         </YStack>
 

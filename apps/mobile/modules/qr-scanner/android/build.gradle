@@ -1,0 +1,25 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'org.getsession'
+version = '0.0.0'
+
+android {
+  namespace "org.getsession.qrscanner"
+  defaultConfig {
+    versionCode 1
+    versionName '0.0.0'
+  }
+}
+
+dependencies {
+  def camerax = '1.6.0'
+  implementation "androidx.camera:camera-camera2:${camerax}"
+  implementation "androidx.camera:camera-lifecycle:${camerax}"
+  implementation "androidx.camera:camera-view:${camerax}"
+  // Open source (Apache-2.0) and on Maven Central, where expo-camera's Android scanner is Google's
+  // ML Kit: see QrScannerView.
+  implementation 'io.github.zxing-cpp:android:3.1.1'
+}

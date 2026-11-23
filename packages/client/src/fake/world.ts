@@ -359,6 +359,12 @@ export class FakeAccount {
    */
   provisional = false
 
+  /**
+   * Whether the recovery password was hidden, which libsession keeps with the account rather than
+   * among the preferences: nothing but hiding sets it, and it goes when the account does.
+   */
+  recoveryPasswordHidden = false
+
   private readonly conversations = new Map<ConversationId, FakeConversationState>()
   /** Which list each row was last reported in, which is the `from` its next placement gives. */
   private readonly placed = new Map<ConversationId, ConversationList>()
@@ -479,6 +485,7 @@ export class FakeAccount {
     }
     this.haveAccount = false
     this.provisional = false
+    this.recoveryPasswordHidden = false
     this.profileArrivesAt = 0
     this.conversations.clear()
     this.placed.clear()

@@ -22,9 +22,10 @@ export interface BuildFacts {
    */
   libsessionCommit: string | null
   /**
-   * What the build was made as -- `store`, `testflight`, `website`, `fdroid`, `dev` -- said by
-   * whoever assembled it through `EXPO_PUBLIC_SESSION_BUILD_VARIANT`. `unknown` when nobody did,
-   * rather than a guess from the platform: two builds of one platform can be different variants.
+   * Which build variant this is -- `play`, `fdroid`, `testFlight`, `desktop` -- by its name in
+   * `BUILD_VARIANTS` in `@session/app`, which says how each platform knows. `unknown` where it
+   * cannot say, rather than a guess from the platform: two builds of one platform can be different
+   * variants.
    */
   variant: string
 }

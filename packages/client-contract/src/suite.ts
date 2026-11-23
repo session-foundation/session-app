@@ -395,11 +395,17 @@ export function runSessionClientContract(
       expect(await client.getSeedMnemonic()).toBe(null)
       expect(await client.getSeedHex()).toBe(null)
       expect((await client.getAccountInfo()).sessionId).toBe(sessionId)
+    })
 
-      // Not undone through the generic preference store, which shares the flag's key.
-      expect(await failure(() => client.setPref('recoveryPassword.hidden', 'false'))).toBeDefined()
-      expect(await client.getRecoveryPasswordHidden()).toBe(true)
-      expect(await client.getSeedMnemonic()).toBe(null)
+    it('refuses to hide the recovery password before there is an account', async () => {
+      // Hidden then, the account made next would start with its recovery password already gone.
+      const { client } = await harness.newcomer()
+
+      expect(await failure(() => client.hideRecoveryPassword())).toBeDefined()
+
+      await client.createAccount()
+      expect(await client.getRecoveryPasswordHidden()).toBe(false)
+      expect((await client.getSeedMnemonic())?.length ?? 0).toBeGreaterThan(0)
     })
 
     it('refuses a phrase of the wrong length, and still makes nothing', async () => {

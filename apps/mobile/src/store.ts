@@ -1,3 +1,4 @@
+import { followFlagToggles } from '@session/app'
 import {
   netidForTransport,
   parseDevnetConfig,
@@ -165,5 +166,6 @@ export const storePromise = openTransportOrRefusal().then((transport) => {
     libsessionLog,
   })
   watchStore(store)
+  followFlagToggles(store)
   return store
 })

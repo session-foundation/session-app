@@ -955,16 +955,10 @@ struct ClientBridge::Impl {
         ok(id);
     }
 
-    // The globals key the hidden flag is stored under. The app stored it as a plain preference before
-    // the bridge enforced it, so a device that hid its recovery password then is still hidden.
-    static constexpr std::string_view RECOVERY_PASSWORD_HIDDEN_KEY = "recoveryPassword.hidden";
-
-    bool recovery_password_hidden() {
-        return client->core.globals.get_text(RECOVERY_PASSWORD_HIDDEN_KEY) == "true";
-    }
+    bool recovery_password_hidden() { return client->core.globals.seed_hidden(); }
 
     void handle(double id, const HideRecoveryPasswordCommand&) {
-        client->core.globals.set(RECOVERY_PASSWORD_HIDDEN_KEY, std::string_view{"true"});
+        client->core.globals.hide_seed();
         ok(id);
     }
 
@@ -1506,10 +1500,6 @@ struct ClientBridge::Impl {
     }
 
     void handle(double id, const SetPrefCommand& cmd) {
-        // The hidden flag shares the preference store but only HideRecoveryPassword may write it:
-        // through here it could be set back to false and the seed read out again.
-        if (cmd.key == RECOVERY_PASSWORD_HIDDEN_KEY)
-            return fail(id, "recoveryPassword.hidden is set only by hideRecoveryPassword");
         client->core.globals.set(cmd.key, cmd.value);
         ok(id);
     }

@@ -1,11 +1,14 @@
 import {
   AccountHeader,
   AttachmentCacheFigures,
+  DeveloperRestartBanner,
+  DeveloperSettingsContent,
   KeyboardShortcutsPage,
   PathStatsCard,
   RecoveryPasswordPage,
   type PathStats,
 } from '@session/screens'
+import { DEVELOPER_FLAGS } from '@session/app'
 import { defineStory, type AnyStory } from '@session/ui/catalog'
 
 /** Made up, never an account's: the fake's thirteen words and a 16-byte seed. */
@@ -33,6 +36,9 @@ const CATALOG_LONG_SECRET = {
   ],
   seedHex: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
 }
+
+/** For a press the catalog cannot make. */
+const noop = (): void => undefined
 
 /** A phone's width, as the settings row's own story draws at. */
 const SECTION_WIDTH = 390
@@ -160,5 +166,38 @@ export const SETTINGS_SCENARIOS: readonly AnyStory[] = [
     render: ({ view }) => (
       <AccountHeader sessionId={CATALOG_ACCOUNT_ID} name="Alice" initialView={view} />
     ),
+  }),
+  // Fixed states rather than the build's flags, which move with the environment the catalog was
+  // built in: the first flag switched here and any others at their defaults. At a phone's width,
+  // where the descriptions wrap. The restart banner is its own story, since it sits above every
+  // Developer Settings screen rather than in one.
+  defineStory<Record<string, never>>({
+    component: 'settings',
+    story: 'developerSettings',
+    width: SECTION_WIDTH,
+    sensitive: { rtl: true, theme: true },
+    variants: { resting: {} },
+    render: () => (
+      <DeveloperSettingsContent
+        flags={DEVELOPER_FLAGS.map((listed, index) =>
+          index === 0
+            ? { flag: listed, value: true, source: 'toggle' as const }
+            : { flag: listed, value: false, source: 'default' as const },
+        )}
+        canReset
+        onDebugModeOff={noop}
+        onFlagChange={noop}
+        onReset={noop}
+      />
+    ),
+  }),
+  // With Restart, as desktop and Android can relaunch, and without, as iOS cannot.
+  defineStory<{ relaunch: boolean }>({
+    component: 'settings',
+    story: 'developerRestartBanner',
+    width: SECTION_WIDTH,
+    sensitive: { rtl: true, theme: true },
+    variants: { 'can relaunch': { relaunch: true }, 'cannot relaunch': { relaunch: false } },
+    render: ({ relaunch }) => <DeveloperRestartBanner onRestart={relaunch ? noop : null} />,
   }),
 ]

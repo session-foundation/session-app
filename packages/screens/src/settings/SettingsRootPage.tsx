@@ -1,4 +1,4 @@
-import { flag, requirePorts, URLS, useDebugMode, useNav, routes } from '@session/app'
+import { requirePorts, URLS, useDebugMode, useNav, routes } from '@session/app'
 import { PENDING_COPY, toPlainText, tr } from '@session/localization'
 import {
   useAccount,
@@ -28,6 +28,7 @@ import { PathPage } from '../path/PathPage'
 import { AccountHeader } from './AccountHeader'
 import { confirmLink } from './confirmLink'
 import { ConversationsPage } from './ConversationsPage'
+import { DeveloperSettingsPage, developerScreen } from './DeveloperSettingsPage'
 import { HelpPage } from './HelpPage'
 import { openRecoveryPassword } from './RecoveryPasswordPage'
 import { SessionInfo } from './SessionInfo'
@@ -183,7 +184,7 @@ export function SettingsRootPage() {
           confirmLink(modals, URLS.donationsApp)
         },
       },
-      // The path's live state, as a dot named in words, opening the path screen where it is on.
+      // The path's live state, as a dot named in words, opening the path screen.
       {
         label: tr('onionRoutingPath'),
         icon: (
@@ -199,13 +200,9 @@ export function SettingsRootPage() {
           </Text>
         ),
         testID: row('onion-path'),
-        ...(flag('pathScreen')
-          ? {
-              onPress: () => {
-                modals.push({ title: tr('onionRoutingPath'), render: () => <PathPage /> })
-              },
-            }
-          : {}),
+        onPress: () => {
+          modals.push({ title: tr('onionRoutingPath'), render: () => <PathPage /> })
+        },
       },
       { label: tr('networkName'), icon: SessionTokenMark, testID: row('network') },
     ],
@@ -268,6 +265,14 @@ export function SettingsRootPage() {
               label: tr('developerSettings'),
               icon: 'settings',
               testID: row('developer-settings'),
+              onPress: () => {
+                modals.push(
+                  developerScreen({
+                    title: tr('developerSettings'),
+                    render: () => <DeveloperSettingsPage />,
+                  }),
+                )
+              },
             } satisfies RowSpec,
           ]
         : []),

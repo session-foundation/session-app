@@ -151,6 +151,13 @@ export interface SessionState {
   recoveryPasswordHidden: boolean
 
   /**
+   * The feature flags switched in Developer Settings, by name, as stored. Read with the account, as
+   * the appearance is, and empty without one. Names rather than the flag table's type: this
+   * package does not know which flags exist, and one a later build drops is simply ignored.
+   */
+  flagToggles: Readonly<Record<string, boolean>>
+
+  /**
    * Whether the attached network can carry traffic, as libsession last said: asked once by
    * `hydrate`, then followed by its events. `unknown` until that first answer, which is
    * libsession's own word for a status nobody has reported yet.
@@ -179,5 +186,6 @@ export const emptyState: SessionState = {
   transfers: {},
   appearance: null,
   recoveryPasswordHidden: false,
+  flagToggles: {},
   networkStatus: 'unknown',
 }

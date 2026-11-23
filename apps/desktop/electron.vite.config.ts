@@ -224,6 +224,8 @@ const DEVELOPER_SETTINGS = [
   'EXPO_PUBLIC_SESSION_DEVNET_SEED_URL',
   'EXPO_PUBLIC_SESSION_FILE_SERVER_URL',
   'EXPO_PUBLIC_SESSION_FILE_SERVER_ED25519_PUBKEY',
+  // A test's override of which build this is (docs/BUILD_VARIANTS.md), never a release's.
+  'EXPO_PUBLIC_SESSION_BUILD_VARIANT',
 ]
 
 // Before anything below is substituted, so a release cannot carry one of them.
@@ -237,8 +239,8 @@ const mainBuildInfo = {
   version,
   commit: commitStamp(appDir),
   libsessionCommit: libsessionStamp(repoRoot),
-  // What the build was made as -- `website`, `store`... -- said by whoever assembles it, for the
-  // log's startup block. Empty is written as `unknown` rather than guessed at.
+  // The build variant override, for the log's startup block and the renderer; see
+  // docs/BUILD_VARIANTS.md. Empty is `desktop`.
   variant: process.env['EXPO_PUBLIC_SESSION_BUILD_VARIANT'] ?? '',
   // Every flag variable present at build time. Collected by prefix rather than listed, so adding a
   // flag needs no change here -- which is the reason the flag table derives `EXPO_PUBLIC_` on every
