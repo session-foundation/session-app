@@ -62,4 +62,5 @@ pnpm --filter @session/desktop build
 xvfb-run -a pnpm --filter @session/e2e test:e2e:fast
 ```
 
-Both e2e workflows are started by hand, never on a pull request.
+`e2e-fast` and `e2e-full` are started by hand. `devices` runs the `android` and `ios` projects
+nightly on main, or by dispatch.

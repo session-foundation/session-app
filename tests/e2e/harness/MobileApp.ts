@@ -81,6 +81,11 @@ function appiumEndpoint(): { protocol: string; hostname: string; port: number; p
   }
 }
 
+const ADB_SERVER_PORT =
+  process.env['ANDROID_ADB_SERVER_PORT'] === undefined
+    ? undefined
+    : Number(process.env['ANDROID_ADB_SERVER_PORT'])
+
 const adb = () =>
   join(process.env['ANDROID_HOME'] ?? process.env['ANDROID_SDK_ROOT'] ?? '', 'platform-tools/adb')
 
@@ -159,6 +164,8 @@ export class MobileApp implements ISessionApp {
               // A running transfer redraws every frame, and waiting for an idle screen then stalls
               // every command for its whole timeout; each wait here is the spec's own.
               'appium:waitForIdleTimeout': 0,
+              // A CI runner keeps its own adb server beside a developer's on the same host.
+              ...(ADB_SERVER_PORT === undefined ? {} : { 'appium:adbPort': ADB_SERVER_PORT }),
             }
           : {
               platformName: 'iOS',

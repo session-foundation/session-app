@@ -284,7 +284,7 @@ arriving from a message body is the unencoded form, which is the case that matte
 | unit     | `*.test.ts`: projections, route contracts, the generator, fake     | every push                   |
 | render   | `*.test.tsx`: components drawn through react-native-web, happy-dom | every push                   |
 | fast e2e | the Electron app on the fake, no network                           | `e2e-fast` workflow, by hand |
-| device   | the same specs on an Android emulator and an iOS simulator, Appium | `test:e2e:android`/`:ios`    |
+| device   | the same specs on an Android emulator and an iOS simulator, Appium | `devices`, nightly on main   |
 | catalog  | every catalog page captured and audited, uploaded to Argos         | `catalog`, every PR and main |
 | full e2e | real bindings, devnet, device pool                                 | `e2e-full` workflow, by hand |
 
@@ -320,8 +320,9 @@ resource id, iOS's accessibility identifier) and reading them from the page sour
 bundle itself: Metro inlines every `EXPO_PUBLIC_` variable, so the fake and its fixture
 are chosen per bundle, and a launch with other values restarts Metro. It reads the devices from
 `SESSION_E2E_{ANDROID,IOS}_{PHONE,TABLET}`, Appium from `SESSION_E2E_APPIUM_URL` and Metro's
-port from `SESSION_E2E_METRO_PORT`. There is no CI job for it: it runs against a local emulator
-or simulator. Appium is installed by hand, not by the repo. On Xcode 27, iOS needs XCUITest driver
+port from `SESSION_E2E_METRO_PORT`. Locally it runs against your own emulator or simulator, with
+Appium installed by hand; in CI, `tests/e2e/devices/` boots the devices and installs the pinned
+Appium and driver. On Xcode 27, iOS needs XCUITest driver
 12.22.8 or later (`appium driver install xcuitest@12.22.8`; 13 needs Appium 4): Xcode 27 replaced
 Simulator.app with DeviceHub, and an older driver fails every session while opening its window.
 
@@ -970,3 +971,11 @@ Append one paragraph per decision. Undocumented decisions are what rot.
   closed. Where libsession says gallery and this client cannot draw the set (AVIF, `image/pjpeg`),
   the list wins and the stored value is left alone, so a build that can draw it still shows the
   gallery.
+
+- **2026-11-17 - The device tier runs on self-hosted runners.** `devices` boots fresh emulators on
+  the runner labelled `session-devices` and fresh simulators on the one labelled `session-ios`,
+  each with an adb server, Metro port and Appium of its own beside a developer's on the same host.
+  The label holds one runner, so device jobs on a host never run side by side: their ports are
+  fixed. Both run nightly on main and by dispatch, never on a pull request: an Android run takes
+  about 25 minutes on its one runner, and the Mac is shared. This supersedes the 2026-09-04 entry
+  for the device tier; the full tier stays manual.

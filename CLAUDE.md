@@ -144,7 +144,7 @@ pnpm dev:fake                  # the same on the fake: no network, seeded histor
 pnpm android                   # build and install the mobile dev client; or ios
 turbo lint typecheck test
 pnpm boundaries
-turbo test:e2e:fast            # Electron + the fake; e2e workflows are manual dispatch in CI
+turbo test:e2e:fast            # Electron + the fake; e2e-fast and e2e-full are manual in CI
 turbo gen package|screen|port|bridge-capability
 ```
 
