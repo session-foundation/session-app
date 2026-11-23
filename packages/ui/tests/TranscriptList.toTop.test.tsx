@@ -84,12 +84,14 @@ function report(held: readonly Item[], first: number, last: number): void {
 describe('TranscriptList, scrolled to its top by the status bar', () => {
   it('asks for the page above once the scroll has stopped, not on its way there', async () => {
     const onStartReached = vi.fn()
+    const onWaitsForStart = vi.fn()
     const window = rows(60, 89)
     renderInUI(
       <TranscriptList
         data={window}
         keyExtractor={(item) => item.id}
         onStartReached={onStartReached}
+        onWaitsForStart={onWaitsForStart}
         moreBefore
         testID={LIST}
         renderItem={(item, index) => <Text testID={ROW(index)}>{item.id}</Text>}
@@ -102,10 +104,16 @@ describe('TranscriptList, scrolled to its top by the status bar', () => {
     await scrollTo(1000)
     report(window, 2, 10)
     expect(onStartReached).not.toHaveBeenCalled()
+    expect(onWaitsForStart.mock.calls).toEqual([[true]])
 
     act(() => {
       platformInput.current?.onScrolledToTop()
     })
     expect(onStartReached).toHaveBeenCalledTimes(1)
+    // The page is asked for before the wait is said to be over, so its read follows with no gap.
+    expect(onWaitsForStart.mock.calls).toEqual([[true], [false]])
+    expect(onStartReached.mock.invocationCallOrder[0]).toBeLessThan(
+      onWaitsForStart.mock.invocationCallOrder[1] ?? 0,
+    )
   })
 })

@@ -114,6 +114,7 @@ function Transcript({
     newerPageFailed,
   } = transcript
   const { openMenu } = useConversationUi()
+  const [waitsForOlder, setWaitsForOlder] = useState(false)
   // A row's key is its message's id; see `messageKey`.
   const openRowMenu = useCallback(
     (key: string, row: unknown) => {
@@ -138,9 +139,11 @@ function Transcript({
       showsOnceAtEnd={showsOnceAtEnd}
       onAtEnd={onAtEnd}
       onRowsOnScreen={onRowsOnScreen}
+      onWaitsForStart={setWaitsForOlder}
       header={
         <PageStatus
           fetching={fetchingOlder}
+          waiting={waitsForOlder}
           failed={olderPageFailed}
           onRetry={loadOlder}
           loadingTestID={ELEMENT.conversation.olderPageLoading}

@@ -51,4 +51,17 @@ describe('loading is said only once it has taken a while', () => {
     rerender({ active: true })
     expect(result.current).toBe(false)
   })
+
+  it('keeps saying so as a wait said at once becomes a load that is not', () => {
+    const { result, rerender } = renderHook(
+      ({ active, delayMs }) => useShowAfter(active, delayMs),
+      { initialProps: { active: true, delayMs: 0 } },
+    )
+    act(() => {
+      vi.advanceTimersByTime(0)
+    })
+    expect(result.current).toBe(true)
+    rerender({ active: true, delayMs: SHOW_LOADING_AFTER_MS })
+    expect(result.current).toBe(true)
+  })
 })

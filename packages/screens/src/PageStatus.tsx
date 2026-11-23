@@ -1,7 +1,7 @@
 import { PENDING_COPY, tr } from '@session/localization'
 import { Button, Spinner, Text, XStack, YStack } from '@session/ui'
 
-import { useShowAfter } from './useShowAfter'
+import { SHOW_LOADING_AFTER_MS, useShowAfter } from './useShowAfter'
 
 export interface PageStatusRowProps {
   state: 'loading' | 'failed'
@@ -41,18 +41,21 @@ export function PageStatusRow({ state, onRetry, testID }: PageStatusRowProps) {
  */
 export function PageStatus({
   fetching,
+  waiting = false,
   failed,
   onRetry,
   loadingTestID,
   retryTestID,
 }: {
   fetching: boolean
+  /** The page is held back for a wait the reader sees: said at once, and on through its read. */
+  waiting?: boolean | undefined
   failed: boolean
   onRetry: () => void
   loadingTestID: string
   retryTestID: string
 }) {
-  const slow = useShowAfter(fetching)
+  const slow = useShowAfter(fetching || waiting, waiting ? 0 : SHOW_LOADING_AFTER_MS)
   if (failed) return <PageStatusRow state="failed" onRetry={onRetry} testID={retryTestID} />
   if (!slow) return null
   return <PageStatusRow state="loading" onRetry={onRetry} testID={loadingTestID} />

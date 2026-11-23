@@ -90,6 +90,11 @@ export interface TranscriptListProps<T> extends RovingRowsProps {
   /** The keys of the rows drawn inside the viewport, each time that set changes. */
   onRowsOnScreen?: ((keys: ReadonlySet<string>) => void) | undefined
   /**
+   * Whether the page before the first row is held back until a scroll to the top by a tap on the
+   * status bar ends, said when that changes: a wait of most of a second, with history before it.
+   */
+  onWaitsForStart?: ((waits: boolean) => void) | undefined
+  /**
    * What is happening past the start, pinned over the list's top edge on the pane's surface while
    * the rows on screen are within `ROWS_AHEAD` of the first: a list that keeps its first row in
    * place, as native does, would scroll a
@@ -157,6 +162,7 @@ export function TranscriptList<T>({
   showsOnceAtEnd = false,
   onAtEnd,
   onRowsOnScreen,
+  onWaitsForStart,
   header,
   footer,
 }: TranscriptListProps<T>) {
@@ -216,6 +222,17 @@ export function TranscriptList<T>({
   // On its way to the top by a tap on the status bar: a page landing above before it stops is not
   // held in place, and the screen jumps to the page's first rows.
   const toTop = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const waitsForStart = useRef(false)
+  // The header is drawn over the list's top, with no room made for it, from a scroll to the top
+  // until the page it asks for lands: at offset 0, iOS keeps no place behind that room.
+  const [overlaysStart, setOverlaysStart] = useState(false)
+  const tellWaitsForStart = useCallback((waits: boolean) => {
+    const told = waits && latest.current.moreBefore
+    if (told) setOverlaysStart(true)
+    if (told === waitsForStart.current) return
+    waitsForStart.current = told
+    latest.current.onWaitsForStart?.(told)
+  }, [])
   /** When the content or the list last changed size, after which the list may move itself. */
   const resizedAtMs = useRef(0)
   /** The reader has moved the list since it opened, by whatever means. */
@@ -271,14 +288,18 @@ export function TranscriptList<T>({
     landing.current = undefined
     clearTimeout(toTop.current)
     toTop.current = undefined
+    setOverlaysStart(false)
     // A landing, a scroll to the top or an untouched list held its asks back.
     readEdges.current()
-  }, [])
+    // After the ask: the page it reads is then said to be loading, with no gap since the wait.
+    tellWaitsForStart(false)
+  }, [tellWaitsForStart])
   const onScrolledToTop = useCallback(() => {
     clearTimeout(toTop.current)
     toTop.current = undefined
     readEdges.current()
-  }, [])
+    tellWaitsForStart(false)
+  }, [tellWaitsForStart])
   const platform = useTranscriptPlatform({
     list,
     keys,
@@ -341,6 +362,7 @@ export function TranscriptList<T>({
     onFarFromEnd,
     onAtEnd,
     onRowsOnScreen,
+    onWaitsForStart,
     platform,
     rows,
   })
@@ -375,6 +397,7 @@ export function TranscriptList<T>({
       onFarFromEnd,
       onAtEnd,
       onRowsOnScreen,
+      onWaitsForStart,
       platform,
       rows,
     }
@@ -496,6 +519,7 @@ export function TranscriptList<T>({
       ) {
         clearTimeout(toTop.current)
         toTop.current = setTimeout(onScrolledToTop, TO_TOP_MS)
+        tellWaitsForStart(true)
       }
       scroll.current = {
         offsetPx: contentOffset.y,
@@ -528,7 +552,7 @@ export function TranscriptList<T>({
       else followEnd()
       report()
     },
-    [followEnd, followsEnd, onScrolledToTop, place, report],
+    [followEnd, followsEnd, onScrolledToTop, place, report, tellWaitsForStart],
   )
 
   const onContentSizeChange = useCallback(
@@ -678,7 +702,13 @@ export function TranscriptList<T>({
     [],
   )
 
-  const padStartPx = showsStart && header !== undefined ? headerPx : 0
+  // A page landed above: the header it was read under is gone.
+  const [firstKeyHeld, setFirstKeyHeld] = useState(keys[0])
+  if (firstKeyHeld !== keys[0]) {
+    setFirstKeyHeld(keys[0])
+    setOverlaysStart(false)
+  }
+  const padStartPx = showsStart && header !== undefined && !overlaysStart ? headerPx : 0
   const padEndPx = showsEnd && footer !== undefined ? footerPx : 0
   // Room for the pinned rows as rows of the list's own, not as padding: a padding change that
   // lands in the same pass as a page's rows being measured is not kept in place on Android.
