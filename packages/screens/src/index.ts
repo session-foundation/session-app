@@ -8,6 +8,7 @@ export {
   DesktopNotificationsContent,
   MessageDeliveryContent,
   MobileNotificationsContent,
+  NotificationContentChoice,
   NotificationsPage,
 } from './settings/NotificationsPage'
 export {

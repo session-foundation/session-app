@@ -301,8 +301,6 @@ std::optional<std::pair<std::filesystem::path, std::string>> database() {
     where.db_path = db->first;
     where.netid = db->second;
     where.key = *key;
-    // The app opens its database with the plaintext header on iOS: see the bridge.
-    where.plaintext_header = true;
     where.open_retry_for = OPEN_RETRY;
     where.open = open_conversation();
     auto result = session_bridge::handle_cold_push(
