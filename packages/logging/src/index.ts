@@ -7,12 +7,16 @@ export {
   databaseFields,
   exportFileName,
   exportHeader,
+  EXTENSION_LOG_DIRS,
   exportParts,
+  extensionParts,
   isExportName,
   planExport,
   sizeBucket,
   type ExportFacts,
   type ExportPart,
+  type ExtensionLogDir,
+  type ExtensionRuns,
   type ExportPlan,
 } from './export'
 export {

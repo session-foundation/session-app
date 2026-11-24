@@ -113,6 +113,7 @@ export function memoryPorts(overrides: Partial<Ports> = {}): Ports {
     },
     // No files and no way to export: a screen offering Export Logs reads `deliver` to decide.
     logs: {
+      extensionRuns: null,
       retained: () => Promise.resolve([]),
       span: () => Promise.resolve({ firstLine: null, lastLine: null }),
       deliver: null,

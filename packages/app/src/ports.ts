@@ -1,6 +1,12 @@
 import type { NetworkName, QrMark, WithSpan } from '@session/basic-types'
 import type { AttachmentRef, PixelSize, PushService } from '@session/client'
-import type { BuildFacts, DiagnosticsSnapshot, ExportPart, LogFileInfo } from '@session/logging'
+import type {
+  BuildFacts,
+  DiagnosticsSnapshot,
+  ExportPart,
+  ExtensionRuns,
+  LogFileInfo,
+} from '@session/logging'
 import type { DeliveryMode } from '@session/state'
 
 import type { BuildVariant } from './buildVariant'
@@ -420,6 +426,12 @@ export interface FlagsPort {
 export interface LogsPort {
   /** Everything written so far on disk, then the retained files, oldest first. */
   retained(): Promise<LogFileInfo[]>
+  /**
+   * The runs of processes that write beside the app's logs rather than through it - the iOS
+   * notification extension - for the export to add after the app's own. Null where no such process
+   * exists.
+   */
+  extensionRuns: (() => Promise<ExtensionRuns[]>) | null
   /** The first line of one file and the last of another: the window an export covers. */
   span(first: string, last: string): Promise<WithSpan>
   /**
