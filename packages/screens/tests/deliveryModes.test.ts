@@ -1,7 +1,7 @@
 import { PENDING_COPY } from '@session/localization'
 import { describe, expect, it } from 'vitest'
 
-import { deliveryModeDescription, recommendedMode } from '#src/deliveryModes'
+import { deliveryModeDescription, deliveryModeTitle, recommendedMode } from '#src/deliveryModes'
 
 describe('the delivery modes as offered', () => {
   it('recommends the first that can be used', () => {
@@ -13,6 +13,12 @@ describe('the delivery modes as offered', () => {
       ]),
     ).toBe('always-connected')
     expect(recommendedMode([{ mode: 'instant', unavailable: 'device' }])).toBeNull()
+  })
+
+  it('names the push mode after the service the build would use', () => {
+    expect(deliveryModeTitle('instant', 'apple')).toBe(PENDING_COPY.deliveryPushApple)
+    expect(deliveryModeTitle('instant', null)).toBe(PENDING_COPY.deliveryPush)
+    expect(deliveryModeTitle('periodic', 'google')).toBe(PENDING_COPY.deliveryPeriodic)
   })
 
   it('names the push service Instant would use, and why it cannot be used here', () => {

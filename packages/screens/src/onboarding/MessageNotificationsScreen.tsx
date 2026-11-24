@@ -152,7 +152,7 @@ export function MessageNotificationsScreen({
             <NotificationOption
               key={offer.mode}
               value={offer.mode}
-              title={deliveryModeTitle(offer.mode)}
+              title={deliveryModeTitle(offer.mode, notifications.pushService)}
               description={deliveryModeDescription(offer, notifications.pushService)}
               note={
                 offer.mode === 'instant' && usable ? PENDING_COPY.deliveryInstantCommunities : null

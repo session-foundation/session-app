@@ -208,16 +208,22 @@ export const PENDING_COPY = {
   messageDelivery: 'Message delivery',
   messageDeliveryDescription:
     "Choose how new messages reach this device while you're not using Session.",
-  deliveryInstant: 'Instant',
-  /** By the push service the build uses; the generic one where the build names none. */
+  /**
+   * The push mode, named by the service the build uses; the generic one where the build names none.
+   * Named by who carries the push rather than by speed, since Always connected is instant too.
+   */
+  deliveryPushGoogle: 'Google push',
+  deliveryPushApple: 'Apple push',
+  deliveryPushHuawei: 'Huawei push',
+  deliveryPush: 'Push notifications',
   deliveryInstantDescriptionGoogle:
-    'Push notifications through Google. Google learns when a message arrives, not who sent it or what it says.',
+    'Instant, through Google. Google learns when a message arrives, not who sent it or what it says.',
   deliveryInstantDescriptionApple:
-    'Push notifications through Apple. Apple learns when a message arrives, not who sent it or what it says.',
+    'Instant, through Apple. Apple learns when a message arrives, not who sent it or what it says.',
   deliveryInstantDescriptionHuawei:
-    'Push notifications through Huawei. Huawei learns when a message arrives, not who sent it or what it says.',
+    'Instant, through Huawei. Huawei learns when a message arrives, not who sent it or what it says.',
   deliveryInstantDescription:
-    "Push notifications through your device's notification service. It learns when a message arrives, not who sent it or what it says.",
+    "Instant, through your device's notification service. It learns when a message arrives, not who sent it or what it says.",
   /** Under Instant: communities have no push, so their messages wait for a background check. */
   deliveryInstantCommunities: 'Community messages arrive with periodic checks.',
   deliveryUnavailableBuild: "Push notifications aren't included in this build.",
@@ -226,8 +232,8 @@ export const PENDING_COPY = {
   deliveryUnavailableDevice: 'Not available on this device.',
   deliveryAlwaysConnected: 'Always connected',
   deliveryAlwaysConnectedDescription:
-    'Session stays connected and shows a permanent notification. No one else is involved, but it uses more battery.',
-  deliveryPeriodic: 'Periodic',
+    'Instant, with a permanent notification. Session stays connected itself, so no one else is involved, but it uses more battery.',
+  deliveryPeriodic: 'Periodic checks',
   deliveryPeriodicDescription:
     'Session checks for new messages now and then, when your device allows. Messages can arrive late.',
   deliveryWhileOpen: 'Only while open',
