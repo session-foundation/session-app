@@ -145,6 +145,36 @@ function ContentChoices({
   )
 }
 
+/** Preview Notification, beside the content choices: what it shows is what they choose. */
+function PreviewGroup({ onPreview }: { onPreview: () => void }) {
+  return (
+    <SettingsGroup>
+      <SettingsRow
+        label={tr('previewNotification')}
+        onPress={onPreview}
+        testID={ELEMENT.notificationSettings.preview}
+      />
+    </SettingsGroup>
+  )
+}
+
+export interface NotificationContentChoiceProps {
+  selected: NotificationContent
+  canPreview: boolean
+  onSelect: (content: NotificationContent) => void
+  onPreview: () => void
+}
+
+/** The phones' Notification Content child screen, as drawn. */
+export function NotificationContentChoice(props: NotificationContentChoiceProps) {
+  return (
+    <YStack padding="$md" gap="$lg">
+      <ContentChoices selected={props.selected} onSelect={props.onSelect} />
+      {props.canPreview ? <PreviewGroup onPreview={props.onPreview} /> : null}
+    </YStack>
+  )
+}
+
 export interface MobileNotificationsContentProps {
   deliveryMode: DeliveryMode | null
   deliveryTitle: string | null
@@ -154,13 +184,11 @@ export interface MobileNotificationsContentProps {
   notificationsAllowed: boolean | null
   channels: boolean
   canOpenSettings: boolean
-  canPreview: boolean
   onDelivery: () => void
   onContent: () => void
   onSoundWhenOpen: (on: boolean) => void
   onChannel: (channel: NotificationChannel) => void
   onOpenSettings: () => void
-  onPreview: () => void
 }
 
 /** The phones' and tablets' Notifications page, as drawn. */
@@ -236,22 +264,13 @@ export function MobileNotificationsContent(props: MobileNotificationsContentProp
           />
         </SettingsGroup>
       ) : null}
-      {props.canOpenSettings || props.canPreview ? (
+      {props.canOpenSettings && props.notificationsAllowed !== false ? (
         <SettingsGroup>
-          {props.canOpenSettings && props.notificationsAllowed !== false ? (
-            <SettingsRow
-              label={tr('notificationsGoToDevice')}
-              onPress={props.onOpenSettings}
-              testID={ELEMENT.notificationSettings.deviceSettings}
-            />
-          ) : null}
-          {props.canPreview ? (
-            <SettingsRow
-              label={tr('previewNotification')}
-              onPress={props.onPreview}
-              testID={ELEMENT.notificationSettings.preview}
-            />
-          ) : null}
+          <SettingsRow
+            label={tr('notificationsGoToDevice')}
+            onPress={props.onOpenSettings}
+            testID={ELEMENT.notificationSettings.deviceSettings}
+          />
         </SettingsGroup>
       ) : null}
     </YStack>
@@ -296,7 +315,10 @@ export function DesktopNotificationsContent(props: DesktopNotificationsContentPr
         <>
           <YStack>
             <SettingsSection label={tr('notificationDisplay')} />
-            <ContentChoices selected={props.content} describe onSelect={props.onContent} />
+            <YStack gap="$lg">
+              <ContentChoices selected={props.content} describe onSelect={props.onContent} />
+              {props.canPreview ? <PreviewGroup onPreview={props.onPreview} /> : null}
+            </YStack>
           </YStack>
           <SettingsGroup>
             <SettingsRow
@@ -312,13 +334,6 @@ export function DesktopNotificationsContent(props: DesktopNotificationsContentPr
               }
               testID={ELEMENT.notificationSettings.audio}
             />
-            {props.canPreview ? (
-              <SettingsRow
-                label={tr('previewNotification')}
-                onPress={props.onPreview}
-                testID={ELEMENT.notificationSettings.preview}
-              />
-            ) : null}
           </SettingsGroup>
         </>
       ) : null}
@@ -357,7 +372,7 @@ export function MessageDeliveryContent(props: MessageDeliveryContentProps) {
           return (
             <SettingsRow
               key={offer.mode}
-              label={deliveryModeTitle(offer.mode)}
+              label={deliveryModeTitle(offer.mode, props.pushService)}
               subtitle={
                 offer.mode === 'instant' && usable
                   ? `${description}\n${PENDING_COPY.deliveryInstantCommunities}`
@@ -398,8 +413,9 @@ export function MessageDeliveryContent(props: MessageDeliveryContentProps) {
             text={refreshWarning}
             testID={ELEMENT.notificationSettings.backgroundRefreshWarning}
           />
+          {/* Background App Refresh is on the app's page in Settings, not under notifications. */}
           <SettingsRow
-            label={tr('notificationsGoToDevice')}
+            label={tr('openSettings')}
             onPress={props.onOpenSettings}
             testID={ELEMENT.notificationSettings.deviceSettings}
           />
@@ -429,17 +445,19 @@ function MessageDeliveryPage() {
   )
 }
 
-/** The phones' Notification Content child screen: the three choices, saved as one is picked. */
+/** The phones' Notification Content child screen: the choice is saved as it is picked. */
 function NotificationContentPage() {
+  const preview = requirePorts().notifications.preview
   const actions = useSessionActions()
   const { notificationContent } = useNotificationSettings()
+  const selected = notificationContent ?? 'nameAndContent'
   return (
-    <YStack padding="$md">
-      <ContentChoices
-        selected={notificationContent ?? 'nameAndContent'}
-        onSelect={(content) => void actions.setNotificationContent(content)}
-      />
-    </YStack>
+    <NotificationContentChoice
+      selected={selected}
+      canPreview={preview !== null}
+      onSelect={(content) => void actions.setNotificationContent(content)}
+      onPreview={() => void preview?.(previewSample(selected))}
+    />
   )
 }
 
@@ -478,14 +496,15 @@ export function NotificationsPage() {
     <MobileNotificationsContent
       deliveryMode={settings.deliveryMode}
       deliveryTitle={
-        settings.deliveryMode === null ? null : deliveryModeTitle(settings.deliveryMode)
+        settings.deliveryMode === null
+          ? null
+          : deliveryModeTitle(settings.deliveryMode, notifications.pushService)
       }
       content={content}
       soundWhenOpen={settings.soundWhenOpen ?? notifications.soundWhenOpenDefault}
       notificationsAllowed={os.notificationsAllowed}
       channels={notifications.openChannelSettings !== null}
       canOpenSettings={notifications.openSettings !== null}
-      canPreview={preview !== null}
       onDelivery={() => {
         modals.push({ title: PENDING_COPY.messageDelivery, render: () => <MessageDeliveryPage /> })
       }}
@@ -498,7 +517,6 @@ export function NotificationsPage() {
       onSoundWhenOpen={(on) => setSwitch('soundWhenOpen', on)}
       onChannel={(channel) => notifications.openChannelSettings?.(channel)}
       onOpenSettings={() => notifications.openSettings?.()}
-      onPreview={onPreview}
     />
   )
 }
