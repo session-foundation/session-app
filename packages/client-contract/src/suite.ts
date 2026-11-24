@@ -993,6 +993,16 @@ export function runSessionClientContract(
       await alice.setReceiving(true)
     })
 
+    it('plays Note until another notification sound is chosen, and keeps no sound as a choice', async () => {
+      const { alice } = await harness.friends()
+      expect(await alice.getNotificationSound()).toBe('note')
+      await alice.setNotificationSound('bamboo')
+      expect(await alice.getNotificationSound()).toBe('bamboo')
+      // Stored as a number of its own, not as the unset default.
+      await alice.setNotificationSound('none')
+      expect(await alice.getNotificationSound()).toBe('none')
+    })
+
     it('closes for the background, refusing requests until it is reopened', async () => {
       const { alice, bobId } = await harness.friends()
       const before = await alice.getAccountInfo()

@@ -9,6 +9,7 @@ export {
   MessageDeliveryContent,
   MobileNotificationsContent,
   NotificationContentChoice,
+  NotificationSoundChoice,
   NotificationsPage,
 } from './settings/NotificationsPage'
 export {

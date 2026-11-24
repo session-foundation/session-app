@@ -16,6 +16,7 @@ import {
   type NetworkPaths,
   type NetworkStatus,
   type NotificationContent,
+  type NotificationSound,
   type PushService,
   type SendPlan,
   type SessionEvent,
@@ -101,6 +102,8 @@ export class FakeSessionClient implements SessionClient {
   private pushSubscription: { service: PushService; token: string; atMs: number } | null = null
   /** As libsession's local settings default it: both, until somebody chooses. */
   private notificationContent: NotificationContent = 'nameAndContent'
+  /** As libsession's local settings default it: legacy iOS's Note. */
+  private notificationSound: NotificationSound = 'note'
   /** Settles a close that is waiting, as a reopen does; set only while one waits. */
   private cancelClose: (() => void) | null = null
   /** The close the scheduled checks belong to, so a stale check cannot settle a later close. */
@@ -214,6 +217,19 @@ export class FakeSessionClient implements SessionClient {
     this.assertOpen()
     if (!this.account.haveAccount) return Promise.reject(new SessionClientError('no account'))
     this.notificationContent = content
+    return Promise.resolve()
+  }
+
+  getNotificationSound(): Promise<NotificationSound> {
+    this.assertOpen()
+    if (!this.account.haveAccount) return Promise.reject(new SessionClientError('no account'))
+    return Promise.resolve(this.notificationSound)
+  }
+
+  setNotificationSound(sound: NotificationSound): Promise<void> {
+    this.assertOpen()
+    if (!this.account.haveAccount) return Promise.reject(new SessionClientError('no account'))
+    this.notificationSound = sound
     return Promise.resolve()
   }
 

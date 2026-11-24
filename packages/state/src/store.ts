@@ -7,6 +7,7 @@ import type {
   MessagePage,
   NetworkPaths,
   NotificationContent,
+  NotificationSound,
   OutgoingMessage,
   SendPlan,
   SessionClient,
@@ -136,6 +137,8 @@ export interface SessionActions {
   setDeliveryMode: (mode: DeliveryMode) => Promise<void>
   /** Stores what notifications show, in libsession's local settings. */
   setNotificationContent: (content: NotificationContent) => Promise<void>
+  /** Stores the sound iOS notifications play, in libsession's local settings. */
+  setNotificationSound: (sound: NotificationSound) => Promise<void>
   /** Stores one of the device's notification switches. */
   setNotificationSwitch: (name: NotificationSwitch, value: boolean) => Promise<void>
   /**
@@ -760,21 +763,32 @@ export function createSessionStore(
         return
       }
 
-      const [theme, accent, hidden, toggles, mode, content, sound, shown, audio] =
-        await Promise.all([
-          client.getPref(THEME_PREF),
-          client.getPref(ACCENT_PREF),
-          client.getRecoveryPasswordHidden(),
-          client.getPref(FLAG_TOGGLES_PREF),
-          client.getPref(NOTIFICATION_MODE_PREF),
-          client.getNotificationContent(),
-          client.getPref(NOTIFICATION_SWITCH_PREFS.soundWhenOpen),
-          client.getPref(NOTIFICATION_SWITCH_PREFS.notificationsShown),
-          client.getPref(NOTIFICATION_SWITCH_PREFS.audioNotifications),
-          readList('conversations'),
-          readList('requests'),
-          askNetworkStatus(),
-        ])
+      const [
+        theme,
+        accent,
+        hidden,
+        toggles,
+        mode,
+        content,
+        notificationSound,
+        sound,
+        shown,
+        audio,
+      ] = await Promise.all([
+        client.getPref(THEME_PREF),
+        client.getPref(ACCENT_PREF),
+        client.getRecoveryPasswordHidden(),
+        client.getPref(FLAG_TOGGLES_PREF),
+        client.getPref(NOTIFICATION_MODE_PREF),
+        client.getNotificationContent(),
+        client.getNotificationSound(),
+        client.getPref(NOTIFICATION_SWITCH_PREFS.soundWhenOpen),
+        client.getPref(NOTIFICATION_SWITCH_PREFS.notificationsShown),
+        client.getPref(NOTIFICATION_SWITCH_PREFS.audioNotifications),
+        readList('conversations'),
+        readList('requests'),
+        askNetworkStatus(),
+      ])
 
       // In the same update as `hydrated`, so the screen the account opens on is drawn once, in its
       // theme and with its switched flags. Both or neither: an accent without its theme is half a
@@ -786,6 +800,7 @@ export function createSessionStore(
         flagToggles: parseFlagToggles(toggles),
         deliveryMode: parseDeliveryMode(mode),
         notificationContent: content,
+        notificationSound,
         soundWhenOpen: parseSwitch(sound),
         notificationsShown: parseSwitch(shown),
         audioNotifications: parseSwitch(audio),
@@ -815,6 +830,12 @@ export function createSessionStore(
       if (store.getState().account?.haveAccount !== true) return
       await client.setNotificationContent(content)
       store.setState({ notificationContent: content })
+    },
+
+    async setNotificationSound(sound): Promise<void> {
+      if (store.getState().account?.haveAccount !== true) return
+      await client.setNotificationSound(sound)
+      store.setState({ notificationSound: sound })
     },
 
     async setNotificationSwitch(name, value): Promise<void> {

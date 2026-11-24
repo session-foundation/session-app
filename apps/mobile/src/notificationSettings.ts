@@ -13,6 +13,14 @@ interface SessionPushModule {
 
 const SessionPush = requireOptionalNativeModule<SessionPushModule>('SessionPush')
 
+interface NotificationSoundsModule {
+  play(name: string): void
+}
+
+/** `modules/notification-sounds`, which bundles legacy iOS's sounds. */
+const NotificationSounds =
+  requireOptionalNativeModule<NotificationSoundsModule>('NotificationSounds')
+
 type NotificationSettings = Pick<
   NotificationsPort,
   | 'soundWhenOpenDefault'
@@ -21,6 +29,7 @@ type NotificationSettings = Pick<
   | 'openChannelSettings'
   | 'backgroundActivity'
   | 'backgroundRefreshOn'
+  | 'playSound'
   | 'preview'
   | 'onTap'
 >
@@ -36,6 +45,13 @@ export const notificationSettings: NotificationSettings = {
   openChannelSettings: null,
   backgroundActivity: null,
   backgroundRefreshOn: SessionPush === null ? null : () => SessionPush.backgroundRefreshOn(),
+  // Each sound's file is named for it. `none` has no file, so plays nothing, as it will on arrival.
+  playSound:
+    NotificationSounds === null
+      ? null
+      : (sound) => {
+          if (sound !== 'none') NotificationSounds.play(sound)
+        },
   preview: SessionPush === null ? null : ({ title, body }) => SessionPush.preview(title, body),
   // A tap on a message notification, by conversation. Android opens it through the app's link
   // instead, so this is iOS's alone.

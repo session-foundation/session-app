@@ -53,6 +53,7 @@
 
 #include "convert.hpp"
 #include "session_bridge/media_url.hpp"
+#include "session_bridge/notification_sound.hpp"
 #include "session_bridge/push_handler.hpp"
 #include "session_bridge/staged_thumbnails.hpp"
 #include "session_bridge/utf8_path.hpp"
@@ -1349,6 +1350,20 @@ struct ClientBridge::Impl {
     void handle(double id, const SetNotificationContentCommand& cmd) {
         client->core.loop().call_get([&] {
             client->core.configs.local().set_notification_content(notify_content(cmd.content));
+        });
+        ok(id);
+    }
+
+    void handle(double id, const GetNotificationSoundCommand&) {
+        auto stored = client->core.loop().call_get(
+                [&] { return client->core.configs.local().get_ios_notification_sound(); });
+        respond(id, NotificationSoundResult{notification_sound(stored)});
+    }
+
+    void handle(double id, const SetNotificationSoundCommand& cmd) {
+        client->core.loop().call_get([&] {
+            client->core.configs.local().set_ios_notification_sound(
+                    stored_notification_sound(cmd.sound));
         });
         ok(id);
     }

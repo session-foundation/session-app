@@ -91,6 +91,7 @@ add_library(session-bridge-core STATIC
     src/decode_plan.cpp
     src/mark_downloaded.cpp
     src/media_url.cpp
+    src/notification_sound.cpp
     src/push_handler.cpp
     src/staged_thumbnails.cpp
     src/utf8_path.cpp

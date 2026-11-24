@@ -54,6 +54,27 @@ export type PushService = 'apns' | 'apns-sandbox' | 'firebase' | 'huawei'
 export type NotificationContent = 'nameAndContent' | 'nameOnly' | 'none'
 
 /**
+ * The sound an iOS notification plays: one of legacy iOS's notification sounds, or `none`. Android
+ * sets sounds per notification channel in its own settings, and desktop has an on or off switch,
+ * so only iOS chooses one. libsession keeps it with the device's local settings, as the number
+ * legacy iOS stored, so a choice made there carries over.
+ */
+export type NotificationSound =
+  | 'none'
+  | 'note'
+  | 'aurora'
+  | 'bamboo'
+  | 'chord'
+  | 'circles'
+  | 'complete'
+  | 'hello'
+  | 'input'
+  | 'keys'
+  | 'popcorn'
+  | 'pulse'
+  | 'synth'
+
+/**
  * What sending a file as an attachment will do with it, decided from its header alone as the send
  * decides it: libsession's `image::SendPlan`.
  *

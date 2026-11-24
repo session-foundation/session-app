@@ -66,6 +66,7 @@ export function memoryPorts(overrides: Partial<Ports> = {}): Ports {
       openChannelSettings: null,
       backgroundActivity: null,
       backgroundRefreshOn: null,
+      playSound: null,
       preview: null,
       requestPermission: () => Promise.resolve(true),
       show: () => Promise.resolve(),
