@@ -1,4 +1,5 @@
 import type { NotificationsPort } from '@session/app'
+import type { IncomingNotification } from '@session/client'
 import type { SessionStore } from '@session/state'
 import { type EventSubscription, requireOptionalNativeModule } from 'expo'
 import { Linking } from 'react-native'
@@ -9,6 +10,9 @@ interface SessionPushModule {
   setSoundWhenOpen(on: boolean): void
   setSound(name: string): void
   preview(title: string, body: string): Promise<void>
+  post(notification: IncomingNotification): void
+  remove(ids: readonly string[]): void
+  setBadgeCount(count: number): Promise<void>
   addListener(
     event: 'onTap',
     listener: (tap: { conversation: string | null }) => void,
@@ -75,9 +79,10 @@ export const notificationSettings: NotificationSettings = {
       subscription.remove()
     }
   },
-  post: null,
-  remove: null,
-  setBadgeCount: () => Promise.resolve(),
+  // Posted as the extension posts a push's, in the words the app group holds.
+  post: SessionPush === null ? null : (notification) => SessionPush.post(notification),
+  remove: SessionPush === null ? null : (ids) => SessionPush.remove(ids),
+  setBadgeCount: (count) => SessionPush?.setBadgeCount(count) ?? Promise.resolve(),
 }
 
 /**

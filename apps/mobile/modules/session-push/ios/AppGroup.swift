@@ -16,6 +16,9 @@ enum AppGroup {
   static let inFrontUntilKey = "session.push.inFrontUntil"
   static let openConversationKey = "session.push.openConversation"
   static let soundKey = "session.push.sound"
+  /// The userInfo key a notification's id goes under, by which it is taken down; the extension's
+  /// too.
+  static let notificationIdKey = "session_id"
 
   /// How long the lease lasts without being renewed, and how often the app renews it. Long enough
   /// that a renewal is never missed in practice; short enough that a crash, which cannot clear it,
@@ -46,9 +49,27 @@ enum AppGroup {
   /// The chosen sound as the extension plays it, for a notification posted while the app is in
   /// front: the quiet version, as legacy iOS plays then, and nothing for None.
   static func soundInFront() -> UNNotificationSound? {
+    sound(inFront: true)
+  }
+
+  /// The chosen sound, its quiet version while the app is in front; nothing for None.
+  static func sound(inFront: Bool) -> UNNotificationSound? {
     let name = defaults?.string(forKey: soundKey) ?? "note"
     if name == "none" { return nil }
-    return UNNotificationSound(named: UNNotificationSoundName("\(name)-quiet.aifc"))
+    let file = inFront ? "\(name)-quiet.aifc" : "\(name).aifc"
+    return UNNotificationSound(named: UNNotificationSoundName(file))
+  }
+
+  /// A word a notification is made of, as `setStrings` last handed them over; English before then.
+  static func word(_ key: String) -> String {
+    let english = [
+      "appName": "Session", "generic": "You've got a new message.",
+      "request": "You have a new message request", "image": "Image", "animated": "GIF",
+      "video": "Video", "audio": "Audio", "voice": "Voice Message", "file": "Document",
+      "attachments": "Attachments",
+    ]
+    let words = defaults?.dictionary(forKey: wordsKey) as? [String: String]
+    return words?[key] ?? english[key] ?? ""
   }
 
   static func setOpenConversation(_ id: String?) {

@@ -60,6 +60,59 @@ public class SessionPushModule: Module {
       AppGroup.setSound(name)
     }
 
+    /// A notification for a message that arrived while the app runs (`IncomingNotification`),
+    /// written as the extension writes a push's, so the two look the same and a later removal
+    /// finds either by its id.
+    Function("post") { (notification: [String: Any]) in
+      guard let id = notification["id"] as? String else { return }
+      let request = notification["kind"] as? String == "request"
+      let content = UNMutableNotificationContent()
+      if request {
+        content.title = AppGroup.word("appName")
+        content.body = AppGroup.word("request")
+        content.threadIdentifier = "message-requests"
+      } else {
+        content.title = notification["sender"] as? String ?? AppGroup.word("appName")
+        content.body = notification["body"] as? String ?? Self.placeholder(notification)
+        content.threadIdentifier = notification["conversationId"] as? String ?? ""
+      }
+      content.userInfo = [
+        "session_kind": request ? "message_request" : "message",
+        AppGroup.notificationIdKey: id,
+      ]
+      DispatchQueue.main.async {
+        content.sound = AppGroup.sound(
+          inFront: UIApplication.shared.applicationState == .active)
+        UNUserNotificationCenter.current().add(
+          UNNotificationRequest(identifier: id, content: content, trigger: nil))
+      }
+    }
+
+    /// Takes down notifications by id: the app's under their ids, and the extension's under the
+    /// names iOS gave them, found by the id in their userInfo.
+    Function("remove") { (ids: [String]) in
+      let center = UNUserNotificationCenter.current()
+      center.removeDeliveredNotifications(withIdentifiers: ids)
+      let stale = Set(ids)
+      center.getDeliveredNotifications { shown in
+        let names = shown.filter {
+          guard let id = $0.request.content.userInfo[AppGroup.notificationIdKey] as? String
+          else { return false }
+          return stale.contains(id)
+        }.map { $0.request.identifier }
+        if !names.isEmpty { center.removeDeliveredNotifications(withIdentifiers: names) }
+      }
+    }
+
+    /// The app icon's count.
+    AsyncFunction("setBadgeCount") { (count: Int) in
+      if #available(iOS 16.0, *) {
+        try? await UNUserNotificationCenter.current().setBadgeCount(count)
+      } else {
+        await MainActor.run { UIApplication.shared.applicationIconBadgeNumber = count }
+      }
+    }
+
     /// A sample notification, now, replacing the previous one.
     AsyncFunction("preview") { (title: String, body: String, promise: Promise) in
       let content = UNMutableNotificationContent()
@@ -78,8 +131,11 @@ public class SessionPushModule: Module {
 
     OnStartObserving {
       PushToken.onChange = { [weak self] in self?.sendEvent("onTokenChange") }
-      NotificationPresenter.shared.onTap = { [weak self] conversation in
-        self?.sendEvent("onTap", ["conversation": conversation])
+      NotificationPresenter.shared.onTap = { [weak self] tap in
+        switch tap {
+        case .conversation(let id): self?.sendEvent("onTap", ["conversation": id])
+        case .requests: self?.sendEvent("onTap", ["conversation": NSNull()])
+        }
       }
     }
 
@@ -87,5 +143,12 @@ public class SessionPushModule: Module {
       PushToken.onChange = nil
       NotificationPresenter.shared.onTap = nil
     }
+  }
+
+  /// What a message with no text says instead: its first attachment's kind.
+  private static func placeholder(_ notification: [String: Any]) -> String {
+    if (notification["attachments"] as? Int ?? 0) > 1 { return AppGroup.word("attachments") }
+    if let kind = notification["attachment"] as? String { return AppGroup.word(kind) }
+    return AppGroup.word("generic")
   }
 }
