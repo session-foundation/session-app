@@ -249,22 +249,25 @@ describe('the delivery mode', () => {
 })
 
 describe('the notification settings', () => {
-  it('read what notifications show from libsession, and keep the switches unset until chosen', async () => {
+  it('read what notifications show and play from libsession, and keep the switches unset until chosen', async () => {
     const { clients } = friends(['Alice', 'Bob'])
     const client = clients['Alice']
     if (!client) throw new Error('fixture did not produce a client')
     const store = createSessionStore(client)
     await store.actions.hydrate()
     expect(store.getState().notificationContent).toBe('nameAndContent')
+    expect(store.getState().notificationSound).toBe('note')
     expect(store.getState().soundWhenOpen).toBeNull()
 
     await store.actions.setNotificationContent('nameOnly')
+    await store.actions.setNotificationSound('chord')
     await store.actions.setNotificationSwitch('soundWhenOpen', false)
     await store.actions.setNotificationSwitch('audioNotifications', true)
     const next = createSessionStore(client)
     await next.actions.hydrate()
     expect(next.getState()).toMatchObject({
       notificationContent: 'nameOnly',
+      notificationSound: 'chord',
       soundWhenOpen: false,
       notificationsShown: null,
       audioNotifications: true,

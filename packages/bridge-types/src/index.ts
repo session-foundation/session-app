@@ -49,6 +49,7 @@ export type {
   PathHop,
   PixelSize,
   NotificationContent,
+  NotificationSound,
   PushService,
   QuotedMessage,
   Reply,

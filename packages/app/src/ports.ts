@@ -1,5 +1,5 @@
 import type { NetworkName, QrMark, WithSpan } from '@session/basic-types'
-import type { AttachmentRef, PixelSize, PushService } from '@session/client'
+import type { AttachmentRef, NotificationSound, PixelSize, PushService } from '@session/client'
 import type {
   BuildFacts,
   DiagnosticsSnapshot,
@@ -263,6 +263,12 @@ export interface NotificationsPort {
   readonly backgroundActivity: { allowed(): Promise<boolean>; change(): void } | null
   /** Whether iOS has Background App Refresh on for the app. Null elsewhere. */
   readonly backgroundRefreshOn: (() => Promise<boolean>) | null
+  /**
+   * Plays one of the notification sounds, as the Sound screen does when one is picked. Null where
+   * the sound is not chosen in the app, which hides the Sound row: Android sets it on each
+   * notification channel in its own settings, and desktop has only an on or off switch.
+   */
+  readonly playSound: ((sound: NotificationSound) => void) | null
   /** Posts a sample notification, or null where the platform cannot post one. */
   readonly preview: ((sample: { title: string; body: string }) => Promise<void>) | null
   requestPermission(): Promise<boolean>

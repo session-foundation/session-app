@@ -45,6 +45,7 @@ constexpr auto OPEN_RETRY = 15s;
 NSString* const WORDS_KEY = @"session.push.words";
 NSString* const IN_FRONT_UNTIL_KEY = @"session.push.inFrontUntil";
 NSString* const OPEN_CONVERSATION_KEY = @"session.push.openConversation";
+NSString* const SOUND_KEY = @"session.push.sound";
 
 /// The networks a database may be under, in the order they are tried.
 const char* const NETWORKS[] = {"mainnet", "testnet"};
@@ -139,12 +140,29 @@ NSString* word(NSString* key) {
     return found ?: english[key] ?: @"";
 }
 
+/// Whether the app is in front, by its lease: see AppGroup.swift.
+bool app_in_front() {
+    NSUserDefaults* defaults = shared_defaults();
+    return defaults &&
+           [defaults doubleForKey:IN_FRONT_UNTIL_KEY] > NSDate.date.timeIntervalSince1970;
+}
+
+/// The sound the app last handed over, or Note, the default, before it has: the chosen sound's
+/// quiet version while the app is in front, as legacy iOS plays, and none for None. The files are
+/// in the app's bundle (modules/notification-sounds), where iOS looks up a sound by its name.
+UNNotificationSound* chosen_sound() {
+    NSString* name = [shared_defaults() stringForKey:SOUND_KEY] ?: @"note";
+    if ([name isEqualToString:@"none"])
+        return nil;
+    NSString* format = app_in_front() ? @"%@-quiet.aifc" : @"%@.aifc";
+    return [UNNotificationSound soundNamed:[NSString stringWithFormat:format, name]];
+}
+
 /// The conversation on screen in the app, trusted only while its lease runs: see AppGroup.swift.
 std::optional<std::string> open_conversation() {
-    NSUserDefaults* defaults = shared_defaults();
-    if (!defaults || [defaults doubleForKey:IN_FRONT_UNTIL_KEY] <= NSDate.date.timeIntervalSince1970)
+    if (!app_in_front())
         return std::nullopt;
-    NSString* open = [defaults stringForKey:OPEN_CONVERSATION_KEY];
+    NSString* open = [shared_defaults() stringForKey:OPEN_CONVERSATION_KEY];
     return open.length ? std::optional<std::string>{open.UTF8String} : std::nullopt;
 }
 
@@ -197,7 +215,7 @@ UNMutableNotificationContent* content_for(
         const push::NotificationContent& c, UNNotificationContent* original) {
     UNMutableNotificationContent* out = [original mutableCopy];
     out.threadIdentifier = ns(c.thread);
-    out.sound = UNNotificationSound.defaultSound;
+    out.sound = chosen_sound();
     NSString* kind = @"generic";
     switch (c.kind) {
         case push::NotificationContent::Kind::generic:

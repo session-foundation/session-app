@@ -1,7 +1,9 @@
 import Foundation
+import UserNotifications
 
 /// What the app shares with its notification extension through the app group's defaults: the
-/// words a notification is made of, and while the app is in front, the conversation on screen.
+/// words a notification is made of, the sound it plays, and while the app is in front, the
+/// conversation on screen.
 ///
 /// **The conversation on screen is trusted only under a lease**, an expiry the app renews while it
 /// is in front and clears as it leaves. The extension passes the conversation to libsession, which
@@ -13,6 +15,7 @@ enum AppGroup {
   static let wordsKey = "session.push.words"
   static let inFrontUntilKey = "session.push.inFrontUntil"
   static let openConversationKey = "session.push.openConversation"
+  static let soundKey = "session.push.sound"
 
   /// How long the lease lasts without being renewed, and how often the app renews it. Long enough
   /// that a renewal is never missed in practice; short enough that a crash, which cannot clear it,
@@ -33,6 +36,19 @@ enum AppGroup {
 
   static func clearLease() {
     defaults?.removeObject(forKey: inFrontUntilKey)
+  }
+
+  /// The chosen sound's name: a file in the app's bundle (modules/notification-sounds), or "none".
+  static func setSound(_ name: String) {
+    defaults?.set(name, forKey: soundKey)
+  }
+
+  /// The chosen sound as the extension plays it, for a notification posted while the app is in
+  /// front: the quiet version, as legacy iOS plays then, and nothing for None.
+  static func soundInFront() -> UNNotificationSound? {
+    let name = defaults?.string(forKey: soundKey) ?? "note"
+    if name == "none" { return nil }
+    return UNNotificationSound(named: UNNotificationSoundName("\(name)-quiet.aifc"))
   }
 
   static func setOpenConversation(_ id: String?) {

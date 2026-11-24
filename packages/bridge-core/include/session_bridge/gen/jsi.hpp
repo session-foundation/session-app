@@ -683,6 +683,45 @@ struct JSIConverter<::session_bridge::NotificationContentResult> final {
 };
 
 template <>
+struct JSIConverter<::session_bridge::NotificationSound> final {
+    static inline ::session_bridge::NotificationSound fromJSI(jsi::Runtime& runtime, const jsi::Value& arg) {
+        std::string text = JSIConverter<std::string>::fromJSI(runtime, arg);
+        auto parsed = ::session_bridge::EnumTraits<::session_bridge::NotificationSound>::parse(text);
+        if (!parsed) [[unlikely]]
+            throw std::invalid_argument("Cannot convert \"" + text + "\" to NotificationSound");
+        return *parsed;
+    }
+    static inline jsi::Value toJSI(jsi::Runtime& runtime, ::session_bridge::NotificationSound arg) {
+        return ::session_bridge::ascii(runtime, ::session_bridge::EnumTraits<::session_bridge::NotificationSound>::to_string(arg));
+    }
+    static inline bool canConvert(jsi::Runtime& runtime, const jsi::Value& value) {
+        return value.isString() &&
+               ::session_bridge::EnumTraits<::session_bridge::NotificationSound>::parse(JSIConverter<std::string>::fromJSI(runtime, value)).has_value();
+    }
+};
+
+template <>
+struct JSIConverter<::session_bridge::NotificationSoundResult> final {
+    static inline ::session_bridge::NotificationSoundResult fromJSI(jsi::Runtime& runtime, const jsi::Value& arg) {
+        jsi::Object obj = arg.asObject(runtime);
+        return ::session_bridge::NotificationSoundResult(
+                JSIConverter<::session_bridge::NotificationSound>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "sound"))));
+    }
+    static inline jsi::Value toJSI(jsi::Runtime& runtime, const ::session_bridge::NotificationSoundResult& arg) {
+        jsi::Object obj(runtime);
+        obj.setProperty(runtime, PropNameIDCache::get(runtime, "type"), ::session_bridge::ascii(runtime, ::session_bridge::NotificationSoundResult::type_tag));
+        obj.setProperty(runtime, PropNameIDCache::get(runtime, "sound"), JSIConverter<::session_bridge::NotificationSound>::toJSI(runtime, arg.sound));
+        return obj;
+    }
+    static inline bool canConvert(jsi::Runtime& runtime, const jsi::Value& value) {
+        if (!value.isObject())
+            return false;
+        jsi::Value type = value.getObject(runtime).getProperty(runtime, PropNameIDCache::get(runtime, "type"));
+        return type.isString() && type.getString(runtime).utf8(runtime) == ::session_bridge::NotificationSoundResult::type_tag;
+    }
+};
+
+template <>
 struct JSIConverter<::session_bridge::ClientClosedResult> final {
     static inline ::session_bridge::ClientClosedResult fromJSI(jsi::Runtime& runtime, const jsi::Value& arg) {
         jsi::Object obj = arg.asObject(runtime);
@@ -1076,6 +1115,8 @@ struct JSIConverter<::session_bridge::Result> final {
             return JSIConverter<::session_bridge::BoolResult>::fromJSI(runtime, arg);
         if (tag == "notificationContent")
             return JSIConverter<::session_bridge::NotificationContentResult>::fromJSI(runtime, arg);
+        if (tag == "notificationSound")
+            return JSIConverter<::session_bridge::NotificationSoundResult>::fromJSI(runtime, arg);
         if (tag == "clientClosed")
             return JSIConverter<::session_bridge::ClientClosedResult>::fromJSI(runtime, arg);
         if (tag == "seedHidden")
@@ -1110,7 +1151,7 @@ struct JSIConverter<::session_bridge::Result> final {
         if (!type.isString())
             return false;
         std::string tag = type.getString(runtime).utf8(runtime);
-        return tag == "empty" || tag == "accountInfo" || tag == "mnemonic" || tag == "conversationList" || tag == "conversation" || tag == "messagePage" || tag == "messageId" || tag == "hex" || tag == "pref" || tag == "bool" || tag == "notificationContent" || tag == "clientClosed" || tag == "seedHidden" || tag == "path" || tag == "byteCount" || tag == "sendPlan" || tag == "edge" || tag == "configSizes" || tag == "networkStatus" || tag == "networkPaths";
+        return tag == "empty" || tag == "accountInfo" || tag == "mnemonic" || tag == "conversationList" || tag == "conversation" || tag == "messagePage" || tag == "messageId" || tag == "hex" || tag == "pref" || tag == "bool" || tag == "notificationContent" || tag == "notificationSound" || tag == "clientClosed" || tag == "seedHidden" || tag == "path" || tag == "byteCount" || tag == "sendPlan" || tag == "edge" || tag == "configSizes" || tag == "networkStatus" || tag == "networkPaths";
     }
 };
 
@@ -2144,6 +2185,46 @@ struct JSIConverter<::session_bridge::SetNotificationContentCommand> final {
 };
 
 template <>
+struct JSIConverter<::session_bridge::GetNotificationSoundCommand> final {
+    static inline ::session_bridge::GetNotificationSoundCommand fromJSI(jsi::Runtime&, const jsi::Value&) {
+        return ::session_bridge::GetNotificationSoundCommand{};
+    }
+    static inline jsi::Value toJSI(jsi::Runtime& runtime, const ::session_bridge::GetNotificationSoundCommand& arg) {
+        (void)arg;
+        jsi::Object obj(runtime);
+        obj.setProperty(runtime, PropNameIDCache::get(runtime, "type"), ::session_bridge::ascii(runtime, ::session_bridge::GetNotificationSoundCommand::type_tag));
+        return obj;
+    }
+    static inline bool canConvert(jsi::Runtime& runtime, const jsi::Value& value) {
+        if (!value.isObject())
+            return false;
+        jsi::Value type = value.getObject(runtime).getProperty(runtime, PropNameIDCache::get(runtime, "type"));
+        return type.isString() && type.getString(runtime).utf8(runtime) == ::session_bridge::GetNotificationSoundCommand::type_tag;
+    }
+};
+
+template <>
+struct JSIConverter<::session_bridge::SetNotificationSoundCommand> final {
+    static inline ::session_bridge::SetNotificationSoundCommand fromJSI(jsi::Runtime& runtime, const jsi::Value& arg) {
+        jsi::Object obj = arg.asObject(runtime);
+        return ::session_bridge::SetNotificationSoundCommand(
+                JSIConverter<::session_bridge::NotificationSound>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "sound"))));
+    }
+    static inline jsi::Value toJSI(jsi::Runtime& runtime, const ::session_bridge::SetNotificationSoundCommand& arg) {
+        jsi::Object obj(runtime);
+        obj.setProperty(runtime, PropNameIDCache::get(runtime, "type"), ::session_bridge::ascii(runtime, ::session_bridge::SetNotificationSoundCommand::type_tag));
+        obj.setProperty(runtime, PropNameIDCache::get(runtime, "sound"), JSIConverter<::session_bridge::NotificationSound>::toJSI(runtime, arg.sound));
+        return obj;
+    }
+    static inline bool canConvert(jsi::Runtime& runtime, const jsi::Value& value) {
+        if (!value.isObject())
+            return false;
+        jsi::Value type = value.getObject(runtime).getProperty(runtime, PropNameIDCache::get(runtime, "type"));
+        return type.isString() && type.getString(runtime).utf8(runtime) == ::session_bridge::SetNotificationSoundCommand::type_tag;
+    }
+};
+
+template <>
 struct JSIConverter<::session_bridge::HandlePushPayloadCommand> final {
     static inline ::session_bridge::HandlePushPayloadCommand fromJSI(jsi::Runtime& runtime, const jsi::Value& arg) {
         jsi::Object obj = arg.asObject(runtime);
@@ -3064,6 +3145,10 @@ struct JSIConverter<::session_bridge::Command> final {
             return JSIConverter<::session_bridge::GetNotificationContentCommand>::fromJSI(runtime, arg);
         if (tag == "setNotificationContent")
             return JSIConverter<::session_bridge::SetNotificationContentCommand>::fromJSI(runtime, arg);
+        if (tag == "getNotificationSound")
+            return JSIConverter<::session_bridge::GetNotificationSoundCommand>::fromJSI(runtime, arg);
+        if (tag == "setNotificationSound")
+            return JSIConverter<::session_bridge::SetNotificationSoundCommand>::fromJSI(runtime, arg);
         if (tag == "handlePushPayload")
             return JSIConverter<::session_bridge::HandlePushPayloadCommand>::fromJSI(runtime, arg);
         if (tag == "getConversations")
@@ -3150,7 +3235,7 @@ struct JSIConverter<::session_bridge::Command> final {
         if (!type.isString())
             return false;
         std::string tag = type.getString(runtime).utf8(runtime);
-        return tag == "getAccountInfo" || tag == "createAccount" || tag == "restoreAccountFromWords" || tag == "checkRecoveryPhrase" || tag == "restoreAccountFromSeed" || tag == "discardAccount" || tag == "keepAccount" || tag == "getSeedMnemonic" || tag == "getSeedHex" || tag == "hideRecoveryPassword" || tag == "getRecoveryPasswordHidden" || tag == "setDisplayName" || tag == "attachNetwork" || tag == "warmNetworkCache" || tag == "getNetworkStatus" || tag == "setPollInterval" || tag == "pollOnce" || tag == "closeClient" || tag == "reopenClient" || tag == "setReceiving" || tag == "setPushToken" || tag == "clearPushToken" || tag == "getNotificationContent" || tag == "setNotificationContent" || tag == "handlePushPayload" || tag == "getConversations" || tag == "getMessageRequests" || tag == "getConversation" || tag == "openDm" || tag == "markRead" || tag == "setBlocked" || tag == "setNickname" || tag == "setPriority" || tag == "approveConversation" || tag == "deleteConversation" || tag == "getMessages" || tag == "sendMessage" || tag == "attachmentSendPlan" || tag == "getAttachmentUploadLimit" || tag == "retrySend" || tag == "deleteMessage" || tag == "setGallery" || tag == "downloadAttachment" || tag == "exportAttachment" || tag == "setAutoDownload" || tag == "getCacheDir" || tag == "getAttachmentCacheLimit" || tag == "setAttachmentCacheLimit" || tag == "getAttachmentCacheSize" || tag == "getThumbnailEdge" || tag == "setThumbnailEdge" || tag == "getConfigSizes" || tag == "getNetworkPaths" || tag == "getPref" || tag == "setPref" || tag == "deliverTestMessage" || tag == "getTestAccountSeed" || tag == "approveTestContact" || tag == "echoTestFrame";
+        return tag == "getAccountInfo" || tag == "createAccount" || tag == "restoreAccountFromWords" || tag == "checkRecoveryPhrase" || tag == "restoreAccountFromSeed" || tag == "discardAccount" || tag == "keepAccount" || tag == "getSeedMnemonic" || tag == "getSeedHex" || tag == "hideRecoveryPassword" || tag == "getRecoveryPasswordHidden" || tag == "setDisplayName" || tag == "attachNetwork" || tag == "warmNetworkCache" || tag == "getNetworkStatus" || tag == "setPollInterval" || tag == "pollOnce" || tag == "closeClient" || tag == "reopenClient" || tag == "setReceiving" || tag == "setPushToken" || tag == "clearPushToken" || tag == "getNotificationContent" || tag == "setNotificationContent" || tag == "getNotificationSound" || tag == "setNotificationSound" || tag == "handlePushPayload" || tag == "getConversations" || tag == "getMessageRequests" || tag == "getConversation" || tag == "openDm" || tag == "markRead" || tag == "setBlocked" || tag == "setNickname" || tag == "setPriority" || tag == "approveConversation" || tag == "deleteConversation" || tag == "getMessages" || tag == "sendMessage" || tag == "attachmentSendPlan" || tag == "getAttachmentUploadLimit" || tag == "retrySend" || tag == "deleteMessage" || tag == "setGallery" || tag == "downloadAttachment" || tag == "exportAttachment" || tag == "setAutoDownload" || tag == "getCacheDir" || tag == "getAttachmentCacheLimit" || tag == "setAttachmentCacheLimit" || tag == "getAttachmentCacheSize" || tag == "getThumbnailEdge" || tag == "setThumbnailEdge" || tag == "getConfigSizes" || tag == "getNetworkPaths" || tag == "getPref" || tag == "setPref" || tag == "deliverTestMessage" || tag == "getTestAccountSeed" || tag == "approveTestContact" || tag == "echoTestFrame";
     }
 };
 

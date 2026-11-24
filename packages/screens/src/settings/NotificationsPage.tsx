@@ -11,7 +11,7 @@ import {
   type DeliveryMode,
   type NotificationSwitch,
 } from '@session/state'
-import type { NotificationContent } from '@session/client'
+import type { NotificationContent, NotificationSound } from '@session/client'
 import { ELEMENT } from '@session/test-ids'
 import {
   RadioIndicator,
@@ -20,7 +20,6 @@ import {
   SettingsRow,
   SettingsSection,
   Switch,
-  Text,
   useModals,
   YStack,
 } from '@session/ui'
@@ -64,17 +63,40 @@ export function previewSample(content: NotificationContent): { title: string; bo
   return { title: tr('preview'), body: PENDING_COPY.previewNotificationBody }
 }
 
+/** In legacy iOS's order: no sound, then the default, then the rest by name. */
+const NOTIFICATION_SOUNDS: readonly NotificationSound[] = [
+  'none',
+  'note',
+  'aurora',
+  'bamboo',
+  'chord',
+  'circles',
+  'complete',
+  'hello',
+  'input',
+  'keys',
+  'popcorn',
+  'pulse',
+  'synth',
+]
+
+const DEFAULT_SOUND: NotificationSound = 'note'
+
+function soundName(sound: NotificationSound): string {
+  return sound === 'none' ? tr('none') : PENDING_COPY.notificationSoundNames[sound]
+}
+
+/**
+ * The mode in effect: Only while open until one is chosen, since without a choice nothing is
+ * subscribed and nothing runs in the background.
+ */
+function effectiveDeliveryMode(chosen: DeliveryMode | null): DeliveryMode {
+  return chosen ?? 'while-open'
+}
+
 /** The background modes Android can pause to save battery, which the exemption is for. */
 function needsBackgroundActivity(mode: DeliveryMode | null): boolean {
   return mode === 'always-connected' || mode === 'periodic'
-}
-
-function Value({ text }: { text: string }) {
-  return (
-    <Text size="$label" tone="secondary" numberOfLines={1}>
-      {text}
-    </Text>
-  )
 }
 
 /** OS state the page shows, read when it opens and again whenever the app comes back. */
@@ -175,10 +197,37 @@ export function NotificationContentChoice(props: NotificationContentChoiceProps)
   )
 }
 
+export interface NotificationSoundChoiceProps {
+  selected: NotificationSound
+  onSelect: (sound: NotificationSound) => void
+}
+
+/** iOS's Sound child screen, as drawn: the sounds as radio rows, the default marked. */
+export function NotificationSoundChoice(props: NotificationSoundChoiceProps) {
+  return (
+    <YStack padding="$md" gap="$lg" testID={ELEMENT.notificationSettings.soundScreen}>
+      <SettingsGroup>
+        {NOTIFICATION_SOUNDS.map((sound) => (
+          <SettingsRow
+            key={sound}
+            label={soundName(sound)}
+            {...(sound === DEFAULT_SOUND ? { subtitle: tr('theDefault') } : {})}
+            trailing={<RadioIndicator selected={sound === props.selected} />}
+            onPress={() => props.onSelect(sound)}
+            testID={ELEMENT.notificationSettings.soundOption(sound)}
+          />
+        ))}
+      </SettingsGroup>
+    </YStack>
+  )
+}
+
 export interface MobileNotificationsContentProps {
-  deliveryMode: DeliveryMode | null
-  deliveryTitle: string | null
+  /** The mode in effect, named: Only while open until one is chosen, since nothing else runs. */
+  deliveryTitle: string
   content: NotificationContent
+  /** The sound notifications play; null where it is not chosen in the app, which hides the row. */
+  sound: NotificationSound | null
   soundWhenOpen: boolean
   /** False shows the warning; null when the OS cannot be asked. */
   notificationsAllowed: boolean | null
@@ -186,6 +235,7 @@ export interface MobileNotificationsContentProps {
   canOpenSettings: boolean
   onDelivery: () => void
   onContent: () => void
+  onSound: () => void
   onSoundWhenOpen: (on: boolean) => void
   onChannel: (channel: NotificationChannel) => void
   onOpenSettings: () => void
@@ -204,6 +254,7 @@ export function MobileNotificationsContent(props: MobileNotificationsContentProp
           {props.canOpenSettings ? (
             <SettingsRow
               label={tr('notificationsGoToDevice')}
+              leadsTo="outside"
               onPress={props.onOpenSettings}
               testID={ELEMENT.notificationSettings.deviceSettings}
             />
@@ -213,8 +264,8 @@ export function MobileNotificationsContent(props: MobileNotificationsContentProp
       <SettingsGroup>
         <SettingsRow
           label={PENDING_COPY.messageDelivery}
-          trailing={props.deliveryTitle === null ? null : <Value text={props.deliveryTitle} />}
-          trailingYields
+          subtitle={props.deliveryTitle}
+          leadsTo="screen"
           onPress={props.onDelivery}
           testID={ELEMENT.notificationSettings.deliveryRow}
         />
@@ -222,12 +273,20 @@ export function MobileNotificationsContent(props: MobileNotificationsContentProp
       <SettingsGroup>
         <SettingsRow
           label={tr('notificationsContent')}
-          // The choice under the name rather than beside it: "Name and Content" does not fit
-          // beside it at a phone's width.
           subtitle={contentLabel(props.content)}
+          leadsTo="screen"
           onPress={props.onContent}
           testID={ELEMENT.notificationSettings.contentRow}
         />
+        {props.sound === null ? null : (
+          <SettingsRow
+            label={tr('notificationsSound')}
+            subtitle={soundName(props.sound)}
+            leadsTo="screen"
+            onPress={props.onSound}
+            testID={ELEMENT.notificationSettings.soundRow}
+          />
+        )}
         <SettingsRow
           label={tr('notificationsSoundDescription')}
           trailing={
@@ -246,12 +305,14 @@ export function MobileNotificationsContent(props: MobileNotificationsContentProp
           <SettingsRow
             label={tr('messages')}
             subtitle={tr('deviceSettingsConversationNotifications')}
+            leadsTo="outside"
             onPress={() => props.onChannel('messages')}
             testID={ELEMENT.notificationSettings.channel('messages')}
           />
           <SettingsRow
             label={tr('sessionMessageRequests')}
             subtitle={PENDING_COPY.deviceSettingsMessageRequestNotifications}
+            leadsTo="outside"
             onPress={() => props.onChannel('requests')}
             testID={ELEMENT.notificationSettings.channel('requests')}
           />
@@ -259,6 +320,7 @@ export function MobileNotificationsContent(props: MobileNotificationsContentProp
           <SettingsRow
             label={tr('callsSettings')}
             subtitle={tr('deviceSettingsCallNotifications')}
+            leadsTo="outside"
             disabled
             testID={ELEMENT.notificationSettings.channel('calls')}
           />
@@ -268,6 +330,7 @@ export function MobileNotificationsContent(props: MobileNotificationsContentProp
         <SettingsGroup>
           <SettingsRow
             label={tr('notificationsGoToDevice')}
+            leadsTo="outside"
             onPress={props.onOpenSettings}
             testID={ELEMENT.notificationSettings.deviceSettings}
           />
@@ -416,6 +479,7 @@ export function MessageDeliveryContent(props: MessageDeliveryContentProps) {
           {/* Background App Refresh is on the app's page in Settings, not under notifications. */}
           <SettingsRow
             label={tr('openSettings')}
+            leadsTo="outside"
             onPress={props.onOpenSettings}
             testID={ELEMENT.notificationSettings.deviceSettings}
           />
@@ -429,7 +493,7 @@ export function MessageDeliveryContent(props: MessageDeliveryContentProps) {
 function MessageDeliveryPage() {
   const notifications = requirePorts().notifications
   const actions = useSessionActions()
-  const { deliveryMode } = useNotificationSettings()
+  const deliveryMode = effectiveDeliveryMode(useNotificationSettings().deliveryMode)
   const os = useOsState(notifications)
   return (
     <MessageDeliveryContent
@@ -461,6 +525,22 @@ function NotificationContentPage() {
   )
 }
 
+/** iOS's Sound child screen: the choice is saved as it is picked, and played. */
+function NotificationSoundPage() {
+  const playSound = requirePorts().notifications.playSound
+  const actions = useSessionActions()
+  const { notificationSound } = useNotificationSettings()
+  return (
+    <NotificationSoundChoice
+      selected={notificationSound ?? DEFAULT_SOUND}
+      onSelect={(sound) => {
+        playSound?.(sound)
+        void actions.setNotificationSound(sound)
+      }}
+    />
+  )
+}
+
 /**
  * Notifications: how messages reach the device and what notifications show. A child screen; the
  * settings modal supplies the chrome. The phones and tablets choose a delivery mode; desktop keeps
@@ -473,6 +553,7 @@ export function NotificationsPage() {
   const settings = useNotificationSettings()
   const os = useOsState(notifications)
   const content = settings.notificationContent ?? 'nameAndContent'
+  const deliveryMode = effectiveDeliveryMode(settings.deliveryMode)
   const preview = notifications.preview
   const onPreview = () => void preview?.(previewSample(content))
   const setSwitch = (name: NotificationSwitch, on: boolean) =>
@@ -494,13 +575,11 @@ export function NotificationsPage() {
   }
   return (
     <MobileNotificationsContent
-      deliveryMode={settings.deliveryMode}
-      deliveryTitle={
-        settings.deliveryMode === null
-          ? null
-          : deliveryModeTitle(settings.deliveryMode, notifications.pushService)
-      }
+      deliveryTitle={deliveryModeTitle(deliveryMode, notifications.pushService)}
       content={content}
+      sound={
+        notifications.playSound === null ? null : (settings.notificationSound ?? DEFAULT_SOUND)
+      }
       soundWhenOpen={settings.soundWhenOpen ?? notifications.soundWhenOpenDefault}
       notificationsAllowed={os.notificationsAllowed}
       channels={notifications.openChannelSettings !== null}
@@ -513,6 +592,9 @@ export function NotificationsPage() {
           title: tr('notificationsContent'),
           render: () => <NotificationContentPage />,
         })
+      }}
+      onSound={() => {
+        modals.push({ title: tr('notificationsSound'), render: () => <NotificationSoundPage /> })
       }}
       onSoundWhenOpen={(on) => setSwitch('soundWhenOpen', on)}
       onChannel={(channel) => notifications.openChannelSettings?.(channel)}
