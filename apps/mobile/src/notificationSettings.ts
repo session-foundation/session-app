@@ -1,4 +1,5 @@
 import type { NotificationsPort } from '@session/app'
+import type { IncomingNotification } from '@session/client'
 import type { SessionStore } from '@session/state'
 import { type EventSubscription, requireOptionalNativeModule } from 'expo'
 import { Linking } from 'react-native'
@@ -9,7 +10,13 @@ interface SessionPushModule {
   setSoundWhenOpen(on: boolean): void
   setSound(name: string): void
   preview(title: string, body: string): Promise<void>
-  addListener(event: 'onTap', listener: (tap: { conversation: string }) => void): EventSubscription
+  post(notification: IncomingNotification): void
+  remove(ids: readonly string[]): void
+  setBadgeCount(count: number): Promise<void>
+  addListener(
+    event: 'onTap',
+    listener: (tap: { conversation: string | null }) => void,
+  ): EventSubscription
 }
 
 const SessionPush = requireOptionalNativeModule<SessionPushModule>('SessionPush')
@@ -33,6 +40,9 @@ type NotificationSettings = Pick<
   | 'playSound'
   | 'preview'
   | 'onTap'
+  | 'post'
+  | 'remove'
+  | 'setBadgeCount'
 >
 
 /** iOS's part of the Notifications page, through `modules/session-push`. */
@@ -54,17 +64,25 @@ export const notificationSettings: NotificationSettings = {
           if (sound !== 'none') NotificationSounds.play(sound)
         },
   preview: SessionPush === null ? null : ({ title, body }) => SessionPush.preview(title, body),
-  // A tap on a message notification, by conversation. Android opens it through the app's link
-  // instead, so this is iOS's alone.
+  // A tap on a message notification, by conversation, or on a request's, by null. Android opens
+  // both through the app's own link instead, so this is iOS's alone.
   onTap: (handler) => {
     if (SessionPush === null) return () => undefined
-    const subscription = SessionPush.addListener('onTap', ({ conversation }) =>
-      handler(conversation),
-    )
+    const subscription = SessionPush.addListener('onTap', ({ conversation }) => {
+      handler(
+        conversation === null
+          ? { kind: 'requests' }
+          : { kind: 'conversation', conversationId: conversation },
+      )
+    })
     return () => {
       subscription.remove()
     }
   },
+  // Posted as the extension posts a push's, in the words the app group holds.
+  post: SessionPush === null ? null : (notification) => SessionPush.post(notification),
+  remove: SessionPush === null ? null : (ids) => SessionPush.remove(ids),
+  setBadgeCount: (count) => SessionPush?.setBadgeCount(count) ?? Promise.resolve(),
 }
 
 /**

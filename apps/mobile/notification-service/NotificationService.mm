@@ -46,6 +46,8 @@ NSString* const WORDS_KEY = @"session.push.words";
 NSString* const IN_FRONT_UNTIL_KEY = @"session.push.inFrontUntil";
 NSString* const OPEN_CONVERSATION_KEY = @"session.push.openConversation";
 NSString* const SOUND_KEY = @"session.push.sound";
+/// The userInfo key a notification's id goes under; the app's own (AppGroup.swift) too.
+NSString* const NOTIFICATION_ID_KEY = @"session_id";
 
 /// The networks a database may be under, in the order they are tried.
 const char* const NETWORKS[] = {"mainnet", "testnet"};
@@ -233,12 +235,32 @@ UNMutableNotificationContent* content_for(
             out.body = c.body ? ns(*c.body) : attachment_word(c);
             break;
     }
-    // What a tap opens: a message's conversation, which is its thread (see SessionPushAppDelegate
-    // Subscriber.swift).
+    // What a tap opens: a message's conversation, which is its thread, or the requests (see
+    // SessionPushAppDelegateSubscriber.swift). And its id, by which it is taken down later: iOS
+    // names a push's notification itself, and an extension cannot rename it.
     NSMutableDictionary* info = [out.userInfo mutableCopy] ?: [NSMutableDictionary dictionary];
     info[@"session_kind"] = kind;
+    info[NOTIFICATION_ID_KEY] = ns(c.id);
     out.userInfo = info;
     return out;
+}
+
+/// Takes down shown notifications by their ids: the ones the app posted under their ids, and the
+/// pushes' under the names iOS gave them, found by the id in their userInfo.
+void take_down(NSArray<NSString*>* ids) {
+    UNUserNotificationCenter* center = UNUserNotificationCenter.currentNotificationCenter;
+    [center removeDeliveredNotificationsWithIdentifiers:ids];
+    NSSet* stale = [NSSet setWithArray:ids];
+    [center getDeliveredNotificationsWithCompletionHandler:^(NSArray<UNNotification*>* shown) {
+      NSMutableArray* names = [NSMutableArray array];
+      for (UNNotification* n in shown) {
+          id tagged = n.request.content.userInfo[NOTIFICATION_ID_KEY];
+          if ([tagged isKindOfClass:NSString.class] && [stale containsObject:tagged])
+              [names addObject:n.request.identifier];
+      }
+      if (names.count)
+          [center removeDeliveredNotificationsWithIdentifiers:names];
+    }];
 }
 
 /// The app group's container, which holds the app's data and logs roots.
@@ -332,8 +354,7 @@ std::optional<std::pair<std::filesystem::path, std::string>> database() {
         NSMutableArray* ids = [NSMutableArray array];
         for (const auto& id : result.stale)
             [ids addObject:ns(id)];
-        [UNUserNotificationCenter.currentNotificationCenter
-                removeDeliveredNotificationsWithIdentifiers:ids];
+        take_down(ids);
     }
 
     UNMutableNotificationContent* out;

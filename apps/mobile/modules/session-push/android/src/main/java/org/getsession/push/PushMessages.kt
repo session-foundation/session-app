@@ -66,6 +66,41 @@ object PushMessages {
     if (outcome.kind != null && outcome.id != null) post(context, manager, outcome)
   }
 
+  /**
+   * A notification for a message that arrived while the app runs, as the bridge decided it
+   * (`IncomingNotification`): posted as a push's would be, so the two look the same and a later
+   * removal finds either by its id.
+   */
+  fun postIncoming(context: Context, notification: Map<String, Any?>) {
+    val id = notification["id"] as? String ?: return
+    val request = notification["kind"] == "request"
+    val outcome =
+        PushOutcome(
+            why = "arrived while open",
+            kind = if (request) "message_request" else "message",
+            id = id,
+            thread = if (request) REQUESTS_THREAD else notification["conversationId"] as? String,
+            sender = notification["sender"] as? String,
+            body = notification["body"] as? String,
+            attachment = notification["attachment"] as? String,
+            attachments = (notification["attachments"] as? Number)?.toInt() ?: 0,
+            timestampMs = (notification["timestamp"] as? Number)?.toLong() ?: 0,
+            badge = -1,
+            stale = emptyArray(),
+        )
+    val manager = context.getSystemService(NotificationManager::class.java) ?: return
+    post(context, manager, outcome)
+  }
+
+  /** Takes down notifications by id, posted here or by a push. */
+  fun remove(context: Context, ids: List<String>) {
+    val manager = context.getSystemService(NotificationManager::class.java) ?: return
+    for (id in ids) manager.cancel(id, 0)
+  }
+
+  /** The thread libsession groups every message request under (`REQUESTS_THREAD`). */
+  private const val REQUESTS_THREAD = "message-requests"
+
   private fun post(context: Context, manager: NotificationManager, outcome: PushOutcome) {
     val channel = if (outcome.kind == "message_request") Channel.REQUESTS else Channel.MESSAGES
     channel.ensure(context)
@@ -157,6 +192,10 @@ object PushMessages {
       // The app's own scheme and its conversation route (`routes.conversation`).
       launch.action = Intent.ACTION_VIEW
       launch.data = Uri.parse("session:///c/${Uri.encode(outcome.thread)}")
+    } else if (outcome.kind == "message_request") {
+      // The requests list (`routes.requests`): a request is opened from there.
+      launch.action = Intent.ACTION_VIEW
+      launch.data = Uri.parse("session:///requests")
     }
     launch.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
     return PendingIntent.getActivity(

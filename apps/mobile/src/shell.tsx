@@ -27,12 +27,14 @@ export function MobileShell() {
   useEffect(() => {
     reportOpenConversation(openConversation)
   }, [openConversation])
-  // A tapped notification's conversation, where the platform hands taps over rather than opening a
-  // link (iOS).
+  // A tapped notification's conversation, or the requests for a request's, where the platform
+  // hands taps over rather than opening a link (iOS).
   useEffect(
     () =>
-      requirePorts().notifications.onTap((conversation) => {
-        router.push(routes.conversation(conversation))
+      requirePorts().notifications.onTap((tap) => {
+        router.push(
+          tap.kind === 'requests' ? routes.requests() : routes.conversation(tap.conversationId),
+        )
       }),
     [],
   )

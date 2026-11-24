@@ -55,16 +55,37 @@ final class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate {
   var openConversation: String?
   var soundWhenOpen = true
 
+  /// Where a tap leads: a message's conversation, or the message requests.
+  enum Tap {
+    case conversation(String)
+    case requests
+  }
+
   /// A tap that arrived before JavaScript was listening, as a cold launch from a notification
   /// does: handed over when it asks.
-  private(set) var pendingTap: String?
-  var onTap: ((String) -> Void)? {
+  private(set) var pendingTap: Tap?
+  var onTap: ((Tap) -> Void)? {
     didSet {
       if let onTap, let pending = pendingTap {
         pendingTap = nil
         onTap(pending)
       }
     }
+  }
+
+  /// At most this many sounds in `soundWindow` while the app is in front, as legacy iOS plays: a
+  /// burst of messages makes one or two sounds, not one each.
+  private static let soundsPerWindow = 2
+  private static let soundWindow: TimeInterval = 5
+  /// When the recent sounds played. Main thread only, where the delegate is called.
+  private var recentSounds: [Date] = []
+
+  private func mayPlaySound() -> Bool {
+    let now = Date()
+    recentSounds.removeAll { now.timeIntervalSince($0) >= Self.soundWindow }
+    guard recentSounds.count < Self.soundsPerWindow else { return false }
+    recentSounds.append(now)
+    return true
   }
 
   func userNotificationCenter(
@@ -78,11 +99,11 @@ final class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate {
       completionHandler([])
       return
     }
-    completionHandler(soundWhenOpen ? [.banner, .list, .sound] : [.banner, .list])
+    completionHandler(soundWhenOpen && mayPlaySound() ? [.banner, .list, .sound] : [.banner, .list])
   }
 
-  /// The thread a message notification belongs to is its conversation (see `decide`); requests and
-  /// generic notifications share threads of their own, and only open the app.
+  /// The thread a message notification belongs to is its conversation (see `decide`); a request's
+  /// opens the requests, and a generic notification only the app.
   func userNotificationCenter(
     _ center: UNUserNotificationCenter,
     didReceive response: UNNotificationResponse,
@@ -90,9 +111,17 @@ final class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate {
   ) {
     defer { completionHandler() }
     let content = response.notification.request.content
-    guard content.userInfo["session_kind"] as? String == "message" else { return }
-    let thread = content.threadIdentifier
-    guard !thread.isEmpty else { return }
-    if let onTap { onTap(thread) } else { pendingTap = thread }
+    let tap: Tap
+    switch content.userInfo["session_kind"] as? String {
+    case "message":
+      let thread = content.threadIdentifier
+      guard !thread.isEmpty else { return }
+      tap = .conversation(thread)
+    case "message_request":
+      tap = .requests
+    default:
+      return
+    }
+    if let onTap { onTap(tap) } else { pendingTap = tap }
   }
 }

@@ -6,6 +6,7 @@
 #include <session/client/message.hpp>
 #include <session/image/sendable.hpp>
 #include <session/network/session_network_types.hpp>
+#include <session/push/notifications.hpp>
 
 #include <cstdint>
 
@@ -35,6 +36,9 @@ SendPlan to_bridge(::session::image::SendPlan from);
 NetworkStatus to_bridge(::session::network::ConnectionStatus from);
 ConversationList to_bridge(::session::client::ConversationList from);
 ListPlacement to_bridge(::session::client::ListPlacement&& from);
+/// A message or request notification. A generic one, which `decide` gives only for a push it
+/// could not read, comes out as a message with neither sender nor content: the generic words.
+IncomingNotification to_bridge(::session::push::NotificationContent&& from);
 
 /// Whether `fetch_thumbhash` can decode this attachment's ThumbHash: what `hasThumbhash` says.
 bool thumbhash_decodable(const ::session::client::Attachment& a);

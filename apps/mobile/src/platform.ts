@@ -188,8 +188,6 @@ const ports = memoryPorts({
     deliveryModes: deliveryModes(),
     pushService: VARIANT_TRAITS[VARIANT].pushService,
     requestPermission: () => Promise.resolve(true),
-    show: () => Promise.resolve(),
-    setBadgeCount: () => Promise.resolve(),
   },
   build: {
     // The version app.json gives the build, which is what the stores and the OS know it as.

@@ -73,6 +73,15 @@ class SessionPushModule : Module() {
       appContext.reactContext?.let { DeviceSettings.changeBackground(it) }
     }
 
+    /** A notification for a message that arrived while the app is open. */
+    Function("post") { notification: Map<String, Any?> ->
+      appContext.reactContext?.let { PushMessages.postIncoming(it, notification) }
+    }
+
+    Function("remove") { ids: List<String> ->
+      appContext.reactContext?.let { PushMessages.remove(it, ids) }
+    }
+
     Function("preview") { title: String, body: String ->
       appContext.reactContext?.let { PushMessages.preview(it, title, body) }
     }

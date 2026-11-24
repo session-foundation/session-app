@@ -1,13 +1,23 @@
-import { memoryPorts, resolveBuildVariant, setPorts } from '@session/app'
+import { memoryPorts, resolveBuildVariant, setPorts, type NotificationTap } from '@session/app'
 import { parseNetworkName } from '@session/basic-types'
 import { getLocale, subscribeLocale } from '@session/localization'
 
 import { mediaUrl } from '@session/app/mediaUrl'
 
 import { flushLogRecords } from './logs'
+import { notificationTap, notificationText } from './notificationText'
 import { chooseFiles, releasePreview, toPickedFiles } from './pickedFiles'
 
 const memory = memoryPorts()
+
+/** What main says a click leads to, checked: it came over IPC. */
+function tapOf(value: unknown): NotificationTap | null {
+  if (typeof value !== 'object' || value === null) return null
+  const { kind, conversationId } = value as Record<string, unknown>
+  if (kind === 'requests') return { kind }
+  if (kind === 'conversation' && typeof conversationId === 'string') return { kind, conversationId }
+  return null
+}
 
 /**
  * The desktop app's OS ports.
@@ -19,6 +29,39 @@ const memory = memoryPorts()
  */
 setPorts(
   memoryPorts({
+    notifications: {
+      ...memory.notifications,
+      post: (notification, { audio }) => {
+        window.sessionDesktop.postNotification({
+          id: notification.id,
+          ...notificationText(notification),
+          tap: notificationTap(notification),
+          // The OS's own sound, only with the Notifications page's audio switch on.
+          silent: !audio,
+        })
+      },
+      remove: (ids) => {
+        window.sessionDesktop.removeNotifications(ids)
+      },
+      preview: (sample) => {
+        window.sessionDesktop.postNotification({
+          id: 'preview',
+          ...sample,
+          tap: null,
+          silent: false,
+        })
+        return Promise.resolve()
+      },
+      onTap: (handler) =>
+        window.sessionDesktop.onNotificationTap((tap) => {
+          const known = tapOf(tap)
+          if (known !== null) handler(known)
+        }),
+      setBadgeCount: (count) => {
+        window.sessionDesktop.setBadgeCount(count)
+        return Promise.resolve()
+      },
+    },
     files: {
       ...memory.files,
       pickFiles: async (options) => toPickedFiles(await chooseFiles(options ?? {})),

@@ -1,5 +1,6 @@
-import { followFlagToggles } from '@session/app'
+import { followFlagToggles, followNotifications, requirePorts } from '@session/app'
 import { createSessionClient } from '@session/client'
+import { subscribeLocale, tr } from '@session/localization'
 import { createSessionStore } from '@session/state'
 
 import './platform'
@@ -27,6 +28,19 @@ export const store = createSessionStore(client, {
 })
 
 followFlagToggles(store)
+
+followNotifications({
+  store,
+  client,
+  notifications: requirePorts().notifications,
+  // Nothing while the window has focus, as legacy desktop does: everything is on screen anyway.
+  shouldPost: () => !document.hasFocus(),
+})
+const tellYou = () => {
+  void client.setNotificationYou(tr('you'))
+}
+tellYou()
+subscribeLocale(tellYou)
 
 void startLogging(store).catch((error: unknown) => {
   console.error('[logs] could not start logging:', error)
