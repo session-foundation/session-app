@@ -20,7 +20,6 @@ import {
   SettingsRow,
   SettingsSection,
   Switch,
-  Text,
   useModals,
   YStack,
 } from '@session/ui'
@@ -87,17 +86,17 @@ function soundName(sound: NotificationSound): string {
   return sound === 'none' ? tr('none') : PENDING_COPY.notificationSoundNames[sound]
 }
 
+/**
+ * The mode in effect: Only while open until one is chosen, since without a choice nothing is
+ * subscribed and nothing runs in the background.
+ */
+function effectiveDeliveryMode(chosen: DeliveryMode | null): DeliveryMode {
+  return chosen ?? 'while-open'
+}
+
 /** The background modes Android can pause to save battery, which the exemption is for. */
 function needsBackgroundActivity(mode: DeliveryMode | null): boolean {
   return mode === 'always-connected' || mode === 'periodic'
-}
-
-function Value({ text }: { text: string }) {
-  return (
-    <Text size="$label" tone="secondary" numberOfLines={1}>
-      {text}
-    </Text>
-  )
 }
 
 /** OS state the page shows, read when it opens and again whenever the app comes back. */
@@ -224,8 +223,8 @@ export function NotificationSoundChoice(props: NotificationSoundChoiceProps) {
 }
 
 export interface MobileNotificationsContentProps {
-  deliveryMode: DeliveryMode | null
-  deliveryTitle: string | null
+  /** The mode in effect, named: Only while open until one is chosen, since nothing else runs. */
+  deliveryTitle: string
   content: NotificationContent
   /** The sound notifications play; null where it is not chosen in the app, which hides the row. */
   sound: NotificationSound | null
@@ -255,6 +254,7 @@ export function MobileNotificationsContent(props: MobileNotificationsContentProp
           {props.canOpenSettings ? (
             <SettingsRow
               label={tr('notificationsGoToDevice')}
+              leadsTo="outside"
               onPress={props.onOpenSettings}
               testID={ELEMENT.notificationSettings.deviceSettings}
             />
@@ -264,8 +264,8 @@ export function MobileNotificationsContent(props: MobileNotificationsContentProp
       <SettingsGroup>
         <SettingsRow
           label={PENDING_COPY.messageDelivery}
-          trailing={props.deliveryTitle === null ? null : <Value text={props.deliveryTitle} />}
-          trailingYields
+          subtitle={props.deliveryTitle}
+          leadsTo="screen"
           onPress={props.onDelivery}
           testID={ELEMENT.notificationSettings.deliveryRow}
         />
@@ -273,17 +273,16 @@ export function MobileNotificationsContent(props: MobileNotificationsContentProp
       <SettingsGroup>
         <SettingsRow
           label={tr('notificationsContent')}
-          // The choice under the name rather than beside it: "Name and Content" does not fit
-          // beside it at a phone's width.
           subtitle={contentLabel(props.content)}
+          leadsTo="screen"
           onPress={props.onContent}
           testID={ELEMENT.notificationSettings.contentRow}
         />
         {props.sound === null ? null : (
           <SettingsRow
             label={tr('notificationsSound')}
-            trailing={<Value text={soundName(props.sound)} />}
-            trailingYields
+            subtitle={soundName(props.sound)}
+            leadsTo="screen"
             onPress={props.onSound}
             testID={ELEMENT.notificationSettings.soundRow}
           />
@@ -306,12 +305,14 @@ export function MobileNotificationsContent(props: MobileNotificationsContentProp
           <SettingsRow
             label={tr('messages')}
             subtitle={tr('deviceSettingsConversationNotifications')}
+            leadsTo="outside"
             onPress={() => props.onChannel('messages')}
             testID={ELEMENT.notificationSettings.channel('messages')}
           />
           <SettingsRow
             label={tr('sessionMessageRequests')}
             subtitle={PENDING_COPY.deviceSettingsMessageRequestNotifications}
+            leadsTo="outside"
             onPress={() => props.onChannel('requests')}
             testID={ELEMENT.notificationSettings.channel('requests')}
           />
@@ -319,6 +320,7 @@ export function MobileNotificationsContent(props: MobileNotificationsContentProp
           <SettingsRow
             label={tr('callsSettings')}
             subtitle={tr('deviceSettingsCallNotifications')}
+            leadsTo="outside"
             disabled
             testID={ELEMENT.notificationSettings.channel('calls')}
           />
@@ -328,6 +330,7 @@ export function MobileNotificationsContent(props: MobileNotificationsContentProp
         <SettingsGroup>
           <SettingsRow
             label={tr('notificationsGoToDevice')}
+            leadsTo="outside"
             onPress={props.onOpenSettings}
             testID={ELEMENT.notificationSettings.deviceSettings}
           />
@@ -476,6 +479,7 @@ export function MessageDeliveryContent(props: MessageDeliveryContentProps) {
           {/* Background App Refresh is on the app's page in Settings, not under notifications. */}
           <SettingsRow
             label={tr('openSettings')}
+            leadsTo="outside"
             onPress={props.onOpenSettings}
             testID={ELEMENT.notificationSettings.deviceSettings}
           />
@@ -489,7 +493,7 @@ export function MessageDeliveryContent(props: MessageDeliveryContentProps) {
 function MessageDeliveryPage() {
   const notifications = requirePorts().notifications
   const actions = useSessionActions()
-  const { deliveryMode } = useNotificationSettings()
+  const deliveryMode = effectiveDeliveryMode(useNotificationSettings().deliveryMode)
   const os = useOsState(notifications)
   return (
     <MessageDeliveryContent
@@ -549,6 +553,7 @@ export function NotificationsPage() {
   const settings = useNotificationSettings()
   const os = useOsState(notifications)
   const content = settings.notificationContent ?? 'nameAndContent'
+  const deliveryMode = effectiveDeliveryMode(settings.deliveryMode)
   const preview = notifications.preview
   const onPreview = () => void preview?.(previewSample(content))
   const setSwitch = (name: NotificationSwitch, on: boolean) =>
@@ -570,12 +575,7 @@ export function NotificationsPage() {
   }
   return (
     <MobileNotificationsContent
-      deliveryMode={settings.deliveryMode}
-      deliveryTitle={
-        settings.deliveryMode === null
-          ? null
-          : deliveryModeTitle(settings.deliveryMode, notifications.pushService)
-      }
+      deliveryTitle={deliveryModeTitle(deliveryMode, notifications.pushService)}
       content={content}
       sound={
         notifications.playSound === null ? null : (settings.notificationSound ?? DEFAULT_SOUND)
