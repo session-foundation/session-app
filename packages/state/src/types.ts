@@ -7,6 +7,7 @@ import type {
   Message,
   NetworkStatus,
   NotificationContent,
+  NotificationSound,
   TransferProgress,
 } from '@session/client'
 
@@ -201,6 +202,8 @@ export interface SessionState {
   deliveryMode: DeliveryMode | null
   /** What notifications show, from libsession's local settings; null without an account. */
   notificationContent: NotificationContent | null
+  /** The sound iOS notifications play, from libsession's local settings; null with no account. */
+  notificationSound: NotificationSound | null
   /**
    * The device's notification preferences, null until chosen, where the platform's default
    * applies. `soundWhenOpen` is mobile's: whether a notification makes its sound while the app is
@@ -248,6 +251,7 @@ export const emptyState: SessionState = {
   recoveryPasswordHidden: false,
   deliveryMode: null,
   notificationContent: null,
+  notificationSound: null,
   soundWhenOpen: null,
   notificationsShown: null,
   audioNotifications: null,

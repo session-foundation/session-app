@@ -54,6 +54,57 @@ export type PushService = 'apns' | 'apns-sandbox' | 'firebase' | 'huawei'
 export type NotificationContent = 'nameAndContent' | 'nameOnly' | 'none'
 
 /**
+ * A notification to post for a message that arrived while the app runs, as libsession decided it
+ * (its push `decide`): the same rules as a push, so a muted conversation, a blocked sender, a
+ * request after its first message and a message already read are never posted, and a message a push
+ * already showed is not posted twice. Each platform writes the words, in the person's language.
+ *
+ * - `message`: from `sender`, saying `body`, or carrying `attachments` of which the first is
+ *   `attachment`. `sender` is absent when the content setting hides names; `body` and the
+ *   attachments when it hides content.
+ * - `request`: the first message of a message request, shown with neither sender nor content.
+ *
+ * `id` names it for a later `notifications-stale`. `conversationId` is the conversation a
+ * `message` belongs to; absent for a request, which opens the requests list.
+ */
+export interface IncomingNotification {
+  id: string
+  kind: IncomingNotificationKind
+  conversationId?: ConversationId
+  sender?: string
+  body?: string
+  attachment?: NotificationAttachment
+  attachments: number
+  timestamp: number
+}
+
+export type IncomingNotificationKind = 'message' | 'request'
+
+/** The kind of a notified message's first attachment, for the platform's placeholder word. */
+export type NotificationAttachment = 'image' | 'animated' | 'video' | 'audio' | 'voice' | 'file'
+
+/**
+ * The sound an iOS notification plays: one of legacy iOS's notification sounds, or `none`. Android
+ * sets sounds per notification channel in its own settings, and desktop has an on or off switch,
+ * so only iOS chooses one. libsession keeps it with the device's local settings, as the number
+ * legacy iOS stored, so a choice made there carries over.
+ */
+export type NotificationSound =
+  | 'none'
+  | 'note'
+  | 'aurora'
+  | 'bamboo'
+  | 'chord'
+  | 'circles'
+  | 'complete'
+  | 'hello'
+  | 'input'
+  | 'keys'
+  | 'popcorn'
+  | 'pulse'
+  | 'synth'
+
+/**
  * What sending a file as an attachment will do with it, decided from its header alone as the send
  * decides it: libsession's `image::SendPlan`.
  *

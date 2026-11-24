@@ -27,6 +27,7 @@ import type {
   OutgoingAttachment,
   PixelSize,
   NotificationContent,
+  NotificationSound,
   PushService,
   Request,
   RouterKind,
@@ -186,6 +187,15 @@ export interface SessionClient {
   getNotificationContent(): Promise<NotificationContent>
   /** Stores what notifications on this device show. Refused without an account. */
   setNotificationContent(content: NotificationContent): Promise<void>
+  /**
+   * The sound iOS notifications on this device play; `note` until somebody chooses. Refused without
+   * an account.
+   */
+  getNotificationSound(): Promise<NotificationSound>
+  /** Stores the sound iOS notifications play. Refused without an account. */
+  setNotificationSound(sound: NotificationSound): Promise<void>
+  /** The person's word for themselves, which a mention of them becomes in a notification. */
+  setNotificationYou(you: string): Promise<void>
 
   getConversations(): Promise<Conversation[]>
   getMessageRequests(): Promise<Conversation[]>

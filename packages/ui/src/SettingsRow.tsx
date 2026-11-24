@@ -9,6 +9,7 @@ import {
 import { useWindowDimensions } from 'react-native'
 import { XStack, YStack } from 'tamagui'
 
+import { forwardChevron } from './backChevron'
 import type { MarkProps } from './Brand'
 import { Icon } from './Icon'
 import type { IconName } from './Icon.types'
@@ -82,8 +83,14 @@ export interface SettingsRowProps {
    * of a screen's settings on the row that opens it, as legacy iOS's developer settings have.
    */
   details?: readonly SettingsRowDetail[] | undefined
-  /** A value, a switch, a button. No chevron by default. */
+  /** A value, a switch, a button. No chevron by default: see `leadsTo`. */
   trailing?: ReactNode
+  /**
+   * Where pressing the row goes, drawn after anything trailing: `screen`, a chevron, for a row that
+   * opens another screen; `outside`, the link-out glyph, for one that leaves the app for a website
+   * or the OS's settings. A row that acts where it is has neither.
+   */
+  leadsTo?: 'screen' | 'outside' | undefined
   /**
    * The trailing control is wide, a labelled button, so at the accessibility text sizes it goes
    * under the text instead of squeezing it. A glyph or a switch stays beside it.
@@ -116,7 +123,8 @@ export function SettingsRow({
   icon,
   subtitle,
   details,
-  trailing,
+  trailing: given,
+  leadsTo,
   wideTrailing = false,
   trailingYields = false,
   accentIcon = false,
@@ -126,6 +134,28 @@ export function SettingsRow({
   testID,
 }: SettingsRowProps) {
   const inert = disabled || onPress === undefined
+  const glyph =
+    leadsTo === undefined ? null : leadsTo === 'screen' ? (
+      <Icon
+        name={forwardChevron()}
+        size="md"
+        color={disabled ? '$textDisabled' : '$textSecondary'}
+      />
+    ) : (
+      // The accent on dark, body text on light, where the accent is too faint as a glyph.
+      <Icon name="externalLink" size="md" color={disabled ? '$textDisabled' : '$accentText'} />
+    )
+  const trailing =
+    glyph === null ? (
+      given
+    ) : given === undefined ? (
+      glyph
+    ) : (
+      <XStack alignItems="center" gap="$xs">
+        {given}
+        {glyph}
+      </XStack>
+    )
   const tone = disabled ? '$textDisabled' : destructive ? '$dangerColor' : '$textPrimary'
   // `accentText`, not the accent: as a glyph the accent is too faint on a light ground.
   const iconTone = accentIcon && !disabled ? '$accentText' : tone

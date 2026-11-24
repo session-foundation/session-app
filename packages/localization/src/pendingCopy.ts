@@ -254,4 +254,22 @@ export const PENDING_COPY = {
     'Open Device Settings for Message Request Notifications.',
   /** The body of the notification Preview Notification posts when content is shown. */
   previewNotificationBody: 'This is how a message notification looks.',
+  /**
+   * The iOS notification sounds' names, which legacy iOS shows untranslated (its own TODO asks
+   * whether they should be). `none` is not here: it is the catalogue's `none`.
+   */
+  notificationSoundNames: {
+    note: 'Note',
+    aurora: 'Aurora',
+    bamboo: 'Bamboo',
+    chord: 'Chord',
+    circles: 'Circles',
+    complete: 'Complete',
+    hello: 'Hello',
+    input: 'Input',
+    keys: 'Keys',
+    popcorn: 'Popcorn',
+    pulse: 'Pulse',
+    synth: 'Synth',
+  },
 } as const

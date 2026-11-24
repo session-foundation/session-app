@@ -6,6 +6,7 @@ export type { CameraAccess, CameraPort } from './camera/CameraContext'
 export { conversationFromPath, routes } from './nav/routes'
 export { requirePorts, resetPorts, setPorts } from './ports'
 export { followPushRegistration, type PushRegistrationDeps } from './pushRegistration'
+export { followNotifications, type NotificationDeps } from './notifications'
 export { ExportAccessRefused } from './exportAccess'
 export { suggestedExportName } from './exportFileName'
 export type { ExportAccess } from './exportAccess'
@@ -36,6 +37,7 @@ export type {
   NotificationsPort,
   DeliveryModeOffer,
   NotificationChannel,
+  NotificationTap,
   PushToken,
   PushInstallMarker,
   PushTokenSource,

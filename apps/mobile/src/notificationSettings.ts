@@ -1,6 +1,15 @@
 import type { NotificationsPort } from '@session/app'
 import type { SessionStore } from '@session/state'
+import { requireOptionalNativeModule } from 'expo'
 import { Linking } from 'react-native'
+
+interface NotificationSoundsModule {
+  play(name: string): void
+}
+
+/** `modules/notification-sounds`, which bundles legacy iOS's sounds. */
+const NotificationSounds =
+  requireOptionalNativeModule<NotificationSoundsModule>('NotificationSounds')
 
 type NotificationSettings = Pick<
   NotificationsPort,
@@ -10,7 +19,10 @@ type NotificationSettings = Pick<
   | 'openChannelSettings'
   | 'backgroundActivity'
   | 'backgroundRefreshOn'
+  | 'playSound'
   | 'preview'
+  | 'post'
+  | 'remove'
 >
 
 /**
@@ -27,7 +39,17 @@ export const notificationSettings: NotificationSettings = {
   openChannelSettings: null,
   backgroundActivity: null,
   backgroundRefreshOn: null,
+  // Each sound's file is named for it. `none` has no file, so plays nothing, as it will on arrival.
+  playSound:
+    NotificationSounds === null
+      ? null
+      : (sound) => {
+          if (sound !== 'none') NotificationSounds.play(sound)
+        },
   preview: null,
+  // The notification work iOS has not had yet: see the module's comment.
+  post: null,
+  remove: null,
 }
 
 /** Nothing native to keep in step on iOS yet. */

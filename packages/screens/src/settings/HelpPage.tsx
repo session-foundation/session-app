@@ -3,7 +3,6 @@ import { tr } from '@session/localization'
 import { ELEMENT } from '@session/test-ids'
 import {
   Button,
-  Icon,
   KeyCombo,
   SettingsGroup,
   SettingsRow,
@@ -81,8 +80,7 @@ export function HelpPage() {
               key={link.name}
               label={tr(link.label)}
               subtitle={tr(link.description)}
-              // The accent on dark, body text on light, where the accent is too faint as a glyph.
-              trailing={<Icon name="externalLink" size="md" color="$accentText" />}
+              leadsTo="outside"
               testID={ELEMENT.help.link(link.name)}
               onPress={() => {
                 confirmLink(modals, link.url)
@@ -104,6 +102,7 @@ export function HelpPage() {
                 testID={ELEMENT.keyboardShortcuts.combo('help', 0)}
               />
             }
+            leadsTo="screen"
             testID={ELEMENT.help.keyboardShortcuts}
             onPress={() => {
               modals.push({

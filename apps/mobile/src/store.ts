@@ -1,4 +1,9 @@
-import { followFlagToggles, followPushRegistration, requirePorts } from '@session/app'
+import {
+  followFlagToggles,
+  followNotifications,
+  followPushRegistration,
+  requirePorts,
+} from '@session/app'
 import {
   netidForTransport,
   parseDevnetConfig,
@@ -18,6 +23,7 @@ import { createSessionStore } from '@session/state'
 import { PixelRatio, Platform } from 'react-native'
 
 import { followNotificationPrefs } from './notificationSettings'
+import { onScreen } from './pushPresence'
 import { followNotificationWords } from './notificationWords'
 import { mobileClient } from './client'
 import { followAppLifecycle } from './clientLifecycle'
@@ -181,7 +187,14 @@ export const storePromise = openTransportOrRefusal().then((transport) => {
       storeLog(level, 'push', message)
     },
   })
-  followNotificationWords()
+  followNotifications({
+    store,
+    client,
+    notifications: requirePorts().notifications,
+    // libsession is told nothing of what is on screen for these, so it is left out here.
+    shouldPost: (notification) => !onScreen(notification.conversationId),
+  })
+  followNotificationWords(client)
   followNotificationPrefs(store)
   return store
 })

@@ -141,4 +141,24 @@ PushResult handle_cold_push(
     }
 }
 
+std::vector<push::NotificationContent> decide_arrivals(
+        push::Notifications& notifications,
+        const std::vector<client::Message>& arrived,
+        std::string_view you,
+        std::chrono::sys_time<std::chrono::milliseconds> horizon) {
+    std::vector<push::NotificationContent> shown;
+    for (const auto& m : arrived) {
+        if (m.outgoing || m.timestamp <= horizon - ARRIVAL_SKEW)
+            continue;
+        if (auto n = notifications.decide({push::Handled::received, std::nullopt, m}, you))
+            shown.push_back(std::move(*n));
+    }
+    return shown;
+}
+
+NotificationRefresh refresh_notifications(
+        client::Client& client, push::Notifications& notifications) {
+    return {notifications.stale(), client.badge_count(session::await)};
+}
+
 }  // namespace session_bridge

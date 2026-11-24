@@ -8,6 +8,7 @@ import {
   MessageDeliveryContent,
   MobileNotificationsContent,
   NotificationContentChoice,
+  NotificationSoundChoice,
   PathStatsCard,
   RecoveryPasswordPage,
   type PathStats,
@@ -121,7 +122,7 @@ const CATALOG_ACCOUNT_ID = '05b2c7e1d4a8f3906e5c1b7d2a4f8e3c9b6d1a5e7f2c4b8d3a9e
  */
 export const SETTINGS_SCENARIOS: readonly AnyStory[] = [
   // The phones' Notifications page: Android with its channels, Android with notifications turned
-  // off in its settings, and iOS, which has no channels.
+  // off in its settings, and iOS, which has no channels and chooses its sound.
   defineStory<{ platform: 'android' | 'android, notifications off' | 'ios' }>({
     component: 'settings',
     story: 'notificationsMobile',
@@ -134,15 +135,16 @@ export const SETTINGS_SCENARIOS: readonly AnyStory[] = [
     },
     render: ({ platform }) => (
       <MobileNotificationsContent
-        deliveryMode="instant"
         deliveryTitle="Google push"
         content="nameAndContent"
+        sound={platform === 'ios' ? 'note' : null}
         soundWhenOpen
         notificationsAllowed={platform === 'android, notifications off' ? false : null}
         channels={platform !== 'ios'}
         canOpenSettings
         onDelivery={noop}
         onContent={noop}
+        onSound={noop}
         onSoundWhenOpen={noop}
         onChannel={noop}
         onOpenSettings={noop}
@@ -168,6 +170,16 @@ export const SETTINGS_SCENARIOS: readonly AnyStory[] = [
         onPreview={noop}
       />
     ),
+  }),
+  // iOS's Sound screen with a sound other than the default chosen, so the default's mark and the
+  // choice are both drawn.
+  defineStory<Record<string, never>>({
+    component: 'settings',
+    story: 'notificationSound',
+    width: SECTION_WIDTH,
+    sensitive: { rtl: true, theme: true },
+    variants: { chosen: {} },
+    render: () => <NotificationSoundChoice selected="bamboo" onSelect={noop} />,
   }),
   // The delivery choice as each build offers it: a Play build; an F-Droid build, where Instant is
   // not included and the battery switch shows under Periodic; and iOS, where Background App

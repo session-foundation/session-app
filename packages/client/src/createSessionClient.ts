@@ -11,6 +11,7 @@ import type {
   NetworkPaths,
   NetworkStatus,
   NotificationContent,
+  NotificationSound,
   Request,
   Response,
   Result,
@@ -264,6 +265,15 @@ export function createSessionClient(transport: BridgeTransport): SessionClient {
     },
     async setNotificationContent(content): Promise<void> {
       await call({ type: 'setNotificationContent', content })
+    },
+    async getNotificationSound(): Promise<NotificationSound> {
+      return resultOf(await call({ type: 'getNotificationSound' }), 'notificationSound').sound
+    },
+    async setNotificationSound(sound): Promise<void> {
+      await call({ type: 'setNotificationSound', sound })
+    },
+    async setNotificationYou(you): Promise<void> {
+      await call({ type: 'setNotificationYou', you })
     },
     async setBlocked(id, blocked): Promise<void> {
       await call({ type: 'setBlocked', conversationId: id, blocked })

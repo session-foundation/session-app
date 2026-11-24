@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
   MessageDeliveryContent,
+  NotificationSoundChoice,
   previewSample,
   type MessageDeliveryContentProps,
 } from '#src/settings/NotificationsPage'
@@ -89,5 +90,16 @@ describe('Preview Notification', () => {
     expect(previewSample('nameOnly').title).toBe(tr('preview'))
     expect(previewSample('nameOnly').body).toBe(singular('messageNewYouveGot'))
     expect(previewSample('none').title).toBe(tr('appName'))
+  })
+})
+
+describe('the Sound screen', () => {
+  it('offers no sound as a choice of its own, and picks the sound pressed', () => {
+    const onSelect = vi.fn()
+    renderScreen(<NotificationSoundChoice selected="note" onSelect={onSelect} />)
+    fireEvent.click(screen.getByTestId(ELEMENT.notificationSettings.soundOption('none')))
+    expect(onSelect).toHaveBeenLastCalledWith('none')
+    fireEvent.click(screen.getByTestId(ELEMENT.notificationSettings.soundOption('synth')))
+    expect(onSelect).toHaveBeenLastCalledWith('synth')
   })
 })

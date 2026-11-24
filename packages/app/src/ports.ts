@@ -1,5 +1,11 @@
 import type { NetworkName, QrMark, WithSpan } from '@session/basic-types'
-import type { AttachmentRef, PixelSize, PushService } from '@session/client'
+import type {
+  AttachmentRef,
+  IncomingNotification,
+  NotificationSound,
+  PixelSize,
+  PushService,
+} from '@session/client'
 import type { BuildFacts, DiagnosticsSnapshot, ExportPart, LogFileInfo } from '@session/logging'
 import type { DeliveryMode } from '@session/state'
 
@@ -185,6 +191,10 @@ export interface PushInstallMarker {
 /** Android's notification channels, whose sound and vibration are set in Android's settings. */
 export type NotificationChannel = 'messages' | 'requests' | 'calls'
 
+/** Where a tapped notification leads: a message's conversation, or the message requests. */
+export type NotificationTap =
+  { kind: 'conversation'; conversationId: string } | { kind: 'requests' }
+
 /** One delivery mode as the platform offers it. */
 export interface DeliveryModeOffer {
   mode: DeliveryMode
@@ -257,11 +267,24 @@ export interface NotificationsPort {
   readonly backgroundActivity: { allowed(): Promise<boolean>; change(): void } | null
   /** Whether iOS has Background App Refresh on for the app. Null elsewhere. */
   readonly backgroundRefreshOn: (() => Promise<boolean>) | null
+  /**
+   * Plays one of the notification sounds, as the Sound screen does when one is picked. Null where
+   * the sound is not chosen in the app, which hides the Sound row: Android sets it on each
+   * notification channel in its own settings, and desktop has only an on or off switch.
+   */
+  readonly playSound: ((sound: NotificationSound) => void) | null
   /** Posts a sample notification, or null where the platform cannot post one. */
   readonly preview: ((sample: { title: string; body: string }) => Promise<void>) | null
   requestPermission(): Promise<boolean>
-  show(notification: { conversationId: string; title: string; body: string }): Promise<void>
-  onTap(handler: (conversationId: string) => void): () => void
+  /**
+   * Posts a notification for a message that arrived while the app runs, in the platform's words
+   * (see `followNotifications`). `audio` is desktop's switch; the phones' sound is their own. Null
+   * where nothing posts one.
+   */
+  readonly post: ((notification: IncomingNotification, options: { audio: boolean }) => void) | null
+  /** Takes down notifications by their ids, posted here or by a push. Null where none are. */
+  readonly remove: ((ids: readonly string[]) => void) | null
+  onTap(handler: (tap: NotificationTap) => void): () => void
   setBadgeCount(count: number): Promise<void>
 }
 

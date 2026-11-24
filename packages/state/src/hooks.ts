@@ -96,6 +96,7 @@ export function useRecoveryPasswordHidden(): boolean {
 interface NotificationSettings {
   deliveryMode: SessionState['deliveryMode']
   notificationContent: SessionState['notificationContent']
+  notificationSound: SessionState['notificationSound']
   soundWhenOpen: boolean | null
   notificationsShown: boolean | null
   audioNotifications: boolean | null
@@ -108,6 +109,7 @@ export function useNotificationSettings(): NotificationSettings {
     useShallow((state) => ({
       deliveryMode: state.deliveryMode,
       notificationContent: state.notificationContent,
+      notificationSound: state.notificationSound,
       soundWhenOpen: state.soundWhenOpen,
       notificationsShown: state.notificationsShown,
       audioNotifications: state.audioNotifications,
