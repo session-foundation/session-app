@@ -105,7 +105,7 @@ function encryptedSize(sizeBytes: number): number {
 /** How many reports a transfer makes between starting and finishing. */
 const TRANSFER_STEPS = 20
 
-/** How far before now a message may be stamped and still be notified, as the bridge allows. */
+/** How far before the horizon a message may be stamped and still be notified, as the bridge has. */
 const ARRIVAL_SKEW_MS = 5 * 60 * 1000
 
 /** What a notification of `message` says when the content setting shows it. */
@@ -407,6 +407,8 @@ export class FakeAccount {
   /** Requests whose first message has been notified, so no later one is. */
   private readonly requestsNotified = new Set<ConversationId>()
   private badge: number | null = null
+  /** When this account first took a message in here, as the bridge's horizon: set once. */
+  private notifyHorizon: number | null = null
   private readonly listeners = new Set<(event: SessionEvent) => void>()
   private readonly prefs = new Map<string, string>()
   private world: FakeWorld | undefined
@@ -670,14 +672,15 @@ export class FakeAccount {
 
   /**
    * libsession's push decision, for a message that arrived while the app runs: nothing for a
-   * blocked sender, a muted conversation, a request after its first message, or history older than
-   * a few minutes; the content setting decides what is said.
+   * blocked sender, a muted conversation, a request after its first message, or history from before
+   * this account first took a message in here; the content setting decides what is said.
    */
   private notifyArrival(conversation: Conversation, message: Message): void {
     // The wall clock, as libsession's decision and the bridge's horizon use, not the world's.
     const now = Date.now()
+    this.notifyHorizon ??= now
     if (conversation.blocked || (conversation.muteUntil ?? 0) > now) return
-    if (message.timestamp <= now - ARRIVAL_SKEW_MS) return
+    if (message.timestamp <= this.notifyHorizon - ARRIVAL_SKEW_MS) return
     if (conversation.request) {
       if (this.requestsNotified.has(conversation.id)) return
       this.requestsNotified.add(conversation.id)

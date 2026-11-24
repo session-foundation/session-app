@@ -85,14 +85,18 @@ PushResult handle_cold_push(
         const PushLog& log);
 
 /// How long before the horizon a message may be stamped and still be announced: a message carries
-/// its sender's clock, which may run behind ours. A message claimed already is not announced twice.
+/// the moment its sender pressed send, by its sender's clock. A message claimed already is not
+/// announced twice.
 inline constexpr std::chrono::minutes ARRIVAL_SKEW{5};
 
 /// What to post for messages that arrived while the app runs, on a Client already open:
 /// libsession's decision (`Notifications::decide`) for each incoming message stamped after
 /// `horizon` less ARRIVAL_SKEW, which claims it, so that a push for the same message shows nothing.
-/// Older messages are history a poll caught up on -- a restore's, or a device's that was long
-/// closed -- and are not announced. Blocks: never on the Client's own loop.
+///
+/// The horizon is when this device first had the account, and never moves: what is older is the
+/// history a restore fetches, and is not announced. Not when messages were last taken in, which
+/// would silence a message sent just before a poll, or one whose sender's send was slow or retried
+/// and so arrives long after the moment it carries. Blocks: never on the Client's own loop.
 std::vector<session::push::NotificationContent> decide_arrivals(
         session::push::Notifications& notifications,
         const std::vector<session::client::Message>& arrived,

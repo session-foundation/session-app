@@ -1109,8 +1109,9 @@ struct IncomingNotification {
 };
 
 /// A message arrived while the app runs that libsession says to notify about: see
-/// `IncomingNotification`. Only messages newer than when this device last took in messages, so
-/// the history a restore fetches is never announced. After the `messages-added` that carried it.
+/// `IncomingNotification`. Not for messages from before this device first had the account, so
+/// the history a restore fetches is never announced; a message arriving late, from a slow or
+/// retried send, still is. After the `messages-added` that carried it.
 struct NotificationSessionEvent {
     static constexpr std::string_view type_tag = "notification";
 

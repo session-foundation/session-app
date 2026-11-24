@@ -1033,13 +1033,15 @@ export function runSessionClientContract(
       seen.stop()
     })
 
-    it('does not announce history a poll catches up on', async () => {
+    it('does not announce history from before the device had the account', async () => {
       const { client, receive } = await harness.receivesMessages()
       const seen = collect(client)
       await receive({ body: 'from last week', timestamp: Date.now() - 7 * 24 * 3600 * 1000 })
       await receive({ body: 'now', timestamp: Date.now() })
-      await eventually(() => notificationsOf(seen.events).length > 0)
-      expect(notificationsOf(seen.events).map((n) => n.body)).toEqual(['now'])
+      // Stamped a minute ago, as a slow send is, and arriving after the one above: still announced.
+      await receive({ body: 'sent a minute ago', timestamp: Date.now() - 60_000 })
+      await eventually(() => notificationsOf(seen.events).length > 1)
+      expect(notificationsOf(seen.events).map((n) => n.body)).toEqual(['now', 'sent a minute ago'])
       seen.stop()
     })
 
