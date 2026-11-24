@@ -15,6 +15,7 @@ import type {
   NetworkStatus,
   OutgoingAttachment,
   NotificationContent,
+  NotificationSound,
   PushService,
   SendPlan,
 } from './domain'
@@ -282,6 +283,13 @@ export type Command =
   /** Stores what notifications on this device show. Answers `ok`. Refused without an account. */
   | { type: 'setNotificationContent'; content: NotificationContent }
   /**
+   * The sound iOS notifications on this device play. Answers `notificationSound`; `note` until
+   * somebody chooses, and for a stored sound this list does not have. Refused without an account.
+   */
+  | { type: 'getNotificationSound' }
+  /** Stores the sound iOS notifications play. Answers `ok`. Refused without an account. */
+  | { type: 'setNotificationSound'; sound: NotificationSound }
+  /**
    * Interpret a push payload far enough to notify. Answering from the payload alone matters on
    * iOS, where the notification service extension runs while the app holds the database.
    */
@@ -495,6 +503,7 @@ export type Result =
   | { type: 'pref'; value?: string }
   | { type: 'bool'; value: boolean }
   | { type: 'notificationContent'; content: NotificationContent }
+  | { type: 'notificationSound'; sound: NotificationSound }
   /**
    * How `closeClient` went. `closed` is false when `reopenClient` cancelled it while it waited.
    * `waitedMs` is how long it waited for outbound work, `closeMs` how long destroying the Client

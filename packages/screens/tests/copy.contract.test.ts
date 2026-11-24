@@ -224,6 +224,7 @@ describe('screen copy', () => {
       'backgroundRefreshOffInstant',
       'deviceSettingsMessageRequestNotifications',
       'previewNotificationBody',
+      'notificationSoundNames',
     ])
   })
 })

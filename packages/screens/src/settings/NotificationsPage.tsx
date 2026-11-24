@@ -11,7 +11,7 @@ import {
   type DeliveryMode,
   type NotificationSwitch,
 } from '@session/state'
-import type { NotificationContent } from '@session/client'
+import type { NotificationContent, NotificationSound } from '@session/client'
 import { ELEMENT } from '@session/test-ids'
 import {
   RadioIndicator,
@@ -62,6 +62,29 @@ export function previewSample(content: NotificationContent): { title: string; bo
   if (content === 'none') return { title: tr('appName'), body: generic }
   if (content === 'nameOnly') return { title: tr('preview'), body: generic }
   return { title: tr('preview'), body: PENDING_COPY.previewNotificationBody }
+}
+
+/** In legacy iOS's order: no sound, then the default, then the rest by name. */
+const NOTIFICATION_SOUNDS: readonly NotificationSound[] = [
+  'none',
+  'note',
+  'aurora',
+  'bamboo',
+  'chord',
+  'circles',
+  'complete',
+  'hello',
+  'input',
+  'keys',
+  'popcorn',
+  'pulse',
+  'synth',
+]
+
+const DEFAULT_SOUND: NotificationSound = 'note'
+
+function soundName(sound: NotificationSound): string {
+  return sound === 'none' ? tr('none') : PENDING_COPY.notificationSoundNames[sound]
 }
 
 /** The background modes Android can pause to save battery, which the exemption is for. */
@@ -175,10 +198,37 @@ export function NotificationContentChoice(props: NotificationContentChoiceProps)
   )
 }
 
+export interface NotificationSoundChoiceProps {
+  selected: NotificationSound
+  onSelect: (sound: NotificationSound) => void
+}
+
+/** iOS's Sound child screen, as drawn: the sounds as radio rows, the default marked. */
+export function NotificationSoundChoice(props: NotificationSoundChoiceProps) {
+  return (
+    <YStack padding="$md" gap="$lg" testID={ELEMENT.notificationSettings.soundScreen}>
+      <SettingsGroup>
+        {NOTIFICATION_SOUNDS.map((sound) => (
+          <SettingsRow
+            key={sound}
+            label={soundName(sound)}
+            {...(sound === DEFAULT_SOUND ? { subtitle: tr('theDefault') } : {})}
+            trailing={<RadioIndicator selected={sound === props.selected} />}
+            onPress={() => props.onSelect(sound)}
+            testID={ELEMENT.notificationSettings.soundOption(sound)}
+          />
+        ))}
+      </SettingsGroup>
+    </YStack>
+  )
+}
+
 export interface MobileNotificationsContentProps {
   deliveryMode: DeliveryMode | null
   deliveryTitle: string | null
   content: NotificationContent
+  /** The sound notifications play; null where it is not chosen in the app, which hides the row. */
+  sound: NotificationSound | null
   soundWhenOpen: boolean
   /** False shows the warning; null when the OS cannot be asked. */
   notificationsAllowed: boolean | null
@@ -186,6 +236,7 @@ export interface MobileNotificationsContentProps {
   canOpenSettings: boolean
   onDelivery: () => void
   onContent: () => void
+  onSound: () => void
   onSoundWhenOpen: (on: boolean) => void
   onChannel: (channel: NotificationChannel) => void
   onOpenSettings: () => void
@@ -228,6 +279,15 @@ export function MobileNotificationsContent(props: MobileNotificationsContentProp
           onPress={props.onContent}
           testID={ELEMENT.notificationSettings.contentRow}
         />
+        {props.sound === null ? null : (
+          <SettingsRow
+            label={tr('notificationsSound')}
+            trailing={<Value text={soundName(props.sound)} />}
+            trailingYields
+            onPress={props.onSound}
+            testID={ELEMENT.notificationSettings.soundRow}
+          />
+        )}
         <SettingsRow
           label={tr('notificationsSoundDescription')}
           trailing={
@@ -461,6 +521,22 @@ function NotificationContentPage() {
   )
 }
 
+/** iOS's Sound child screen: the choice is saved as it is picked, and played. */
+function NotificationSoundPage() {
+  const playSound = requirePorts().notifications.playSound
+  const actions = useSessionActions()
+  const { notificationSound } = useNotificationSettings()
+  return (
+    <NotificationSoundChoice
+      selected={notificationSound ?? DEFAULT_SOUND}
+      onSelect={(sound) => {
+        playSound?.(sound)
+        void actions.setNotificationSound(sound)
+      }}
+    />
+  )
+}
+
 /**
  * Notifications: how messages reach the device and what notifications show. A child screen; the
  * settings modal supplies the chrome. The phones and tablets choose a delivery mode; desktop keeps
@@ -501,6 +577,9 @@ export function NotificationsPage() {
           : deliveryModeTitle(settings.deliveryMode, notifications.pushService)
       }
       content={content}
+      sound={
+        notifications.playSound === null ? null : (settings.notificationSound ?? DEFAULT_SOUND)
+      }
       soundWhenOpen={settings.soundWhenOpen ?? notifications.soundWhenOpenDefault}
       notificationsAllowed={os.notificationsAllowed}
       channels={notifications.openChannelSettings !== null}
@@ -513,6 +592,9 @@ export function NotificationsPage() {
           title: tr('notificationsContent'),
           render: () => <NotificationContentPage />,
         })
+      }}
+      onSound={() => {
+        modals.push({ title: tr('notificationsSound'), render: () => <NotificationSoundPage /> })
       }}
       onSoundWhenOpen={(on) => setSwitch('soundWhenOpen', on)}
       onChannel={(channel) => notifications.openChannelSettings?.(channel)}

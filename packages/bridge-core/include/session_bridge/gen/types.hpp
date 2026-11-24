@@ -554,6 +554,52 @@ struct NotificationContentResult {
             content{std::move(content_)} {}
 };
 
+/// The sound an iOS notification plays: one of legacy iOS's notification sounds, or `none`. Android
+/// sets sounds per notification channel in its own settings, and desktop has an on or off switch,
+/// so only iOS chooses one. libsession keeps it with the device's local settings, as the number
+/// legacy iOS stored, so a choice made there carries over.
+enum class NotificationSound {
+    none,
+    note,
+    aurora,
+    bamboo,
+    chord,
+    circles,
+    complete,
+    hello,
+    input,
+    keys,
+    popcorn,
+    pulse,
+    synth,
+};
+
+template <>
+struct EnumTraits<NotificationSound> {
+    static constexpr std::string_view name = "NotificationSound";
+    static constexpr std::array<std::string_view, 13> names{"none", "note", "aurora", "bamboo", "chord", "circles", "complete", "hello", "input", "keys", "popcorn", "pulse", "synth"};
+
+    static constexpr std::string_view to_string(NotificationSound value) {
+        return names[static_cast<std::size_t>(value)];
+    }
+
+    static constexpr std::optional<NotificationSound> parse(std::string_view text) {
+        for (std::size_t i = 0; i < names.size(); i++)
+            if (names[i] == text)
+                return static_cast<NotificationSound>(i);
+        return std::nullopt;
+    }
+};
+
+struct NotificationSoundResult {
+    static constexpr std::string_view type_tag = "notificationSound";
+
+    ::session_bridge::NotificationSound sound;
+
+    explicit NotificationSoundResult(::session_bridge::NotificationSound sound_) :
+            sound{std::move(sound_)} {}
+};
+
 /// How `closeClient` went. `closed` is false when `reopenClient` cancelled it while it waited.
 /// `waitedMs` is how long it waited for outbound work, `closeMs` how long destroying the Client
 /// took, `outboundBusy` whether outbound work was still in flight when it did -- a send that will
@@ -857,6 +903,7 @@ using Result = std::variant<
         PrefResult,
         BoolResult,
         NotificationContentResult,
+        NotificationSoundResult,
         ClientClosedResult,
         SeedHiddenResult,
         PathResult,
@@ -1562,6 +1609,22 @@ struct SetNotificationContentCommand {
             content{std::move(content_)} {}
 };
 
+/// The sound iOS notifications on this device play. Answers `notificationSound`; `note` until
+/// somebody chooses, and for a stored sound this list does not have. Refused without an account.
+struct GetNotificationSoundCommand {
+    static constexpr std::string_view type_tag = "getNotificationSound";
+};
+
+/// Stores the sound iOS notifications play. Answers `ok`. Refused without an account.
+struct SetNotificationSoundCommand {
+    static constexpr std::string_view type_tag = "setNotificationSound";
+
+    ::session_bridge::NotificationSound sound;
+
+    explicit SetNotificationSoundCommand(::session_bridge::NotificationSound sound_) :
+            sound{std::move(sound_)} {}
+};
+
 /// Interpret a push payload far enough to notify. Answering from the payload alone matters on
 /// iOS, where the notification service extension runs while the app holds the database.
 struct HandlePushPayloadCommand {
@@ -2025,6 +2088,8 @@ using Command = std::variant<
         ClearPushTokenCommand,
         GetNotificationContentCommand,
         SetNotificationContentCommand,
+        GetNotificationSoundCommand,
+        SetNotificationSoundCommand,
         HandlePushPayloadCommand,
         GetConversationsCommand,
         GetMessageRequestsCommand,

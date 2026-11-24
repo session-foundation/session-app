@@ -698,6 +698,10 @@ describeEcho('the generated converters', () => {
     },
     {
       type: 'response',
+      response: { id: 900_103, result: { type: 'notificationSound', sound: 'bamboo' } },
+    },
+    {
+      type: 'response',
       response: {
         id: 900_101,
         result: {

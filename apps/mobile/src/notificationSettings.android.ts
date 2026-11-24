@@ -22,6 +22,7 @@ type NotificationSettings = Pick<
   | 'openChannelSettings'
   | 'backgroundActivity'
   | 'backgroundRefreshOn'
+  | 'playSound'
   | 'preview'
 >
 
@@ -35,6 +36,7 @@ export const notificationSettings: NotificationSettings =
         openChannelSettings: null,
         backgroundActivity: null,
         backgroundRefreshOn: null,
+        playSound: null,
         preview: null,
       }
     : {
@@ -53,6 +55,8 @@ export const notificationSettings: NotificationSettings =
           },
         },
         backgroundRefreshOn: null,
+        // Each channel has its own sound, set in Android's settings.
+        playSound: null,
         preview: ({ title, body }) => {
           SessionPush.preview(title, body)
           return Promise.resolve()
