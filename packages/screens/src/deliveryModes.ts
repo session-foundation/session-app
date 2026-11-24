@@ -17,10 +17,21 @@ export function recommendedMode(offers: readonly DeliveryModeOffer[]): DeliveryM
   return offers.find((offer) => offer.unavailable === null)?.mode ?? null
 }
 
-export function deliveryModeTitle(mode: DeliveryMode): string {
+function pushTitle(service: NotificationsPort['pushService']): string {
+  if (service === 'google') return PENDING_COPY.deliveryPushGoogle
+  if (service === 'apple') return PENDING_COPY.deliveryPushApple
+  if (service === 'huawei') return PENDING_COPY.deliveryPushHuawei
+  return PENDING_COPY.deliveryPush
+}
+
+/** A mode's name. The push mode is named by the service the build would use. */
+export function deliveryModeTitle(
+  mode: DeliveryMode,
+  service: NotificationsPort['pushService'],
+): string {
   switch (mode) {
     case 'instant':
-      return PENDING_COPY.deliveryInstant
+      return pushTitle(service)
     case 'always-connected':
       return PENDING_COPY.deliveryAlwaysConnected
     case 'periodic':

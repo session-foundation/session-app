@@ -372,7 +372,7 @@ export function MessageDeliveryContent(props: MessageDeliveryContentProps) {
           return (
             <SettingsRow
               key={offer.mode}
-              label={deliveryModeTitle(offer.mode)}
+              label={deliveryModeTitle(offer.mode, props.pushService)}
               subtitle={
                 offer.mode === 'instant' && usable
                   ? `${description}\n${PENDING_COPY.deliveryInstantCommunities}`
@@ -496,7 +496,9 @@ export function NotificationsPage() {
     <MobileNotificationsContent
       deliveryMode={settings.deliveryMode}
       deliveryTitle={
-        settings.deliveryMode === null ? null : deliveryModeTitle(settings.deliveryMode)
+        settings.deliveryMode === null
+          ? null
+          : deliveryModeTitle(settings.deliveryMode, notifications.pushService)
       }
       content={content}
       soundWhenOpen={settings.soundWhenOpen ?? notifications.soundWhenOpenDefault}

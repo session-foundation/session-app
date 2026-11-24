@@ -135,7 +135,7 @@ export const SETTINGS_SCENARIOS: readonly AnyStory[] = [
     render: ({ platform }) => (
       <MobileNotificationsContent
         deliveryMode="instant"
-        deliveryTitle="Instant"
+        deliveryTitle="Google push"
         content="nameAndContent"
         soundWhenOpen
         notificationsAllowed={platform === 'android, notifications off' ? false : null}
