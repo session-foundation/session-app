@@ -603,9 +603,6 @@ importers:
       '@session/eslint-config':
         specifier: workspace:*
         version: link:../../tooling/eslint-config
-      '@session/logging':
-        specifier: workspace:*
-        version: link:../logging
       '@session/typescript-config':
         specifier: workspace:*
         version: link:../../tooling/typescript-config

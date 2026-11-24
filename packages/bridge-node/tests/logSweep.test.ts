@@ -1,8 +1,7 @@
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
 
-import { ESCAPE_VECTORS, PREFIX_VECTORS, SWEEP_VECTOR_SALT, SWEEP_VECTORS } from '@session/logging'
 import { beforeAll, describe, expect, it } from 'vitest'
 
 /**
@@ -24,25 +23,42 @@ interface LogRules {
   escapeLogMessage(text: string): string
 }
 
+/** Generated from the TypeScript sweep, which `@session/logging`'s own tests check them against. */
+interface Vectors {
+  salt: string
+  sweep: { input: string; swept: string }[]
+  prefixes: {
+    wallMs: number
+    uptimeMs: number
+    level: string
+    category: string
+    op?: string
+    prefix: string
+  }[]
+  escapes: { text: string; escaped: string }[]
+}
+
+const vectors = JSON.parse(
+  readFileSync(join(import.meta.dirname, '../../logging/tests/vectors/sweep.json'), 'utf8'),
+) as Vectors
+
 describeAddon('the shim log sweep', () => {
   // A skipped suite still runs its body to collect tests, so the load waits for beforeAll.
   let rules: LogRules
   beforeAll(() => {
     rules = createRequire(import.meta.url)(addon) as LogRules
   })
-  const salt = Uint8Array.from(SWEEP_VECTOR_SALT.match(/../g) ?? [], (pair) =>
-    Number.parseInt(pair, 16),
-  )
+  const salt = Uint8Array.from(vectors.salt.match(/../g) ?? [], (pair) => Number.parseInt(pair, 16))
 
   it('sweeps as the TypeScript sweep does', () => {
-    for (const { input, swept } of SWEEP_VECTORS)
+    for (const { input, swept } of vectors.sweep)
       expect(rules.sweepLog(salt, input), input).toBe(swept)
   })
 
   it('writes the line prefix and escapes as the TypeScript does', () => {
-    for (const { wallMs, uptimeMs, level, category, op, prefix } of PREFIX_VECTORS)
+    for (const { wallMs, uptimeMs, level, category, op, prefix } of vectors.prefixes)
       expect(rules.formatLogPrefix(wallMs, uptimeMs, level, category, op)).toBe(prefix)
-    for (const { text, escaped } of ESCAPE_VECTORS)
+    for (const { text, escaped } of vectors.escapes)
       expect(rules.escapeLogMessage(text)).toBe(escaped)
   })
 

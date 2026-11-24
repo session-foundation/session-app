@@ -85,12 +85,3 @@ export {
   type LogWriterOptions,
   type PreviousRun,
 } from './writer'
-export {
-  ESCAPE_VECTORS,
-  PREFIX_VECTORS,
-  SWEEP_VECTOR_SALT,
-  SWEEP_VECTORS,
-  type EscapeVector,
-  type PrefixVector,
-  type SweepVector,
-} from './sweepVectors'
