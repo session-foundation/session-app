@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Gets the capture image IMAGE for catalog.yml. A pull request from a branch of this repository, a
-# push to main and the nightly pull it from ghcr. It is built here only where ghcr cannot have it:
-# on a fork's pull request (FORK=true), whose token cannot read the private package, and when the
-# tag is not published, as when a pull request changes the image. Any other ghcr failure fails, so
-# a pull that should work never quietly turns into a build on every run.
+# push to main and the nightly pull it from ghcr, and fail on any ghcr error other than a tag not
+# published yet (a pull request that changes the image), so a pull that should work never quietly
+# turns into a build on every run. A fork's pull request (FORK=true) pulls anonymously, which works
+# once the package is public, and builds on any failure.
 set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -14,7 +14,11 @@ build() {
 }
 
 if [ "${FORK:-false}" = true ]; then
-  build "a fork's pull request cannot read the package"
+  if refused=$(docker pull --quiet "$IMAGE" 2>&1 >/dev/null); then
+    echo "Pulled $IMAGE"
+  else
+    build "a fork's pull request could not pull it (${refused##*: })"
+  fi
   exit 0
 fi
 
