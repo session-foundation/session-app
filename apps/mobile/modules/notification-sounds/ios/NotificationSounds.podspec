@@ -1,7 +1,7 @@
 Pod::Spec.new do |s|
   s.name           = "NotificationSounds"
   s.version        = "0.0.0"
-  s.summary        = "Legacy iOS's notification sounds, played as the Sound screen picks one"
+  s.summary        = "Legacy iOS's notification sounds and their quiet versions, played as picked"
   s.license        = "GPL-3.0-only"
   s.authors        = "Session"
   s.homepage       = "https://getsession.org"

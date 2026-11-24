@@ -55,12 +55,17 @@ public class SessionPushModule: Module {
       NotificationPresenter.shared.soundWhenOpen = on
     }
 
+    /// The sound notifications play, which the extension reads: see `AppGroup.setSound`.
+    Function("setSound") { (name: String) in
+      AppGroup.setSound(name)
+    }
+
     /// A sample notification, now, replacing the previous one.
     AsyncFunction("preview") { (title: String, body: String, promise: Promise) in
       let content = UNMutableNotificationContent()
       content.title = title
       content.body = body
-      content.sound = .default
+      content.sound = AppGroup.soundInFront()
       let request = UNNotificationRequest(identifier: "preview", content: content, trigger: nil)
       UNUserNotificationCenter.current().add(request) { error in
         if let error {

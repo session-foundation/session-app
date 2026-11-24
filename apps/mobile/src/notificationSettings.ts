@@ -7,6 +7,7 @@ interface SessionPushModule {
   notificationsAllowed(): Promise<boolean>
   backgroundRefreshOn(): Promise<boolean>
   setSoundWhenOpen(on: boolean): void
+  setSound(name: string): void
   preview(title: string, body: string): Promise<void>
   addListener(event: 'onTap', listener: (tap: { conversation: string }) => void): EventSubscription
 }
@@ -67,17 +68,28 @@ export const notificationSettings: NotificationSettings = {
 }
 
 /**
- * Keeps the native presenter's copy of "sound when app is open" in step with the store: iOS asks it
- * how to show a notification while the app is in front.
+ * Keeps the native side's copies of the notification settings in step with the store: the presenter
+ * asks "sound when app is open" how to show a notification while the app is in front, and the
+ * extension reads the sound from the app group, so a push it cannot open the database for still
+ * plays the one chosen.
  */
 export function followNotificationPrefs(store: SessionStore): void {
   if (SessionPush === null) return
-  let last: boolean | null = null
+  let lastOn: boolean | null = null
+  let lastSound: string | null = null
   const apply = () => {
-    const on = store.getState().soundWhenOpen ?? notificationSettings.soundWhenOpenDefault
-    if (on === last) return
-    last = on
-    SessionPush.setSoundWhenOpen(on)
+    const state = store.getState()
+    const on = state.soundWhenOpen ?? notificationSettings.soundWhenOpenDefault
+    if (on !== lastOn) {
+      lastOn = on
+      SessionPush.setSoundWhenOpen(on)
+    }
+    // Null without an account, when there is nothing to notify about.
+    const sound = state.notificationSound
+    if (sound !== null && sound !== lastSound) {
+      lastSound = sound
+      SessionPush.setSound(sound)
+    }
   }
   apply()
   store.subscribe(apply)
