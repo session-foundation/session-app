@@ -31,8 +31,12 @@ const BASE64 = /(^|[^A-Za-z0-9+/_-])([A-Za-z0-9+/_-]{40,}={0,2})(?![A-Za-z0-9+/_
 const BASE32 = /\b([a-z0-9]{50,})(\.(?:sesh|snode|loki))?\b/g
 const IPV4 = /\b(\d{1,3}(?:\.\d{1,3}){3})(?::(\d{1,5}))?\b/g
 const IPV6_BRACKETED = /\[([0-9a-f:.]+)\](?::(\d{1,5}))?/gi
+/**
+ * The dotted quad is tried before a hex group, and a match may not stop in front of `.digit`:
+ * otherwise `::ffff:10.0.0.1` matches as `::ffff:10` and leaves the rest of the IPv4 address.
+ */
 const IPV6_BARE =
-  /(^|[^\w:.])((?:[0-9a-f]{0,4}:){2,7}(?:[0-9a-f]{1,4}|\d+\.\d+\.\d+\.\d+)?)(?![\w:])/gi
+  /(^|[^\w:.])((?:[0-9a-f]{0,4}:){2,7}(?:\d+\.\d+\.\d+\.\d+|[0-9a-f]{1,4})?)(?![\w:]|\.\d)/gi
 /**
  * One word of a recovery phrase: 3 to 16 letters, the range libsession's word lists span
  * (Portuguese and Dutch reach 16), with Lojban's apostrophe. Latin and Cyrillic; a phrase in

@@ -442,8 +442,10 @@ std::string LogSweeper::sweep(std::string_view raw) {
     static const regex base32{"\\b([a-z0-9]{50,})(\\.(?:sesh|snode|loki))?\\b", ECMA};
     static const regex ipv4{"\\b(\\d{1,3}(?:\\.\\d{1,3}){3})(?::(\\d{1,5}))?\\b", ECMA};
     static const regex ipv6_bracketed{"\\[([0-9a-f:.]+)\\](?::(\\d{1,5}))?", ICASE};
+    // The dotted quad is tried before a hex group, and a match may not stop in front of `.digit`:
+    // otherwise `::ffff:10.0.0.1` matches as `::ffff:10` and leaves the rest of the IPv4 address.
     static const regex ipv6_bare{
-            "(^|[^\\w:.])((?:[0-9a-f]{0,4}:){2,7}(?:[0-9a-f]{1,4}|\\d+\\.\\d+\\.\\d+\\.\\d+)?)(?![\\w:])",
+            "(^|[^\\w:.])((?:[0-9a-f]{0,4}:){2,7}(?:\\d+\\.\\d+\\.\\d+\\.\\d+|[0-9a-f]{1,4})?)(?![\\w:]|\\.\\d)",
             ICASE};
     static const regex has_b64_mark{"[0-9+/=_-]", ECMA};
     static const regex has_upper{"[A-Z]", ECMA};

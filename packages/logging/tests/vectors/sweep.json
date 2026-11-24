@@ -43,6 +43,10 @@
       "swept": "router <v6 public:443> and bare <v6 private> here"
     },
     {
+      "input": "mapped ::ffff:10.0.0.1 and ::FFFF:144.76.164.202 then fe80::1.",
+      "swept": "mapped <v6-mapped private> and <v6-mapped public> then <v6 private>."
+    },
+    {
       "input": "request 123e4567-e89b-12d3-a456-426614174000 done",
       "swept": "request ~b352c3b3 done"
     },
