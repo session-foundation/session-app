@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Pulls the capture image IMAGE from ghcr, and builds it only where ghcr cannot have it: on a fork's
-# pull request (FORK=true), whose token cannot read the package, and when the tag is not published,
-# which is a Dockerfile main has not built yet. Any other ghcr failure fails, so a pull that should
-# work never quietly turns into a build on every run.
+# Gets the capture image IMAGE for catalog.yml. A pull request from a branch of this repository, a
+# push to main and the nightly pull it from ghcr. It is built here only where ghcr cannot have it:
+# on a fork's pull request (FORK=true), whose token cannot read the private package, and when the
+# tag is not published, as when a pull request changes the image. Any other ghcr failure fails, so
+# a pull that should work never quietly turns into a build on every run.
 set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)

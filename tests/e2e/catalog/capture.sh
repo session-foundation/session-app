@@ -15,9 +15,9 @@ repo=$(cd "$here/../../.." && pwd)
 out=${CATALOG_OUT:-$repo/test-results/catalog}
 media=${SESSION_FAKE_MEDIA_DIR:-$HOME/.cache/session-app/dev-media}
 
-# CATALOG_IMAGE: one already pulled or built. Otherwise a tag of its own: a concurrent build on the
-# same daemon can take a shared tag, and the ID it named can vanish before docker run. --force: a
-# cancelled job's container can outlive this script and hold it.
+# CATALOG_IMAGE: one already pulled or built, as CI always passes. Otherwise a tag of its own, for
+# captures that share a Docker daemon: a concurrent build can take a shared tag, and the image it
+# named can vanish before docker run. --force: a cancelled run's container can still hold it.
 if [ -n "${CATALOG_IMAGE:-}" ]; then
   image=$CATALOG_IMAGE
 else

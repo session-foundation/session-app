@@ -139,7 +139,8 @@ async function catalogPages(app: DesktopApp, tier: string): Promise<CatalogPageS
 }
 
 async function openPage(app: DesktopApp, tier: string, id: string): Promise<void> {
-  // Before the page draws, so its pictures look the same whichever pages its app drew first.
+  // The queue gives an app different pages, in a different order, on every run: dropping decodes
+  // before each page keeps its pictures the same whichever pages that app drew first.
   await app.dropDecodedImages()
   await app.page.evaluate(
     (hash) => {
