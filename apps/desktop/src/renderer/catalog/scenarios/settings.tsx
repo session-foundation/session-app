@@ -7,6 +7,7 @@ import {
   KeyboardShortcutsPage,
   MessageDeliveryContent,
   MobileNotificationsContent,
+  NotificationContentChoice,
   PathStatsCard,
   RecoveryPasswordPage,
   type PathStats,
@@ -119,9 +120,8 @@ const CATALOG_ACCOUNT_ID = '05b2c7e1d4a8f3906e5c1b7d2a4f8e3c9b6d1a5e7f2c4b8d3a9e
  * combination keeps its order.
  */
 export const SETTINGS_SCENARIOS: readonly AnyStory[] = [
-  // The phones' Notifications page: Android with its channels and Preview, Android with
-  // notifications turned off in its settings, and iOS, which has neither channels nor (yet) a
-  // preview.
+  // The phones' Notifications page: Android with its channels, Android with notifications turned
+  // off in its settings, and iOS, which has no channels.
   defineStory<{ platform: 'android' | 'android, notifications off' | 'ios' }>({
     component: 'settings',
     story: 'notificationsMobile',
@@ -137,16 +137,34 @@ export const SETTINGS_SCENARIOS: readonly AnyStory[] = [
         deliveryMode="instant"
         deliveryTitle="Instant"
         content="nameAndContent"
-        soundWhenOpen={platform !== 'ios'}
+        soundWhenOpen
         notificationsAllowed={platform === 'android, notifications off' ? false : null}
         channels={platform !== 'ios'}
         canOpenSettings
-        canPreview={platform !== 'ios'}
         onDelivery={noop}
         onContent={noop}
         onSoundWhenOpen={noop}
         onChannel={noop}
         onOpenSettings={noop}
+      />
+    ),
+  }),
+  // The phones' Notification Content screen: Android with Preview Notification under the choices,
+  // and iOS, which has no preview yet.
+  defineStory<{ platform: 'android' | 'ios' }>({
+    component: 'settings',
+    story: 'notificationContent',
+    width: SECTION_WIDTH,
+    sensitive: { rtl: true, theme: true },
+    variants: {
+      android: { platform: 'android' },
+      ios: { platform: 'ios' },
+    },
+    render: ({ platform }) => (
+      <NotificationContentChoice
+        selected="nameOnly"
+        canPreview={platform === 'android'}
+        onSelect={noop}
         onPreview={noop}
       />
     ),
