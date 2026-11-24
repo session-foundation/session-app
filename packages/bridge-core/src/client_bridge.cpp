@@ -496,8 +496,8 @@ struct ClientBridge::Impl {
     std::shared_ptr<ArrivalState> arrival = std::make_shared<ArrivalState>();
     Worker arrival_worker;
 
-    /// Where the last messages taken in were stamped up to, in Core's globals: what is older is
-    /// history a poll caught up on, and is not announced (see `decide_arrivals`).
+    /// When this device first had the account, in Core's globals: set once and never moved, since
+    /// what is older is the history a restore fetches (see `decide_arrivals`).
     static constexpr std::string_view HORIZON_KEY = "notifications.horizon";
 
     /// Runs `f` on the open Client and its push subscription off Core's loop, as a push handled on
@@ -541,12 +541,13 @@ struct ClientBridge::Impl {
                 auto now = std::chrono::floor<std::chrono::milliseconds>(
                         std::chrono::system_clock::now());
                 auto stored = globals.get_integer(HORIZON_KEY);
-                // None yet, on a new install or a restore: everything here is history.
+                // None yet, on a new install, a restore, or the first run of a build with this:
+                // what has arrived is history, and from now on nothing is.
+                if (!stored)
+                    globals.set(HORIZON_KEY, int64_t{now.time_since_epoch().count()});
                 sys_ms horizon = stored ? sys_ms{std::chrono::milliseconds{*stored}} : now;
                 for (auto& content : decide_arrivals(n, incoming, state->you, horizon))
                     state->impl->event(NotificationSessionEvent{to_bridge(std::move(content))});
-                if (now > horizon || !stored)
-                    globals.set(HORIZON_KEY, int64_t{now.time_since_epoch().count()});
                 state->impl->refresh_notifications_now(c, n);
             });
         });
