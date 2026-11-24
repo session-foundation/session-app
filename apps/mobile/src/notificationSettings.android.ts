@@ -1,4 +1,5 @@
 import type { NotificationsPort } from '@session/app'
+import type { IncomingNotification } from '@session/client'
 import type { SessionStore } from '@session/state'
 import { requireOptionalNativeModule } from 'expo'
 
@@ -10,6 +11,8 @@ interface SessionPushModule {
   backgroundAllowed(): Promise<boolean>
   changeBackground(): void
   preview(title: string, body: string): void
+  post(notification: IncomingNotification): void
+  remove(ids: readonly string[]): void
 }
 
 const SessionPush = requireOptionalNativeModule<SessionPushModule>('SessionPush')
@@ -25,6 +28,9 @@ type NotificationSettings = Pick<
   | 'playSound'
   | 'preview'
   | 'onTap'
+  | 'post'
+  | 'remove'
+  | 'setBadgeCount'
 >
 
 /** Android's part of the Notifications page, through `modules/session-push`. */
@@ -40,6 +46,9 @@ export const notificationSettings: NotificationSettings =
         playSound: null,
         preview: null,
         onTap: () => () => undefined,
+        post: null,
+        remove: null,
+        setBadgeCount: () => Promise.resolve(),
       }
     : {
         soundWhenOpenDefault: true,
@@ -65,6 +74,15 @@ export const notificationSettings: NotificationSettings =
         },
         // Android opens a tapped conversation through the app's own link: see PushMessages.kt.
         onTap: () => () => undefined,
+        // Posted as a push's notification is, in the words the push handler holds.
+        post: (notification) => {
+          SessionPush.post(notification)
+        },
+        remove: (ids) => {
+          SessionPush.remove(ids)
+        },
+        // No count on Android's launcher icon, as legacy Android has none.
+        setBadgeCount: () => Promise.resolve(),
       }
 
 /**

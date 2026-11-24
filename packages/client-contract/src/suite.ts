@@ -18,6 +18,7 @@ import {
   type AttachmentAvailability,
   type AttachmentTransfer,
   type Conversation,
+  type IncomingNotification,
   type ListPlacement,
   type MediaSource,
   type Message,
@@ -149,6 +150,20 @@ function collect(client: SessionClient): { events: SessionEvent[]; stop: () => v
   const events: SessionEvent[] = []
   const stop = client.onEvent((event) => events.push(event))
   return { events, stop }
+}
+
+/** Waits, a bounded while, for `ready`: an event decided off the bridge's thread arrives later. */
+async function eventually(ready: () => boolean): Promise<void> {
+  for (let round = 0; round < 100 && !ready(); round += 1)
+    await new Promise((resolve) => setTimeout(resolve, 20))
+}
+
+function notificationsOf(events: SessionEvent[]): IncomingNotification[] {
+  return events.flatMap((e) => (e.type === 'notification' ? [e.notification] : []))
+}
+
+function staleOf(events: SessionEvent[]): string[] {
+  return events.flatMap((e) => (e.type === 'notifications-stale' ? e.ids : []))
 }
 
 /**
@@ -991,6 +1006,52 @@ export function runSessionClientContract(
       expect(await failure(() => alice.setReceiving(true))).toBeDefined()
       await alice.reopenClient()
       await alice.setReceiving(true)
+    })
+
+    it('notifies a message that arrives, once, and takes it down when it is read', async () => {
+      const { client, conversationId, receive } = await harness.receivesMessages()
+      const seen = collect(client)
+      await receive({ body: 'are you there?', timestamp: Date.now() })
+      await eventually(() => notificationsOf(seen.events).length > 0)
+
+      const [shown, ...more] = notificationsOf(seen.events)
+      expect(more).toEqual([])
+      expect(shown?.kind).toBe('message')
+      expect(shown?.conversationId).toBe(conversationId)
+      expect(shown?.body).toBe('are you there?')
+      expect(shown?.sender).toBeDefined()
+      const badges = () => seen.events.flatMap((e) => (e.type === 'badge' ? [e.count] : []))
+      await eventually(() => badges().at(-1) === 1)
+      expect(badges().at(-1)).toBe(1)
+
+      await client.markRead(conversationId)
+      await eventually(() => staleOf(seen.events).length > 0 && badges().at(-1) === 0)
+      expect(staleOf(seen.events)).toEqual([shown?.id])
+      expect(badges().at(-1)).toBe(0)
+      seen.stop()
+    })
+
+    it('names no one and says nothing when the content setting hides both', async () => {
+      const { client, receive } = await harness.receivesMessages()
+      await client.setNotificationContent('none')
+      const seen = collect(client)
+      await receive({ body: 'secret', timestamp: Date.now() })
+      await eventually(() => notificationsOf(seen.events).length > 0)
+      const [shown] = notificationsOf(seen.events)
+      expect(shown?.kind).toBe('message')
+      expect(shown?.sender).toBeUndefined()
+      expect(shown?.body).toBeUndefined()
+      seen.stop()
+    })
+
+    it('does not announce history a poll catches up on', async () => {
+      const { client, receive } = await harness.receivesMessages()
+      const seen = collect(client)
+      await receive({ body: 'from last week', timestamp: Date.now() - 7 * 24 * 3600 * 1000 })
+      await receive({ body: 'now', timestamp: Date.now() })
+      await eventually(() => notificationsOf(seen.events).length > 0)
+      expect(notificationsOf(seen.events).map((n) => n.body)).toEqual(['now'])
+      seen.stop()
     })
 
     it('plays Note until another notification sound is chosen, and keeps no sound as a choice', async () => {

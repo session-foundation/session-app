@@ -29,3 +29,8 @@ export function reportOpenConversation(id: string | null): void {
   open = id
   tell()
 }
+
+/** Whether `id` is the conversation on screen with the app in front. */
+export function onScreen(id: string | undefined): boolean {
+  return inFront && id !== undefined && id === open
+}

@@ -275,6 +275,9 @@ export function createSessionClient(transport: BridgeTransport): SessionClient {
     async setNotificationSound(sound): Promise<void> {
       await call({ type: 'setNotificationSound', sound })
     },
+    async setNotificationYou(you): Promise<void> {
+      await call({ type: 'setNotificationYou', you })
+    },
     async setBlocked(id, blocked): Promise<void> {
       await call({ type: 'setBlocked', conversationId: id, blocked })
     },

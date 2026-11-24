@@ -1,6 +1,6 @@
 import { unknownDiagnostics } from '@session/logging'
 
-import type { Ports } from './ports'
+import type { NotificationTap, Ports } from './ports'
 
 /**
  * Ports that do nothing, for tests and for the dev loop before an app has real ones.
@@ -10,7 +10,7 @@ import type { Ports } from './ports'
  */
 export function memoryPorts(overrides: Partial<Ports> = {}): Ports {
   let databaseKey: Uint8Array | null = null
-  const notificationTaps = new Set<(conversationId: string) => void>()
+  const notificationTaps = new Set<(tap: NotificationTap) => void>()
   const focusHandlers = new Set<(focused: boolean) => void>()
 
   return {
@@ -69,7 +69,8 @@ export function memoryPorts(overrides: Partial<Ports> = {}): Ports {
       playSound: null,
       preview: null,
       requestPermission: () => Promise.resolve(true),
-      show: () => Promise.resolve(),
+      post: null,
+      remove: null,
       onTap: (handler) => {
         notificationTaps.add(handler)
         return () => notificationTaps.delete(handler)
