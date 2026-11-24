@@ -38,6 +38,12 @@ ipcRenderer.on('zoom', (_event, next: unknown) => {
   zoomListener?.(next)
 })
 
+/** Whoever is listening for where a clicked notification leads, which main sends to the page. */
+let notificationTapListener: ((tap: unknown) => void) | null = null
+ipcRenderer.on('notifications:tap', (_event, tap: unknown) => {
+  notificationTapListener?.(tap)
+})
+
 /** Whoever is listening for the Help menu's Keyboard Shortcuts, which main sends to the page. */
 let keyboardShortcutsListener: (() => void) | null = null
 ipcRenderer.on('keyboard-shortcuts', () => {
@@ -127,6 +133,25 @@ contextBridge.exposeInMainWorld('sessionDesktop', {
     keyboardShortcutsListener = listener
     return () => {
       if (keyboardShortcutsListener === listener) keyboardShortcutsListener = null
+    }
+  },
+  /**
+   * Notifications, posted by main where the OS draws them: the words already written. Main keeps
+   * each by its id, so a later removal can take it down, and says where a click on one leads.
+   */
+  postNotification: (request: unknown) => {
+    ipcRenderer.send('notifications:post', request)
+  },
+  removeNotifications: (ids: readonly string[]) => {
+    ipcRenderer.send('notifications:remove', ids)
+  },
+  setBadgeCount: (count: number) => {
+    ipcRenderer.send('notifications:badge', count)
+  },
+  onNotificationTap: (listener: (tap: unknown) => void) => {
+    notificationTapListener = listener
+    return () => {
+      if (notificationTapListener === listener) notificationTapListener = null
     }
   },
   /** The flag overrides main read at launch; see `launchOverrides.ts`. */

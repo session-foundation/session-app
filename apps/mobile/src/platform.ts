@@ -180,7 +180,6 @@ const ports = memoryPorts({
     deliveryModes: deliveryModes(),
     pushService: VARIANT_TRAITS[VARIANT].pushService,
     requestPermission: () => Promise.resolve(true),
-    show: () => Promise.resolve(),
     onTap: () => () => undefined,
     setBadgeCount: () => Promise.resolve(),
   },

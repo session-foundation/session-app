@@ -1,4 +1,5 @@
 import type { NotificationsPort } from '@session/app'
+import type { IncomingNotification } from '@session/client'
 import type { SessionStore } from '@session/state'
 import { requireOptionalNativeModule } from 'expo'
 
@@ -10,6 +11,8 @@ interface SessionPushModule {
   backgroundAllowed(): Promise<boolean>
   changeBackground(): void
   preview(title: string, body: string): void
+  post(notification: IncomingNotification): void
+  remove(ids: readonly string[]): void
 }
 
 const SessionPush = requireOptionalNativeModule<SessionPushModule>('SessionPush')
@@ -24,6 +27,8 @@ type NotificationSettings = Pick<
   | 'backgroundRefreshOn'
   | 'playSound'
   | 'preview'
+  | 'post'
+  | 'remove'
 >
 
 /** Android's part of the Notifications page, through `modules/session-push`. */
@@ -38,6 +43,8 @@ export const notificationSettings: NotificationSettings =
         backgroundRefreshOn: null,
         playSound: null,
         preview: null,
+        post: null,
+        remove: null,
       }
     : {
         soundWhenOpenDefault: true,
@@ -60,6 +67,13 @@ export const notificationSettings: NotificationSettings =
         preview: ({ title, body }) => {
           SessionPush.preview(title, body)
           return Promise.resolve()
+        },
+        // Posted as a push's notification is, in the words the push handler holds.
+        post: (notification) => {
+          SessionPush.post(notification)
+        },
+        remove: (ids) => {
+          SessionPush.remove(ids)
         },
       }
 

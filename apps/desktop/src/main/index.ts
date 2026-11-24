@@ -25,6 +25,7 @@ import { launchColors } from './launchColors'
 import { launchOverridesSwitch } from '../shared/launchOverrides'
 import { finishLogs, logDatabase, logLibsession, openLogs, serveLogs } from './logs'
 import { registerMediaScheme, serveMedia, stopServingMedia } from './media'
+import { serveNotifications } from './notifications'
 import { PreviewGrants } from './previewGrants'
 import {
   acceptsCopy,
@@ -298,6 +299,7 @@ async function createWindow(): Promise<Electron.BrowserWindow> {
 
   const files = serveFiles(window, appUrl, previews)
   serveLogs(window, appUrl)
+  serveNotifications(window, appUrl)
 
   // Rejects rather than resolving, so a refused copy is not reported to the person as done.
   ipc.handle('clipboard-write-text', async (event, text: unknown) => {

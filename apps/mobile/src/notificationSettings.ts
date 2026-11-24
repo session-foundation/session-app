@@ -21,6 +21,8 @@ type NotificationSettings = Pick<
   | 'backgroundRefreshOn'
   | 'playSound'
   | 'preview'
+  | 'post'
+  | 'remove'
 >
 
 /**
@@ -45,6 +47,9 @@ export const notificationSettings: NotificationSettings = {
           if (sound !== 'none') NotificationSounds.play(sound)
         },
   preview: null,
+  // The notification work iOS has not had yet: see the module's comment.
+  post: null,
+  remove: null,
 }
 
 /** Nothing native to keep in step on iOS yet. */
