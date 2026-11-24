@@ -1,4 +1,5 @@
 #include <session_bridge/push_handler.hpp>
+#include <session_bridge/database_header.hpp>
 
 #include <algorithm>
 #include <condition_variable>
@@ -105,7 +106,8 @@ PushResult handle_cold_push(
         return generic("no database");
     const auto started = std::chrono::steady_clock::now();
     auto open_client = [&] {
-        return where.plaintext_header
+        // The extension never creates the database, so only an existing file's mode matters.
+        return opens_with_plaintext_header(where.db_path, false)
                      ? std::make_unique<client::Client>(
                                where.db_path,
                                session::sqlite::raw_key{where.key},

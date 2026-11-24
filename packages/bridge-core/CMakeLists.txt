@@ -87,6 +87,7 @@ endfunction()
 add_library(session-bridge-core STATIC
     src/client_bridge.cpp
     src/convert.cpp
+    src/database_header.cpp
     src/decode_plan.cpp
     src/mark_downloaded.cpp
     src/media_url.cpp

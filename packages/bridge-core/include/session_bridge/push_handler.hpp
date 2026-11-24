@@ -66,8 +66,6 @@ struct ColdPush {
     std::array<std::byte, 32> key;
     /// "mainnet" or "testnet": a devnet needs seed nodes only the app knows.
     std::string netid = "mainnet";
-    /// iOS opens its database with SQLite's header in plaintext (see the bridge); Android does not.
-    bool plaintext_header = false;
     /// How long to keep trying to open a database another process has locked. iOS's app holds it
     /// for up to its close's interrupt deadline after leaving the screen, and the extension waits
     /// that out rather than showing a generic notification.

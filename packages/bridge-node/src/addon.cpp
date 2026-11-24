@@ -71,6 +71,9 @@ class SessionBridge : public Napi::ObjectWrap<SessionBridge> {
             init.password = options.Get("password").As<Napi::String>().Utf8Value();
         }
 
+        if (options.Has("plaintextHeaderWhenNew"))
+            init.plaintext_header_when_new =
+                    options.Get("plaintextHeaderWhenNew").ToBoolean().Value();
         if (options.Has("deferAccount"))
             init.defer_account = options.Get("deferAccount").ToBoolean().Value();
         if (options.Has("netid") && !options.Get("netid").IsUndefined())
