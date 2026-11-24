@@ -1,0 +1,142 @@
+/**
+ * Inputs and the answers `capForSweep` then `sweep` give for them, with `formatPrefix` and
+ * `escapeMessage`, under one salt.
+ *
+ * The notification extension has no JavaScript, so its logs are swept by a C++ copy of these rules
+ * (`log_sweep.cpp` in bridge-core). The addon's tests run the same vectors through it, so the two
+ * cannot drift: a rule changed here without the copy, or there without this, fails one side.
+ * Regenerate the answers from the TypeScript when a rule changes on purpose.
+ */
+export interface SweepVector {
+  input: string
+  swept: string
+}
+
+export interface PrefixVector {
+  wallMs: number
+  uptimeMs: number
+  level: 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'critical'
+  category: string
+  op?: string | undefined
+  prefix: string
+}
+
+export interface EscapeVector {
+  text: string
+  escaped: string
+}
+
+/** Sixteen bytes, the least a salt may be, as hex as the log directory's `.salt` holds it. */
+export const SWEEP_VECTOR_SALT = '000102030405060708090a0b0c0d0e0f'
+
+export const SWEEP_VECTORS: readonly SweepVector[] = [
+  { input: 'plain text with nothing to hide', swept: 'plain text with nothing to hide' },
+  {
+    input: 'account 0571a779f6070606396930c81e4e39a7f00079842c8c133899b9c597cde478646a opened',
+    swept: 'account 0571a7...646a opened',
+  },
+  {
+    input: 'group 03ABCDEF0123456789abcdef0123456789abcdef0123456789abcdef0123456789 joined',
+    swept: 'group 03abcd...6789 joined',
+  },
+  {
+    input: 'hash 5d0418ef3fd605ca98b07dfab4d4d32fad9f6351eafc6188d54b69ec519539ba stored',
+    swept: 'hash ~fca114dd stored',
+  },
+  {
+    input: 'swarm hash Kq3mVv9Yp2xZtR8bW1nH4cJ6dF0gL5sA7eU2iO3yT9w and more',
+    swept: 'swarm hash ~f7f05e67 and more',
+  },
+  {
+    input: 'node 1c9rf8kz4oix61ry8gwhs8yfqjqbxbmxjc7ktzfxh5nb5ua6mxfy.snode replied',
+    swept: 'node ~eb0036f3.snode replied',
+  },
+  {
+    input:
+      'via http://seed1.getsession.org/json_rpc and https://filev2.getsession.org/file/12345678',
+    swept:
+      'via http://seed1.getsession.org/json_rpc and https://filev2.getsession.org/file/~e5110038',
+  },
+  {
+    input:
+      'community https://open.example.com/room/session/messages/since/123456?public_key=abcd&x=1#frag',
+    swept: 'community https://~b4ac5007/room/~add9c7da/messages/since/~2383f985?<2>',
+  },
+  {
+    input: 'connected to 144.76.164.202:22021 and 192.168.1.10',
+    swept: 'connected to <v4 public:22021> and <v4 private>',
+  },
+  {
+    input: 'router [2001:db8::1]:443 and bare fe80::1ff:fe23:4567:890a here',
+    swept: 'router <v6 public:443> and bare <v6 private> here',
+  },
+  { input: 'request 123e4567-e89b-12d3-a456-426614174000 done', swept: 'request ~b352c3b3 done' },
+  {
+    input:
+      'phrase tilt ouch upbeat symptoms rash vane unbending asylum tulips abnormal begun piano tilt end',
+    swept: '<15 words>',
+  },
+  {
+    input:
+      'array ["tilt","ouch","upbeat","symptoms","rash","vane","unbending","asylum","tulips","abnormal","begun","piano","tilt"]',
+    swept: '<14 words>"]',
+  },
+  {
+    input:
+      'twelve tilt ouch upbeat symptoms rash vane unbending asylum tulips abnormal begun piano',
+    swept: '<13 words>',
+  },
+  {
+    input:
+      'кирилл слово ещё один текст здесь пишут много разных длинных слов подряд чтобы было больше тринадцати',
+    swept: '<16 words>',
+  },
+  {
+    input:
+      'escaped tilt\\nouch\\nupbeat\\nsymptoms\\nrash\\nvane\\nunbending\\nasylum\\ntulips\\nabnormal\\nbegun\\npiano\\ntilt',
+    swept: '<14 words>',
+  },
+  { input: 'a'.repeat(4090) + ' ' + 'b'.repeat(20), swept: '~ba2e9b44 [cut 21 chars]' },
+  { input: 'x'.repeat(4100), swept: '[cut 4100 chars]' },
+  {
+    input: 'loopback 127.0.0.1:8080, cgnat 100.64.1.2, unspecified 0.0.0.0',
+    swept: 'loopback <v4 loopback:8080>, cgnat <v4 cgnat>, unspecified <v4 unspecified>',
+  },
+  {
+    input: 'user@host https://user:pass@getsession.org:443/room/ABCDEFGHIJKLMNOPQRSTUVWXYZ012345',
+    swept: 'user@host https://getsession.org:443/room/~3030a502',
+  },
+]
+
+export const PREFIX_VECTORS: readonly PrefixVector[] = [
+  {
+    wallMs: 1795500000123,
+    uptimeMs: 12345,
+    level: 'info',
+    category: 'network',
+    op: 'CoS-0-GZHC',
+    prefix: '2026-11-24T06:00:00.123Z     +12.345 INFO  [network]          [CoS-0-GZHC]    ',
+  },
+  {
+    wallMs: 1795500000123,
+    uptimeMs: 999999999,
+    level: 'critical',
+    category: 'onion-request-router',
+    prefix: '2026-11-24T06:00:00.123Z +999999.999 CRIT  [onion-request-r…]                 ',
+  },
+  {
+    wallMs: 0,
+    uptimeMs: 0,
+    level: 'warn',
+    category: 'a b/c',
+    op: 'x y',
+    prefix: '1970-01-01T00:00:00.000Z      +0.000 WARN  [a_b_c]            [x_y]           ',
+  },
+]
+
+export const ESCAPE_VECTORS: readonly EscapeVector[] = [
+  { text: 'a\\b', escaped: 'a\\\\b' },
+  { text: 'line\nbreak', escaped: 'line\\nbreak' },
+  { text: 'cr\r\nlf', escaped: 'cr\\nlf' },
+  { text: 'lone\rcr', escaped: 'lone\\rcr' },
+]

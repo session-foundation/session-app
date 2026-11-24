@@ -31,6 +31,7 @@
   "devDependencies": {
     "@session/client-contract": "workspace:*",
     "@session/eslint-config": "workspace:*",
+    "@session/logging": "workspace:*",
     "@session/typescript-config": "workspace:*",
     "@types/node": "catalog:",
     "cmake-js": "catalog:",

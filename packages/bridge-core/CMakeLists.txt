@@ -89,8 +89,10 @@ add_library(session-bridge-core STATIC
     src/convert.cpp
     src/decode_plan.cpp
     src/mark_downloaded.cpp
+    src/log_sweep.cpp
     src/media_url.cpp
     src/push_handler.cpp
+    src/run_log.cpp
     src/staged_thumbnails.cpp
     src/utf8_path.cpp
     src/worker.cpp)
