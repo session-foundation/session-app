@@ -31,8 +31,7 @@ mkdir -p "$out"
 # --init: xvfb-run as the container's first process never hears that Xvfb is ready. No core:
 # a crashing Electron would write hundreds of MB into the checkout, which is the working dir.
 # CATALOG_CGROUP_PARENT lifts a capture out of a daemon-wide parent that throttles a host's CI.
-# The screen holds MAX_CAPTURE_WINDOW in catalog/captureWindow.ts, the window the tallest page
-# grows to, with 200 px to spare in case anything is drawn around the page; raise the two together.
+# The screen is CAPTURE_SCREEN in catalog/captureWindow.ts; captureWindow.test.ts fails if they differ.
 docker run --rm --init ${CATALOG_CGROUP_PARENT:+--cgroup-parent "$CATALOG_CGROUP_PARENT"} \
   --user "$(id -u):$(id -g)" \
   --ulimit core=0 \
