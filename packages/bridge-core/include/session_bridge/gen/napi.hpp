@@ -1184,6 +1184,119 @@ struct Codec<::session_bridge::MessagesAddedSessionEvent> {
 };
 
 template <>
+struct Codec<::session_bridge::IncomingNotificationKind> {
+    static constexpr std::string_view name = "IncomingNotificationKind";
+    static Napi::Value to(Napi::Env env, ::session_bridge::IncomingNotificationKind value) {
+        auto text = ::session_bridge::EnumTraits<::session_bridge::IncomingNotificationKind>::to_string(value);
+        return Napi::String::New(env, text.data(), text.size());
+    }
+    static ::session_bridge::IncomingNotificationKind from(const Napi::Value& value, std::string_view where) {
+        std::string text = Codec<std::string>::from(value, where);
+        auto parsed = ::session_bridge::EnumTraits<::session_bridge::IncomingNotificationKind>::parse(text);
+        if (!parsed)
+            throw std::invalid_argument(std::string{where} + ": \"" + text + "\" is not a IncomingNotificationKind");
+        return *parsed;
+    }
+};
+
+template <>
+struct Codec<::session_bridge::NotificationAttachment> {
+    static constexpr std::string_view name = "NotificationAttachment";
+    static Napi::Value to(Napi::Env env, ::session_bridge::NotificationAttachment value) {
+        auto text = ::session_bridge::EnumTraits<::session_bridge::NotificationAttachment>::to_string(value);
+        return Napi::String::New(env, text.data(), text.size());
+    }
+    static ::session_bridge::NotificationAttachment from(const Napi::Value& value, std::string_view where) {
+        std::string text = Codec<std::string>::from(value, where);
+        auto parsed = ::session_bridge::EnumTraits<::session_bridge::NotificationAttachment>::parse(text);
+        if (!parsed)
+            throw std::invalid_argument(std::string{where} + ": \"" + text + "\" is not a NotificationAttachment");
+        return *parsed;
+    }
+};
+
+template <>
+struct Codec<::session_bridge::IncomingNotification> {
+    static constexpr std::string_view name = "IncomingNotification";
+    static Napi::Value to(Napi::Env env, const ::session_bridge::IncomingNotification& value) {
+        Napi::Object obj = Napi::Object::New(env);
+        obj.Set("id", Codec<std::string>::to(env, value.id));
+        obj.Set("kind", Codec<::session_bridge::IncomingNotificationKind>::to(env, value.kind));
+        if (value.conversation_id)
+            obj.Set("conversationId", Codec<std::string>::to(env, *value.conversation_id));
+        if (value.sender)
+            obj.Set("sender", Codec<std::string>::to(env, *value.sender));
+        if (value.body)
+            obj.Set("body", Codec<std::string>::to(env, *value.body));
+        if (value.attachment)
+            obj.Set("attachment", Codec<::session_bridge::NotificationAttachment>::to(env, *value.attachment));
+        obj.Set("attachments", Codec<double>::to(env, value.attachments));
+        obj.Set("timestamp", Codec<double>::to(env, value.timestamp));
+        return obj;
+    }
+    static ::session_bridge::IncomingNotification from(const Napi::Value& value, std::string_view where) {
+        Napi::Object obj = object(value, where);
+        return ::session_bridge::IncomingNotification(
+                Codec<std::string>::from(obj.Get("id"), "IncomingNotification.id"),
+                Codec<::session_bridge::IncomingNotificationKind>::from(obj.Get("kind"), "IncomingNotification.kind"),
+                optional<std::string>(obj.Get("conversationId"), "IncomingNotification.conversationId"),
+                optional<std::string>(obj.Get("sender"), "IncomingNotification.sender"),
+                optional<std::string>(obj.Get("body"), "IncomingNotification.body"),
+                optional<::session_bridge::NotificationAttachment>(obj.Get("attachment"), "IncomingNotification.attachment"),
+                Codec<double>::from(obj.Get("attachments"), "IncomingNotification.attachments"),
+                Codec<double>::from(obj.Get("timestamp"), "IncomingNotification.timestamp"));
+    }
+};
+
+template <>
+struct Codec<::session_bridge::NotificationSessionEvent> {
+    static constexpr std::string_view name = "NotificationSessionEvent";
+    static Napi::Value to(Napi::Env env, const ::session_bridge::NotificationSessionEvent& value) {
+        Napi::Object obj = Napi::Object::New(env);
+        obj.Set("type", Napi::String::New(env, ::session_bridge::NotificationSessionEvent::type_tag.data(), ::session_bridge::NotificationSessionEvent::type_tag.size()));
+        obj.Set("notification", Codec<::session_bridge::IncomingNotification>::to(env, value.notification));
+        return obj;
+    }
+    static ::session_bridge::NotificationSessionEvent from(const Napi::Value& value, std::string_view where) {
+        Napi::Object obj = object(value, where);
+        return ::session_bridge::NotificationSessionEvent(
+                Codec<::session_bridge::IncomingNotification>::from(obj.Get("notification"), "NotificationSessionEvent.notification"));
+    }
+};
+
+template <>
+struct Codec<::session_bridge::NotificationsStaleSessionEvent> {
+    static constexpr std::string_view name = "NotificationsStaleSessionEvent";
+    static Napi::Value to(Napi::Env env, const ::session_bridge::NotificationsStaleSessionEvent& value) {
+        Napi::Object obj = Napi::Object::New(env);
+        obj.Set("type", Napi::String::New(env, ::session_bridge::NotificationsStaleSessionEvent::type_tag.data(), ::session_bridge::NotificationsStaleSessionEvent::type_tag.size()));
+        obj.Set("ids", Codec<std::vector<std::string>>::to(env, value.ids));
+        return obj;
+    }
+    static ::session_bridge::NotificationsStaleSessionEvent from(const Napi::Value& value, std::string_view where) {
+        Napi::Object obj = object(value, where);
+        return ::session_bridge::NotificationsStaleSessionEvent(
+                Codec<std::vector<std::string>>::from(obj.Get("ids"), "NotificationsStaleSessionEvent.ids"));
+    }
+};
+
+template <>
+struct Codec<::session_bridge::BadgeSessionEvent> {
+    static constexpr std::string_view name = "BadgeSessionEvent";
+    static Napi::Value to(Napi::Env env, const ::session_bridge::BadgeSessionEvent& value) {
+        Napi::Object obj = Napi::Object::New(env);
+        obj.Set("type", Napi::String::New(env, ::session_bridge::BadgeSessionEvent::type_tag.data(), ::session_bridge::BadgeSessionEvent::type_tag.size()));
+        obj.Set("count", Codec<double>::to(env, value.count));
+        return obj;
+    }
+    static ::session_bridge::BadgeSessionEvent from(const Napi::Value& value, std::string_view where) {
+        Napi::Object obj = object(value, where);
+        return ::session_bridge::BadgeSessionEvent(
+                Codec<double>::from(obj.Get("count"), "BadgeSessionEvent.count"));
+    }
+};
+
+template <>
 struct Codec<::session_bridge::MessagesUpdatedSessionEvent> {
     static constexpr std::string_view name = "MessagesUpdatedSessionEvent";
     static Napi::Value to(Napi::Env env, const ::session_bridge::MessagesUpdatedSessionEvent& value) {
@@ -1333,6 +1446,12 @@ struct Codec<::session_bridge::SessionEvent> {
             return Codec<::session_bridge::ConversationRemovedSessionEvent>::from(value, where);
         if (tag == "messages-added")
             return Codec<::session_bridge::MessagesAddedSessionEvent>::from(value, where);
+        if (tag == "notification")
+            return Codec<::session_bridge::NotificationSessionEvent>::from(value, where);
+        if (tag == "notifications-stale")
+            return Codec<::session_bridge::NotificationsStaleSessionEvent>::from(value, where);
+        if (tag == "badge")
+            return Codec<::session_bridge::BadgeSessionEvent>::from(value, where);
         if (tag == "messages-updated")
             return Codec<::session_bridge::MessagesUpdatedSessionEvent>::from(value, where);
         if (tag == "history-replaced")
@@ -1880,6 +1999,22 @@ struct Codec<::session_bridge::SetNotificationSoundCommand> {
         Napi::Object obj = object(value, where);
         return ::session_bridge::SetNotificationSoundCommand(
                 Codec<::session_bridge::NotificationSound>::from(obj.Get("sound"), "SetNotificationSoundCommand.sound"));
+    }
+};
+
+template <>
+struct Codec<::session_bridge::SetNotificationYouCommand> {
+    static constexpr std::string_view name = "SetNotificationYouCommand";
+    static Napi::Value to(Napi::Env env, const ::session_bridge::SetNotificationYouCommand& value) {
+        Napi::Object obj = Napi::Object::New(env);
+        obj.Set("type", Napi::String::New(env, ::session_bridge::SetNotificationYouCommand::type_tag.data(), ::session_bridge::SetNotificationYouCommand::type_tag.size()));
+        obj.Set("you", Codec<std::string>::to(env, value.you));
+        return obj;
+    }
+    static ::session_bridge::SetNotificationYouCommand from(const Napi::Value& value, std::string_view where) {
+        Napi::Object obj = object(value, where);
+        return ::session_bridge::SetNotificationYouCommand(
+                Codec<std::string>::from(obj.Get("you"), "SetNotificationYouCommand.you"));
     }
 };
 
@@ -2641,6 +2776,8 @@ struct Codec<::session_bridge::Command> {
             return Codec<::session_bridge::GetNotificationSoundCommand>::from(value, where);
         if (tag == "setNotificationSound")
             return Codec<::session_bridge::SetNotificationSoundCommand>::from(value, where);
+        if (tag == "setNotificationYou")
+            return Codec<::session_bridge::SetNotificationYouCommand>::from(value, where);
         if (tag == "handlePushPayload")
             return Codec<::session_bridge::HandlePushPayloadCommand>::from(value, where);
         if (tag == "getConversations")

@@ -56,6 +56,7 @@
 #include "session_bridge/push_handler.hpp"
 #include "session_bridge/staged_thumbnails.hpp"
 #include "session_bridge/utf8_path.hpp"
+#include "session_bridge/worker.hpp"
 #include "mark_downloaded.hpp"
 
 namespace session_bridge {
@@ -479,6 +480,93 @@ struct ClientBridge::Impl {
     /// The destroy under way, if any. Under `client_lock`.
     std::shared_ptr<CloseWatch> close_watch;
 
+    /// Notifications for messages that arrive while the Client is open, decided on `arrival_worker`
+    /// because deciding waits on the Client's loop, which delivered them. Shared with each job, and
+    /// held by it while it runs, so that `close` can clear `impl` and know no job still uses it.
+    struct ArrivalState {
+        std::mutex m;
+        Impl* impl = nullptr;
+        /// The person's word for themselves, which a mention of them becomes.
+        std::string you = "You";
+        /// A refresh is queued and not yet started, so another change need not queue one.
+        std::atomic<bool> refresh_queued{false};
+        /// The badge last reported, so that only a change is.
+        std::optional<int64_t> badge;
+    };
+    std::shared_ptr<ArrivalState> arrival = std::make_shared<ArrivalState>();
+    Worker arrival_worker;
+
+    /// Where the last messages taken in were stamped up to, in Core's globals: what is older is
+    /// history a poll caught up on, and is not announced (see `decide_arrivals`).
+    static constexpr std::string_view HORIZON_KEY = "notifications.horizon";
+
+    /// Runs `f` on the open Client and its push subscription off Core's loop, as a push handled on
+    /// it is: not at all while there is no account or the Client is closing for the background.
+    template <typename F>
+    void on_open_notifications(F&& f) {
+        std::shared_lock use{push_use, std::defer_lock};
+        {
+            std::lock_guard lock{client_lock};
+            if (close_cancelled || !client || background != Background::open ||
+                !client->core.globals.have_account())
+                return;
+            push_notifications();
+            use.lock();
+        }
+        f(*client, *notifications);
+    }
+
+    /// Takes down what was read or deleted, and reports the badge when it moved. Under
+    /// `arrival->m`.
+    void refresh_notifications_now(client::Client& c, push::Notifications& n) {
+        auto refresh = session_bridge::refresh_notifications(c, n);
+        if (!refresh.stale.empty())
+            event(NotificationsStaleSessionEvent{std::move(refresh.stale)});
+        if (arrival->badge != refresh.badge) {
+            arrival->badge = refresh.badge;
+            event(BadgeSessionEvent{static_cast<double>(refresh.badge)});
+        }
+    }
+
+    /// Queued from Core's loop as messages arrive. Takes copies: the batch itself is moved into its
+    /// event before this job runs.
+    void notify_arrivals(std::vector<client::Message> incoming) {
+        arrival_worker.post([state = arrival, incoming = std::move(incoming)] {
+            std::lock_guard guard{state->m};
+            if (!state->impl)
+                return;
+            state->impl->on_open_notifications([&](client::Client& c, push::Notifications& n) {
+                using sys_ms = std::chrono::sys_time<std::chrono::milliseconds>;
+                auto& globals = c.core.globals;
+                auto now = std::chrono::floor<std::chrono::milliseconds>(
+                        std::chrono::system_clock::now());
+                auto stored = globals.get_integer(HORIZON_KEY);
+                // None yet, on a new install or a restore: everything here is history.
+                sys_ms horizon = stored ? sys_ms{std::chrono::milliseconds{*stored}} : now;
+                for (auto& content : decide_arrivals(n, incoming, state->you, horizon))
+                    state->impl->event(NotificationSessionEvent{to_bridge(std::move(content))});
+                if (now > horizon || !stored)
+                    globals.set(HORIZON_KEY, int64_t{now.time_since_epoch().count()});
+                state->impl->refresh_notifications_now(c, n);
+            });
+        });
+    }
+
+    /// Queued from Core's loop when read state may have changed; one at a time.
+    void queue_notification_refresh() {
+        if (arrival->refresh_queued.exchange(true))
+            return;
+        arrival_worker.post([state = arrival] {
+            state->refresh_queued = false;
+            std::lock_guard guard{state->m};
+            if (!state->impl)
+                return;
+            state->impl->on_open_notifications([&](client::Client& c, push::Notifications& n) {
+                state->impl->refresh_notifications_now(c, n);
+            });
+        });
+    }
+
     explicit Impl(Sink s, InitOptions o) : sink{std::move(s)}, options{std::move(o)} {}
 
     /// Builds the Client, and can do it again.
@@ -504,6 +592,8 @@ struct ClientBridge::Impl {
                         [impl](client::AnyConversation&& c, client::ListPlacement&& p) {
                             impl->event(ConversationUpdatedSessionEvent{
                                     to_bridge(std::move(c)), to_bridge(std::move(p))});
+                            // Read here or elsewhere, muted, or a request approved.
+                            impl->queue_notification_refresh();
                         },
                 .conversation_removed =
                         [impl](client::ConversationId&& id, client::ConversationList list) {
@@ -518,11 +608,19 @@ struct ClientBridge::Impl {
                 // conversation, which is why neither of these is told one.
                 .messages_added =
                         [impl](std::vector<client::Message>&& ms) {
+                            std::vector<client::Message> incoming;
+                            for (const auto& m : ms)
+                                if (!m.outgoing)
+                                    incoming.push_back(m);
                             impl->event(MessagesAddedSessionEvent{to_bridge(std::move(ms))});
+                            if (!incoming.empty())
+                                impl->notify_arrivals(std::move(incoming));
                         },
                 .messages_updated =
                         [impl](std::vector<client::Message>&& ms) {
                             impl->event(MessagesUpdatedSessionEvent{to_bridge(std::move(ms))});
+                            // Deleted, or unsent by its author.
+                            impl->queue_notification_refresh();
                         },
                 .history_replaced =
                         [impl](const client::ConversationId& id) {
@@ -1344,6 +1442,14 @@ struct ClientBridge::Impl {
         ok(id);
     }
 
+    void handle(double id, const SetNotificationYouCommand& cmd) {
+        {
+            std::lock_guard guard{arrival->m};
+            arrival->you = cmd.you;
+        }
+        ok(id);
+    }
+
     void handle(double id, const GetNotificationSoundCommand&) {
         auto stored = client->core.loop().call_get(
                 [&] { return client->core.configs.local().get_ios_notification_sound(); });
@@ -1899,6 +2005,7 @@ struct ClientBridge::Impl {
 
 ClientBridge::ClientBridge(InitOptions options, Sink sink) :
         _impl{std::make_unique<Impl>(std::move(sink), options)} {
+    _impl->arrival->impl = _impl.get();
 
     // **A database that will not open leaves a bridge without a client, not no bridge.** Thrown
     // from here it took the bridge with it, so the app had nothing to ask and nothing to show: on
@@ -1936,6 +2043,13 @@ ClientBridge::~ClientBridge() {
 void ClientBridge::close() {
     if (!_impl)
         return;
+    // Before anything takes `client_lock`, which a running arrival job may be waiting on while it
+    // holds the state: this waits for that job, and no later one reaches the Impl.
+    {
+        std::lock_guard guard{_impl->arrival->m};
+        _impl->arrival->impl = nullptr;
+    }
+    _impl->arrival_worker.stop();
     // A close for the background still under way answers on this Impl, so it has to end first:
     // cancelled if it is still waiting, and otherwise done once the Client it took is destroyed.
     _impl->close_cancelled = true;

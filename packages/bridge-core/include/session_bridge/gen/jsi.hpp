@@ -1333,6 +1333,140 @@ struct JSIConverter<::session_bridge::MessagesAddedSessionEvent> final {
 };
 
 template <>
+struct JSIConverter<::session_bridge::IncomingNotificationKind> final {
+    static inline ::session_bridge::IncomingNotificationKind fromJSI(jsi::Runtime& runtime, const jsi::Value& arg) {
+        std::string text = JSIConverter<std::string>::fromJSI(runtime, arg);
+        auto parsed = ::session_bridge::EnumTraits<::session_bridge::IncomingNotificationKind>::parse(text);
+        if (!parsed) [[unlikely]]
+            throw std::invalid_argument("Cannot convert \"" + text + "\" to IncomingNotificationKind");
+        return *parsed;
+    }
+    static inline jsi::Value toJSI(jsi::Runtime& runtime, ::session_bridge::IncomingNotificationKind arg) {
+        return ::session_bridge::ascii(runtime, ::session_bridge::EnumTraits<::session_bridge::IncomingNotificationKind>::to_string(arg));
+    }
+    static inline bool canConvert(jsi::Runtime& runtime, const jsi::Value& value) {
+        return value.isString() &&
+               ::session_bridge::EnumTraits<::session_bridge::IncomingNotificationKind>::parse(JSIConverter<std::string>::fromJSI(runtime, value)).has_value();
+    }
+};
+
+template <>
+struct JSIConverter<::session_bridge::NotificationAttachment> final {
+    static inline ::session_bridge::NotificationAttachment fromJSI(jsi::Runtime& runtime, const jsi::Value& arg) {
+        std::string text = JSIConverter<std::string>::fromJSI(runtime, arg);
+        auto parsed = ::session_bridge::EnumTraits<::session_bridge::NotificationAttachment>::parse(text);
+        if (!parsed) [[unlikely]]
+            throw std::invalid_argument("Cannot convert \"" + text + "\" to NotificationAttachment");
+        return *parsed;
+    }
+    static inline jsi::Value toJSI(jsi::Runtime& runtime, ::session_bridge::NotificationAttachment arg) {
+        return ::session_bridge::ascii(runtime, ::session_bridge::EnumTraits<::session_bridge::NotificationAttachment>::to_string(arg));
+    }
+    static inline bool canConvert(jsi::Runtime& runtime, const jsi::Value& value) {
+        return value.isString() &&
+               ::session_bridge::EnumTraits<::session_bridge::NotificationAttachment>::parse(JSIConverter<std::string>::fromJSI(runtime, value)).has_value();
+    }
+};
+
+template <>
+struct JSIConverter<::session_bridge::IncomingNotification> final {
+    static inline ::session_bridge::IncomingNotification fromJSI(jsi::Runtime& runtime, const jsi::Value& arg) {
+        jsi::Object obj = arg.asObject(runtime);
+        return ::session_bridge::IncomingNotification(
+                JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "id"))),
+                JSIConverter<::session_bridge::IncomingNotificationKind>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "kind"))),
+                ::session_bridge::optional_from_jsi<std::string>(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "conversationId"))),
+                ::session_bridge::optional_from_jsi<std::string>(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "sender"))),
+                ::session_bridge::optional_from_jsi<std::string>(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "body"))),
+                ::session_bridge::optional_from_jsi<::session_bridge::NotificationAttachment>(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "attachment"))),
+                JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "attachments"))),
+                JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "timestamp"))));
+    }
+    static inline jsi::Value toJSI(jsi::Runtime& runtime, const ::session_bridge::IncomingNotification& arg) {
+        jsi::Object obj(runtime);
+        obj.setProperty(runtime, PropNameIDCache::get(runtime, "id"), JSIConverter<std::string>::toJSI(runtime, arg.id));
+        obj.setProperty(runtime, PropNameIDCache::get(runtime, "kind"), JSIConverter<::session_bridge::IncomingNotificationKind>::toJSI(runtime, arg.kind));
+        if (arg.conversation_id)
+            obj.setProperty(runtime, PropNameIDCache::get(runtime, "conversationId"), JSIConverter<std::string>::toJSI(runtime, *arg.conversation_id));
+        if (arg.sender)
+            obj.setProperty(runtime, PropNameIDCache::get(runtime, "sender"), JSIConverter<std::string>::toJSI(runtime, *arg.sender));
+        if (arg.body)
+            obj.setProperty(runtime, PropNameIDCache::get(runtime, "body"), JSIConverter<std::string>::toJSI(runtime, *arg.body));
+        if (arg.attachment)
+            obj.setProperty(runtime, PropNameIDCache::get(runtime, "attachment"), JSIConverter<::session_bridge::NotificationAttachment>::toJSI(runtime, *arg.attachment));
+        obj.setProperty(runtime, PropNameIDCache::get(runtime, "attachments"), JSIConverter<double>::toJSI(runtime, arg.attachments));
+        obj.setProperty(runtime, PropNameIDCache::get(runtime, "timestamp"), JSIConverter<double>::toJSI(runtime, arg.timestamp));
+        return obj;
+    }
+    static inline bool canConvert(jsi::Runtime&, const jsi::Value& value) {
+        return value.isObject();
+    }
+};
+
+template <>
+struct JSIConverter<::session_bridge::NotificationSessionEvent> final {
+    static inline ::session_bridge::NotificationSessionEvent fromJSI(jsi::Runtime& runtime, const jsi::Value& arg) {
+        jsi::Object obj = arg.asObject(runtime);
+        return ::session_bridge::NotificationSessionEvent(
+                JSIConverter<::session_bridge::IncomingNotification>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "notification"))));
+    }
+    static inline jsi::Value toJSI(jsi::Runtime& runtime, const ::session_bridge::NotificationSessionEvent& arg) {
+        jsi::Object obj(runtime);
+        obj.setProperty(runtime, PropNameIDCache::get(runtime, "type"), ::session_bridge::ascii(runtime, ::session_bridge::NotificationSessionEvent::type_tag));
+        obj.setProperty(runtime, PropNameIDCache::get(runtime, "notification"), JSIConverter<::session_bridge::IncomingNotification>::toJSI(runtime, arg.notification));
+        return obj;
+    }
+    static inline bool canConvert(jsi::Runtime& runtime, const jsi::Value& value) {
+        if (!value.isObject())
+            return false;
+        jsi::Value type = value.getObject(runtime).getProperty(runtime, PropNameIDCache::get(runtime, "type"));
+        return type.isString() && type.getString(runtime).utf8(runtime) == ::session_bridge::NotificationSessionEvent::type_tag;
+    }
+};
+
+template <>
+struct JSIConverter<::session_bridge::NotificationsStaleSessionEvent> final {
+    static inline ::session_bridge::NotificationsStaleSessionEvent fromJSI(jsi::Runtime& runtime, const jsi::Value& arg) {
+        jsi::Object obj = arg.asObject(runtime);
+        return ::session_bridge::NotificationsStaleSessionEvent(
+                JSIConverter<std::vector<std::string>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "ids"))));
+    }
+    static inline jsi::Value toJSI(jsi::Runtime& runtime, const ::session_bridge::NotificationsStaleSessionEvent& arg) {
+        jsi::Object obj(runtime);
+        obj.setProperty(runtime, PropNameIDCache::get(runtime, "type"), ::session_bridge::ascii(runtime, ::session_bridge::NotificationsStaleSessionEvent::type_tag));
+        obj.setProperty(runtime, PropNameIDCache::get(runtime, "ids"), JSIConverter<std::vector<std::string>>::toJSI(runtime, arg.ids));
+        return obj;
+    }
+    static inline bool canConvert(jsi::Runtime& runtime, const jsi::Value& value) {
+        if (!value.isObject())
+            return false;
+        jsi::Value type = value.getObject(runtime).getProperty(runtime, PropNameIDCache::get(runtime, "type"));
+        return type.isString() && type.getString(runtime).utf8(runtime) == ::session_bridge::NotificationsStaleSessionEvent::type_tag;
+    }
+};
+
+template <>
+struct JSIConverter<::session_bridge::BadgeSessionEvent> final {
+    static inline ::session_bridge::BadgeSessionEvent fromJSI(jsi::Runtime& runtime, const jsi::Value& arg) {
+        jsi::Object obj = arg.asObject(runtime);
+        return ::session_bridge::BadgeSessionEvent(
+                JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "count"))));
+    }
+    static inline jsi::Value toJSI(jsi::Runtime& runtime, const ::session_bridge::BadgeSessionEvent& arg) {
+        jsi::Object obj(runtime);
+        obj.setProperty(runtime, PropNameIDCache::get(runtime, "type"), ::session_bridge::ascii(runtime, ::session_bridge::BadgeSessionEvent::type_tag));
+        obj.setProperty(runtime, PropNameIDCache::get(runtime, "count"), JSIConverter<double>::toJSI(runtime, arg.count));
+        return obj;
+    }
+    static inline bool canConvert(jsi::Runtime& runtime, const jsi::Value& value) {
+        if (!value.isObject())
+            return false;
+        jsi::Value type = value.getObject(runtime).getProperty(runtime, PropNameIDCache::get(runtime, "type"));
+        return type.isString() && type.getString(runtime).utf8(runtime) == ::session_bridge::BadgeSessionEvent::type_tag;
+    }
+};
+
+template <>
 struct JSIConverter<::session_bridge::MessagesUpdatedSessionEvent> final {
     static inline ::session_bridge::MessagesUpdatedSessionEvent fromJSI(jsi::Runtime& runtime, const jsi::Value& arg) {
         jsi::Object obj = arg.asObject(runtime);
@@ -1503,6 +1637,12 @@ struct JSIConverter<::session_bridge::SessionEvent> final {
             return JSIConverter<::session_bridge::ConversationRemovedSessionEvent>::fromJSI(runtime, arg);
         if (tag == "messages-added")
             return JSIConverter<::session_bridge::MessagesAddedSessionEvent>::fromJSI(runtime, arg);
+        if (tag == "notification")
+            return JSIConverter<::session_bridge::NotificationSessionEvent>::fromJSI(runtime, arg);
+        if (tag == "notifications-stale")
+            return JSIConverter<::session_bridge::NotificationsStaleSessionEvent>::fromJSI(runtime, arg);
+        if (tag == "badge")
+            return JSIConverter<::session_bridge::BadgeSessionEvent>::fromJSI(runtime, arg);
         if (tag == "messages-updated")
             return JSIConverter<::session_bridge::MessagesUpdatedSessionEvent>::fromJSI(runtime, arg);
         if (tag == "history-replaced")
@@ -1529,7 +1669,7 @@ struct JSIConverter<::session_bridge::SessionEvent> final {
         if (!type.isString())
             return false;
         std::string tag = type.getString(runtime).utf8(runtime);
-        return tag == "conversation-added" || tag == "conversation-updated" || tag == "conversation-removed" || tag == "messages-added" || tag == "messages-updated" || tag == "history-replaced" || tag == "attachment-progress" || tag == "network-status-changed" || tag == "log";
+        return tag == "conversation-added" || tag == "conversation-updated" || tag == "conversation-removed" || tag == "messages-added" || tag == "notification" || tag == "notifications-stale" || tag == "badge" || tag == "messages-updated" || tag == "history-replaced" || tag == "attachment-progress" || tag == "network-status-changed" || tag == "log";
     }
 };
 
@@ -2200,6 +2340,27 @@ struct JSIConverter<::session_bridge::SetNotificationSoundCommand> final {
             return false;
         jsi::Value type = value.getObject(runtime).getProperty(runtime, PropNameIDCache::get(runtime, "type"));
         return type.isString() && type.getString(runtime).utf8(runtime) == ::session_bridge::SetNotificationSoundCommand::type_tag;
+    }
+};
+
+template <>
+struct JSIConverter<::session_bridge::SetNotificationYouCommand> final {
+    static inline ::session_bridge::SetNotificationYouCommand fromJSI(jsi::Runtime& runtime, const jsi::Value& arg) {
+        jsi::Object obj = arg.asObject(runtime);
+        return ::session_bridge::SetNotificationYouCommand(
+                JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "you"))));
+    }
+    static inline jsi::Value toJSI(jsi::Runtime& runtime, const ::session_bridge::SetNotificationYouCommand& arg) {
+        jsi::Object obj(runtime);
+        obj.setProperty(runtime, PropNameIDCache::get(runtime, "type"), ::session_bridge::ascii(runtime, ::session_bridge::SetNotificationYouCommand::type_tag));
+        obj.setProperty(runtime, PropNameIDCache::get(runtime, "you"), JSIConverter<std::string>::toJSI(runtime, arg.you));
+        return obj;
+    }
+    static inline bool canConvert(jsi::Runtime& runtime, const jsi::Value& value) {
+        if (!value.isObject())
+            return false;
+        jsi::Value type = value.getObject(runtime).getProperty(runtime, PropNameIDCache::get(runtime, "type"));
+        return type.isString() && type.getString(runtime).utf8(runtime) == ::session_bridge::SetNotificationYouCommand::type_tag;
     }
 };
 
@@ -3126,6 +3287,8 @@ struct JSIConverter<::session_bridge::Command> final {
             return JSIConverter<::session_bridge::GetNotificationSoundCommand>::fromJSI(runtime, arg);
         if (tag == "setNotificationSound")
             return JSIConverter<::session_bridge::SetNotificationSoundCommand>::fromJSI(runtime, arg);
+        if (tag == "setNotificationYou")
+            return JSIConverter<::session_bridge::SetNotificationYouCommand>::fromJSI(runtime, arg);
         if (tag == "handlePushPayload")
             return JSIConverter<::session_bridge::HandlePushPayloadCommand>::fromJSI(runtime, arg);
         if (tag == "getConversations")
@@ -3212,7 +3375,7 @@ struct JSIConverter<::session_bridge::Command> final {
         if (!type.isString())
             return false;
         std::string tag = type.getString(runtime).utf8(runtime);
-        return tag == "getAccountInfo" || tag == "createAccount" || tag == "restoreAccountFromWords" || tag == "checkRecoveryPhrase" || tag == "restoreAccountFromSeed" || tag == "discardAccount" || tag == "keepAccount" || tag == "getSeedMnemonic" || tag == "getSeedHex" || tag == "hideRecoveryPassword" || tag == "getRecoveryPasswordHidden" || tag == "setDisplayName" || tag == "attachNetwork" || tag == "warmNetworkCache" || tag == "getNetworkStatus" || tag == "setPollInterval" || tag == "pollOnce" || tag == "closeClient" || tag == "reopenClient" || tag == "setPushToken" || tag == "clearPushToken" || tag == "getNotificationContent" || tag == "setNotificationContent" || tag == "getNotificationSound" || tag == "setNotificationSound" || tag == "handlePushPayload" || tag == "getConversations" || tag == "getMessageRequests" || tag == "getConversation" || tag == "openDm" || tag == "markRead" || tag == "setBlocked" || tag == "setNickname" || tag == "setPriority" || tag == "approveConversation" || tag == "deleteConversation" || tag == "getMessages" || tag == "sendMessage" || tag == "attachmentSendPlan" || tag == "getAttachmentUploadLimit" || tag == "retrySend" || tag == "deleteMessage" || tag == "setGallery" || tag == "downloadAttachment" || tag == "exportAttachment" || tag == "setAutoDownload" || tag == "getCacheDir" || tag == "getAttachmentCacheLimit" || tag == "setAttachmentCacheLimit" || tag == "getAttachmentCacheSize" || tag == "getThumbnailEdge" || tag == "setThumbnailEdge" || tag == "getConfigSizes" || tag == "getNetworkPaths" || tag == "getPref" || tag == "setPref" || tag == "deliverTestMessage" || tag == "getTestAccountSeed" || tag == "approveTestContact" || tag == "echoTestFrame";
+        return tag == "getAccountInfo" || tag == "createAccount" || tag == "restoreAccountFromWords" || tag == "checkRecoveryPhrase" || tag == "restoreAccountFromSeed" || tag == "discardAccount" || tag == "keepAccount" || tag == "getSeedMnemonic" || tag == "getSeedHex" || tag == "hideRecoveryPassword" || tag == "getRecoveryPasswordHidden" || tag == "setDisplayName" || tag == "attachNetwork" || tag == "warmNetworkCache" || tag == "getNetworkStatus" || tag == "setPollInterval" || tag == "pollOnce" || tag == "closeClient" || tag == "reopenClient" || tag == "setPushToken" || tag == "clearPushToken" || tag == "getNotificationContent" || tag == "setNotificationContent" || tag == "getNotificationSound" || tag == "setNotificationSound" || tag == "setNotificationYou" || tag == "handlePushPayload" || tag == "getConversations" || tag == "getMessageRequests" || tag == "getConversation" || tag == "openDm" || tag == "markRead" || tag == "setBlocked" || tag == "setNickname" || tag == "setPriority" || tag == "approveConversation" || tag == "deleteConversation" || tag == "getMessages" || tag == "sendMessage" || tag == "attachmentSendPlan" || tag == "getAttachmentUploadLimit" || tag == "retrySend" || tag == "deleteMessage" || tag == "setGallery" || tag == "downloadAttachment" || tag == "exportAttachment" || tag == "setAutoDownload" || tag == "getCacheDir" || tag == "getAttachmentCacheLimit" || tag == "setAttachmentCacheLimit" || tag == "getAttachmentCacheSize" || tag == "getThumbnailEdge" || tag == "setThumbnailEdge" || tag == "getConfigSizes" || tag == "getNetworkPaths" || tag == "getPref" || tag == "setPref" || tag == "deliverTestMessage" || tag == "getTestAccountSeed" || tag == "approveTestContact" || tag == "echoTestFrame";
     }
 };
 

@@ -833,6 +833,31 @@ describeEcho('the generated converters', () => {
       event: { type: 'conversation-removed', conversationId, list },
     })),
     { type: 'event', event: { type: 'messages-added', messages: [fullMessage] } },
+    {
+      type: 'event',
+      event: {
+        type: 'notification',
+        notification: {
+          id: 'hash-1',
+          kind: 'message',
+          conversationId: '05' + 'ab'.repeat(32),
+          sender: 'Bob',
+          body: 'hi @You',
+          attachment: 'voice',
+          attachments: 2,
+          timestamp: 1_700_000_000_123,
+        },
+      },
+    },
+    {
+      type: 'event',
+      event: {
+        type: 'notification',
+        notification: { id: 'hash-2', kind: 'request', attachments: 0, timestamp: 1 },
+      },
+    },
+    { type: 'event', event: { type: 'notifications-stale', ids: ['hash-1', 'message-7'] } },
+    { type: 'event', event: { type: 'badge', count: 3 } },
     { type: 'event', event: { type: 'messages-updated', messages: [bareMessage] } },
     { type: 'event', event: { type: 'history-replaced', conversationId } },
     {

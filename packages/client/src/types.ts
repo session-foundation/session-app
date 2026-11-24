@@ -194,6 +194,8 @@ export interface SessionClient {
   getNotificationSound(): Promise<NotificationSound>
   /** Stores the sound iOS notifications play. Refused without an account. */
   setNotificationSound(sound: NotificationSound): Promise<void>
+  /** The person's word for themselves, which a mention of them becomes in a notification. */
+  setNotificationYou(you: string): Promise<void>
 
   getConversations(): Promise<Conversation[]>
   getMessageRequests(): Promise<Conversation[]>
