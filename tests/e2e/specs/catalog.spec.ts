@@ -91,6 +91,15 @@ function byRow(page: CatalogPageSummary, issue: AuditIssue): AuditIssue {
   return row === undefined ? issue : { ...issue, target: `${page.story} ${row}` }
 }
 
+/**
+ * Leaves the pointer over the window's corner, the page's padding, where no story draws a control.
+ * The capture under Xvfb still drew a row hovered with the window ignoring the pointer, so the page
+ * is told the pointer is somewhere harmless before each picture.
+ */
+async function restPointer(app: DesktopApp): Promise<void> {
+  await app.page.mouse.move(0, 0)
+}
+
 /** The desktop app on the catalog, in the capture window, with the catalog's pages listed. */
 async function launchCatalog(): Promise<DesktopApp> {
   const app = await DesktopApp.launch('catalog', {
@@ -174,6 +183,7 @@ test(`captures and audits the component catalog's ${TIER} pages @catalog`, async
         await sizeWindow(app, fits)
         windowSize = fits
       }
+      await restPointer(app)
       const png = await app
         .locator(ELEMENT.catalog.page)
         .screenshot({ animations: 'disabled', caret: 'hide', scale: 'css' })
