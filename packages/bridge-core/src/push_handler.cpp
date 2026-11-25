@@ -118,8 +118,7 @@ PushResult handle_push(
         std::string_view you,
         std::optional<std::string_view> open,
         std::chrono::milliseconds deadline,
-        const PushLog& log,
-        bool take_stale) {
+        const PushLog& log) {
     std::optional<client::ConversationId> on_screen;
     if (open)
         on_screen = client::ConversationId::parse(*open);
@@ -153,8 +152,7 @@ PushResult handle_push(
             out.why = out.show ? "shown" : "nothing to show";
         }
     }
-    if (take_stale)
-        out.stale = notifications.stale();
+    out.stale = notifications.stale();
     out.badge = client.badge_count(session::await);
     return out;
 }
@@ -164,8 +162,7 @@ PushResult handle_cold_push(
         std::string_view enc_payload,
         std::string_view you,
         std::chrono::milliseconds deadline,
-        const PushLog& log,
-        bool take_stale) {
+        const PushLog& log) {
     if (auto why = unopenable(where))
         return generic(*why);
     const auto started = std::chrono::steady_clock::now();
@@ -186,8 +183,7 @@ PushResult handle_cold_push(
                     you,
                     where.open ? std::optional<std::string_view>{*where.open} : std::nullopt,
                     left,
-                    log,
-                    take_stale);
+                    log);
         }
         client.reset();
         log("database closed");
