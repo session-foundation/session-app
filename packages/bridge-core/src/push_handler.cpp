@@ -95,7 +95,8 @@ PushResult handle_push(
         std::string_view you,
         std::optional<std::string_view> open,
         std::chrono::milliseconds deadline,
-        const PushLog& log) {
+        const PushLog& log,
+        bool take_stale) {
     std::optional<client::ConversationId> on_screen;
     if (open)
         on_screen = client::ConversationId::parse(*open);
@@ -124,10 +125,13 @@ PushResult handle_push(
             const auto& handled = **wait->result;
             log("handled: " + std::string{outcome_name(handled.outcome)});
             out.show = notifications.decide(handled, you, on_screen);
+            if (out.show && handled.message)
+                out.message_id = handled.message->id;
             out.why = out.show ? "shown" : "nothing to show";
         }
     }
-    out.stale = notifications.stale();
+    if (take_stale)
+        out.stale = notifications.stale();
     out.badge = client.badge_count(session::await);
     return out;
 }
@@ -137,7 +141,8 @@ PushResult handle_cold_push(
         std::string_view enc_payload,
         std::string_view you,
         std::chrono::milliseconds deadline,
-        const PushLog& log) {
+        const PushLog& log,
+        bool take_stale) {
     if (auto why = unopenable(where))
         return generic(*why);
     try {
@@ -146,7 +151,14 @@ PushResult handle_cold_push(
         {
             push::Notifications notifications{*client};
             out = handle_push(
-                    *client, notifications, enc_payload, you, std::nullopt, deadline, log);
+                    *client,
+                    notifications,
+                    enc_payload,
+                    you,
+                    std::nullopt,
+                    deadline,
+                    log,
+                    take_stale);
         }
         client.reset();
         log("database closed");
@@ -156,17 +168,17 @@ PushResult handle_cold_push(
     }
 }
 
-std::vector<push::NotificationContent> decide_arrivals(
+std::vector<ArrivalNotification> decide_arrivals(
         push::Notifications& notifications,
         const std::vector<client::Message>& arrived,
         std::string_view you,
         std::chrono::sys_time<std::chrono::milliseconds> horizon) {
-    std::vector<push::NotificationContent> shown;
+    std::vector<ArrivalNotification> shown;
     for (const auto& m : arrived) {
         if (m.outgoing || m.timestamp <= horizon - ARRIVAL_SKEW)
             continue;
         if (auto n = notifications.decide({push::Handled::received, std::nullopt, m}, you))
-            shown.push_back(std::move(*n));
+            shown.push_back({std::move(*n), m.id});
     }
     return shown;
 }
@@ -178,7 +190,7 @@ NotificationRefresh refresh_notifications(
 
 namespace {
 
-    /// Marks read, sends a reply and waits for it to reach the swarm, until `deadline`.
+    /// Marks read where asked, sends a reply and waits for it to reach the swarm, until `deadline`.
     ActionResult act(
             client::Client& client,
             const NotificationAction& action,
@@ -188,8 +200,10 @@ namespace {
         auto id = client::ConversationId::parse(action.conversation);
         if (!client.conversation(id, session::await))
             return {false, "no such conversation", {}};
-        client::Conversation{client, id}.mark_read(session::await);
-        log("marked read");
+        if (action.mark_read || !action.reply) {
+            client::Conversation{client, id}.mark_read(session::await);
+            log("marked read");
+        }
         if (!action.reply)
             return {true, "marked read", {}};
 
@@ -218,7 +232,7 @@ ActionResult handle_action(
         std::chrono::milliseconds deadline,
         const PushLog& log) {
     auto out = act(client, action, deadline, log);
-    // Read, even when a reply did not go: its conversation's notifications come down now.
+    // Read where asked, even when a reply did not go: its conversation's notifications come down.
     out.stale = notifications.stale();
     return out;
 }

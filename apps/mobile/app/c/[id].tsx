@@ -1,3 +1,4 @@
+import { LAND_ON_PARAM, landingFromParam } from '@session/app'
 import { ConversationScreen, useLocale } from '@session/screens'
 import { useLocalSearchParams } from 'expo-router'
 
@@ -7,7 +8,9 @@ import { useLocalSearchParams } from 'expo-router'
  */
 export default function ConversationRoute() {
   useLocale()
-  const { id } = useLocalSearchParams<{ id: string }>()
+  const { id, [LAND_ON_PARAM]: landOn } = useLocalSearchParams<{ id: string; at?: string }>()
   if (id === undefined) return null
-  return <ConversationScreen conversationId={decodeURIComponent(id)} />
+  return (
+    <ConversationScreen conversationId={decodeURIComponent(id)} landOn={landingFromParam(landOn)} />
+  )
 }

@@ -33,6 +33,7 @@ internal object PushNative {
   external fun act(
       conversation: String,
       reply: String?,
+      markRead: Boolean,
       dbPath: String,
       keyHex: String?,
       netid: String,
@@ -63,6 +64,8 @@ internal class PushOutcome(
     val attachment: String?,
     val attachments: Int,
     val timestampMs: Long,
+    /** The message it is about, which tapping it opens the conversation on, or -1. */
+    val messageId: Long,
     /** The unread count, or -1. */
     val badge: Long,
     /** Notifications to take down: their messages were read or deleted. */

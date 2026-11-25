@@ -32,6 +32,8 @@ struct PushResult {
     std::optional<int64_t> badge;
     /// What happened, in words for the log: never message content.
     std::string why;
+    /// The message `show` is about, which tapping it lands on: set for a message the Client keeps.
+    std::optional<int64_t> message_id;
 };
 
 /// How long handling a push may take before it ends with whatever it has: inside iOS's 30 seconds
@@ -51,6 +53,10 @@ session::push::NotificationContent generic_notification();
 /// `you` is the user's own word for themselves, in their language, which a mention of them becomes.
 /// `open` is the conversation on screen, as its string id, which gets no notification; nullopt
 /// while the app is not in front.
+///
+/// `take_stale` reports what to take down, as `Notifications::stale` does, which consumes them:
+/// false for a process that cannot take a notification down, so that they are left for the app.
+/// iOS refuses a notification extension the delivered notifications ("missing entitlement").
 PushResult handle_push(
         session::client::Client& client,
         session::push::Notifications& notifications,
@@ -58,7 +64,8 @@ PushResult handle_push(
         std::string_view you,
         std::optional<std::string_view> open,
         std::chrono::milliseconds deadline,
-        const PushLog& log);
+        const PushLog& log,
+        bool take_stale = true);
 
 /// Where a push opens the database when the app is not running.
 struct ColdPush {
@@ -82,12 +89,19 @@ PushResult handle_cold_push(
         std::string_view enc_payload,
         std::string_view you,
         std::chrono::milliseconds deadline,
-        const PushLog& log);
+        const PushLog& log,
+        bool take_stale = true);
 
 /// How long before the horizon a message may be stamped and still be announced: a message carries
 /// the moment its sender pressed send, by its sender's clock. A message claimed already is not
 /// announced twice.
 inline constexpr std::chrono::minutes ARRIVAL_SKEW{5};
+
+/// A notification to post for a message that arrived while the app runs, and the message.
+struct ArrivalNotification {
+    session::push::NotificationContent content;
+    int64_t message_id;
+};
 
 /// What to post for messages that arrived while the app runs, on a Client already open:
 /// libsession's decision (`Notifications::decide`) for each incoming message stamped after
@@ -97,7 +111,7 @@ inline constexpr std::chrono::minutes ARRIVAL_SKEW{5};
 /// history a restore fetches, and is not announced. Not when messages were last taken in, which
 /// would silence a message sent just before a poll, or one whose sender's send was slow or retried
 /// and so arrives long after the moment it carries. Blocks: never on the Client's own loop.
-std::vector<session::push::NotificationContent> decide_arrivals(
+std::vector<ArrivalNotification> decide_arrivals(
         session::push::Notifications& notifications,
         const std::vector<session::client::Message>& arrived,
         std::string_view you,
@@ -114,13 +128,15 @@ struct NotificationRefresh {
 NotificationRefresh refresh_notifications(
         session::client::Client& client, session::push::Notifications& notifications);
 
-/// What a notification's button asks for: its conversation marked read, or a reply sent there,
-/// which marks it read too, as legacy clients do.
+/// What a notification's button asks for: its conversation marked read, or a reply sent there.
 struct NotificationAction {
     /// The conversation, as its string id: a message notification's thread.
     std::string conversation;
     /// The reply to send, or nullopt to mark read only.
     std::optional<std::string> reply;
+    /// Whether to mark the conversation read: always for Mark read, and for a reply unless a newer
+    /// notification of the conversation is still up, so that the rest can be answered one by one.
+    bool mark_read = true;
 };
 
 struct ActionResult {

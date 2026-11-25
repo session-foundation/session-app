@@ -72,7 +72,7 @@ jobject outcome(JNIEnv* env, const session_bridge::PushResult& r) {
             type,
             "<init>",
             "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;"
-            "Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;IJJ[Ljava/lang/String;)V");
+            "Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;IJJJ[Ljava/lang/String;)V");
     if (!make)
         return nullptr;
 
@@ -98,6 +98,7 @@ jobject outcome(JNIEnv* env, const session_bridge::PushResult& r) {
             c && c->attachment ? env->NewStringUTF(attachment_name(*c->attachment)) : nullptr,
             static_cast<jint>(c ? c->attachments : 0),
             static_cast<jlong>(c ? c->timestamp.time_since_epoch().count() : 0),
+            static_cast<jlong>(c ? r.message_id.value_or(-1) : -1),
             static_cast<jlong>(r.badge.value_or(-1)),
             stale);
 }
@@ -186,6 +187,7 @@ extern "C" JNIEXPORT jobject JNICALL Java_org_getsession_push_PushNative_act(
         jclass,
         jstring conversation,
         jstring reply,
+        jboolean mark_read,
         jstring db_path,
         jstring key_hex,
         jstring netid) {
@@ -193,6 +195,7 @@ extern "C" JNIEXPORT jobject JNICALL Java_org_getsession_push_PushNative_act(
     action.conversation = text(env, conversation);
     if (reply)
         action.reply = text(env, reply);
+    action.mark_read = mark_read == JNI_TRUE;
     std::optional<session_bridge::ActionResult> result;
     try {
         result = session_bridge_rn::act_on_app_bridge(

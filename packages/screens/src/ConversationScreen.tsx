@@ -86,6 +86,7 @@ function Transcript({
   list,
   onFarFromEnd,
   showsOnceAtEnd,
+  opensAt,
   onAtEnd,
   onRowsOnScreen,
 }: {
@@ -99,6 +100,8 @@ function Transcript({
   onFarFromEnd: (far: boolean) => void
   /** See `TranscriptListProps.showsOnceAtEnd`. */
   showsOnceAtEnd?: boolean | undefined
+  /** See `TranscriptListProps.opensAt`. */
+  opensAt?: string | undefined
   onAtEnd: () => void
   onRowsOnScreen: (keys: ReadonlySet<string>) => void
 }) {
@@ -137,6 +140,7 @@ function Transcript({
       moreAfter={hasNewer}
       onFarFromEnd={onFarFromEnd}
       showsOnceAtEnd={showsOnceAtEnd}
+      opensAt={opensAt}
       onAtEnd={onAtEnd}
       onRowsOnScreen={onRowsOnScreen}
       onWaitsForStart={setWaitsForOlder}
@@ -268,16 +272,41 @@ export function DetachedTranscript({
   )
 }
 
-function Conversation({ conversationId }: { conversationId: ConversationId }) {
+/**
+ * Lands on a `landOn` that changes with the conversation open, as a quote's original is landed on:
+ * the one it opened with placed the first window itself (`useMessages`). A message deleted since
+ * lands nowhere, leaving the window as it is.
+ */
+function useOpenOn(conversationId: ConversationId, landOn: number | undefined, ready: boolean) {
+  const actions = useSessionActions()
+  const toasts = useToast()
+  const landed = useRef(landOn)
+  useEffect(() => {
+    if (!ready || landOn === undefined || landed.current === landOn) return
+    landed.current = landOn
+    actions.jumpToMessage(conversationId, landOn).catch(() => {
+      toasts.show(PENDING_COPY.messagesLoadFailed, { id: ORIGINAL_UNREAD_TOAST })
+    })
+  }, [actions, conversationId, landOn, ready, toasts])
+}
+
+function Conversation({
+  conversationId,
+  landOn,
+}: {
+  conversationId: ConversationId
+  landOn: number | undefined
+}) {
   const conversation = useConversation(conversationId)
   const account = useAccount()
-  const transcript = useMessages(conversationId)
+  const transcript = useMessages(conversationId, landOn)
   const { messages, ready, firstPageFailed, reload } = transcript
   const showLoading = useShowAfter(!ready && !firstPageFailed)
   const actions = useSessionActions()
   const toasts = useToast()
   const list = useRef<TranscriptListHandle | null>(null)
   const highlight = useLanding(transcript, list)
+  useOpenOn(conversationId, landOn, ready)
   const [farFromEnd, setFarFromEnd] = useState(false)
   // Bumped to draw the transcript afresh, as when it opens: every row on the first pass, shown
   // once at its end. Swapping a whole window under a list that stays mounted, Android's
@@ -497,6 +526,8 @@ function Conversation({ conversationId }: { conversationId: ConversationId }) {
                     key={listKey}
                     // Drawn afresh in place, with no screen sliding over it.
                     showsOnceAtEnd={listKey > 0}
+                    // Read by the first list only: a tapped notification's message.
+                    opensAt={landOn === undefined ? undefined : String(landOn)}
                     conversationId={conversationId}
                     transcript={transcript}
                     // With animations off, for tests that would race the fade, it is held.
@@ -634,8 +665,15 @@ function Conversation({ conversationId }: { conversationId: ConversationId }) {
  * the app's business, and reading it here would be the one import that pins this screen to
  * a platform again.
  */
-export function ConversationScreen({ conversationId }: { conversationId: string }) {
+export function ConversationScreen({
+  conversationId,
+  landOn,
+}: {
+  conversationId: string
+  /** A message to open on, as a tapped notification names it. */
+  landOn?: number | undefined
+}) {
   // A wide layout keeps this mounted and changes only the id; the key gives each conversation
   // its own draft and open overlays.
-  return <Conversation key={conversationId} conversationId={conversationId} />
+  return <Conversation key={conversationId} conversationId={conversationId} landOn={landOn} />
 }

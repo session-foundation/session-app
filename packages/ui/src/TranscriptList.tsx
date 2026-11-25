@@ -83,6 +83,12 @@ export interface TranscriptListProps<T> extends RovingRowsProps {
    */
   showsOnceAtEnd?: boolean | undefined
   /**
+   * The row to open on rather than the last, for a first window read around a message: shown once
+   * it is there, as `showsOnceAtEnd` shows a list once at its end. Read on the first pass only, and
+   * ignored for a key the window does not hold.
+   */
+  opensAt?: string | undefined
+  /**
    * Back at the last row after leaving it, or resting there as `moreAfter` turns false; never by a
    * landing's own placing.
    */
@@ -126,6 +132,8 @@ const ANIMATED_END_VIEWPORTS = 2
 const OWN_SCROLL_MS = 300
 /** How long a list waits, hidden, for the scroll to its end to report before it shows anyway. */
 const PLACE_AT_END_MS = 300
+/** How long a list opening on a row waits, hidden, for the row to arrive before it shows anyway. */
+const OPEN_AT_ROW_MS = 1000
 /** The longest a page landing above is given to have the reader's rows put back on screen. */
 const SETTLE_ABOVE_MS = 600
 /**
@@ -160,6 +168,7 @@ export function TranscriptList<T>({
   onEndReached,
   moreAfter = false,
   showsOnceAtEnd = false,
+  opensAt,
   onAtEnd,
   onRowsOnScreen,
   onWaitsForStart,
@@ -175,12 +184,15 @@ export function TranscriptList<T>({
     null,
   )
   const keys = useMemo(() => data.map(keyExtractor), [data, keyExtractor])
+  const [opening] = useState(() =>
+    opensAt !== undefined && keys.includes(opensAt) ? opensAt : undefined,
+  )
   const reducedMotion = useReducedMotion()
 
   const list = useRef<FlatList<T> | null>(null)
   /** The scroller as last reported: scroll events do not say that content grew. */
   const scroll = useRef<ScrollReading>({ offsetPx: 0, viewportPx: 0, contentPx: 0 })
-  const atEnd = useRef(true)
+  const atEnd = useRef(opening === undefined)
   const far = useRef(false)
   // Whether the pinned rows are drawn: state that changes only as the rows on screen come within
   // `ROWS_AHEAD` of either end or leave it. The list opens at its end.
@@ -254,6 +266,8 @@ export function TranscriptList<T>({
   }, [])
   const waitsForEnd = useRef(showsOnceAtEnd)
   const placeAtEnd = useCallback(() => {
+    // Shown once at the row it opens on instead.
+    if (opening !== undefined) return
     if (!waitsForEnd.current) {
       place()
       return
@@ -262,7 +276,7 @@ export function TranscriptList<T>({
     if (viewportPx === 0 || contentPx === 0) return
     if (contentPx - viewportPx <= AT_END_SLACK_PX) place()
     else placing.current ??= setTimeout(place, PLACE_AT_END_MS)
-  }, [place])
+  }, [opening, place])
 
   /**
    * To the scroll view's own end. The list's `scrollToEnd` reckons the end from its rows'
@@ -306,6 +320,7 @@ export function TranscriptList<T>({
     atEnd,
     onScreen,
     firstPassRows,
+    opensAtEnd: opening === undefined,
     toEnd,
     onPlaced,
     onReaderTouch,
@@ -605,8 +620,7 @@ export function TranscriptList<T>({
     [],
   )
 
-  useImperativeHandle(
-    handle,
+  const api = useMemo(
     (): TranscriptListHandle => ({
       scrollToKey(key, { animated = false, focus: focusRow = false, onArrived } = {}) {
         const index = latest.current.keys.indexOf(key)
@@ -626,7 +640,12 @@ export function TranscriptList<T>({
           index,
           animated: animated && !reducedMotion,
           wasHeld: keysBefore.current.includes(key),
-          onArrived,
+          // A list opening on a row is shown by whichever landing gets there first: the screen's
+          // own landing on the same row takes the place of the opening's.
+          onArrived: () => {
+            place()
+            onArrived?.()
+          },
         })
         if (!focusRow || focus === null) return
         let frames = 0
@@ -661,7 +680,26 @@ export function TranscriptList<T>({
         toEnd(smooth)
       },
     }),
-    [focus, reducedMotion, rows, toEnd],
+    [focus, place, reducedMotion, rows, toEnd],
+  )
+  useImperativeHandle(handle, () => api, [api])
+
+  // Opens on `opening` rather than at the end, shown once there, or after a wait should the row
+  // never say it arrived. Once: the first pass is what it was asked of.
+  const opened = useRef(false)
+  // Its own, cleared only as the list goes: the effect runs again whenever `api` changes.
+  const shownAnyway = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  useLayoutEffect(() => {
+    if (opening === undefined || opened.current) return
+    opened.current = true
+    api.scrollToKey(opening)
+    shownAnyway.current = setTimeout(place, OPEN_AT_ROW_MS)
+  }, [api, opening, place])
+  useEffect(
+    () => () => {
+      clearTimeout(shownAnyway.current)
+    },
+    [],
   )
 
   // A page landing, or an end becoming known, need not change which rows are on screen.

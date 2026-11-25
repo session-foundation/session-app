@@ -5,17 +5,51 @@ import { getLocale, subscribeLocale } from '@session/localization'
 import { mediaUrl } from '@session/app/mediaUrl'
 
 import { flushLogRecords } from './logs'
-import { notificationTap, notificationText } from './notificationText'
+import { createNotificationQueue } from './notificationQueue'
 import { chooseFiles, releasePreview, toPickedFiles } from './pickedFiles'
 
 const memory = memoryPorts()
 
+/** What main keeps the one notification under. */
+const SUMMARY_ID = 'summary'
+
+/** The one notification for every message not yet seen, as legacy desktop keeps it. */
+export const notificationQueue = createNotificationQueue({
+  show: (summary) => {
+    if (summary === null) {
+      window.sessionDesktop.removeNotifications([SUMMARY_ID])
+      return
+    }
+    window.sessionDesktop.postNotification({
+      id: SUMMARY_ID,
+      ...summary,
+      // The OS's own sound, only with the Notifications page's audio switch on.
+      onlyUnfocused: true,
+    })
+  },
+  nowMs: () => Date.now(),
+  schedule: (run, ms) => {
+    const timer = setTimeout(run, ms)
+    return () => {
+      clearTimeout(timer)
+    }
+  },
+})
+window.sessionDesktop.onNotificationsSeen(() => {
+  notificationQueue.clear()
+})
+
 /** What main says a click leads to, checked: it came over IPC. */
 function tapOf(value: unknown): NotificationTap | null {
   if (typeof value !== 'object' || value === null) return null
-  const { kind, conversationId } = value as Record<string, unknown>
+  const { kind, conversationId, messageId } = value as Record<string, unknown>
   if (kind === 'requests') return { kind }
-  if (kind === 'conversation' && typeof conversationId === 'string') return { kind, conversationId }
+  if (kind === 'conversation' && typeof conversationId === 'string')
+    return {
+      kind,
+      conversationId,
+      messageId: Number.isSafeInteger(messageId) ? (messageId as number) : undefined,
+    }
   return null
 }
 
@@ -31,18 +65,11 @@ setPorts(
   memoryPorts({
     notifications: {
       ...memory.notifications,
-      post: (notification, { audio }) => {
-        window.sessionDesktop.postNotification({
-          id: notification.id,
-          ...notificationText(notification),
-          tap: notificationTap(notification),
-          // The OS's own sound, only with the Notifications page's audio switch on.
-          silent: !audio,
-          onlyUnfocused: true,
-        })
+      post: (notification, options) => {
+        notificationQueue.add(notification, options)
       },
       remove: (ids) => {
-        window.sessionDesktop.removeNotifications(ids)
+        notificationQueue.remove(ids)
       },
       preview: (sample) => {
         window.sessionDesktop.postNotification({

@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.util.Log
 import java.io.File
 import org.getsession.databasekey.DatabaseKeyStore
@@ -93,6 +94,7 @@ object PushMessages {
             attachment = notification["attachment"] as? String,
             attachments = (notification["attachments"] as? Number)?.toInt() ?: 0,
             timestampMs = (notification["timestamp"] as? Number)?.toLong() ?: 0,
+            messageId = (notification["messageId"] as? Number)?.toLong() ?: -1,
             badge = -1,
             stale = emptyArray(),
         )
@@ -167,6 +169,7 @@ object PushMessages {
         builder(context, channel, title, body)
             .setWhen(outcome.timestampMs.takeIf { it > 0 } ?: System.currentTimeMillis())
             .setGroup(outcome.thread)
+            .addExtras(Bundle().apply { putString(EXTRA_CONVERSATION, outcome.thread) })
             .setContentIntent(openIntent(context, outcome))
     // A message's notification can be read or answered where it is, as legacy Android's can; a
     // request's opens the requests, where it is approved first.
@@ -198,6 +201,12 @@ object PushMessages {
   }
 
   private const val PREVIEW_TAG = "preview"
+
+  /**
+   * The extra a notification's conversation is kept under: its group is not it while the app is
+   * in front, when it goes in the silent group.
+   */
+  const val EXTRA_CONVERSATION = "session_conversation"
 
   /** The group a notification silenced while the app is in front goes in, when it has none. */
   private const val SILENT_GROUP = "silent"
@@ -245,9 +254,11 @@ object PushMessages {
     val launch =
         context.packageManager.getLaunchIntentForPackage(context.packageName) ?: return null
     if (outcome.kind == "message" && outcome.thread != null) {
-      // The app's own scheme and its conversation route (`routes.conversation`).
+      // The app's own scheme and its conversation route (`routes.conversation`), open on the
+      // message (`LAND_ON_PARAM`).
+      val at = if (outcome.messageId >= 0) "?at=${outcome.messageId}" else ""
       launch.action = Intent.ACTION_VIEW
-      launch.data = Uri.parse("session:///c/${Uri.encode(outcome.thread)}")
+      launch.data = Uri.parse("session:///c/${Uri.encode(outcome.thread)}$at")
     } else if (outcome.kind == "message_request") {
       // The requests list (`routes.requests`): a request is opened from there.
       launch.action = Intent.ACTION_VIEW

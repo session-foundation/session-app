@@ -1093,19 +1093,21 @@ struct EnumTraits<NotificationAttachment> {
 /// - `request`: the first message of a message request, shown with neither sender nor content.
 ///
 /// `id` names it for a later `notifications-stale`. `conversationId` is the conversation a
-/// `message` belongs to; absent for a request, which opens the requests list.
+/// `message` belongs to, and `messageId` the message, which tapping it lands on; both absent for a
+/// request, which opens the requests list.
 struct IncomingNotification {
     std::string id;
     ::session_bridge::IncomingNotificationKind kind;
     std::optional<std::string> conversation_id;
+    std::optional<double> message_id;
     std::optional<std::string> sender;
     std::optional<std::string> body;
     std::optional<::session_bridge::NotificationAttachment> attachment;
     double attachments;
     double timestamp;
 
-    IncomingNotification(std::string id_, ::session_bridge::IncomingNotificationKind kind_, std::optional<std::string> conversation_id_, std::optional<std::string> sender_, std::optional<std::string> body_, std::optional<::session_bridge::NotificationAttachment> attachment_, double attachments_, double timestamp_) :
-            id{std::move(id_)}, kind{std::move(kind_)}, conversation_id{std::move(conversation_id_)}, sender{std::move(sender_)}, body{std::move(body_)}, attachment{std::move(attachment_)}, attachments{std::move(attachments_)}, timestamp{std::move(timestamp_)} {}
+    IncomingNotification(std::string id_, ::session_bridge::IncomingNotificationKind kind_, std::optional<std::string> conversation_id_, std::optional<double> message_id_, std::optional<std::string> sender_, std::optional<std::string> body_, std::optional<::session_bridge::NotificationAttachment> attachment_, double attachments_, double timestamp_) :
+            id{std::move(id_)}, kind{std::move(kind_)}, conversation_id{std::move(conversation_id_)}, message_id{std::move(message_id_)}, sender{std::move(sender_)}, body{std::move(body_)}, attachment{std::move(attachment_)}, attachments{std::move(attachments_)}, timestamp{std::move(timestamp_)} {}
 };
 
 /// A message arrived while the app runs that libsession says to notify about: see

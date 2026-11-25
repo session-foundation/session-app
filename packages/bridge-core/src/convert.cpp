@@ -279,7 +279,7 @@ ListPlacement to_bridge(::session::client::ListPlacement&& from) {
     return ListPlacement{to_bridge(from.from), to_bridge(from.to), std::move(after)};
 }
 
-IncomingNotification to_bridge(push::NotificationContent&& from) {
+IncomingNotification to_bridge(push::NotificationContent&& from, int64_t message_id) {
     using Kind = push::NotificationContent::Kind;
     std::optional<NotificationAttachment> attachment;
     if (from.attachment) {
@@ -296,12 +296,16 @@ IncomingNotification to_bridge(push::NotificationContent&& from) {
     }
     bool request = from.kind == Kind::message_request;
     std::optional<std::string> conversation;
-    if (from.kind == Kind::message)
+    std::optional<double> message;
+    if (from.kind == Kind::message) {
         conversation = std::move(from.thread);
+        message = static_cast<double>(message_id);
+    }
     return IncomingNotification{
             std::move(from.id),
             request ? IncomingNotificationKind::request : IncomingNotificationKind::message,
             std::move(conversation),
+            message,
             std::move(from.sender),
             std::move(from.body),
             attachment,

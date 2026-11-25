@@ -14,6 +14,8 @@ export interface TranscriptPlatformInput {
   onScreen: RefObject<RowsOnScreen>
   /** Rows the first pass drew: what opened the transcript. */
   firstPassRows: number
+  /** Opens at its end, rather than on a row the list scrolls to itself. */
+  opensAtEnd: boolean
   toEnd: (animated: boolean) => void
   /** The list is at its end and can be shown. */
   onPlaced: () => void
