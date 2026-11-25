@@ -187,6 +187,7 @@ extern "C" JNIEXPORT jobject JNICALL Java_org_getsession_push_PushNative_act(
         jclass,
         jstring conversation,
         jstring reply,
+        jboolean mark_read,
         jstring db_path,
         jstring key_hex,
         jstring netid) {
@@ -194,6 +195,7 @@ extern "C" JNIEXPORT jobject JNICALL Java_org_getsession_push_PushNative_act(
     action.conversation = text(env, conversation);
     if (reply)
         action.reply = text(env, reply);
+    action.mark_read = mark_read == JNI_TRUE;
     std::optional<session_bridge::ActionResult> result;
     try {
         result = session_bridge_rn::act_on_app_bridge(

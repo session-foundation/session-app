@@ -215,7 +215,7 @@ NotificationRefresh refresh_notifications(
 
 namespace {
 
-    /// Marks read, sends a reply and waits for it to reach the swarm, until `deadline`.
+    /// Marks read where asked, sends a reply and waits for it to reach the swarm, until `deadline`.
     ActionResult act(
             client::Client& client,
             const NotificationAction& action,
@@ -225,8 +225,10 @@ namespace {
         auto id = client::ConversationId::parse(action.conversation);
         if (!client.conversation(id, session::await))
             return {false, "no such conversation", {}};
-        client::Conversation{client, id}.mark_read(session::await);
-        log("marked read");
+        if (action.mark_read || !action.reply) {
+            client::Conversation{client, id}.mark_read(session::await);
+            log("marked read");
+        }
         if (!action.reply)
             return {true, "marked read", {}};
 
@@ -255,7 +257,7 @@ ActionResult handle_action(
         std::chrono::milliseconds deadline,
         const PushLog& log) {
     auto out = act(client, action, deadline, log);
-    // Read, even when a reply did not go: its conversation's notifications come down now.
+    // Read where asked, even when a reply did not go: its conversation's notifications come down.
     out.stale = notifications.stale();
     return out;
 }
