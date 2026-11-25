@@ -79,6 +79,11 @@ export interface SettingsRowProps {
    */
   subtitle?: string
   /**
+   * An aside after the subtitle, a blank line below it and in the secondary text colour: something
+   * worth knowing about the row that is not part of what it does, as Instant's word on communities.
+   */
+  note?: string | undefined
+  /**
    * How the row's settings stand, a line each under the subtitle: one for a setting, or a summary
    * of a screen's settings on the row that opens it, as legacy iOS's developer settings have.
    */
@@ -122,6 +127,7 @@ export function SettingsRow({
   label,
   icon,
   subtitle,
+  note,
   details,
   trailing: given,
   leadsTo,
@@ -163,6 +169,7 @@ export function SettingsRow({
     label,
     icon,
     subtitle,
+    note,
     details,
     trailing,
     wideTrailing,
@@ -193,6 +200,7 @@ interface RowContentProps {
   label: string
   icon?: SettingsRowProps['icon'] | undefined
   subtitle?: string | undefined
+  note?: string | undefined
   details?: readonly SettingsRowDetail[] | undefined
   trailing?: ReactNode | undefined
   wideTrailing: boolean
@@ -207,11 +215,20 @@ interface RowContentProps {
   iconTone: string
 }
 
+/**
+ * A hovered or pressed row's ground. A row with a note steps to the next surface rather than take
+ * the overlay: secondary text clears AA on every surface but only 3:1 under an overlay.
+ */
+function stateGround(note: string | undefined, overlay: '$hoverOverlay' | '$pressedOverlay') {
+  return note === undefined ? overlay : '$backgroundTertiary'
+}
+
 /** What a row draws, pressable or not. */
 function RowContent({
   label,
   icon,
   subtitle,
+  note,
   details,
   trailing,
   wideTrailing,
@@ -262,14 +279,14 @@ function RowContent({
           ? {}
           : {
               '$platform-web': { cursor: 'pointer' },
-              hoverStyle: { backgroundColor: '$hoverOverlay' },
-              pressStyle: { backgroundColor: '$pressedOverlay' },
+              hoverStyle: { backgroundColor: stateGround(note, '$hoverOverlay') },
+              pressStyle: { backgroundColor: stateGround(note, '$pressedOverlay') },
               // Native: without this a frame with a `pressStyle` claims the touch from
               // `PressArea` and the row never fires. Pressable rows only: it takes the subtree
               // with it, and on a static row the trailing control is what gets pressed.
               ...PRESS_PASSTHROUGH,
               ...(hovered && !pressed ? { forceStyle: 'hover' as const } : {}),
-              ...(pressed ? { backgroundColor: '$pressedOverlay' } : {}),
+              ...(pressed ? { backgroundColor: stateGround(note, '$pressedOverlay') } : {}),
             })}
       >
         {icon === undefined ? null : (
@@ -312,6 +329,11 @@ function RowContent({
               whiteSpace="pre-line"
             >
               {subtitle}
+              {note === undefined ? null : (
+                <Text size="$label" color={disabled ? '$textDisabled' : '$textSecondary'}>
+                  {`\n\n${note}`}
+                </Text>
+              )}
             </Text>
           )}
           {details === undefined || details.length === 0 ? null : (

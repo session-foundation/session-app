@@ -55,6 +55,14 @@ export const settingsRow = defineStory<SettingsRowProps | NoteVariant>({
         />
       ),
     },
+    // A choice with an aside: the note set apart from the description, in the secondary colour.
+    withNote: {
+      ...ROW,
+      testID: 'catalog-settings-row-note',
+      label: 'Apple push',
+      subtitle: 'Instant. Apple learns when a message arrives, not who sent it or what it says.',
+      note: 'Community messages arrive with periodic checks.',
+    },
     // A developer setting: an explanation in paragraphs, then how it stands, a line under it.
     details: {
       testID: 'catalog-settings-row-details',
@@ -154,9 +162,9 @@ export const settingsRow = defineStory<SettingsRowProps | NoteVariant>({
     noteLong: { testID: 'catalog-settings-note-long', note: LONG },
   },
   render: (props) =>
-    'note' in props ? (
-      <SettingsNote text={props.note} testID={props.testID} />
-    ) : (
+    'label' in props ? (
       <SettingsRow {...props} />
+    ) : (
+      <SettingsNote text={props.note} testID={props.testID} />
     ),
 })
