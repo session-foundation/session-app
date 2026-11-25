@@ -91,6 +91,7 @@ declare global {
         body: string
         tap: NotificationTap | null
         silent: boolean
+        onlyUnfocused: boolean
       }): void
       removeNotifications(ids: readonly string[]): void
       setBadgeCount(count: number): void
