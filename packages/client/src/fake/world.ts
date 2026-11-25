@@ -804,6 +804,13 @@ export class FakeAccount {
       return
     }
     this.interruptInFlight()
+    this.reportBadgeAfresh()
+  }
+
+  /** As the real bridge refreshes on opening: the badge is reported again, moved or not. */
+  private reportBadgeAfresh(): void {
+    this.badge = null
+    this.reportBadge()
   }
 
   /**
@@ -814,6 +821,7 @@ export class FakeAccount {
   reopen(): void {
     this.dropTransfers('the transfer did not survive closing the client')
     this.interruptInFlight()
+    this.reportBadgeAfresh()
   }
 
   /** Whether anything is still going somewhere, as libsession's `outbound_busy` answers. */

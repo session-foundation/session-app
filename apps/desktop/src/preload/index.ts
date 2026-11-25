@@ -44,6 +44,12 @@ ipcRenderer.on('notifications:tap', (_event, tap: unknown) => {
   notificationTapListener?.(tap)
 })
 
+/** Whoever is told that main took the notification down because the window has focus. */
+let notificationsSeenListener: (() => void) | null = null
+ipcRenderer.on('notifications:seen', () => {
+  notificationsSeenListener?.()
+})
+
 /** Whoever is listening for the Help menu's Keyboard Shortcuts, which main sends to the page. */
 let keyboardShortcutsListener: (() => void) | null = null
 ipcRenderer.on('keyboard-shortcuts', () => {
@@ -152,6 +158,12 @@ contextBridge.exposeInMainWorld('sessionDesktop', {
     notificationTapListener = listener
     return () => {
       if (notificationTapListener === listener) notificationTapListener = null
+    }
+  },
+  onNotificationsSeen: (listener: () => void) => {
+    notificationsSeenListener = listener
+    return () => {
+      if (notificationsSeenListener === listener) notificationsSeenListener = null
     }
   },
   /** The flag overrides main read at launch; see `launchOverrides.ts`. */

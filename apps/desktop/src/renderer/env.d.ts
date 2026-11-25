@@ -97,6 +97,11 @@ declare global {
       setBadgeCount(count: number): void
       /** Where a clicked notification leads, as main says; returns the unsubscribe. */
       onNotificationTap(listener: (tap: unknown) => void): () => void
+      /**
+       * Main took the notification down because the window has focus, or would not show it for
+       * that: everything it counted has been seen. Returns the unsubscribe.
+       */
+      onNotificationsSeen(listener: () => void): () => void
       /** Flag variables main read at launch, by full name; only those set. */
       readonly launchOverrides: Readonly<Record<string, string>>
     }
