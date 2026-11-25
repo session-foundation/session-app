@@ -170,7 +170,11 @@ export interface SessionActions {
    * Reads the newest page into a window that has none. A read that fails is logged and marks the
    * window `firstPageFailed` rather than rejecting.
    */
-  loadHistory: (id: ConversationId) => Promise<void>
+  /**
+   * `openAt`: a message to open on, as a tapped notification names it. The first window is read
+   * around it and lands on it; the newest page instead where it is not there to land on.
+   */
+  loadHistory: (id: ConversationId, openAt?: number) => Promise<void>
   /**
    * The page before the window's oldest message, joined to it; nothing while one is out. A read
    * that fails is logged and marks the window `olderPageFailed` rather than rejecting.
@@ -557,6 +561,22 @@ export function createSessionStore(
   }
 
   /**
+   * The window read around `messageId`, or null where it is not there to land on: deleted, purged,
+   * or never received.
+   */
+  async function windowAround(id: ConversationId, messageId: number): Promise<MessagePage | null> {
+    let page: MessagePage
+    try {
+      page = await client.getMessages(id, { limit: JUMP_WINDOW, around: messageId })
+    } catch (error) {
+      if (error instanceof SessionClientError && error.code === MESSAGE_NOT_FOUND) return null
+      throw error
+    }
+    const held = page.messages.find((m) => m.id === messageId)
+    return held === undefined || held.deleted !== undefined ? null : page
+  }
+
+  /**
    * Makes every read still out for `id` land nowhere, ahead of one that may replace the window.
    * `resume` asks again for the pages that were on their way, for when that read leaves the window
    * as it was: their ends would otherwise wait for a scroll, with no Retry row to press.
@@ -867,7 +887,7 @@ export function createSessionStore(
       store.setState({ recoveryPasswordHidden: true })
     },
 
-    async loadHistory(id): Promise<void> {
+    async loadHistory(id, openAt): Promise<void> {
       const existing = store.getState().histories[id]
       if (existing?.fetching) return
       patchWindow(id, { fetching: true, firstPageFailed: false })
@@ -875,6 +895,12 @@ export function createSessionStore(
       await whileReading(id, async () => {
         let page: MessagePage
         try {
+          const around = openAt === undefined ? null : await windowAround(id, openAt)
+          if (around !== null && openAt !== undefined) {
+            if (generationOf(id) !== generation) return
+            replaceWindow(id, around, { messageId: openAt, from: undefined })
+            return
+          }
           page = await client.getMessages(id, { limit: FIRST_PAGE })
         } catch (error) {
           log('warn', 'session', `could not read a conversation's first page: ${String(error)}`)

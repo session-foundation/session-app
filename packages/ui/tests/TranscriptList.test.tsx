@@ -237,6 +237,48 @@ describe('TranscriptList', () => {
       )
     }
 
+    it('opens on a row it is asked to, shown once there, and follows no end', async () => {
+      const onAtEnd = vi.fn()
+      renderInUI(
+        <TranscriptList
+          data={paged(30)}
+          keyExtractor={key}
+          opensAt="m3"
+          onAtEnd={onAtEnd}
+          testID={LIST}
+          renderItem={(item, index) => <Text testID={ROW(index)}>{item.id}</Text>}
+        />,
+      )
+      // Scrolled to on the first pass, before anything is painted, and hidden until it is there.
+      expect(scrollBy).toHaveBeenCalledTimes(1)
+      expect(scrollBy.mock.contexts[0]).toBe(byId(LIST))
+      expect(getComputedStyle(byId(LIST)).opacity).toBe('0')
+      await new Promise((resolve) => requestAnimationFrame(resolve))
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      expect(getComputedStyle(byId(LIST)).opacity).not.toBe('0')
+
+      // Content that grows is not followed to the end, which it was never at.
+      await scrollTo(100, 2000)
+      await scrollTo(100, 2100)
+      expect(byId(LIST).scrollTop).toBe(100)
+      expect(onAtEnd).not.toHaveBeenCalled()
+      await new Promise((resolve) => setTimeout(resolve, SCROLL_END_MS))
+    })
+
+    it('opens at its end for a row it does not hold', () => {
+      renderInUI(
+        <TranscriptList
+          data={paged(30)}
+          keyExtractor={key}
+          opensAt="m99"
+          testID={LIST}
+          renderItem={(item, index) => <Text testID={ROW(index)}>{item.id}</Text>}
+        />,
+      )
+      expect(scrollBy).not.toHaveBeenCalled()
+      expect(getComputedStyle(byId(LIST)).opacity).not.toBe('0')
+    })
+
     it('scrolls its own scroller to the row, never the page around it', () => {
       const handle = createRef<TranscriptListHandle>()
       renderInUI(<Landed handle={handle} />)
