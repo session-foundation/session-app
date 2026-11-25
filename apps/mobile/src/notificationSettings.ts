@@ -4,6 +4,8 @@ import type { SessionStore } from '@session/state'
 import { type EventSubscription, requireOptionalNativeModule } from 'expo'
 import { Linking } from 'react-native'
 
+import type { WhileOpen } from './backgroundClose'
+
 interface SessionPushModule {
   notificationsAllowed(): Promise<boolean>
   backgroundRefreshOn(): Promise<boolean>
@@ -166,9 +168,13 @@ function sent(
  * Carries out Mark read and Reply from a message's notification with the app's own Client: iOS
  * wakes the app for them, and holds the action open until it is told it is over. A reply marks the
  * conversation read too, as legacy iOS's does, and counts as done once it has reached the swarm.
+ *
+ * The app is usually off the screen with its database closed when the action arrives, so the work
+ * runs through `whileOpen`, which opens it for the action and closes it again after.
  */
 export function followNotificationActions(
   client: Pick<SessionClient, 'markRead' | 'sendMessage' | 'onEvent'>,
+  whileOpen: WhileOpen,
 ): void {
   if (SessionPush === null) return
   SessionPush.addListener('onAction', ({ token, conversation, action, reply }) => {
@@ -177,7 +183,7 @@ export function followNotificationActions(
       if (action !== 'reply' || reply === undefined) return true
       return sent(client, client.sendMessage(conversation, { body: reply }), REPLY_DEADLINE_MS)
     }
-    void run()
+    void whileOpen(run)
       .catch(() => false)
       .then((done) => {
         SessionPush.finishAction(token, done)
