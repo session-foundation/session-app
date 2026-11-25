@@ -11,6 +11,7 @@ public final class SessionPushAppDelegateSubscriber: ExpoAppDelegateSubscriber {
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
     UNUserNotificationCenter.current().delegate = NotificationPresenter.shared
+    NotificationPresenter.registerCategories()
     return true
   }
 
@@ -102,6 +103,68 @@ final class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate {
     completionHandler(soundWhenOpen && mayPlaySound() ? [.banner, .list, .sound] : [.banner, .list])
   }
 
+  static let markReadAction = "session-mark-read"
+  static let replyAction = "session-reply"
+
+  /// Mark read and Reply on a message's notification, as legacy iOS has them, in the app's words.
+  static func registerCategories() {
+    let markRead = UNNotificationAction(
+      identifier: markReadAction, title: AppGroup.word("markRead"), options: [])
+    let reply = UNTextInputNotificationAction(
+      identifier: replyAction, title: AppGroup.word("reply"), options: [],
+      textInputButtonTitle: AppGroup.word("send"), textInputPlaceholder: "")
+    UNUserNotificationCenter.current().setNotificationCategories([
+      UNNotificationCategory(
+        identifier: AppGroup.messageCategory, actions: [markRead, reply], intentIdentifiers: [])
+    ])
+  }
+
+  /// A notification's action, for JavaScript to carry out with the app's own Client: iOS wakes
+  /// the app for it, in the background, and waits for `finishAction`.
+  struct Action {
+    let token: String
+    let conversation: String
+    /// The reply typed, or nil for Mark read.
+    let reply: String?
+    let notification: String
+  }
+
+  /// Actions JavaScript has not yet finished, by token, with what to call and end once it has.
+  private typealias Running = (action: Action, done: () -> Void, task: UIBackgroundTaskIdentifier)
+  private var running: [String: Running] = [:]
+  /// Actions that arrived before JavaScript was listening, as a background launch for one does.
+  private var pendingActions: [Action] = []
+  var onAction: ((Action) -> Void)? {
+    didSet {
+      guard let onAction else { return }
+      let pending = pendingActions
+      pendingActions = []
+      pending.forEach(onAction)
+    }
+  }
+
+  /// Takes the notification down once its action is done; a reply that did not go says so, and
+  /// iOS is told the action is over either way.
+  func finishAction(_ token: String, done: Bool) {
+    DispatchQueue.main.async {
+      guard let entry = self.running.removeValue(forKey: token) else { return }
+      let center = UNUserNotificationCenter.current()
+      if done {
+        center.removeDeliveredNotifications(withIdentifiers: [entry.action.notification])
+      } else if entry.action.reply != nil {
+        let content = UNMutableNotificationContent()
+        content.title = AppGroup.word("appName")
+        content.body = AppGroup.word("replyFailed")
+        content.threadIdentifier = entry.action.conversation
+        center.add(
+          UNNotificationRequest(
+            identifier: entry.action.notification, content: content, trigger: nil))
+      }
+      entry.done()
+      if entry.task != .invalid { UIApplication.shared.endBackgroundTask(entry.task) }
+    }
+  }
+
   /// The thread a message notification belongs to is its conversation (see `decide`); a request's
   /// opens the requests, and a generic notification only the app.
   func userNotificationCenter(
@@ -109,6 +172,12 @@ final class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate {
     didReceive response: UNNotificationResponse,
     withCompletionHandler completionHandler: @escaping () -> Void
   ) {
+    if response.actionIdentifier == Self.markReadAction
+      || response.actionIdentifier == Self.replyAction
+    {
+      startAction(response, completionHandler: completionHandler)
+      return
+    }
     defer { completionHandler() }
     let content = response.notification.request.content
     let tap: Tap
@@ -123,5 +192,28 @@ final class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate {
       return
     }
     if let onTap { onTap(tap) } else { pendingTap = tap }
+  }
+
+  private func startAction(
+    _ response: UNNotificationResponse, completionHandler: @escaping () -> Void
+  ) {
+    let conversation = response.notification.request.content.threadIdentifier
+    let reply = (response as? UNTextInputNotificationResponse)?.userText
+    guard !conversation.isEmpty,
+      response.actionIdentifier == Self.markReadAction || !(reply ?? "").isEmpty
+    else {
+      completionHandler()
+      return
+    }
+    let action = Action(
+      token: UUID().uuidString, conversation: conversation, reply: reply,
+      notification: response.notification.request.identifier)
+    // Time to send in, should iOS have woken the app for this alone; finishing ends it.
+    var task = UIBackgroundTaskIdentifier.invalid
+    task = UIApplication.shared.beginBackgroundTask(withName: "notification-action") {
+      [weak self] in self?.finishAction(action.token, done: false)
+    }
+    running[action.token] = (action, completionHandler, task)
+    if let onAction { onAction(action) } else { pendingActions.append(action) }
   }
 }

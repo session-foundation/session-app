@@ -45,6 +45,7 @@ NSString* const OPEN_CONVERSATION_KEY = @"session.push.openConversation";
 NSString* const SOUND_KEY = @"session.push.sound";
 /// The userInfo key a notification's id goes under; the app's own (AppGroup.swift) too.
 NSString* const NOTIFICATION_ID_KEY = @"session_id";
+NSString* const MESSAGE_CATEGORY = @"session-message";
 
 /// The networks a database may be under, in the order they are tried.
 const char* const NETWORKS[] = {"mainnet", "testnet"};
@@ -182,6 +183,8 @@ UNMutableNotificationContent* content_for(
             break;
         case push::NotificationContent::Kind::message:
             kind = @"message";
+            // Mark read and Reply, registered by the app (SessionPushAppDelegateSubscriber.swift).
+            out.categoryIdentifier = MESSAGE_CATEGORY;
             out.title = c.sender ? ns(*c.sender) : word(@"appName");
             out.body = c.body ? ns(*c.body) : attachment_word(c);
             break;

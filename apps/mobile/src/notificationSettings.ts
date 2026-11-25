@@ -1,5 +1,5 @@
 import type { NotificationsPort } from '@session/app'
-import type { IncomingNotification } from '@session/client'
+import type { IncomingNotification, SessionClient } from '@session/client'
 import type { SessionStore } from '@session/state'
 import { type EventSubscription, requireOptionalNativeModule } from 'expo'
 import { Linking } from 'react-native'
@@ -13,11 +13,24 @@ interface SessionPushModule {
   post(notification: IncomingNotification): void
   remove(ids: readonly string[]): void
   setBadgeCount(count: number): Promise<void>
+  finishAction(token: string, done: boolean): void
   addListener(
     event: 'onTap',
     listener: (tap: { conversation: string | null }) => void,
   ): EventSubscription
+  addListener(event: 'onAction', listener: (action: NotificationAction) => void): EventSubscription
 }
+
+/** A notification's Mark read or Reply, which iOS hands the app to carry out. */
+interface NotificationAction {
+  token: string
+  conversation: string
+  action: 'markRead' | 'reply'
+  reply?: string
+}
+
+/** How long a reply is given to reach the swarm, inside the time iOS allows an action. */
+const REPLY_DEADLINE_MS = 20_000
 
 const SessionPush = requireOptionalNativeModule<SessionPushModule>('SessionPush')
 
@@ -111,4 +124,63 @@ export function followNotificationPrefs(store: SessionStore): void {
   }
   apply()
   store.subscribe(apply)
+}
+
+/** Whether message `id` reaches the swarm before `timeoutMs`: false once it fails, or then. */
+function sent(
+  client: Pick<SessionClient, 'onEvent'>,
+  id: Promise<number>,
+  timeoutMs: number,
+): Promise<boolean> {
+  return new Promise((resolve) => {
+    // Listening before the id is known: the states after the send can arrive before it resolves.
+    const seen = new Map<number, string>()
+    let messageId: number | null = null
+    const settle = (result: boolean) => {
+      clearTimeout(timer)
+      stop()
+      resolve(result)
+    }
+    const check = () => {
+      const state = messageId === null ? undefined : seen.get(messageId)
+      if (state === 'sent') settle(true)
+      else if (state !== undefined && state !== 'pending' && state !== 'sending') settle(false)
+    }
+    const stop = client.onEvent((event) => {
+      if (event.type !== 'messages-updated') return
+      for (const message of event.messages) seen.set(message.id, message.sendState)
+      check()
+    })
+    const timer = setTimeout(() => settle(false), timeoutMs)
+    id.then(
+      (known) => {
+        messageId = known
+        check()
+      },
+      () => settle(false),
+    )
+  })
+}
+
+/**
+ * Carries out Mark read and Reply from a message's notification with the app's own Client: iOS
+ * wakes the app for them, and holds the action open until it is told it is over. A reply marks the
+ * conversation read too, as legacy iOS's does, and counts as done once it has reached the swarm.
+ */
+export function followNotificationActions(
+  client: Pick<SessionClient, 'markRead' | 'sendMessage' | 'onEvent'>,
+): void {
+  if (SessionPush === null) return
+  SessionPush.addListener('onAction', ({ token, conversation, action, reply }) => {
+    const run = async (): Promise<boolean> => {
+      await client.markRead(conversation)
+      if (action !== 'reply' || reply === undefined) return true
+      return sent(client, client.sendMessage(conversation, { body: reply }), REPLY_DEADLINE_MS)
+    }
+    void run()
+      .catch(() => false)
+      .then((done) => {
+        SessionPush.finishAction(token, done)
+      })
+  })
 }
