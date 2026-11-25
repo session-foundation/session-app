@@ -31,7 +31,6 @@ jobs:
     permissions:
       actions: read
       contents: read
-      packages: read
       pull-requests: read
     env:
       CATALOG_TIER: ${{ inputs.tier || (github.event_name == 'schedule' && 'nightly') || 'pr' }}
@@ -45,8 +44,6 @@ jobs:
       - name: Fetch the capture image
         env:
           IMAGE: ghcr.io/${{ github.repository_owner }}/session-catalog-capture:${{ hashFiles('tests/e2e/catalog/image/**') }}
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          FORK: ${{ github.event.pull_request.head.repo.full_name != github.repository && github.event_name == 'pull_request' }}
         run: |
           echo "CATALOG_IMAGE=$IMAGE" >> "$GITHUB_ENV"
           nohup sh -c 'tests/e2e/catalog/fetch-image.sh; echo $? > "$RUNNER_TEMP/image-status"' \
