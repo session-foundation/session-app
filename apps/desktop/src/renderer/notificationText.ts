@@ -16,7 +16,7 @@ const ATTACHMENT_WORDS: Record<NotificationAttachment, () => string> = {
  * sender and "You've got a new message." when the content setting hides the message; Session and
  * that line when it hides both; Session and "You have a new message request" for a request.
  */
-export function notificationText(notification: IncomingNotification): {
+function notificationText(notification: IncomingNotification): {
   title: string
   body: string
 } {
