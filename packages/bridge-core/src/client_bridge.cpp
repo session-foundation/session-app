@@ -2105,6 +2105,28 @@ std::optional<PushResult> ClientBridge::handle_push(
     }
 }
 
+std::optional<ActionResult> ClientBridge::handle_action(
+        const NotificationAction& action,
+        std::chrono::milliseconds deadline,
+        const std::function<void(std::string_view)>& log) {
+    if (!_impl)
+        return std::nullopt;
+    // As a push: held shared against a replacement of the Client, outside `client_lock`.
+    std::shared_lock use{_impl->push_use, std::defer_lock};
+    {
+        std::lock_guard lock{_impl->client_lock};
+        if (_impl->close_cancelled || !_impl->client ||
+            _impl->background != Impl::Background::open)
+            return std::nullopt;
+        use.lock();
+    }
+    try {
+        return session_bridge::handle_action(*_impl->client, action, deadline, log);
+    } catch (const std::exception& e) {
+        return ActionResult{false, std::string{"threw: "} + e.what()};
+    }
+}
+
 void ClientBridge::fetch_media(double message_id, double index, MediaHandler cb) {
     // Held while the Client is read, so a close for the background cannot take it meanwhile.
     auto lock = _impl ? std::unique_lock{_impl->client_lock} : std::unique_lock<std::recursive_mutex>{};
