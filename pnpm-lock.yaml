@@ -1052,6 +1052,9 @@ importers:
       '@session/app':
         specifier: workspace:*
         version: link:../../packages/app
+      '@session/client':
+        specifier: workspace:*
+        version: link:../../packages/client
       '@session/eslint-config':
         specifier: workspace:*
         version: link:../../tooling/eslint-config

@@ -72,7 +72,7 @@ jobject outcome(JNIEnv* env, const session_bridge::PushResult& r) {
             type,
             "<init>",
             "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;"
-            "Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;IJJ[Ljava/lang/String;)V");
+            "Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;IJJJ[Ljava/lang/String;)V");
     if (!make)
         return nullptr;
 
@@ -98,6 +98,7 @@ jobject outcome(JNIEnv* env, const session_bridge::PushResult& r) {
             c && c->attachment ? env->NewStringUTF(attachment_name(*c->attachment)) : nullptr,
             static_cast<jint>(c ? c->attachments : 0),
             static_cast<jlong>(c ? c->timestamp.time_since_epoch().count() : 0),
+            static_cast<jlong>(c ? r.message_id.value_or(-1) : -1),
             static_cast<jlong>(r.badge.value_or(-1)),
             stale);
 }

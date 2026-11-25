@@ -841,6 +841,7 @@ describeEcho('the generated converters', () => {
           id: 'hash-1',
           kind: 'message',
           conversationId: '05' + 'ab'.repeat(32),
+          messageId: 42,
           sender: 'Bob',
           body: 'hi @You',
           attachment: 'voice',

@@ -124,6 +124,8 @@ PushResult handle_push(
             const auto& handled = **wait->result;
             log("handled: " + std::string{outcome_name(handled.outcome)});
             out.show = notifications.decide(handled, you, on_screen);
+            if (out.show && handled.message)
+                out.message_id = handled.message->id;
             out.why = out.show ? "shown" : "nothing to show";
         }
     }
@@ -156,17 +158,17 @@ PushResult handle_cold_push(
     }
 }
 
-std::vector<push::NotificationContent> decide_arrivals(
+std::vector<ArrivalNotification> decide_arrivals(
         push::Notifications& notifications,
         const std::vector<client::Message>& arrived,
         std::string_view you,
         std::chrono::sys_time<std::chrono::milliseconds> horizon) {
-    std::vector<push::NotificationContent> shown;
+    std::vector<ArrivalNotification> shown;
     for (const auto& m : arrived) {
         if (m.outgoing || m.timestamp <= horizon - ARRIVAL_SKEW)
             continue;
         if (auto n = notifications.decide({push::Handled::received, std::nullopt, m}, you))
-            shown.push_back(std::move(*n));
+            shown.push_back({std::move(*n), m.id});
     }
     return shown;
 }

@@ -268,7 +268,32 @@ export function DetachedTranscript({
   )
 }
 
-function Conversation({ conversationId }: { conversationId: ConversationId }) {
+/**
+ * Lands on `landOn` once the first page is in, as a quote's original is landed on: a jump needs a
+ * window to replace. Each message once, so a later tap on the same notification's message, with
+ * the conversation still open, is the one that lands again. A message deleted since lands nowhere,
+ * leaving the newest page.
+ */
+function useOpenOn(conversationId: ConversationId, landOn: number | undefined, ready: boolean) {
+  const actions = useSessionActions()
+  const toasts = useToast()
+  const landed = useRef<number | undefined>(undefined)
+  useEffect(() => {
+    if (!ready || landOn === undefined || landed.current === landOn) return
+    landed.current = landOn
+    actions.jumpToMessage(conversationId, landOn).catch(() => {
+      toasts.show(PENDING_COPY.messagesLoadFailed, { id: ORIGINAL_UNREAD_TOAST })
+    })
+  }, [actions, conversationId, landOn, ready, toasts])
+}
+
+function Conversation({
+  conversationId,
+  landOn,
+}: {
+  conversationId: ConversationId
+  landOn: number | undefined
+}) {
   const conversation = useConversation(conversationId)
   const account = useAccount()
   const transcript = useMessages(conversationId)
@@ -278,6 +303,7 @@ function Conversation({ conversationId }: { conversationId: ConversationId }) {
   const toasts = useToast()
   const list = useRef<TranscriptListHandle | null>(null)
   const highlight = useLanding(transcript, list)
+  useOpenOn(conversationId, landOn, ready)
   const [farFromEnd, setFarFromEnd] = useState(false)
   // Bumped to draw the transcript afresh, as when it opens: every row on the first pass, shown
   // once at its end. Swapping a whole window under a list that stays mounted, Android's
@@ -634,8 +660,15 @@ function Conversation({ conversationId }: { conversationId: ConversationId }) {
  * the app's business, and reading it here would be the one import that pins this screen to
  * a platform again.
  */
-export function ConversationScreen({ conversationId }: { conversationId: string }) {
+export function ConversationScreen({
+  conversationId,
+  landOn,
+}: {
+  conversationId: string
+  /** A message to open on, as a tapped notification names it. */
+  landOn?: number | undefined
+}) {
   // A wide layout keeps this mounted and changes only the id; the key gives each conversation
   // its own draft and open overlays.
-  return <Conversation key={conversationId} conversationId={conversationId} />
+  return <Conversation key={conversationId} conversationId={conversationId} landOn={landOn} />
 }
