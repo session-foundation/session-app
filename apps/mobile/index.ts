@@ -6,6 +6,7 @@
  * promises the root layout is evaluated before a route file that reaches for a port on the
  * way in.
  */
+import './src/pluralRules'
 import './src/platform'
 
 import 'expo-router/entry'
