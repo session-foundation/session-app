@@ -159,10 +159,29 @@ extern "C" JNIEXPORT jobject JNICALL Java_org_getsession_push_PushNative_handle(
     return outcome(env, *result);
 }
 
+/// `org.getsession.push.ActionOutcome`: whether it is done, and what to take down.
+jobject action_outcome(JNIEnv* env, const session_bridge::ActionResult& r) {
+    jclass type = env->FindClass("org/getsession/push/ActionOutcome");
+    if (!type)
+        return nullptr;
+    jmethodID make = env->GetMethodID(type, "<init>", "(Z[Ljava/lang/String;)V");
+    if (!make)
+        return nullptr;
+    jclass string_type = env->FindClass("java/lang/String");
+    jobjectArray stale =
+            env->NewObjectArray(static_cast<jsize>(r.stale.size()), string_type, nullptr);
+    for (size_t i = 0; i < r.stale.size(); ++i) {
+        jstring id = env->NewStringUTF(r.stale[i].c_str());
+        env->SetObjectArrayElement(stale, static_cast<jsize>(i), id);
+        env->DeleteLocalRef(id);
+    }
+    return env->NewObject(type, make, r.done ? JNI_TRUE : JNI_FALSE, stale);
+}
+
 /// Carries out a notification's action: marks `conversation` read, and sends `reply` there when it
 /// is not null. On the app's own Client when it is open, otherwise on one opened from `dbPath` with
-/// `keyHex`, as a push is. Blocks until done or the deadline; true when it is done.
-extern "C" JNIEXPORT jboolean JNICALL Java_org_getsession_push_PushNative_act(
+/// `keyHex`, as a push is. Blocks until done or the deadline.
+extern "C" JNIEXPORT jobject JNICALL Java_org_getsession_push_PushNative_act(
         JNIEnv* env,
         jclass,
         jstring conversation,
@@ -181,7 +200,7 @@ extern "C" JNIEXPORT jboolean JNICALL Java_org_getsession_push_PushNative_act(
         if (!result) {
             const auto hex = text(env, key_hex);
             if (hex.size() != 64 || !oxenc::is_hex(hex)) {
-                result = session_bridge::ActionResult{false, "no database key"};
+                result = session_bridge::ActionResult{false, "no database key", {}};
             } else {
                 session_bridge::ColdPush where;
                 where.db_path = text(env, db_path);
@@ -192,8 +211,8 @@ extern "C" JNIEXPORT jboolean JNICALL Java_org_getsession_push_PushNative_act(
             }
         }
     } catch (const std::exception& e) {
-        result = session_bridge::ActionResult{false, std::string{"threw: "} + e.what()};
+        result = session_bridge::ActionResult{false, std::string{"threw: "} + e.what(), {}};
     }
     log_line("action: " + result->why);
-    return result->done ? JNI_TRUE : JNI_FALSE;
+    return action_outcome(env, *result);
 }

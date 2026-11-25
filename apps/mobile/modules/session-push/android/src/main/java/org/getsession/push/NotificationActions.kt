@@ -1,13 +1,20 @@
 package org.getsession.push
 
 import android.app.Notification
+import android.app.job.JobInfo
+import android.app.job.JobParameters
+import android.app.job.JobScheduler
+import android.app.job.JobService
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.RemoteInput
 import android.content.BroadcastReceiver
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.graphics.drawable.Icon
+import android.os.Build
+import android.os.PersistableBundle
 import android.util.Log
 
 /**
@@ -61,20 +68,23 @@ internal object NotificationActions {
     return PendingIntent.getBroadcast(context, (action + id).hashCode(), intent, flags)
   }
 
-  /** Runs on a thread of its own: it may block for the whole of [PushNative.act]'s deadline. */
-  fun handle(context: Context, intent: Intent) {
-    val conversation = intent.getStringExtra(EXTRA_CONVERSATION) ?: return
-    val notification = intent.getStringExtra(EXTRA_NOTIFICATION) ?: return
-    val reply =
-        if (intent.action == REPLY)
-            RemoteInput.getResultsFromIntent(intent)?.getCharSequence(REPLY_KEY)?.toString()
-        else null
-    if (intent.action == REPLY && reply.isNullOrBlank()) return
+  /**
+   * Carries out an action [NotificationActionJob] was given: runs on a thread of its own, since it
+   * may block for the whole of [PushNative.act]'s deadline.
+   */
+  fun handle(context: Context, conversation: String, notification: String, reply: String?) {
     val db = PushMessages.database(context)
-    val done = PushNative.act(conversation, reply, db.path, db.key, db.netid)
-    Log.i(TAG, "notification action ${intent.action}: ${if (done) "done" else "not done"}")
+    val outcome = PushNative.act(conversation, reply, db.path, db.key, db.netid)
+    val done = outcome.done
+    Log.i(TAG, "notification action ${if (reply == null) "mark read" else "reply"}: " +
+        if (done) "done" else "not done")
     val manager = context.getSystemService(NotificationManager::class.java) ?: return
-    if (done) {
+    // Here rather than left to the app: a process woken only for this may be frozen again before
+    // the app's own refresh would run.
+    for (id in outcome.stale) if (id != notification || done) manager.cancel(id, 0)
+    if (done && reply != null) {
+      PushMessages.dismissAfterReply(context, manager, notification)
+    } else if (done) {
       manager.cancel(notification, 0)
     } else if (reply != null) {
       // The reply box would otherwise spin for ever: say it did not go, and keep the notification.
@@ -83,18 +93,67 @@ internal object NotificationActions {
   }
 }
 
-/** Where a notification's action arrives; the work is [NotificationActions.handle]'s. */
+/**
+ * Where a notification's action arrives. A notification's broadcast must be over in about ten
+ * seconds, and a reply can take longer to reach the swarm, so this only reads the action, the typed
+ * reply included, and leaves the work to [NotificationActionJob].
+ */
 class NotificationActionReceiver : BroadcastReceiver() {
   override fun onReceive(context: Context, intent: Intent) {
-    val pending = goAsync()
-    val app = context.applicationContext
+    val conversation = intent.getStringExtra(NotificationActions.EXTRA_CONVERSATION) ?: return
+    val notification = intent.getStringExtra(NotificationActions.EXTRA_NOTIFICATION) ?: return
+    val reply =
+        if (intent.action == NotificationActions.REPLY)
+            RemoteInput.getResultsFromIntent(intent)
+                ?.getCharSequence(NotificationActions.REPLY_KEY)
+                ?.toString()
+        else null
+    if (intent.action == NotificationActions.REPLY && reply.isNullOrBlank()) return
+    NotificationActionJob.schedule(context, conversation, notification, reply)
+  }
+}
+
+/** Runs a notification's action, which a broadcast has no time for: see the receiver. */
+class NotificationActionJob : JobService() {
+  override fun onStartJob(params: JobParameters): Boolean {
+    val extras = params.extras
+    val conversation = extras.getString(NotificationActions.EXTRA_CONVERSATION)
+    val notification = extras.getString(NotificationActions.EXTRA_NOTIFICATION)
+    if (conversation == null || notification == null) return false
+    val reply = extras.getString(NotificationActions.REPLY_KEY)
     Thread {
           try {
-            NotificationActions.handle(app, intent)
+            NotificationActions.handle(applicationContext, conversation, notification, reply)
           } finally {
-            pending.finish()
+            jobFinished(params, false)
           }
         }
         .start()
+    return true
+  }
+
+  // Not run again if stopped: a mark read happens on the next open anyway, and a reply sent twice
+  // would be worse than one left to be typed again.
+  override fun onStopJob(params: JobParameters): Boolean = false
+
+  companion object {
+    fun schedule(context: Context, conversation: String, notification: String, reply: String?) {
+      val extras =
+          PersistableBundle().apply {
+            putString(NotificationActions.EXTRA_CONVERSATION, conversation)
+            putString(NotificationActions.EXTRA_NOTIFICATION, notification)
+            if (reply != null) putString(NotificationActions.REPLY_KEY, reply)
+          }
+      val job =
+          JobInfo.Builder(
+                  (notification + (reply ?: "")).hashCode(),
+                  ComponentName(context, NotificationActionJob::class.java),
+              )
+              .setExtras(extras)
+              // Run now, as the person is waiting on the notification.
+              .apply { if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) setExpedited(true) }
+              .build()
+      context.getSystemService(JobScheduler::class.java)?.schedule(job)
+    }
   }
 }
