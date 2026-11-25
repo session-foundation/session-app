@@ -24,4 +24,11 @@ std::optional<::session_bridge::PushResult> handle_push_on_app_bridge(
         std::chrono::milliseconds deadline,
         const ::session_bridge::PushLog& log);
 
+/// `ClientBridge::handle_action` on the registered bridge; nullopt when none is registered or it
+/// has no Client open, which leaves the caller to act with a Client of its own.
+std::optional<::session_bridge::ActionResult> act_on_app_bridge(
+        const ::session_bridge::NotificationAction& action,
+        std::chrono::milliseconds deadline,
+        const ::session_bridge::PushLog& log);
+
 }  // namespace session_bridge_rn

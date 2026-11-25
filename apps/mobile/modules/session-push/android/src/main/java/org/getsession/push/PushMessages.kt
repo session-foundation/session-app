@@ -41,6 +41,26 @@ object PushMessages {
       Log.w(TAG, "push without enc_payload: ${data.keys.sorted().joinToString()}")
       return
     }
+    val db = database(context)
+    val outcome =
+        PushNative.handle(
+            enc,
+            db.path,
+            db.key,
+            db.netid,
+            PushStrings.get(context, "you"),
+            openConversation,
+        )
+    Log.i(TAG, "push ${outcome.why}")
+    val manager = context.getSystemService(NotificationManager::class.java) ?: return
+    for (id in outcome.stale) manager.cancel(id, 0)
+    if (outcome.kind != null && outcome.id != null) post(context, manager, outcome)
+  }
+
+  /** Where the database is, under which network, and the key it opens with, when it can be read. */
+  internal class Database(val path: String, val netid: String, val key: String?)
+
+  internal fun database(context: Context): Database {
     // libsession's root, as modules/storage-roots makes it: a directory per network.
     val root = File(context.filesDir, "session")
     val netid = NETWORKS.firstOrNull { File(root, "$it/session.db").exists() } ?: "mainnet"
@@ -51,19 +71,7 @@ object PushMessages {
           Log.w(TAG, "database key unavailable: ${e.message}")
           null
         }
-    val outcome =
-        PushNative.handle(
-            enc,
-            File(root, "$netid/session.db").path,
-            key,
-            netid,
-            PushStrings.get(context, "you"),
-            openConversation,
-        )
-    Log.i(TAG, "push ${outcome.why}")
-    val manager = context.getSystemService(NotificationManager::class.java) ?: return
-    for (id in outcome.stale) manager.cancel(id, 0)
-    if (outcome.kind != null && outcome.id != null) post(context, manager, outcome)
+    return Database(File(root, "$netid/session.db").path, netid, key)
   }
 
   /**
@@ -92,6 +100,30 @@ object PushMessages {
     post(context, manager, outcome)
   }
 
+  /**
+   * Replaces a notification whose reply did not go with one saying so, so the reply box stops
+   * waiting; tapping it opens the conversation as before.
+   */
+  fun replyFailed(context: Context, manager: NotificationManager, id: String) {
+    Channel.MESSAGES.ensure(context)
+    val launch = context.packageManager.getLaunchIntentForPackage(context.packageName)
+    val notification =
+        builder(
+                context,
+                Channel.MESSAGES,
+                PushStrings.get(context, "appName"),
+                PushStrings.get(context, "replyFailed"),
+            )
+            .setWhen(System.currentTimeMillis())
+            .setContentIntent(
+                launch?.let {
+                  PendingIntent.getActivity(context, 0, it, PendingIntent.FLAG_IMMUTABLE)
+                }
+            )
+            .build()
+    manager.notify(id, 0, notification)
+  }
+
   /** Takes down notifications by id, posted here or by a push. */
   fun remove(context: Context, ids: List<String>) {
     val manager = context.getSystemService(NotificationManager::class.java) ?: return
@@ -112,13 +144,18 @@ object PushMessages {
           "message_request" -> appName to PushStrings.get(context, "request")
           else -> appName to PushStrings.get(context, "generic")
         }
-    val notification =
+    val built =
         builder(context, channel, title, body)
             .setWhen(outcome.timestampMs.takeIf { it > 0 } ?: System.currentTimeMillis())
             .setGroup(outcome.thread)
             .setContentIntent(openIntent(context, outcome))
-            .build()
-    manager.notify(outcome.id, 0, notification)
+    // A message's notification can be read or answered where it is, as legacy Android's can; a
+    // request's opens the requests, where it is approved first.
+    val thread = outcome.thread
+    val id = outcome.id
+    if (outcome.kind == "message" && thread != null && id != null)
+      NotificationActions.add(context, built, id, thread)
+    manager.notify(outcome.id, 0, built.build())
   }
 
   /**
