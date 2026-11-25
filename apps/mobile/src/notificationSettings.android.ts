@@ -103,4 +103,4 @@ export function followNotificationPrefs(store: SessionStore): void {
 }
 
 /** Android carries out a notification's actions natively, the app running or not. */
-export function followNotificationActions(_client: unknown): void {}
+export function followNotificationActions(_client: unknown, _whileOpen: unknown): void {}

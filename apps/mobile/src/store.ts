@@ -177,7 +177,7 @@ export const storePromise = openTransportOrRefusal().then((transport) => {
   })
   watchStore(store)
   followFlagToggles(store)
-  followAppLifecycle(client)
+  const whileOpen = followAppLifecycle(client)
   followPushRegistration({
     store,
     client,
@@ -196,6 +196,6 @@ export const storePromise = openTransportOrRefusal().then((transport) => {
   })
   followNotificationWords(client)
   followNotificationPrefs(store)
-  followNotificationActions(client)
+  followNotificationActions(client, whileOpen)
   return store
 })

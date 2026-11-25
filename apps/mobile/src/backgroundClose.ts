@@ -18,6 +18,11 @@ export interface BackgroundCloseDeps {
   client: Pick<SessionClient, 'closeClient' | 'reopenClient' | 'setReceiving'>
   /** Calls back with each change of the app's state: `background`, `active`, and the others. */
   onAppStateChange: (listener: (state: string) => void) => void
+  /**
+   * The app's state at the start: `background` when iOS launched it to carry out a notification's
+   * action, which closes the database again once the action is over.
+   */
+  initialState: string
   /** The OS's grace to finish in once the app has left the screen, as `backgroundTask` keeps it. */
   task: { begin: () => void; end: () => void }
   log: (level: 'info' | 'warn' | 'error' | 'critical', message: string) => void
@@ -58,6 +63,12 @@ function report(result: ClientClosed): { level: 'info' | 'error' | 'critical'; m
 }
 
 /**
+ * Runs some work with the database open: iOS can wake an app whose database is closed to carry out
+ * a notification's action.
+ */
+export type WhileOpen = <T>(run: () => Promise<T>) => Promise<T>
+
+/**
  * Closes the database when the app leaves the screen and opens it again when the app comes back.
  *
  * **iOS only** (`clientLifecycle.ios.ts`). The database is in the app group, so the notification
@@ -71,15 +82,21 @@ function report(result: ClientClosed): { level: 'info' | 'error' | 'critical'; m
  *
  * One close at a time: one that a return to the app cancelled still has to settle before the next
  * begins, and the next is skipped if the app came back meanwhile.
+ *
+ * **Work in the background** goes through the `WhileOpen` returned: it opens the database again
+ * for the work, under the background task, and closes it once the last such work is over if the
+ * app is still off the screen. Receiving stays stopped meanwhile.
  */
-export function closeClientInBackground(deps: BackgroundCloseDeps): void {
+export function closeClientInBackground(deps: BackgroundCloseDeps): WhileOpen {
   const { client, log } = deps
-  let inBackground = false
+  let inBackground = deps.initialState === 'background'
   /** The close under way, or the last one, settled or not. */
   let closing: Promise<unknown> = Promise.resolve()
   /** The reopen under way, or the last one: a close after a quick return waits for it too. */
   let reopening: Promise<unknown> = Promise.resolve()
   let closeAsked = false
+  /** Work running through `whileOpen`: no close starts until it is over. */
+  let working = 0
 
   // Counted, since a close the app came back from can still be settling as the next one begins,
   // and the first to finish must not end the grace the other is running in.
@@ -92,7 +109,7 @@ export function closeClientInBackground(deps: BackgroundCloseDeps): void {
   }
 
   const close = async (): Promise<void> => {
-    if (!inBackground) return
+    if (!inBackground || working > 0 || closeAsked) return
     closeAsked = true
     try {
       const { level, message } = report(await client.closeClient(CLOSE_WAIT_MS, CLOSE_INTERRUPT_MS))
@@ -102,10 +119,27 @@ export function closeClientInBackground(deps: BackgroundCloseDeps): void {
     }
   }
 
+  const startClose = () => {
+    hold()
+    closing = Promise.all([closing, reopening])
+      .then(close)
+      .finally(() => {
+        void deps.flushLog().finally(release)
+      })
+  }
+
+  /** Cancels a close still waiting for outbound work; otherwise builds the Client again. */
+  const reopen = (): Promise<void> => {
+    closeAsked = false
+    const startedMs = Date.now()
+    return client
+      .reopenClient()
+      .then(() => log('info', `reopened in ${String(Date.now() - startedMs)} ms`))
+  }
+
   deps.onAppStateChange((state) => {
     if (state === 'background' && !inBackground) {
       inBackground = true
-      hold()
       void client
         .setReceiving(false)
         .catch((error: unknown) =>
@@ -114,11 +148,7 @@ export function closeClientInBackground(deps: BackgroundCloseDeps): void {
             `pausing receiving failed: ${error instanceof Error ? error.message : String(error)}`,
           ),
         )
-      closing = Promise.all([closing, reopening])
-        .then(close)
-        .finally(() => {
-          void deps.flushLog().finally(release)
-        })
+      startClose()
     } else if (state === 'active' && inBackground) {
       inBackground = false
       const resume = () =>
@@ -135,17 +165,32 @@ export function closeClientInBackground(deps: BackgroundCloseDeps): void {
         reopening = resume()
         return
       }
-      closeAsked = false
-      // Cancels a close still waiting for outbound work; otherwise builds the Client again,
-      // answering once it is back. Not chained behind the close, which may still be waiting.
-      const startedMs = Date.now()
-      reopening = client
-        .reopenClient()
-        .then(() => log('info', `reopened in ${String(Date.now() - startedMs)} ms`))
+      // Not chained behind the close, which may still be waiting.
+      reopening = reopen()
         .then(resume)
         .catch((error: unknown) =>
           log('error', `reopen failed: ${error instanceof Error ? error.message : String(error)}`),
         )
     }
   })
+
+  return async (run) => {
+    hold()
+    working++
+    try {
+      if (closeAsked)
+        reopening = reopen().catch((error: unknown) =>
+          log(
+            'error',
+            `reopen for work failed: ${error instanceof Error ? error.message : String(error)}`,
+          ),
+        )
+      await reopening
+      return await run()
+    } finally {
+      working--
+      if (inBackground && working === 0) startClose()
+      release()
+    }
+  }
 }

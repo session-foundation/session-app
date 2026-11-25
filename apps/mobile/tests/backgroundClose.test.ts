@@ -27,7 +27,7 @@ function deferred<T>() {
   return { promise, resolve }
 }
 
-function harness() {
+function harness(initialState = 'active') {
   let listener: (state: string) => void = () => {}
   const log = vi.fn<BackgroundCloseDeps['log']>()
   const deps = {
@@ -41,12 +41,13 @@ function harness() {
     onAppStateChange: (l: (state: string) => void) => {
       listener = l
     },
+    initialState,
     task: { begin: vi.fn(), end: vi.fn() },
     log,
     flushLog: vi.fn(() => Promise.resolve()),
   }
-  closeClientInBackground(deps)
-  return { deps, log, to: (state: string) => listener(state) }
+  const whileOpen = closeClientInBackground(deps)
+  return { deps, log, whileOpen, to: (state: string) => listener(state) }
 }
 
 /** Lets every queued continuation run. */
@@ -198,5 +199,93 @@ describe('closing the database in the background', () => {
     await drain()
     expect(log).toHaveBeenCalledWith('error', 'close failed: closeClient: refused')
     expect(deps.task.end).toHaveBeenCalledTimes(1)
+  })
+
+  describe('work in the background, such as a notification action', () => {
+    it('opens the closed database for the work, then closes it again under the task', async () => {
+      const { deps, whileOpen, to } = harness()
+      to('background')
+      await drain()
+      expect(deps.task.end).toHaveBeenCalledTimes(1)
+
+      const run = vi.fn(() => {
+        expect(deps.client.reopenClient).toHaveBeenCalledTimes(1)
+        return Promise.resolve('sent')
+      })
+      await expect(whileOpen(run)).resolves.toBe('sent')
+      await drain()
+
+      expect(run).toHaveBeenCalledTimes(1)
+      expect(deps.client.closeClient).toHaveBeenCalledTimes(2)
+      expect(deps.client.closeClient.mock.invocationCallOrder[1]).toBeGreaterThan(
+        run.mock.invocationCallOrder[0] ?? Infinity,
+      )
+      // Receiving stays stopped: the app is still off the screen.
+      expect(deps.client.setReceiving).not.toHaveBeenCalledWith(true)
+      expect(deps.task.begin).toHaveBeenCalledTimes(2)
+      expect(deps.task.end).toHaveBeenCalledTimes(2)
+    })
+
+    it('cancels a close still waiting, and closes once the work is over', async () => {
+      const { deps, whileOpen, to } = harness()
+      const close = deferred<ClientClosed>()
+      deps.client.closeClient.mockReturnValueOnce(close.promise)
+      to('background')
+      await drain()
+
+      const work = whileOpen(() => Promise.resolve())
+      expect(deps.client.reopenClient).toHaveBeenCalledTimes(1)
+      close.resolve({ ...CLOSED, closed: false })
+      await work
+      await drain()
+      expect(deps.client.closeClient).toHaveBeenCalledTimes(2)
+      expect(deps.task.end).toHaveBeenCalledTimes(1)
+    })
+
+    it('holds back a close the app leaves for until the work is over', async () => {
+      const { deps, whileOpen, to } = harness()
+      const done = deferred<undefined>()
+      const work = whileOpen(() => done.promise)
+      to('background')
+      await drain()
+      expect(deps.client.closeClient).not.toHaveBeenCalled()
+
+      done.resolve(undefined)
+      await work
+      await drain()
+      expect(deps.client.closeClient).toHaveBeenCalledTimes(1)
+      expect(deps.task.end).toHaveBeenCalledTimes(1)
+    })
+
+    it('neither reopens nor closes for work while the app is on the screen', async () => {
+      const { deps, whileOpen } = harness()
+      await whileOpen(() => Promise.resolve())
+      await drain()
+      expect(deps.client.reopenClient).not.toHaveBeenCalled()
+      expect(deps.client.closeClient).not.toHaveBeenCalled()
+    })
+
+    it('closes after work the app was launched in the background for', async () => {
+      const { deps, whileOpen, to } = harness('background')
+      await whileOpen(() => Promise.resolve())
+      await drain()
+      expect(deps.client.reopenClient).not.toHaveBeenCalled()
+      expect(deps.client.closeClient).toHaveBeenCalledTimes(1)
+
+      to('active')
+      await drain()
+      expect(deps.client.reopenClient).toHaveBeenCalledTimes(1)
+      expect(deps.client.setReceiving).toHaveBeenLastCalledWith(true)
+    })
+
+    it('runs the work even when the reopen failed, and logs it', async () => {
+      const { deps, log, whileOpen, to } = harness()
+      to('background')
+      await drain()
+      deps.client.reopenClient.mockRejectedValueOnce(new Error('reopenClient: refused'))
+      const run = vi.fn(() => Promise.resolve(false))
+      await expect(whileOpen(run)).resolves.toBe(false)
+      expect(log).toHaveBeenCalledWith('error', 'reopen for work failed: reopenClient: refused')
+    })
   })
 })
