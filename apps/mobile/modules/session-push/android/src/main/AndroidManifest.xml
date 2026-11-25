@@ -8,5 +8,10 @@
     <!-- Mark read and Reply on a message's notification. Not exported: only the notification's
          own pending intents reach it. -->
     <receiver android:name="org.getsession.push.NotificationActionReceiver" android:exported="false" />
+    <!-- Carries out the action: a broadcast has about ten seconds, and a reply can take longer. -->
+    <service
+        android:name="org.getsession.push.NotificationActionJob"
+        android:permission="android.permission.BIND_JOB_SERVICE"
+        android:exported="false" />
   </application>
 </manifest>

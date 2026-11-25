@@ -211,33 +211,51 @@ NotificationRefresh refresh_notifications(
     return {notifications.stale(), client.badge_count(session::await)};
 }
 
+namespace {
+
+    /// Marks read, sends a reply and waits for it to reach the swarm, until `deadline`.
+    ActionResult act(
+            client::Client& client,
+            const NotificationAction& action,
+            std::chrono::milliseconds deadline,
+            const PushLog& log) {
+        const auto until = std::chrono::steady_clock::now() + deadline;
+        auto id = client::ConversationId::parse(action.conversation);
+        if (!client.conversation(id, session::await))
+            return {false, "no such conversation", {}};
+        client::Conversation{client, id}.mark_read(session::await);
+        log("marked read");
+        if (!action.reply)
+            return {true, "marked read", {}};
+
+        auto sent = client.send_message(
+                id, client::OutgoingMessage{.body = *action.reply}, session::await);
+        // Watched until it has gone: the process may be suspended or ended as soon as this returns.
+        while (std::chrono::steady_clock::now() < until) {
+            auto m = client.message(sent, session::await);
+            auto state = m ? m->send_state : std::nullopt;
+            if (state == client::SendState::sent)
+                return {true, "reply sent", {}};
+            if (state && *state != client::SendState::pending &&
+                *state != client::SendState::sending)
+                return {false, "reply failed to send", {}};
+            std::this_thread::sleep_for(200ms);
+        }
+        return {false, "reply still sending at the deadline", {}};
+    }
+
+}  // namespace
+
 ActionResult handle_action(
         client::Client& client,
+        push::Notifications& notifications,
         const NotificationAction& action,
         std::chrono::milliseconds deadline,
         const PushLog& log) {
-    const auto until = std::chrono::steady_clock::now() + deadline;
-    auto id = client::ConversationId::parse(action.conversation);
-    if (!client.conversation(id, session::await))
-        return {false, "no such conversation"};
-    client::Conversation{client, id}.mark_read(session::await);
-    log("marked read");
-    if (!action.reply)
-        return {true, "marked read"};
-
-    auto sent = client.send_message(
-            id, client::OutgoingMessage{.body = *action.reply}, session::await);
-    // Watched until it has gone: the process may be suspended or ended as soon as this returns.
-    while (std::chrono::steady_clock::now() < until) {
-        auto m = client.message(sent, session::await);
-        auto state = m ? m->send_state : std::nullopt;
-        if (state == client::SendState::sent)
-            return {true, "reply sent"};
-        if (state && *state != client::SendState::pending && *state != client::SendState::sending)
-            return {false, "reply failed to send"};
-        std::this_thread::sleep_for(200ms);
-    }
-    return {false, "reply still sending at the deadline"};
+    auto out = act(client, action, deadline, log);
+    // Read, even when a reply did not go: its conversation's notifications come down now.
+    out.stale = notifications.stale();
+    return out;
 }
 
 ActionResult handle_cold_action(
@@ -246,15 +264,19 @@ ActionResult handle_cold_action(
         std::chrono::milliseconds deadline,
         const PushLog& log) {
     if (auto why = unopenable(where))
-        return {false, *why};
+        return {false, *why, {}};
     try {
         auto client = open_cold(where, log);
-        auto out = handle_action(*client, action, deadline, log);
+        ActionResult out;
+        {
+            push::Notifications notifications{*client};
+            out = handle_action(*client, notifications, action, deadline, log);
+        }
         client.reset();
         log("database closed");
         return out;
     } catch (const std::exception& e) {
-        return {false, std::string{"threw: "} + e.what()};
+        return {false, std::string{"threw: "} + e.what(), {}};
     }
 }
 

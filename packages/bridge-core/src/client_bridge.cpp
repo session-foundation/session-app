@@ -2121,6 +2121,11 @@ std::optional<ActionResult> ClientBridge::handle_action(
         const std::function<void(std::string_view)>& log) {
     if (!_impl)
         return std::nullopt;
+    // Held for the whole action, so the refresh its own changes queue waits: that refresh would
+    // take the conversation's notifications as stale first, and hand them to JavaScript, which an
+    // app woken only for the action may never run before it is frozen again. The action reports
+    // them instead, to the native code that takes them down.
+    std::lock_guard arrivals{_impl->arrival->m};
     // As a push: held shared against a replacement of the Client, outside `client_lock`.
     std::shared_lock use{_impl->push_use, std::defer_lock};
     {
@@ -2128,12 +2133,14 @@ std::optional<ActionResult> ClientBridge::handle_action(
         if (_impl->close_cancelled || !_impl->client ||
             _impl->background != Impl::Background::open)
             return std::nullopt;
+        _impl->push_notifications();
         use.lock();
     }
     try {
-        return session_bridge::handle_action(*_impl->client, action, deadline, log);
+        return session_bridge::handle_action(
+                *_impl->client, *_impl->notifications, action, deadline, log);
     } catch (const std::exception& e) {
-        return ActionResult{false, std::string{"threw: "} + e.what()};
+        return ActionResult{false, std::string{"threw: "} + e.what(), {}};
     }
 }
 
