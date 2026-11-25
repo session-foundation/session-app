@@ -86,6 +86,7 @@ function Transcript({
   list,
   onFarFromEnd,
   showsOnceAtEnd,
+  opensAt,
   onAtEnd,
   onRowsOnScreen,
 }: {
@@ -99,6 +100,8 @@ function Transcript({
   onFarFromEnd: (far: boolean) => void
   /** See `TranscriptListProps.showsOnceAtEnd`. */
   showsOnceAtEnd?: boolean | undefined
+  /** See `TranscriptListProps.opensAt`. */
+  opensAt?: string | undefined
   onAtEnd: () => void
   onRowsOnScreen: (keys: ReadonlySet<string>) => void
 }) {
@@ -137,6 +140,7 @@ function Transcript({
       moreAfter={hasNewer}
       onFarFromEnd={onFarFromEnd}
       showsOnceAtEnd={showsOnceAtEnd}
+      opensAt={opensAt}
       onAtEnd={onAtEnd}
       onRowsOnScreen={onRowsOnScreen}
       onWaitsForStart={setWaitsForOlder}
@@ -269,15 +273,14 @@ export function DetachedTranscript({
 }
 
 /**
- * Lands on `landOn` once the first page is in, as a quote's original is landed on: a jump needs a
- * window to replace. Each message once, so a later tap on the same notification's message, with
- * the conversation still open, is the one that lands again. A message deleted since lands nowhere,
- * leaving the newest page.
+ * Lands on a `landOn` that changes with the conversation open, as a quote's original is landed on:
+ * the one it opened with placed the first window itself (`useMessages`). A message deleted since
+ * lands nowhere, leaving the window as it is.
  */
 function useOpenOn(conversationId: ConversationId, landOn: number | undefined, ready: boolean) {
   const actions = useSessionActions()
   const toasts = useToast()
-  const landed = useRef<number | undefined>(undefined)
+  const landed = useRef(landOn)
   useEffect(() => {
     if (!ready || landOn === undefined || landed.current === landOn) return
     landed.current = landOn
@@ -296,7 +299,7 @@ function Conversation({
 }) {
   const conversation = useConversation(conversationId)
   const account = useAccount()
-  const transcript = useMessages(conversationId)
+  const transcript = useMessages(conversationId, landOn)
   const { messages, ready, firstPageFailed, reload } = transcript
   const showLoading = useShowAfter(!ready && !firstPageFailed)
   const actions = useSessionActions()
@@ -523,6 +526,8 @@ function Conversation({
                     key={listKey}
                     // Drawn afresh in place, with no screen sliding over it.
                     showsOnceAtEnd={listKey > 0}
+                    // Read by the first list only: a tapped notification's message.
+                    opensAt={landOn === undefined ? undefined : String(landOn)}
                     conversationId={conversationId}
                     transcript={transcript}
                     // With animations off, for tests that would race the fade, it is held.
