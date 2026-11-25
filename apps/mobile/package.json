@@ -25,6 +25,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@formatjs/intl-locale": "catalog:",
     "@formatjs/intl-pluralrules": "catalog:",
     "@session/app": "workspace:*",
     "@session/basic-types": "workspace:*",

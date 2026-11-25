@@ -10,8 +10,13 @@
  * old names for `sr-Latn` and `fil`, and `kmr` is matched to `ku`.
  *
  * A locale with no rules gets those of the first file loaded, so English's comes first.
+ *
+ * `Intl.Locale` is polyfilled first: Hermes has none, and the plural rules' locale matcher
+ * constructs one for every tag it cannot match exactly (`zh-CN`, `es-419`, `sr-CS`), throwing
+ * without it.
  */
 /* eslint-disable import-x/extensions -- the package exports these paths only with the extension */
+import '@formatjs/intl-locale/polyfill.js'
 import '@formatjs/intl-pluralrules/polyfill.js'
 import '@formatjs/intl-pluralrules/locale-data/en.js'
 import '@formatjs/intl-pluralrules/locale-data/af.js'
@@ -95,13 +100,20 @@ type PluralRulesPolyfill = {
 }
 
 /**
- * CLDR files Traditional Chinese's rules under `zh` alone, and the matcher keeps `zh-TW`
- * (`zh-Hant`) apart from it, so it is given the same rules under its own script.
+ * App locales the matcher cannot find a file for by name, each given its language's rules under its
+ * own tag. CLDR files Traditional Chinese's rules under `zh` alone, and the matcher keeps `zh-TW`
+ * (`zh-Hant`) apart from it. `sh`, `tl` and `kmr` reach `sr`, `fil` and `ku` only through CLDR's
+ * language aliases, which Hermes's `Intl.getCanonicalLocales` does not apply: without these, Hermes
+ * gives `tl` English's rules, and Filipino's differ.
  */
-function aliasTraditionalChinese(): void {
+const ALIASES: Record<string, string> = { 'zh-Hant': 'zh', sh: 'sr', tl: 'fil', kmr: 'ku' }
+
+function addAliases(): void {
   const polyfill = Intl.PluralRules as unknown as PluralRulesPolyfill
-  const zh = polyfill.localeData?.['zh']
-  if (zh !== undefined) polyfill.__addLocaleData?.({ data: zh, locale: 'zh-Hant' })
+  for (const [locale, language] of Object.entries(ALIASES)) {
+    const data = polyfill.localeData?.[language]
+    if (data !== undefined) polyfill.__addLocaleData?.({ data, locale })
+  }
 }
 
-aliasTraditionalChinese()
+addAliases()

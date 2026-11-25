@@ -2,18 +2,21 @@ import { crowdinLocales, resetLocale, setLocale, tr } from '@session/localizatio
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 /**
- * Node has `Intl.PluralRules` and Hermes does not, so it is taken away here before the polyfill
- * loads, as Hermes would have it.
+ * Node has `Intl.PluralRules` and `Intl.Locale` and Hermes has neither, so both are taken away
+ * here before the polyfills load, as Hermes would have it.
  */
 const native = Intl.PluralRules
+const nativeLocale = Intl.Locale
 
 beforeAll(async () => {
   Reflect.deleteProperty(Intl, 'PluralRules')
+  Reflect.deleteProperty(Intl, 'Locale')
   await import('#src/pluralRules')
 })
 
 afterAll(() => {
   Object.defineProperty(Intl, 'PluralRules', { value: native, configurable: true, writable: true })
+  Object.defineProperty(Intl, 'Locale', { value: nativeLocale, configurable: true, writable: true })
   resetLocale()
 })
 
@@ -32,6 +35,10 @@ describe('plural rules without the engine', () => {
     ['pt-BR', 0, 'one'],
     ['pt-PT', 0, 'other'],
     ['zh-TW', 1, 'other'],
+    ['zh-CN', 1, 'other'],
+    ['es-419', 1, 'one'],
+    ['sr-CS', 3, 'few'],
+    ['tl', 3, 'one'],
   ] as const)('chooses %s %d as %s', (locale, count, category) => {
     expect(new Intl.PluralRules(locale).select(count)).toBe(category)
   })
