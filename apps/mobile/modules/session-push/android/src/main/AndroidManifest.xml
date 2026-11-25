@@ -4,4 +4,9 @@
   <!-- "Allow background activity" asks for the battery-optimisation exemption with Android's own
        dialog, for the delivery modes that work in the background without a push service. -->
   <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+  <application>
+    <!-- Mark read and Reply on a message's notification. Not exported: only the notification's
+         own pending intents reach it. -->
+    <receiver android:name="org.getsession.push.NotificationActionReceiver" android:exported="false" />
+  </application>
 </manifest>

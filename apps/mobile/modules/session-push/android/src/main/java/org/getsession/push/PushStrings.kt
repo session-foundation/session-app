@@ -27,6 +27,9 @@ internal object PushStrings {
           "voice" to "Voice Message",
           "file" to "Document",
           "attachments" to "Attachments",
+          "markRead" to "Mark read",
+          "reply" to "Reply",
+          "replyFailed" to "Message delivery failed",
       )
 
   val KEYS: Set<String> = ENGLISH.keys

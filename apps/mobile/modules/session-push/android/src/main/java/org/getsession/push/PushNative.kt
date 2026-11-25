@@ -23,6 +23,20 @@ internal object PushNative {
       you: String,
       openConversation: String?,
   ): PushOutcome
+
+  /**
+   * A notification's action: marks [conversation] read, and sends [reply] there when it is not
+   * null; on the app's own Client when it is open, otherwise on one opened from [dbPath] with
+   * [keyHex]. Blocks for up to about 20 seconds; true when it is done.
+   */
+  @JvmStatic
+  external fun act(
+      conversation: String,
+      reply: String?,
+      dbPath: String,
+      keyHex: String?,
+      netid: String,
+  ): Boolean
 }
 
 /** What a push came to, as `session_bridge::PushResult` says it. */

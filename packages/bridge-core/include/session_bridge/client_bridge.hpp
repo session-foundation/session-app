@@ -175,6 +175,8 @@ using ThumbhashHandler = std::function<void(Thumbhash)>;
 /// relative order is load-bearing: see `Frame` in @session/bridge-types.
 /// See push_handler.hpp, which needs libsession's headers: this one deliberately does not.
 struct PushResult;
+struct NotificationAction;
+struct ActionResult;
 
 class ClientBridge {
   public:
@@ -262,6 +264,14 @@ class ClientBridge {
             std::string_view enc_payload,
             std::string_view you,
             std::optional<std::string_view> open,
+            std::chrono::milliseconds deadline,
+            const std::function<void(std::string_view)>& log);
+
+    /// Carries out a notification's action on this bridge's Client, as `handle_push` handles a
+    /// push: see `session_bridge::handle_action`. Nullopt when there is no Client to do it on, and
+    /// the caller does it with a Client of its own (`handle_cold_action`). Blocks until done.
+    std::optional<ActionResult> handle_action(
+            const NotificationAction& action,
             std::chrono::milliseconds deadline,
             const std::function<void(std::string_view)>& log);
 

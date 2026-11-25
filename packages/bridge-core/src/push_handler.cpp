@@ -3,6 +3,7 @@
 #include <condition_variable>
 #include <memory>
 #include <mutex>
+#include <thread>
 #include <session/client.hpp>
 #include <session/client/conversation_id.hpp>
 #include <session/network/network_opt.hpp>
@@ -35,6 +36,46 @@ namespace {
 
     PushResult generic(std::string why) {
         return {generic_notification(), {}, std::nullopt, std::move(why)};
+    }
+
+    /// Why `where` cannot be opened, or nullopt when it can be tried.
+    std::optional<std::string> unopenable(const ColdPush& where) {
+        if (where.netid != "mainnet" && where.netid != "testnet")
+            return "no push handling on " + where.netid;
+        std::error_code ec;
+        if (!std::filesystem::exists(where.db_path, ec))
+            return "no database";
+        return std::nullopt;
+    }
+
+    /// A Client of its own on `where`, one-shot, with a one-shot network attached. Throws when the
+    /// database will not open.
+    std::unique_ptr<client::Client> open_cold(const ColdPush& where, const PushLog& log) {
+        auto client = where.plaintext_header
+                            ? std::make_unique<client::Client>(
+                                      where.db_path,
+                                      session::sqlite::raw_key{where.key},
+                                      session::sqlite::plaintext_header,
+                                      session::core::one_shot{})
+                            : std::make_unique<client::Client>(
+                                      where.db_path,
+                                      session::sqlite::raw_key{where.key},
+                                      session::core::one_shot{});
+        log("database open");
+        const auto cache = where.db_path.parent_path() / "netcache";
+        if (where.netid == "testnet")
+            client->core.make_network(
+                    session::network::opt::netid::testnet(),
+                    session::network::opt::router::session_router(),
+                    session::network::opt::cache_directory{cache},
+                    session::network::opt::one_shot{});
+        else
+            client->core.make_network(
+                    session::network::opt::netid::mainnet(),
+                    session::network::opt::router::session_router(),
+                    session::network::opt::cache_directory{cache},
+                    session::network::opt::one_shot{});
+        return client;
     }
 
 }  // namespace
@@ -97,36 +138,10 @@ PushResult handle_cold_push(
         std::string_view you,
         std::chrono::milliseconds deadline,
         const PushLog& log) {
-    if (where.netid != "mainnet" && where.netid != "testnet")
-        return generic("no push handling on " + where.netid);
-    std::error_code ec;
-    if (!std::filesystem::exists(where.db_path, ec))
-        return generic("no database");
+    if (auto why = unopenable(where))
+        return generic(*why);
     try {
-        auto client = where.plaintext_header
-                            ? std::make_unique<client::Client>(
-                                      where.db_path,
-                                      session::sqlite::raw_key{where.key},
-                                      session::sqlite::plaintext_header,
-                                      session::core::one_shot{})
-                            : std::make_unique<client::Client>(
-                                      where.db_path,
-                                      session::sqlite::raw_key{where.key},
-                                      session::core::one_shot{});
-        log("database open");
-        const auto cache = where.db_path.parent_path() / "netcache";
-        if (where.netid == "testnet")
-            client->core.make_network(
-                    session::network::opt::netid::testnet(),
-                    session::network::opt::router::session_router(),
-                    session::network::opt::cache_directory{cache},
-                    session::network::opt::one_shot{});
-        else
-            client->core.make_network(
-                    session::network::opt::netid::mainnet(),
-                    session::network::opt::router::session_router(),
-                    session::network::opt::cache_directory{cache},
-                    session::network::opt::one_shot{});
+        auto client = open_cold(where, log);
         PushResult out;
         {
             push::Notifications notifications{*client};
@@ -159,6 +174,53 @@ std::vector<push::NotificationContent> decide_arrivals(
 NotificationRefresh refresh_notifications(
         client::Client& client, push::Notifications& notifications) {
     return {notifications.stale(), client.badge_count(session::await)};
+}
+
+ActionResult handle_action(
+        client::Client& client,
+        const NotificationAction& action,
+        std::chrono::milliseconds deadline,
+        const PushLog& log) {
+    const auto until = std::chrono::steady_clock::now() + deadline;
+    auto id = client::ConversationId::parse(action.conversation);
+    if (!client.conversation(id, session::await))
+        return {false, "no such conversation"};
+    client::Conversation{client, id}.mark_read(session::await);
+    log("marked read");
+    if (!action.reply)
+        return {true, "marked read"};
+
+    auto sent = client.send_message(
+            id, client::OutgoingMessage{.body = *action.reply}, session::await);
+    // Watched until it has gone: the process may be suspended or ended as soon as this returns.
+    while (std::chrono::steady_clock::now() < until) {
+        auto m = client.message(sent, session::await);
+        auto state = m ? m->send_state : std::nullopt;
+        if (state == client::SendState::sent)
+            return {true, "reply sent"};
+        if (state && *state != client::SendState::pending && *state != client::SendState::sending)
+            return {false, "reply failed to send"};
+        std::this_thread::sleep_for(200ms);
+    }
+    return {false, "reply still sending at the deadline"};
+}
+
+ActionResult handle_cold_action(
+        const ColdPush& where,
+        const NotificationAction& action,
+        std::chrono::milliseconds deadline,
+        const PushLog& log) {
+    if (auto why = unopenable(where))
+        return {false, *why};
+    try {
+        auto client = open_cold(where, log);
+        auto out = handle_action(*client, action, deadline, log);
+        client.reset();
+        log("database closed");
+        return out;
+    } catch (const std::exception& e) {
+        return {false, std::string{"threw: "} + e.what()};
+    }
 }
 
 }  // namespace session_bridge

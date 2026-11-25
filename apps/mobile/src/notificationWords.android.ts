@@ -21,6 +21,9 @@ function words(): Record<string, string> {
     voice: tr('messageVoice'),
     file: tr('document'),
     attachments: tr('attachments'),
+    markRead: tr('messageMarkRead'),
+    reply: tr('reply'),
+    replyFailed: tr('messageErrorDelivery'),
   }
 }
 

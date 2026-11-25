@@ -114,4 +114,40 @@ struct NotificationRefresh {
 NotificationRefresh refresh_notifications(
         session::client::Client& client, session::push::Notifications& notifications);
 
+/// What a notification's button asks for: its conversation marked read, or a reply sent there,
+/// which marks it read too, as legacy clients do.
+struct NotificationAction {
+    /// The conversation, as its string id: a message notification's thread.
+    std::string conversation;
+    /// The reply to send, or nullopt to mark read only.
+    std::optional<std::string> reply;
+};
+
+struct ActionResult {
+    /// Done: marked read, and for a reply, the reply accepted by the swarm.
+    bool done = false;
+    /// What happened, in words for the log: never message content.
+    std::string why;
+};
+
+/// How long a notification's action may take, inside what either OS lets a process run for once
+/// it has been woken for one.
+inline constexpr std::chrono::milliseconds ACTION_DEADLINE{20'000};
+
+/// Carries out a notification's action on a Client already open, waiting for a reply to reach the
+/// swarm until `deadline`. Blocks: never on the Client's own loop.
+ActionResult handle_action(
+        session::client::Client& client,
+        const NotificationAction& action,
+        std::chrono::milliseconds deadline,
+        const PushLog& log);
+
+/// The same with a Client of its own, opened and closed as `handle_cold_push` does: for a process
+/// in which the app's own Client is not open, never beside it. Never throws.
+ActionResult handle_cold_action(
+        const ColdPush& where,
+        const NotificationAction& action,
+        std::chrono::milliseconds deadline,
+        const PushLog& log);
+
 }  // namespace session_bridge
