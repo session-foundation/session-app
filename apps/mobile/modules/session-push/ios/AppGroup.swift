@@ -19,6 +19,9 @@ enum AppGroup {
   /// The userInfo key a notification's id goes under, by which it is taken down; the extension's
   /// too.
   static let notificationIdKey = "session_id"
+  /// The category a message's notification is posted under, which carries Mark read and Reply;
+  /// the extension's too.
+  static let messageCategory = "session-message"
 
   /// How long the lease lasts without being renewed, and how often the app renews it. Long enough
   /// that a renewal is never missed in practice; short enough that a crash, which cannot clear it,
@@ -66,7 +69,8 @@ enum AppGroup {
       "appName": "Session", "generic": "You've got a new message.",
       "request": "You have a new message request", "image": "Image", "animated": "GIF",
       "video": "Video", "audio": "Audio", "voice": "Voice Message", "file": "Document",
-      "attachments": "Attachments",
+      "attachments": "Attachments", "markRead": "Mark read", "reply": "Reply", "send": "Send",
+      "replyFailed": "Message delivery failed",
     ]
     let words = defaults?.dictionary(forKey: wordsKey) as? [String: String]
     return words?[key] ?? english[key] ?? ""

@@ -158,3 +158,42 @@ extern "C" JNIEXPORT jobject JNICALL Java_org_getsession_push_PushNative_handle(
     log_line("push: " + result->why);
     return outcome(env, *result);
 }
+
+/// Carries out a notification's action: marks `conversation` read, and sends `reply` there when it
+/// is not null. On the app's own Client when it is open, otherwise on one opened from `dbPath` with
+/// `keyHex`, as a push is. Blocks until done or the deadline; true when it is done.
+extern "C" JNIEXPORT jboolean JNICALL Java_org_getsession_push_PushNative_act(
+        JNIEnv* env,
+        jclass,
+        jstring conversation,
+        jstring reply,
+        jstring db_path,
+        jstring key_hex,
+        jstring netid) {
+    session_bridge::NotificationAction action;
+    action.conversation = text(env, conversation);
+    if (reply)
+        action.reply = text(env, reply);
+    std::optional<session_bridge::ActionResult> result;
+    try {
+        result = session_bridge_rn::act_on_app_bridge(
+                action, session_bridge::ACTION_DEADLINE, log_line);
+        if (!result) {
+            const auto hex = text(env, key_hex);
+            if (hex.size() != 64 || !oxenc::is_hex(hex)) {
+                result = session_bridge::ActionResult{false, "no database key"};
+            } else {
+                session_bridge::ColdPush where;
+                where.db_path = text(env, db_path);
+                oxenc::from_hex(hex.begin(), hex.end(), where.key.begin());
+                where.netid = text(env, netid);
+                result = session_bridge::handle_cold_action(
+                        where, action, session_bridge::ACTION_DEADLINE, log_line);
+            }
+        }
+    } catch (const std::exception& e) {
+        result = session_bridge::ActionResult{false, std::string{"threw: "} + e.what()};
+    }
+    log_line("action: " + result->why);
+    return result->done ? JNI_TRUE : JNI_FALSE;
+}

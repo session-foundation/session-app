@@ -6,7 +6,7 @@ import UserNotifications
 public class SessionPushModule: Module {
   public func definition() -> ModuleDefinition {
     Name("SessionPush")
-    Events("onTokenChange", "onTap")
+    Events("onTokenChange", "onTap", "onAction")
 
     /// Every iOS build has APNs behind it; whether a token comes is answered by `token`.
     Constant("available") { true }
@@ -44,6 +44,13 @@ public class SessionPushModule: Module {
     /// The words the extension builds notifications from, in the app's language.
     Function("setStrings") { (strings: [String: String]) in
       AppGroup.defaults?.set(strings, forKey: AppGroup.wordsKey)
+      // The actions' titles are words too.
+      NotificationPresenter.registerCategories()
+    }
+
+    /// Ends a notification's action that `onAction` handed over: see `NotificationPresenter`.
+    Function("finishAction") { (token: String, done: Bool) in
+      NotificationPresenter.shared.finishAction(token, done: done)
     }
 
     Function("setOpenConversation") { (id: String?) in
@@ -75,6 +82,7 @@ public class SessionPushModule: Module {
         content.title = notification["sender"] as? String ?? AppGroup.word("appName")
         content.body = notification["body"] as? String ?? Self.placeholder(notification)
         content.threadIdentifier = notification["conversationId"] as? String ?? ""
+        content.categoryIdentifier = AppGroup.messageCategory
       }
       content.userInfo = [
         "session_kind": request ? "message_request" : "message",
@@ -131,6 +139,14 @@ public class SessionPushModule: Module {
 
     OnStartObserving {
       PushToken.onChange = { [weak self] in self?.sendEvent("onTokenChange") }
+      NotificationPresenter.shared.onAction = { [weak self] action in
+        var event: [String: Any] = [
+          "token": action.token, "conversation": action.conversation,
+          "action": action.reply == nil ? "markRead" : "reply",
+        ]
+        if let reply = action.reply { event["reply"] = reply }
+        self?.sendEvent("onAction", event)
+      }
       NotificationPresenter.shared.onTap = { [weak self] tap in
         switch tap {
         case .conversation(let id): self?.sendEvent("onTap", ["conversation": id])
@@ -142,6 +158,7 @@ public class SessionPushModule: Module {
     OnStopObserving {
       PushToken.onChange = nil
       NotificationPresenter.shared.onTap = nil
+      NotificationPresenter.shared.onAction = nil
     }
   }
 
