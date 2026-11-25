@@ -6,6 +6,14 @@ import { Linking } from 'react-native'
 
 import type { WhileOpen } from './backgroundClose'
 
+/** What a tap is led through; see `holdTapsUntilOpen`. */
+let openForTaps: WhileOpen = (run) => run()
+
+/** Leads each tap once the database is open again, through `closeClientInBackground`'s hold. */
+export function holdTapsUntilOpen(whileOpen: WhileOpen): void {
+  openForTaps = whileOpen
+}
+
 interface SessionPushModule {
   notificationsAllowed(): Promise<boolean>
   backgroundRefreshOn(): Promise<boolean>
@@ -29,6 +37,8 @@ interface NotificationAction {
   conversation: string
   action: 'markRead' | 'reply'
   reply?: string
+  /** False for a reply while a newer notification of the conversation is still up. */
+  markRead: boolean
 }
 
 /** How long a reply is given to reach the swarm, inside the time iOS allows an action. */
@@ -79,16 +89,25 @@ export const notificationSettings: NotificationSettings = {
           if (sound !== 'none') NotificationSounds.play(sound)
         },
   preview: SessionPush === null ? null : ({ title, body }) => SessionPush.preview(title, body),
-  // A tap on a message notification, by conversation and message, or on a request's, by null. Android opens
-  // both through the app's own link instead, so this is iOS's alone.
+  // A tap on a message notification, by conversation and message, or on a request's, by null.
+  // Android opens both through the app's own link instead, so this is iOS's alone.
   onTap: (handler) => {
     if (SessionPush === null) return () => undefined
     const subscription = SessionPush.addListener('onTap', ({ conversation, message }) => {
-      handler(
-        conversation === null
-          ? { kind: 'requests' }
-          : { kind: 'conversation', conversationId: conversation, messageId: message ?? undefined },
-      )
+      // A tap brings the app back with its database still closed, and the screen it leads to reads
+      // at once: led there once it is open.
+      void openForTaps(() => {
+        handler(
+          conversation === null
+            ? { kind: 'requests' }
+            : {
+                kind: 'conversation',
+                conversationId: conversation,
+                messageId: message ?? undefined,
+              },
+        )
+        return Promise.resolve()
+      })
     })
     return () => {
       subscription.remove()
@@ -177,9 +196,9 @@ export function followNotificationActions(
   whileOpen: WhileOpen,
 ): void {
   if (SessionPush === null) return
-  SessionPush.addListener('onAction', ({ token, conversation, action, reply }) => {
+  SessionPush.addListener('onAction', ({ token, conversation, action, reply, markRead }) => {
     const run = async (): Promise<boolean> => {
-      await client.markRead(conversation)
+      if (markRead) await client.markRead(conversation)
       if (action !== 'reply' || reply === undefined) return true
       return sent(client, client.sendMessage(conversation, { body: reply }), REPLY_DEADLINE_MS)
     }

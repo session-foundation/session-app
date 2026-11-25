@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.util.Log
 import java.io.File
 import org.getsession.databasekey.DatabaseKeyStore
@@ -168,6 +169,7 @@ object PushMessages {
         builder(context, channel, title, body)
             .setWhen(outcome.timestampMs.takeIf { it > 0 } ?: System.currentTimeMillis())
             .setGroup(outcome.thread)
+            .addExtras(Bundle().apply { putString(EXTRA_CONVERSATION, outcome.thread) })
             .setContentIntent(openIntent(context, outcome))
     // A message's notification can be read or answered where it is, as legacy Android's can; a
     // request's opens the requests, where it is approved first.
@@ -199,6 +201,12 @@ object PushMessages {
   }
 
   private const val PREVIEW_TAG = "preview"
+
+  /**
+   * The extra a notification's conversation is kept under: its group is not it while the app is
+   * in front, when it goes in the silent group.
+   */
+  const val EXTRA_CONVERSATION = "session_conversation"
 
   /** The group a notification silenced while the app is in front goes in, when it has none. */
   private const val SILENT_GROUP = "silent"

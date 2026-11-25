@@ -72,13 +72,32 @@ internal object NotificationActions {
    * Carries out an action [NotificationActionJob] was given: runs on a thread of its own, since it
    * may block for the whole of [PushNative.act]'s deadline.
    */
+  /** Whether a notification of [conversation] posted after [notification] is still showing. */
+  private fun newerShowing(
+      manager: NotificationManager,
+      conversation: String,
+      notification: String,
+  ): Boolean {
+    val showing = manager.activeNotifications
+    val answeredAt =
+        showing.firstOrNull { it.tag == notification }?.notification?.`when` ?: return false
+    return showing.any {
+      it.tag != notification &&
+          it.notification.extras.getString(PushMessages.EXTRA_CONVERSATION) == conversation &&
+          it.notification.`when` > answeredAt
+    }
+  }
+
   fun handle(context: Context, conversation: String, notification: String, reply: String?) {
     val db = PushMessages.database(context)
-    val outcome = PushNative.act(conversation, reply, db.path, db.key, db.netid)
+    val manager = context.getSystemService(NotificationManager::class.java) ?: return
+    // A reply leaves the conversation unread while a newer notification of it is still up, so the
+    // rest can be answered one by one.
+    val markRead = reply == null || !newerShowing(manager, conversation, notification)
+    val outcome = PushNative.act(conversation, reply, markRead, db.path, db.key, db.netid)
     val done = outcome.done
     Log.i(TAG, "notification action ${if (reply == null) "mark read" else "reply"}: " +
         if (done) "done" else "not done")
-    val manager = context.getSystemService(NotificationManager::class.java) ?: return
     // Here rather than left to the app: a process woken only for this may be frozen again before
     // the app's own refresh would run.
     for (id in outcome.stale) if (id != notification || done) manager.cancel(id, 0)

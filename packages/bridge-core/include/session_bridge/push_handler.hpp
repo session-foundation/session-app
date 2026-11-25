@@ -129,13 +129,15 @@ struct NotificationRefresh {
 NotificationRefresh refresh_notifications(
         session::client::Client& client, session::push::Notifications& notifications);
 
-/// What a notification's button asks for: its conversation marked read, or a reply sent there,
-/// which marks it read too, as legacy clients do.
+/// What a notification's button asks for: its conversation marked read, or a reply sent there.
 struct NotificationAction {
     /// The conversation, as its string id: a message notification's thread.
     std::string conversation;
     /// The reply to send, or nullopt to mark read only.
     std::optional<std::string> reply;
+    /// Whether to mark the conversation read: always for Mark read, and for a reply unless a newer
+    /// notification of the conversation is still up, so that the rest can be answered one by one.
+    bool mark_read = true;
 };
 
 struct ActionResult {

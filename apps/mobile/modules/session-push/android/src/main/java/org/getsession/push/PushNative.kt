@@ -33,6 +33,7 @@ internal object PushNative {
   external fun act(
       conversation: String,
       reply: String?,
+      markRead: Boolean,
       dbPath: String,
       keyHex: String?,
       netid: String,
