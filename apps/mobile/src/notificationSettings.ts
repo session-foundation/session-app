@@ -37,6 +37,8 @@ interface NotificationAction {
   conversation: string
   action: 'markRead' | 'reply'
   reply?: string
+  /** False for a reply while a newer notification of the conversation is still up. */
+  markRead: boolean
 }
 
 /** How long a reply is given to reach the swarm, inside the time iOS allows an action. */
@@ -194,9 +196,9 @@ export function followNotificationActions(
   whileOpen: WhileOpen,
 ): void {
   if (SessionPush === null) return
-  SessionPush.addListener('onAction', ({ token, conversation, action, reply }) => {
+  SessionPush.addListener('onAction', ({ token, conversation, action, reply, markRead }) => {
     const run = async (): Promise<boolean> => {
-      await client.markRead(conversation)
+      if (markRead) await client.markRead(conversation)
       if (action !== 'reply' || reply === undefined) return true
       return sent(client, client.sendMessage(conversation, { body: reply }), REPLY_DEADLINE_MS)
     }

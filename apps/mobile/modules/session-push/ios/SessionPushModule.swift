@@ -146,7 +146,7 @@ public class SessionPushModule: Module {
       NotificationPresenter.shared.onAction = { [weak self] action in
         var event: [String: Any] = [
           "token": action.token, "conversation": action.conversation,
-          "action": action.reply == nil ? "markRead" : "reply",
+          "action": action.reply == nil ? "markRead" : "reply", "markRead": action.markRead,
         ]
         if let reply = action.reply { event["reply"] = reply }
         self?.sendEvent("onAction", event)

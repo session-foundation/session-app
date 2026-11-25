@@ -127,6 +127,9 @@ final class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate {
     let conversation: String
     /// The reply typed, or nil for Mark read.
     let reply: String?
+    /// Whether to mark the conversation read: always for Mark read, and for a reply unless a newer
+    /// notification of the conversation is still up, so that the rest can be answered one by one.
+    let markRead: Bool
     let notification: String
   }
 
@@ -207,15 +210,33 @@ final class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate {
       completionHandler()
       return
     }
-    let action = Action(
-      token: UUID().uuidString, conversation: conversation, reply: reply,
-      notification: response.notification.request.identifier)
+    let token = UUID().uuidString
+    let answered = response.notification
     // Time to send in, should iOS have woken the app for this alone; finishing ends it.
     var task = UIBackgroundTaskIdentifier.invalid
     task = UIApplication.shared.beginBackgroundTask(withName: "notification-action") {
-      [weak self] in self?.finishAction(action.token, done: false)
+      [weak self] in self?.finishAction(token, done: false)
     }
-    running[action.token] = (action, completionHandler, task)
-    if let onAction { onAction(action) } else { pendingActions.append(action) }
+    UNUserNotificationCenter.current().getDeliveredNotifications { [weak self] delivered in
+      let newerUp = delivered.contains {
+        $0.request.content.threadIdentifier == conversation && $0.date > answered.date
+          && $0.request.identifier != answered.request.identifier
+      }
+      DispatchQueue.main.async {
+        guard let self else {
+          completionHandler()
+          return
+        }
+        let action = Action(
+          token: token, conversation: conversation, reply: reply,
+          markRead: reply == nil || !newerUp, notification: answered.request.identifier)
+        self.running[token] = (action, completionHandler, task)
+        if let onAction = self.onAction {
+          onAction(action)
+        } else {
+          self.pendingActions.append(action)
+        }
+      }
+    }
   }
 }
