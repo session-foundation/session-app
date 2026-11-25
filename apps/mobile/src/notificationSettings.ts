@@ -6,6 +6,14 @@ import { Linking } from 'react-native'
 
 import type { WhileOpen } from './backgroundClose'
 
+/** What a tap is led through; see `holdTapsUntilOpen`. */
+let openForTaps: WhileOpen = (run) => run()
+
+/** Leads each tap once the database is open again, through `closeClientInBackground`'s hold. */
+export function holdTapsUntilOpen(whileOpen: WhileOpen): void {
+  openForTaps = whileOpen
+}
+
 interface SessionPushModule {
   notificationsAllowed(): Promise<boolean>
   backgroundRefreshOn(): Promise<boolean>
@@ -79,16 +87,25 @@ export const notificationSettings: NotificationSettings = {
           if (sound !== 'none') NotificationSounds.play(sound)
         },
   preview: SessionPush === null ? null : ({ title, body }) => SessionPush.preview(title, body),
-  // A tap on a message notification, by conversation and message, or on a request's, by null. Android opens
-  // both through the app's own link instead, so this is iOS's alone.
+  // A tap on a message notification, by conversation and message, or on a request's, by null.
+  // Android opens both through the app's own link instead, so this is iOS's alone.
   onTap: (handler) => {
     if (SessionPush === null) return () => undefined
     const subscription = SessionPush.addListener('onTap', ({ conversation, message }) => {
-      handler(
-        conversation === null
-          ? { kind: 'requests' }
-          : { kind: 'conversation', conversationId: conversation, messageId: message ?? undefined },
-      )
+      // A tap brings the app back with its database still closed, and the screen it leads to reads
+      // at once: led there once it is open.
+      void openForTaps(() => {
+        handler(
+          conversation === null
+            ? { kind: 'requests' }
+            : {
+                kind: 'conversation',
+                conversationId: conversation,
+                messageId: message ?? undefined,
+              },
+        )
+        return Promise.resolve()
+      })
     })
     return () => {
       subscription.remove()

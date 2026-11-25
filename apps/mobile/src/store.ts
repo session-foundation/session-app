@@ -22,7 +22,11 @@ import {
 import { createSessionStore } from '@session/state'
 import { PixelRatio, Platform } from 'react-native'
 
-import { followNotificationActions, followNotificationPrefs } from './notificationSettings'
+import {
+  followNotificationActions,
+  followNotificationPrefs,
+  holdTapsUntilOpen,
+} from './notificationSettings'
 import { onScreen } from './pushPresence'
 import { followNotificationWords } from './notificationWords'
 import { mobileClient } from './client'
@@ -197,5 +201,6 @@ export const storePromise = openTransportOrRefusal().then((transport) => {
   followNotificationWords(client)
   followNotificationPrefs(store)
   followNotificationActions(client, whileOpen)
+  holdTapsUntilOpen(whileOpen)
   return store
 })

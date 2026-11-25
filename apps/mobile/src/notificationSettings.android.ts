@@ -104,3 +104,6 @@ export function followNotificationPrefs(store: SessionStore): void {
 
 /** Android carries out a notification's actions natively, the app running or not. */
 export function followNotificationActions(_client: unknown, _whileOpen: unknown): void {}
+
+/** Android's taps open the app's own link, and its database is never closed for the background. */
+export function holdTapsUntilOpen(_whileOpen: unknown): void {}
