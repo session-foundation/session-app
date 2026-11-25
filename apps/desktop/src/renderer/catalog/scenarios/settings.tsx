@@ -135,7 +135,7 @@ export const SETTINGS_SCENARIOS: readonly AnyStory[] = [
     },
     render: ({ platform }) => (
       <MobileNotificationsContent
-        deliveryTitle="Google push"
+        deliveryTitle={platform === 'ios' ? 'Apple push' : 'Google push'}
         content="nameAndContent"
         sound={platform === 'ios' ? 'note' : null}
         soundWhenOpen
