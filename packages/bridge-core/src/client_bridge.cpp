@@ -794,6 +794,10 @@ struct ClientBridge::Impl {
     void on_account() {
         publish_device_info();
         attach_network();
+        // What went stale while another process had the database, as iOS's notification extension
+        // does while the app is away and cannot take a notification down itself, comes down now;
+        // and the badge is reported afresh for the app's icon.
+        queue_notification_refresh();
     }
 
     /// Marks the account about to be minted as one nobody has confirmed yet.
