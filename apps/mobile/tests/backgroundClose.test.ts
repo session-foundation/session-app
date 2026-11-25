@@ -46,8 +46,8 @@ function harness(initialState = 'active') {
     log,
     flushLog: vi.fn(() => Promise.resolve()),
   }
-  const whileOpen = closeClientInBackground(deps)
-  return { deps, log, whileOpen, to: (state: string) => listener(state) }
+  const { whileOpen, onceInFront } = closeClientInBackground(deps)
+  return { deps, log, whileOpen, onceInFront, to: (state: string) => listener(state) }
 }
 
 /** Lets every queued continuation run. */
@@ -286,6 +286,56 @@ describe('closing the database in the background', () => {
       const run = vi.fn(() => Promise.resolve(false))
       await expect(whileOpen(run)).resolves.toBe(false)
       expect(log).toHaveBeenCalledWith('error', 'reopen for work failed: reopenClient: refused')
+    })
+  })
+
+  describe('work that brings the app to the front, such as a notification tap', () => {
+    it('waits for the app to come to the front with its database open, and closes nothing after', async () => {
+      const { deps, onceInFront, to } = harness()
+      to('background')
+      await drain()
+      const reopen = deferred<undefined>()
+      deps.client.reopenClient.mockReturnValueOnce(reopen.promise)
+
+      const run = vi.fn(() => Promise.resolve())
+      const tapped = onceInFront(run)
+      await drain()
+      // iOS hands the tap over before it says the app is in front.
+      expect(run).not.toHaveBeenCalled()
+      expect(deps.client.reopenClient).not.toHaveBeenCalled()
+
+      to('active')
+      await drain()
+      expect(run).not.toHaveBeenCalled()
+      reopen.resolve(undefined)
+      await tapped
+      await drain()
+      expect(run).toHaveBeenCalledTimes(1)
+      expect(deps.client.closeClient).toHaveBeenCalledTimes(1)
+    })
+
+    it('runs once a reopen already under way has settled when the app is in front', async () => {
+      const { deps, onceInFront, to } = harness()
+      to('background')
+      await drain()
+      const reopen = deferred<undefined>()
+      deps.client.reopenClient.mockReturnValueOnce(reopen.promise)
+      to('active')
+
+      const run = vi.fn(() => Promise.resolve())
+      const tapped = onceInFront(run)
+      await drain()
+      expect(run).not.toHaveBeenCalled()
+      reopen.resolve(undefined)
+      await tapped
+      expect(run).toHaveBeenCalledTimes(1)
+    })
+
+    it('runs at once in an app on the screen', async () => {
+      const { deps, onceInFront } = harness()
+      const run = vi.fn(() => Promise.resolve('led'))
+      await expect(onceInFront(run)).resolves.toBe('led')
+      expect(deps.client.reopenClient).not.toHaveBeenCalled()
     })
   })
 })

@@ -68,6 +68,17 @@ function report(result: ClientClosed): { level: 'info' | 'error' | 'critical'; m
  */
 export type WhileOpen = <T>(run: () => Promise<T>) => Promise<T>
 
+/** What `closeClientInBackground` gives the work that needs the database open. */
+export interface OpenHolds {
+  /** Work in the background, a notification's action: closes the database again after. */
+  whileOpen: WhileOpen
+  /**
+   * Work that brings the app to the front, a notification's tap: run once the app is there with
+   * its database open, and never followed by a close of its own.
+   */
+  onceInFront: WhileOpen
+}
+
 /**
  * Closes the database when the app leaves the screen and opens it again when the app comes back.
  *
@@ -83,11 +94,13 @@ export type WhileOpen = <T>(run: () => Promise<T>) => Promise<T>
  * One close at a time: one that a return to the app cancelled still has to settle before the next
  * begins, and the next is skipped if the app came back meanwhile.
  *
- * **Work in the background** goes through the `WhileOpen` returned: it opens the database again
- * for the work, under the background task, and closes it once the last such work is over if the
- * app is still off the screen. Receiving stays stopped meanwhile.
+ * **Work in the background** goes through `whileOpen`: it opens the database again for the work,
+ * under the background task, and closes it once the last such work is over if the app is still
+ * off the screen. Receiving stays stopped meanwhile. A tap goes through `onceInFront` instead: iOS
+ * hands the app a tap before it says the app is in front, and a close after the tap's work, the app
+ * still seeming off the screen, closed the database under the screen the tap led to.
  */
-export function closeClientInBackground(deps: BackgroundCloseDeps): WhileOpen {
+export function closeClientInBackground(deps: BackgroundCloseDeps): OpenHolds {
   const { client, log } = deps
   let inBackground = deps.initialState === 'background'
   /** The close under way, or the last one, settled or not. */
@@ -97,6 +110,8 @@ export function closeClientInBackground(deps: BackgroundCloseDeps): WhileOpen {
   let closeAsked = false
   /** Work running through `whileOpen`: no close starts until it is over. */
   let working = 0
+  /** Work waiting for the app to come to the front: see `onceInFront`. */
+  const waitingForFront: (() => void)[] = []
 
   // Counted, since a close the app came back from can still be settling as the next one begins,
   // and the first to finish must not end the grace the other is running in.
@@ -163,18 +178,31 @@ export function closeClientInBackground(deps: BackgroundCloseDeps): WhileOpen {
       if (!closeAsked) {
         // Not closed, or not yet: the close sees the app back and does nothing.
         reopening = resume()
-        return
+      } else {
+        // Not chained behind the close, which may still be waiting.
+        reopening = reopen()
+          .then(resume)
+          .catch((error: unknown) =>
+            log(
+              'error',
+              `reopen failed: ${error instanceof Error ? error.message : String(error)}`,
+            ),
+          )
       }
-      // Not chained behind the close, which may still be waiting.
-      reopening = reopen()
-        .then(resume)
-        .catch((error: unknown) =>
-          log('error', `reopen failed: ${error instanceof Error ? error.message : String(error)}`),
-        )
+      for (const go of waitingForFront.splice(0)) go()
     }
   })
 
-  return async (run) => {
+  const onceInFront: WhileOpen = (run) =>
+    new Promise((resolve, reject) => {
+      const go = () => {
+        reopening.then(run).then(resolve, reject)
+      }
+      if (inBackground) waitingForFront.push(go)
+      else go()
+    })
+
+  const whileOpen: WhileOpen = async (run) => {
     hold()
     working++
     try {
@@ -193,4 +221,6 @@ export function closeClientInBackground(deps: BackgroundCloseDeps): WhileOpen {
       release()
     }
   }
+
+  return { whileOpen, onceInFront }
 }
