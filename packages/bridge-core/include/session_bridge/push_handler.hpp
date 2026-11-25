@@ -53,10 +53,6 @@ session::push::NotificationContent generic_notification();
 /// `you` is the user's own word for themselves, in their language, which a mention of them becomes.
 /// `open` is the conversation on screen, as its string id, which gets no notification; nullopt
 /// while the app is not in front.
-///
-/// `take_stale` reports what to take down, as `Notifications::stale` does, which consumes them:
-/// false for a process that cannot take a notification down, so that they are left for the app.
-/// iOS refuses a notification extension the delivered notifications ("missing entitlement").
 PushResult handle_push(
         session::client::Client& client,
         session::push::Notifications& notifications,
@@ -64,8 +60,7 @@ PushResult handle_push(
         std::string_view you,
         std::optional<std::string_view> open,
         std::chrono::milliseconds deadline,
-        const PushLog& log,
-        bool take_stale = true);
+        const PushLog& log);
 
 /// Where a push opens the database when the app is not running.
 struct ColdPush {
@@ -96,8 +91,7 @@ PushResult handle_cold_push(
         std::string_view enc_payload,
         std::string_view you,
         std::chrono::milliseconds deadline,
-        const PushLog& log,
-        bool take_stale = true);
+        const PushLog& log);
 
 /// How long before the horizon a message may be stamped and still be announced: a message carries
 /// the moment its sender pressed send, by its sender's clock. A message claimed already is not
