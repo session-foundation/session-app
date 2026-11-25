@@ -56,11 +56,14 @@ export function writeReport({
   afterDir,
   reportDir,
   sensitivity,
+  only,
   ...report
 }: {
   beforeDir: string
   afterDir: string
   reportDir: string
+  /** The pages to compare; every page in either folder when undefined. */
+  only?: ReadonlySet<string> | undefined
 } & Omit<ReportInput, 'results'>): { results: PageResult[]; file: string } {
   rmSync(reportDir, { recursive: true, force: true })
   for (const kind of ['before', 'after', 'diff'] as const)
@@ -88,21 +91,20 @@ export function writeReport({
     return diff
   }
 
-  const results = classifyPages(pageIdsIn(beforeDir), pageIdsIn(afterDir), diffOf).map(
-    (result): ReportPage => {
-      const { id, status } = result
-      const hash = createHash('sha256').update(`${id}\0${status}\0`)
-      if (status !== 'added') {
-        place(beforeFile(id), reportFile(reportDir, 'before', id))
-        hash.update(readFileSync(beforeFile(id))).update('\0')
-      }
-      if (status !== 'removed') {
-        place(afterFile(id), reportFile(reportDir, 'after', id))
-        hash.update(readFileSync(afterFile(id)))
-      }
-      return { ...result, pictures: hash.digest('hex').slice(0, 16) }
-    },
-  )
+  const ids = (dir: string) => pageIdsIn(dir).filter((id) => only === undefined || only.has(id))
+  const results = classifyPages(ids(beforeDir), ids(afterDir), diffOf).map((result): ReportPage => {
+    const { id, status } = result
+    const hash = createHash('sha256').update(`${id}\0${status}\0`)
+    if (status !== 'added') {
+      place(beforeFile(id), reportFile(reportDir, 'before', id))
+      hash.update(readFileSync(beforeFile(id))).update('\0')
+    }
+    if (status !== 'removed') {
+      place(afterFile(id), reportFile(reportDir, 'after', id))
+      hash.update(readFileSync(afterFile(id)))
+    }
+    return { ...result, pictures: hash.digest('hex').slice(0, 16) }
+  })
   const file = join(reportDir, 'index.html')
   writeFileSync(file, renderReport({ ...report, sensitivity, results }))
   return { results, file }

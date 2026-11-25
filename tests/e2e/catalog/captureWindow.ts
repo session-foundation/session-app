@@ -16,6 +16,18 @@ export const CAPTURE_WINDOW: WindowSize = { width: 3000, height: 2400 }
  */
 export const MAX_CAPTURE_WINDOW: WindowSize = { width: 3600, height: 8000 }
 
+/** Room around the largest window, in case anything is drawn past the page. */
+const SCREEN_MARGIN = 200
+
+/**
+ * The X screen a capture's window sits on. capture.sh gives xvfb-run the same size, which a test
+ * holds it to, and the spec gives each further shard a screen of this size.
+ */
+export const CAPTURE_SCREEN: WindowSize = {
+  width: MAX_CAPTURE_WINDOW.width + SCREEN_MARGIN,
+  height: MAX_CAPTURE_WINDOW.height + SCREEN_MARGIN,
+}
+
 /**
  * The window that holds a page reaching to `extent`: the capture window, grown on each side the
  * page passes. A width change can move a breakpoint and so the layout being measured, which is
@@ -34,7 +46,7 @@ export function windowFor(
     throw new Error(
       `a catalog page reaches ${String(size.width)}x${String(size.height)} px, past the ` +
         `${String(max.width)}x${String(max.height)} capture window: split the story, or raise ` +
-        'MAX_CAPTURE_WINDOW and the Xvfb screen in capture.sh with it',
+        'MAX_CAPTURE_WINDOW, and the Xvfb screen in capture.sh to match CAPTURE_SCREEN',
     )
   return size
 }
