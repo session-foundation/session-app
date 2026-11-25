@@ -33,8 +33,8 @@ followNotifications({
   store,
   client,
   notifications: requirePorts().notifications,
-  // Nothing while the window has focus, as legacy desktop does: everything is on screen anyway.
-  shouldPost: () => !document.hasFocus(),
+  // Nothing while the window has focus, as legacy desktop does: main decides, knowing OS focus.
+  shouldPost: () => true,
 })
 const tellYou = () => {
   void client.setNotificationYou(tr('you'))
