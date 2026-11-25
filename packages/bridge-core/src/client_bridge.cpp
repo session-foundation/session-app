@@ -547,8 +547,9 @@ struct ClientBridge::Impl {
                 if (!stored)
                     globals.set(HORIZON_KEY, int64_t{now.time_since_epoch().count()});
                 sys_ms horizon = stored ? sys_ms{std::chrono::milliseconds{*stored}} : now;
-                for (auto& content : decide_arrivals(n, incoming, state->you, horizon))
-                    state->impl->event(NotificationSessionEvent{to_bridge(std::move(content))});
+                for (auto& shown : decide_arrivals(n, incoming, state->you, horizon))
+                    state->impl->event(NotificationSessionEvent{
+                            to_bridge(std::move(shown.content), shown.message_id)});
                 state->impl->refresh_notifications_now(c, n);
             });
         });

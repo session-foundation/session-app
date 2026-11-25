@@ -1,4 +1,4 @@
-import { conversationFromPath } from '@session/app'
+import { conversationFromPath, LAND_ON_PARAM, landingFromParam } from '@session/app'
 import {
   ConversationScreen,
   ModalHost,
@@ -14,7 +14,7 @@ import {
 import { SessionStoreProvider } from '@session/state'
 import { ModalStackProvider, ToastProvider } from '@session/ui'
 import { useEffect } from 'react'
-import { MemoryRouter, Route, Routes, useLocation, useParams } from 'react-router'
+import { MemoryRouter, Route, Routes, useLocation, useParams, useSearchParams } from 'react-router'
 
 import { RemoveLaunchScreenOnMount } from './launchScreen'
 import { DesktopNavProvider } from './nav'
@@ -90,6 +90,12 @@ function Shell() {
  */
 function ConversationRoute() {
   const { id } = useParams<{ id: string }>()
+  const [search] = useSearchParams()
   if (id === undefined) return null
-  return <ConversationScreen conversationId={decodeURIComponent(id)} />
+  return (
+    <ConversationScreen
+      conversationId={decodeURIComponent(id)}
+      landOn={landingFromParam(search.get(LAND_ON_PARAM))}
+    />
+  )
 }

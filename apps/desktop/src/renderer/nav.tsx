@@ -25,7 +25,9 @@ export function DesktopNavProvider({ children }: { children: ReactNode }) {
     () =>
       requirePorts().notifications.onTap((tap) => {
         void navigate(
-          tap.kind === 'requests' ? routes.requests() : routes.conversation(tap.conversationId),
+          tap.kind === 'requests'
+            ? routes.requests()
+            : routes.conversation(tap.conversationId, tap.messageId),
         )
       }),
     [navigate],

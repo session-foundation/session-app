@@ -48,6 +48,8 @@ NSString* const OPEN_CONVERSATION_KEY = @"session.push.openConversation";
 NSString* const SOUND_KEY = @"session.push.sound";
 /// The userInfo key a notification's id goes under; the app's own (AppGroup.swift) too.
 NSString* const NOTIFICATION_ID_KEY = @"session_id";
+/// The userInfo key the message a tap lands on goes under; the app's own (AppGroup.swift) too.
+NSString* const MESSAGE_ID_KEY = @"session_message";
 NSString* const MESSAGE_CATEGORY = @"session-message";
 
 /// The networks a database may be under, in the order they are tried.
@@ -213,9 +215,11 @@ NSString* attachment_word(const push::NotificationContent& c) {
     return word(@"generic");
 }
 
-/// The notification for what libsession decided, on the push's own content.
+/// The notification for what libsession decided about `message_id`, on the push's own content.
 UNMutableNotificationContent* content_for(
-        const push::NotificationContent& c, UNNotificationContent* original) {
+        const push::NotificationContent& c,
+        std::optional<int64_t> message_id,
+        UNNotificationContent* original) {
     UNMutableNotificationContent* out = [original mutableCopy];
     out.threadIdentifier = ns(c.thread);
     out.sound = chosen_sound();
@@ -238,12 +242,15 @@ UNMutableNotificationContent* content_for(
             out.body = c.body ? ns(*c.body) : attachment_word(c);
             break;
     }
-    // What a tap opens: a message's conversation, which is its thread, or the requests (see
+    // What a tap opens: a message's conversation, which is its thread, on the message, or the
+    // requests (see
     // SessionPushAppDelegateSubscriber.swift). And its id, by which it is taken down later: iOS
     // names a push's notification itself, and an extension cannot rename it.
     NSMutableDictionary* info = [out.userInfo mutableCopy] ?: [NSMutableDictionary dictionary];
     info[@"session_kind"] = kind;
     info[NOTIFICATION_ID_KEY] = ns(c.id);
+    if (c.kind == push::NotificationContent::Kind::message && message_id)
+        info[MESSAGE_ID_KEY] = @(*message_id);
     out.userInfo = info;
     return out;
 }
@@ -310,7 +317,7 @@ std::optional<std::pair<std::filesystem::path, std::string>> database() {
 }
 
 - (UNMutableNotificationContent*)genericContent {
-    return content_for(session_bridge::generic_notification(), _original);
+    return content_for(session_bridge::generic_notification(), std::nullopt, _original);
 }
 
 - (void)didReceiveNotificationRequest:(UNNotificationRequest*)request
@@ -362,7 +369,7 @@ std::optional<std::pair<std::filesystem::path, std::string>> database() {
 
     UNMutableNotificationContent* out;
     if (result.show)
-        out = content_for(*result.show, _original);
+        out = content_for(*result.show, result.message_id, _original);
     else
         // Nothing to show. With the notification filtering entitlement, empty content shows
         // nothing at all; without it iOS shows the push's own text.

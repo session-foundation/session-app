@@ -84,10 +84,14 @@ public class SessionPushModule: Module {
         content.threadIdentifier = notification["conversationId"] as? String ?? ""
         content.categoryIdentifier = AppGroup.messageCategory
       }
-      content.userInfo = [
+      var info: [String: Any] = [
         "session_kind": request ? "message_request" : "message",
         AppGroup.notificationIdKey: id,
       ]
+      if !request, let message = notification["messageId"] as? NSNumber {
+        info[AppGroup.messageIdKey] = message.int64Value
+      }
+      content.userInfo = info
       DispatchQueue.main.async {
         content.sound = AppGroup.sound(
           inFront: UIApplication.shared.applicationState == .active)
@@ -149,8 +153,10 @@ public class SessionPushModule: Module {
       }
       NotificationPresenter.shared.onTap = { [weak self] tap in
         switch tap {
-        case .conversation(let id): self?.sendEvent("onTap", ["conversation": id])
-        case .requests: self?.sendEvent("onTap", ["conversation": NSNull()])
+        case .conversation(let id, let message):
+          let landOn: Any = message.map { NSNumber(value: $0) } ?? NSNull()
+          self?.sendEvent("onTap", ["conversation": id, "message": landOn])
+        case .requests: self?.sendEvent("onTap", ["conversation": NSNull(), "message": NSNull()])
         }
       }
     }

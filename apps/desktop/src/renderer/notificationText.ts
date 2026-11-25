@@ -35,5 +35,9 @@ export function notificationTap(notification: IncomingNotification): Notificatio
   if (notification.kind === 'request') return { kind: 'requests' }
   return notification.conversationId === undefined
     ? null
-    : { kind: 'conversation', conversationId: notification.conversationId }
+    : {
+        kind: 'conversation',
+        conversationId: notification.conversationId,
+        messageId: notification.messageId,
+      }
 }
