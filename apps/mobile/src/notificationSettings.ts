@@ -9,7 +9,7 @@ import type { WhileOpen } from './backgroundClose'
 /** What a tap is led through; see `holdTapsUntilOpen`. */
 let openForTaps: WhileOpen = (run) => run()
 
-/** Leads each tap once the database is open again, through `closeClientInBackground`'s hold. */
+/** Leads each tap once the app is in front with its database open (`onceInFront`). */
 export function holdTapsUntilOpen(whileOpen: WhileOpen): void {
   openForTaps = whileOpen
 }
