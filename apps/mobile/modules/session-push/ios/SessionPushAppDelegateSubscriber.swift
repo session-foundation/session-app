@@ -56,9 +56,10 @@ final class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate {
   var openConversation: String?
   var soundWhenOpen = true
 
-  /// Where a tap leads: a message's conversation, or the message requests.
+  /// Where a tap leads: a message's conversation, open on the message where it names one, or the
+  /// message requests.
   enum Tap {
-    case conversation(String)
+    case conversation(String, Int64?)
     case requests
   }
 
@@ -185,7 +186,8 @@ final class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate {
     case "message":
       let thread = content.threadIdentifier
       guard !thread.isEmpty else { return }
-      tap = .conversation(thread)
+      tap = .conversation(
+        thread, (content.userInfo[AppGroup.messageIdKey] as? NSNumber)?.int64Value)
     case "message_request":
       tap = .requests
     default:

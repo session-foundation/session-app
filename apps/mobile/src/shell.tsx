@@ -33,7 +33,9 @@ export function MobileShell() {
     () =>
       requirePorts().notifications.onTap((tap) => {
         router.push(
-          tap.kind === 'requests' ? routes.requests() : routes.conversation(tap.conversationId),
+          tap.kind === 'requests'
+            ? routes.requests()
+            : routes.conversation(tap.conversationId, tap.messageId),
         )
       }),
     [],

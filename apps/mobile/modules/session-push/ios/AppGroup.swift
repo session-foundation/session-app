@@ -19,6 +19,8 @@ enum AppGroup {
   /// The userInfo key a notification's id goes under, by which it is taken down; the extension's
   /// too.
   static let notificationIdKey = "session_id"
+  /// The userInfo key the message a tap lands on goes under; the extension's too.
+  static let messageIdKey = "session_message"
   /// The category a message's notification is posted under, which carries Mark read and Reply;
   /// the extension's too.
   static let messageCategory = "session-message"

@@ -18,7 +18,7 @@ interface SessionPushModule {
   finishAction(token: string, done: boolean): void
   addListener(
     event: 'onTap',
-    listener: (tap: { conversation: string | null }) => void,
+    listener: (tap: { conversation: string | null; message: number | null }) => void,
   ): EventSubscription
   addListener(event: 'onAction', listener: (action: NotificationAction) => void): EventSubscription
 }
@@ -79,15 +79,15 @@ export const notificationSettings: NotificationSettings = {
           if (sound !== 'none') NotificationSounds.play(sound)
         },
   preview: SessionPush === null ? null : ({ title, body }) => SessionPush.preview(title, body),
-  // A tap on a message notification, by conversation, or on a request's, by null. Android opens
+  // A tap on a message notification, by conversation and message, or on a request's, by null. Android opens
   // both through the app's own link instead, so this is iOS's alone.
   onTap: (handler) => {
     if (SessionPush === null) return () => undefined
-    const subscription = SessionPush.addListener('onTap', ({ conversation }) => {
+    const subscription = SessionPush.addListener('onTap', ({ conversation, message }) => {
       handler(
         conversation === null
           ? { kind: 'requests' }
-          : { kind: 'conversation', conversationId: conversation },
+          : { kind: 'conversation', conversationId: conversation, messageId: message ?? undefined },
       )
     })
     return () => {
