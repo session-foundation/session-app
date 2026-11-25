@@ -194,9 +194,8 @@ UNMutableNotificationContent* content_for(
             break;
     }
     // What a tap opens: a message's conversation, which is its thread, on the message, or the
-    // requests (see
-    // SessionPushAppDelegateSubscriber.swift). And its id, by which it is taken down later: iOS
-    // names a push's notification itself, and an extension cannot rename it.
+    // requests (see SessionPushAppDelegateSubscriber.swift). And its id, by which the app takes it
+    // down later: iOS names a push's notification itself, and an extension cannot rename it.
     NSMutableDictionary* info = [out.userInfo mutableCopy] ?: [NSMutableDictionary dictionary];
     info[@"session_kind"] = kind;
     info[NOTIFICATION_ID_KEY] = ns(c.id);
@@ -204,24 +203,6 @@ UNMutableNotificationContent* content_for(
         info[MESSAGE_ID_KEY] = @(*message_id);
     out.userInfo = info;
     return out;
-}
-
-/// Takes down shown notifications by their ids: the ones the app posted under their ids, and the
-/// pushes' under the names iOS gave them, found by the id in their userInfo.
-void take_down(NSArray<NSString*>* ids) {
-    UNUserNotificationCenter* center = UNUserNotificationCenter.currentNotificationCenter;
-    [center removeDeliveredNotificationsWithIdentifiers:ids];
-    NSSet* stale = [NSSet setWithArray:ids];
-    [center getDeliveredNotificationsWithCompletionHandler:^(NSArray<UNNotification*>* shown) {
-      NSMutableArray* names = [NSMutableArray array];
-      for (UNNotification* n in shown) {
-          id tagged = n.request.content.userInfo[NOTIFICATION_ID_KEY];
-          if ([tagged isKindOfClass:NSString.class] && [stale containsObject:tagged])
-              [names addObject:n.request.identifier];
-      }
-      if (names.count)
-          [center removeDeliveredNotificationsWithIdentifiers:names];
-    }];
 }
 
 /// The database to hand a push to: the first network directory that has one.
@@ -301,14 +282,10 @@ std::optional<std::pair<std::filesystem::path, std::string>> database() {
             enc.UTF8String,
             word(@"you").UTF8String,
             std::chrono::duration_cast<std::chrono::milliseconds>(DEADLINE),
-            log_line);
-
-    if (!result.stale.empty()) {
-        NSMutableArray* ids = [NSMutableArray array];
-        for (const auto& id : result.stale)
-            [ids addObject:ns(id)];
-        take_down(ids);
-    }
+            log_line,
+            // Stale notifications are the app's to take down: iOS refuses an extension the
+            // delivered notifications, to list or remove, as missing an entitlement.
+            false);
 
     UNMutableNotificationContent* out;
     if (result.show)
