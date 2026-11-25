@@ -65,12 +65,14 @@ export type NotificationContent = 'nameAndContent' | 'nameOnly' | 'none'
  * - `request`: the first message of a message request, shown with neither sender nor content.
  *
  * `id` names it for a later `notifications-stale`. `conversationId` is the conversation a
- * `message` belongs to; absent for a request, which opens the requests list.
+ * `message` belongs to, and `messageId` the message, which tapping it lands on; both absent for a
+ * request, which opens the requests list.
  */
 export interface IncomingNotification {
   id: string
   kind: IncomingNotificationKind
   conversationId?: ConversationId
+  messageId?: number
   sender?: string
   body?: string
   attachment?: NotificationAttachment

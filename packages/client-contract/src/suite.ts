@@ -1008,6 +1008,19 @@ export function runSessionClientContract(
       await alice.setReceiving(true)
     })
 
+    it('notifies a message that arrives, naming the message for a tap to land on', async () => {
+      const { client, conversationId, receive } = await harness.receivesMessages()
+      const seen = collect(client)
+      await receive({ body: 'land here', timestamp: Date.now() })
+      await eventually(() => notificationsOf(seen.events).length > 0)
+      const arrived = messagesOf(seen.events, 'messages-added').find((m) => m.body === 'land here')
+      const [shown] = notificationsOf(seen.events)
+      expect(arrived).toBeDefined()
+      expect(shown?.conversationId).toBe(conversationId)
+      expect(shown?.messageId).toBe(arrived?.id)
+      seen.stop()
+    })
+
     it('notifies a message that arrives, once, and takes it down when it is read', async () => {
       const { client, conversationId, receive } = await harness.receivesMessages()
       const seen = collect(client)

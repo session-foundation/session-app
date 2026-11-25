@@ -32,6 +32,8 @@ struct PushResult {
     std::optional<int64_t> badge;
     /// What happened, in words for the log: never message content.
     std::string why;
+    /// The message `show` is about, which tapping it lands on: set for a message the Client keeps.
+    std::optional<int64_t> message_id;
 };
 
 /// How long handling a push may take before it ends with whatever it has: inside iOS's 30 seconds
@@ -96,6 +98,12 @@ PushResult handle_cold_push(
 /// announced twice.
 inline constexpr std::chrono::minutes ARRIVAL_SKEW{5};
 
+/// A notification to post for a message that arrived while the app runs, and the message.
+struct ArrivalNotification {
+    session::push::NotificationContent content;
+    int64_t message_id;
+};
+
 /// What to post for messages that arrived while the app runs, on a Client already open:
 /// libsession's decision (`Notifications::decide`) for each incoming message stamped after
 /// `horizon` less ARRIVAL_SKEW, which claims it, so that a push for the same message shows nothing.
@@ -104,7 +112,7 @@ inline constexpr std::chrono::minutes ARRIVAL_SKEW{5};
 /// history a restore fetches, and is not announced. Not when messages were last taken in, which
 /// would silence a message sent just before a poll, or one whose sender's send was slow or retried
 /// and so arrives long after the moment it carries. Blocks: never on the Client's own loop.
-std::vector<session::push::NotificationContent> decide_arrivals(
+std::vector<ArrivalNotification> decide_arrivals(
         session::push::Notifications& notifications,
         const std::vector<session::client::Message>& arrived,
         std::string_view you,

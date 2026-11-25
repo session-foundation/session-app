@@ -1224,6 +1224,8 @@ struct Codec<::session_bridge::IncomingNotification> {
         obj.Set("kind", Codec<::session_bridge::IncomingNotificationKind>::to(env, value.kind));
         if (value.conversation_id)
             obj.Set("conversationId", Codec<std::string>::to(env, *value.conversation_id));
+        if (value.message_id)
+            obj.Set("messageId", Codec<double>::to(env, *value.message_id));
         if (value.sender)
             obj.Set("sender", Codec<std::string>::to(env, *value.sender));
         if (value.body)
@@ -1240,6 +1242,7 @@ struct Codec<::session_bridge::IncomingNotification> {
                 Codec<std::string>::from(obj.Get("id"), "IncomingNotification.id"),
                 Codec<::session_bridge::IncomingNotificationKind>::from(obj.Get("kind"), "IncomingNotification.kind"),
                 optional<std::string>(obj.Get("conversationId"), "IncomingNotification.conversationId"),
+                optional<double>(obj.Get("messageId"), "IncomingNotification.messageId"),
                 optional<std::string>(obj.Get("sender"), "IncomingNotification.sender"),
                 optional<std::string>(obj.Get("body"), "IncomingNotification.body"),
                 optional<::session_bridge::NotificationAttachment>(obj.Get("attachment"), "IncomingNotification.attachment"),

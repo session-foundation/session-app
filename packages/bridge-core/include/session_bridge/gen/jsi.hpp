@@ -1376,6 +1376,7 @@ struct JSIConverter<::session_bridge::IncomingNotification> final {
                 JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "id"))),
                 JSIConverter<::session_bridge::IncomingNotificationKind>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "kind"))),
                 ::session_bridge::optional_from_jsi<std::string>(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "conversationId"))),
+                ::session_bridge::optional_from_jsi<double>(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "messageId"))),
                 ::session_bridge::optional_from_jsi<std::string>(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "sender"))),
                 ::session_bridge::optional_from_jsi<std::string>(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "body"))),
                 ::session_bridge::optional_from_jsi<::session_bridge::NotificationAttachment>(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "attachment"))),
@@ -1388,6 +1389,8 @@ struct JSIConverter<::session_bridge::IncomingNotification> final {
         obj.setProperty(runtime, PropNameIDCache::get(runtime, "kind"), JSIConverter<::session_bridge::IncomingNotificationKind>::toJSI(runtime, arg.kind));
         if (arg.conversation_id)
             obj.setProperty(runtime, PropNameIDCache::get(runtime, "conversationId"), JSIConverter<std::string>::toJSI(runtime, *arg.conversation_id));
+        if (arg.message_id)
+            obj.setProperty(runtime, PropNameIDCache::get(runtime, "messageId"), JSIConverter<double>::toJSI(runtime, *arg.message_id));
         if (arg.sender)
             obj.setProperty(runtime, PropNameIDCache::get(runtime, "sender"), JSIConverter<std::string>::toJSI(runtime, *arg.sender));
         if (arg.body)

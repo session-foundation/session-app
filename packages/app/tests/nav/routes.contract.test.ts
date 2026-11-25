@@ -21,7 +21,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
-import { conversationFromPath, routes } from '#src/nav/routes'
+import { conversationFromPath, landingFromParam, LAND_ON_PARAM, routes } from '#src/nav/routes'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(here, '../../../..')
@@ -104,6 +104,20 @@ describe('route contract', () => {
     for (const id of ['05abc', 'community:https://open.getsession.org/room']) {
       expect(conversationFromPath(routes.conversation(id))).toBe(id)
     }
+  })
+
+  it('puts the message to land on in the query, and reads it back', () => {
+    const path = routes.conversation('05abc', 42)
+    const [pathname = '', search = ''] = path.split('?')
+    expect(conversationFromPath(pathname)).toBe('05abc')
+    expect(landingFromParam(new URLSearchParams(search).get(LAND_ON_PARAM))).toBe(42)
+    expect(routes.conversation('05abc')).not.toContain('?')
+  })
+
+  it('lands on nothing for a value that is not a message id', () => {
+    for (const value of [undefined, null, '', '-1', '1.5', 'abc', '4e2'])
+      expect(landingFromParam(value)).toBe(undefined)
+    expect(landingFromParam('0')).toBe(0)
   })
 
   it('finds no conversation in a path that is not one', () => {

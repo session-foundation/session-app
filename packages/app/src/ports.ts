@@ -192,8 +192,10 @@ export interface PushInstallMarker {
 export type NotificationChannel = 'messages' | 'requests' | 'calls'
 
 /** Where a tapped notification leads: a message's conversation, or the message requests. */
+/** Where a tapped notification leads: its conversation, open on its message where it names one. */
 export type NotificationTap =
-  { kind: 'conversation'; conversationId: string } | { kind: 'requests' }
+  | { kind: 'conversation'; conversationId: string; messageId?: number | undefined }
+  | { kind: 'requests' }
 
 /** One delivery mode as the platform offers it. */
 export interface DeliveryModeOffer {

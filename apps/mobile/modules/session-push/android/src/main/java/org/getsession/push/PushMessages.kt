@@ -93,6 +93,7 @@ object PushMessages {
             attachment = notification["attachment"] as? String,
             attachments = (notification["attachments"] as? Number)?.toInt() ?: 0,
             timestampMs = (notification["timestamp"] as? Number)?.toLong() ?: 0,
+            messageId = (notification["messageId"] as? Number)?.toLong() ?: -1,
             badge = -1,
             stale = emptyArray(),
         )
@@ -245,9 +246,11 @@ object PushMessages {
     val launch =
         context.packageManager.getLaunchIntentForPackage(context.packageName) ?: return null
     if (outcome.kind == "message" && outcome.thread != null) {
-      // The app's own scheme and its conversation route (`routes.conversation`).
+      // The app's own scheme and its conversation route (`routes.conversation`), open on the
+      // message (`LAND_ON_PARAM`).
+      val at = if (outcome.messageId >= 0) "?at=${outcome.messageId}" else ""
       launch.action = Intent.ACTION_VIEW
-      launch.data = Uri.parse("session:///c/${Uri.encode(outcome.thread)}")
+      launch.data = Uri.parse("session:///c/${Uri.encode(outcome.thread)}$at")
     } else if (outcome.kind == "message_request") {
       // The requests list (`routes.requests`): a request is opened from there.
       launch.action = Intent.ACTION_VIEW

@@ -26,6 +26,7 @@
     "@axe-core/playwright": "catalog:",
     "@playwright/test": "catalog:",
     "@session/app": "workspace:*",
+    "@session/client": "workspace:*",
     "@session/eslint-config": "workspace:*",
     "@session/expectations": "workspace:*",
     "@session/localization": "workspace:*",

@@ -693,6 +693,7 @@ export class FakeAccount {
           id,
           kind: 'message',
           conversationId: conversation.id,
+          messageId: message.id,
           attachments: 0,
           timestamp: message.timestamp,
           ...(this.notificationContent === 'none' ? {} : { sender: conversation.displayName }),

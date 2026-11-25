@@ -32,6 +32,9 @@ export const SEEDED_ROLL = [
 /** `receipt.jpg`'s format and size line, as every client formats the fake's 96 500 bytes. */
 export const SEEDED_RECEIPT = { format: 'JPG', size: '96.5 kB' } as const
 
+/** Bob's account id: `FakeAccount`'s default for a display name, kept in step by hand. */
+export const SEEDED_PEER_ID = `05${'bob'.padEnd(64, '0')}`
+
 /**
  * What the `replies` fixture says, oldest first: `REPLIES` in
  * `packages/client/src/fake/replies.ts`, kept in step by hand as the names above are. The chain

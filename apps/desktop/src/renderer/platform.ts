@@ -13,9 +13,14 @@ const memory = memoryPorts()
 /** What main says a click leads to, checked: it came over IPC. */
 function tapOf(value: unknown): NotificationTap | null {
   if (typeof value !== 'object' || value === null) return null
-  const { kind, conversationId } = value as Record<string, unknown>
+  const { kind, conversationId, messageId } = value as Record<string, unknown>
   if (kind === 'requests') return { kind }
-  if (kind === 'conversation' && typeof conversationId === 'string') return { kind, conversationId }
+  if (kind === 'conversation' && typeof conversationId === 'string')
+    return {
+      kind,
+      conversationId,
+      messageId: Number.isSafeInteger(messageId) ? (messageId as number) : undefined,
+    }
   return null
 }
 
