@@ -436,10 +436,11 @@ export function MessageDeliveryContent(props: MessageDeliveryContentProps) {
             <SettingsRow
               key={offer.mode}
               label={deliveryModeTitle(offer.mode, props.pushService)}
-              subtitle={
+              subtitle={description}
+              note={
                 offer.mode === 'instant' && usable
-                  ? `${description}\n${PENDING_COPY.deliveryInstantCommunities}`
-                  : description
+                  ? PENDING_COPY.deliveryInstantCommunities
+                  : undefined
               }
               trailing={
                 <RadioIndicator selected={offer.mode === props.selected} disabled={!usable} />
