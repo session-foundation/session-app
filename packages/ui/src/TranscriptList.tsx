@@ -640,7 +640,12 @@ export function TranscriptList<T>({
           index,
           animated: animated && !reducedMotion,
           wasHeld: keysBefore.current.includes(key),
-          onArrived,
+          // A list opening on a row is shown by whichever landing gets there first: the screen's
+          // own landing on the same row takes the place of the opening's.
+          onArrived: () => {
+            place()
+            onArrived?.()
+          },
         })
         if (!focusRow || focus === null) return
         let frames = 0
@@ -675,22 +680,27 @@ export function TranscriptList<T>({
         toEnd(smooth)
       },
     }),
-    [focus, reducedMotion, rows, toEnd],
+    [focus, place, reducedMotion, rows, toEnd],
   )
   useImperativeHandle(handle, () => api, [api])
 
   // Opens on `opening` rather than at the end, shown once there, or after a wait should the row
   // never say it arrived. Once: the first pass is what it was asked of.
   const opened = useRef(false)
+  // Its own, cleared only as the list goes: the effect runs again whenever `api` changes.
+  const shownAnyway = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   useLayoutEffect(() => {
-    if (opening === undefined || opened.current) return undefined
+    if (opening === undefined || opened.current) return
     opened.current = true
-    api.scrollToKey(opening, { onArrived: place })
-    const shownAnyway = setTimeout(place, OPEN_AT_ROW_MS)
-    return () => {
-      clearTimeout(shownAnyway)
-    }
+    api.scrollToKey(opening)
+    shownAnyway.current = setTimeout(place, OPEN_AT_ROW_MS)
   }, [api, opening, place])
+  useEffect(
+    () => () => {
+      clearTimeout(shownAnyway.current)
+    },
+    [],
+  )
 
   // A page landing, or an end becoming known, need not change which rows are on screen.
   useEffect(() => {
