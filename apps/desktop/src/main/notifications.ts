@@ -9,8 +9,11 @@ interface PostRequest {
   id: string
   title: string
   body: string
-  /** Where a click leads: a conversation, the message requests, or just the window. */
-  tap: { kind: 'conversation'; conversationId: string } | { kind: 'requests' } | null
+  /** Where a click leads: a conversation, at a message, the message requests, or the window. */
+  tap:
+    | { kind: 'conversation'; conversationId: string; messageId?: number | undefined }
+    | { kind: 'requests' }
+    | null
   silent: boolean
   /**
    * Posted only while the window does not have focus, as legacy desktop does for messages: with it
@@ -34,10 +37,14 @@ function postRequest(value: unknown): PostRequest | null {
 
 function tapOf(value: unknown): PostRequest['tap'] {
   if (typeof value !== 'object' || value === null) return null
-  const { kind, conversationId } = value as Record<string, unknown>
+  const { kind, conversationId, messageId } = value as Record<string, unknown>
   if (kind === 'requests') return { kind }
   if (kind === 'conversation' && typeof conversationId === 'string' && conversationId.length < 256)
-    return { kind, conversationId }
+    return {
+      kind,
+      conversationId,
+      messageId: Number.isSafeInteger(messageId) ? (messageId as number) : undefined,
+    }
   return null
 }
 
@@ -53,8 +60,13 @@ export function serveNotifications(window: Electron.BrowserWindow, appUrl: strin
   ipc.on('notifications:post', (event, value: unknown) => {
     if (!isFromAppFrame(event.senderFrame, appUrl) || !Notification.isSupported()) return
     const request = postRequest(value)
+    if (request === null) return
     // Main's word for focus, which is the OS's: the page's can stay true behind another window.
-    if (request === null || (request.onlyUnfocused && window.isFocused())) return
+    // Focused, everything it counts is on screen: the page forgets them, as legacy desktop does.
+    if (request.onlyUnfocused && window.isFocused()) {
+      window.webContents.send('notifications:seen')
+      return
+    }
     shown.get(request.id)?.close()
     const notification = new Notification({
       title: request.title,
@@ -93,7 +105,11 @@ export function serveNotifications(window: Electron.BrowserWindow, appUrl: strin
     app.setBadgeCount(count)
   })
 
+  // Back in the window, everything counted is on screen: down it comes, and the page starts afresh.
   window.on('focus', () => {
     if (process.platform === 'win32') window.flashFrame(false)
+    for (const notification of shown.values()) notification.close()
+    shown.clear()
+    window.webContents.send('notifications:seen')
   })
 }
