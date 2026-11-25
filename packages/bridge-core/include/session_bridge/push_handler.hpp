@@ -128,6 +128,9 @@ struct ActionResult {
     bool done = false;
     /// What happened, in words for the log: never message content.
     std::string why;
+    /// Notifications to take down now that the conversation is read: the one acted on and any
+    /// other of its messages', as `Notifications::stale` reports them.
+    std::vector<std::string> stale;
 };
 
 /// How long a notification's action may take, inside what either OS lets a process run for once
@@ -135,9 +138,12 @@ struct ActionResult {
 inline constexpr std::chrono::milliseconds ACTION_DEADLINE{20'000};
 
 /// Carries out a notification's action on a Client already open, waiting for a reply to reach the
-/// swarm until `deadline`. Blocks: never on the Client's own loop.
+/// swarm until `deadline`, and reports what it made stale: the caller takes those down itself,
+/// since a process woken only for the action may be frozen before anything else would. Blocks:
+/// never on the Client's own loop.
 ActionResult handle_action(
         session::client::Client& client,
+        session::push::Notifications& notifications,
         const NotificationAction& action,
         std::chrono::milliseconds deadline,
         const PushLog& log);

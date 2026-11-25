@@ -27,7 +27,7 @@ internal object PushNative {
   /**
    * A notification's action: marks [conversation] read, and sends [reply] there when it is not
    * null; on the app's own Client when it is open, otherwise on one opened from [dbPath] with
-   * [keyHex]. Blocks for up to about 20 seconds; true when it is done.
+   * [keyHex]. Blocks for up to about 20 seconds.
    */
   @JvmStatic
   external fun act(
@@ -36,8 +36,16 @@ internal object PushNative {
       dbPath: String,
       keyHex: String?,
       netid: String,
-  ): Boolean
+  ): ActionOutcome
 }
+
+/** What a notification's action came to, as `session_bridge::ActionResult` says it. */
+internal class ActionOutcome(
+    /** Marked read, and for a reply, the reply accepted by the swarm. */
+    val done: Boolean,
+    /** Notifications to take down: the conversation's messages are read now. */
+    val stale: Array<String>,
+)
 
 /** What a push came to, as `session_bridge::PushResult` says it. */
 internal class PushOutcome(

@@ -124,6 +124,25 @@ object PushMessages {
     manager.notify(id, 0, notification)
   }
 
+  /**
+   * Takes down a notification just replied to from. Android 15 keeps one alive after a direct
+   * reply and ignores a cancel until the app has updated it, so it is updated, silently, first; and
+   * the cancel waits a moment, as the system applies both in its own time and a cancel that
+   * overtakes the update is ignored. Blocks for that moment: call it off the main thread.
+   */
+  fun dismissAfterReply(context: Context, manager: NotificationManager, id: String) {
+    Channel.MESSAGES.ensure(context)
+    val update =
+        builder(context, Channel.MESSAGES, PushStrings.get(context, "appName"), "")
+            .setOnlyAlertOnce(true)
+            .build()
+    manager.notify(id, 0, update)
+    Thread.sleep(UPDATE_SETTLE_MS)
+    manager.cancel(id, 0)
+  }
+
+  private const val UPDATE_SETTLE_MS = 750L
+
   /** Takes down notifications by id, posted here or by a push. */
   fun remove(context: Context, ids: List<String>) {
     val manager = context.getSystemService(NotificationManager::class.java) ?: return
