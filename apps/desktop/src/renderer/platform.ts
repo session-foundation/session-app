@@ -38,6 +38,7 @@ setPorts(
           tap: notificationTap(notification),
           // The OS's own sound, only with the Notifications page's audio switch on.
           silent: !audio,
+          onlyUnfocused: true,
         })
       },
       remove: (ids) => {
@@ -49,6 +50,7 @@ setPorts(
           ...sample,
           tap: null,
           silent: false,
+          onlyUnfocused: false,
         })
         return Promise.resolve()
       },

@@ -12,6 +12,11 @@ interface PostRequest {
   /** Where a click leads: a conversation, the message requests, or just the window. */
   tap: { kind: 'conversation'; conversationId: string } | { kind: 'requests' } | null
   silent: boolean
+  /**
+   * Posted only while the window does not have focus, as legacy desktop does for messages: with it
+   * focused, everything is on screen anyway. False for the Notifications page's preview.
+   */
+  onlyUnfocused: boolean
 }
 
 /** The longest a title or body is let through: the OS truncates long before this. */
@@ -19,12 +24,12 @@ const MAX_TEXT_LENGTH = 4096
 
 function postRequest(value: unknown): PostRequest | null {
   if (typeof value !== 'object' || value === null) return null
-  const { id, title, body, tap, silent } = value as Record<string, unknown>
+  const { id, title, body, tap, silent, onlyUnfocused } = value as Record<string, unknown>
   if (typeof id !== 'string' || id.length === 0 || id.length > 256) return null
   if (typeof title !== 'string' || title.length > MAX_TEXT_LENGTH) return null
   if (typeof body !== 'string' || body.length > MAX_TEXT_LENGTH) return null
-  if (typeof silent !== 'boolean') return null
-  return { id, title, body, tap: tapOf(tap), silent }
+  if (typeof silent !== 'boolean' || typeof onlyUnfocused !== 'boolean') return null
+  return { id, title, body, tap: tapOf(tap), silent, onlyUnfocused }
 }
 
 function tapOf(value: unknown): PostRequest['tap'] {
@@ -48,7 +53,8 @@ export function serveNotifications(window: Electron.BrowserWindow, appUrl: strin
   ipc.on('notifications:post', (event, value: unknown) => {
     if (!isFromAppFrame(event.senderFrame, appUrl) || !Notification.isSupported()) return
     const request = postRequest(value)
-    if (request === null) return
+    // Main's word for focus, which is the OS's: the page's can stay true behind another window.
+    if (request === null || (request.onlyUnfocused && window.isFocused())) return
     shown.get(request.id)?.close()
     const notification = new Notification({
       title: request.title,
