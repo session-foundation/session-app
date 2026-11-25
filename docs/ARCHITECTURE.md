@@ -371,7 +371,8 @@ spec passed and wrote every page it listed is cached under `test-results/catalog
 keyed by commit, tier, host and build environment (the repo-root `.env` and every `EXPO_PUBLIC_*`
 variable), so a second run against the same base captures only the working tree; `--refresh`
 captures again, `--tier nightly` compares every page, and `--pages messageQuote,messageFrame`
-compares only those. Ctrl-C stops the whole command, removing
+compares only those: a name only one side has shows its pages as added or removed, and one
+neither side has fails the comparison. Ctrl-C stops the whole command, removing
 the base's worktree and any half-written capture.
 
 Both sides are drawn by this machine, so its fonts and rendering cancel out: the pictures are not

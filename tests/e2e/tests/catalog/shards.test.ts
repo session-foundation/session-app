@@ -4,10 +4,12 @@ import {
   catalogVerdict,
   filterPages,
   heaviestFirst,
+  matchPages,
   MAX_SHARDS,
   parsePageFilter,
   readsPageFilter,
   shardCount,
+  unmatchedEverywhere,
   type CatalogPageSummary,
 } from '#catalog/shards'
 
@@ -101,6 +103,25 @@ describe('the page filter', () => {
 
   it('names what matched no page', () => {
     expect(() => filterPages(tier, ['button', 'mesageQuote'])).toThrow(/mesageQuote/)
+  })
+
+  it('can return what matched no page rather than refuse it', () => {
+    const matched = matchPages(tier, ['button', 'newComponent'])
+    expect(ids(matched.pages)).toEqual(['button-variants'])
+    expect(matched.unmatched).toEqual(['newComponent'])
+    expect(matchPages(tier, ['newComponent']).pages).toEqual([])
+  })
+})
+
+describe('names that match no page of a comparison', () => {
+  it('are a typo only when no side matched them', () => {
+    // The base lacks a component the change adds, the working tree one it removes.
+    const base = ['added', 'typo']
+    const workingTree = ['removed', 'typo']
+    expect(unmatchedEverywhere([workingTree, base])).toEqual(['typo'])
+    expect(unmatchedEverywhere([workingTree])).toEqual(workingTree)
+    expect(unmatchedEverywhere([[], base])).toEqual([])
+    expect(unmatchedEverywhere([])).toEqual([])
   })
 })
 

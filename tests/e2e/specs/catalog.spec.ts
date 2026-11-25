@@ -9,6 +9,7 @@ import { CAPTURE_SCREEN, CAPTURE_WINDOW, windowFor, type WindowSize } from '#cat
 import {
   catalogVerdict,
   filterPages,
+  matchPages,
   parsePageFilter,
   shardCount,
   heaviestFirst,
@@ -33,6 +34,11 @@ const OUT = process.env['CATALOG_OUT']
 const PAGES_OUT = process.env['CATALOG_PAGES_OUT']
 /** Only these pages: see `parsePageFilter`. A filtered run cannot tell a known issue is fixed. */
 const PAGE_FILTER = parsePageFilter(process.env['CATALOG_PAGES'])
+/**
+ * Where the filter's names that match no page are written as JSON, rather than failing the run:
+ * catalog:compare names pages that one of its two sides may not have.
+ */
+const UNMATCHED_OUT = process.env['CATALOG_PAGES_UNMATCHED_OUT']
 const HIDDEN = process.env['SESSION_E2E_HIDDEN'] === '1'
 /**
  * Windows stacked on one screen drew no faster together than one app alone, so on Linux each shard
@@ -230,7 +236,15 @@ test(`captures and audits the component catalog's ${TIER} pages @catalog`, async
   try {
     const first = await launchCatalog()
     apps.push(first)
-    const pages = filterPages(await catalogPages(first, TIER), PAGE_FILTER)
+    const tierPages = await catalogPages(first, TIER)
+    let pages: CatalogPageSummary[]
+    if (UNMATCHED_OUT === undefined) pages = filterPages(tierPages, PAGE_FILTER)
+    else {
+      const matched = matchPages(tierPages, PAGE_FILTER)
+      pages = matched.pages
+      mkdirSync(dirname(UNMATCHED_OUT), { recursive: true })
+      writeFileSync(UNMATCHED_OUT, JSON.stringify(matched.unmatched))
+    }
     if (OUT !== undefined) mkdirSync(OUT, { recursive: true })
     if (PAGES_OUT !== undefined) {
       mkdirSync(dirname(PAGES_OUT), { recursive: true })
@@ -238,7 +252,7 @@ test(`captures and audits the component catalog's ${TIER} pages @catalog`, async
     }
 
     const queue = heaviestFirst(pages.map((page, at) => ({ page, at, cells: page.cells })))
-    const appCount = Math.min(SHARDS, queue.length)
+    const appCount = Math.max(1, Math.min(SHARDS, queue.length))
     const started = performance.now()
     // The first app starts on the queue while the others are still launching.
     const capture = async (app: Promise<DesktopApp>, index: number) => {

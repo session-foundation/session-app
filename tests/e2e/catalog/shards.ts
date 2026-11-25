@@ -61,19 +61,39 @@ const matches = (page: CatalogPageSummary, name: string) =>
  */
 export const readsPageFilter = (specSource: string) => /['"]CATALOG_PAGES['"]/.test(specSource)
 
-/** The tier's pages the filter names, in tier order; a name that matches none is an error. */
+/** The tier's pages the filter names, in tier order, and the names that matched none. */
+export function matchPages(
+  pages: readonly CatalogPageSummary[],
+  filter: readonly string[] | undefined,
+): { pages: CatalogPageSummary[]; unmatched: string[] } {
+  if (filter === undefined) return { pages: [...pages], unmatched: [] }
+  return {
+    pages: pages.filter((page) => filter.some((name) => matches(page, name))),
+    unmatched: filter.filter((name) => !pages.some((page) => matches(page, name))),
+  }
+}
+
+/** `matchPages`, where a name that matches no page is an error. */
 export function filterPages(
   pages: readonly CatalogPageSummary[],
   filter: readonly string[] | undefined,
 ): CatalogPageSummary[] {
-  if (filter === undefined) return [...pages]
-  const unmatched = filter.filter((name) => !pages.some((page) => matches(page, name)))
-  if (unmatched.length > 0)
+  const matched = matchPages(pages, filter)
+  if (matched.unmatched.length > 0)
     throw new Error(
-      `CATALOG_PAGES names no page of this tier: ${unmatched.join(', ')}; ` +
+      `CATALOG_PAGES names no page of this tier: ${matched.unmatched.join(', ')}; ` +
         'give a page id, a component.story or a component',
     )
-  return pages.filter((page) => filter.some((name) => matches(page, name)))
+  return matched.pages
+}
+
+/**
+ * The names no capture matched, given each capture's unmatched names. A name only one side has is
+ * a page the change adds or removes; one that no side has is a typo.
+ */
+export function unmatchedEverywhere(sides: readonly (readonly string[])[]): string[] {
+  const [first = [], ...rest] = sides
+  return first.filter((name) => rest.every((side) => side.includes(name)))
 }
 
 /** What drawing one page came to: its findings, or why it could not be captured. */

@@ -9,7 +9,8 @@ Captures the component catalog at base-ref and in the working tree, on this mach
 an HTML report of the pages that differ. base-ref defaults to the merge base with origin/main.
 
   --tier pr|nightly     which pages to capture (default pr, as a pull request's build)
-  --pages <names>       only these pages, comma-separated: page ids, component.story or components
+  --pages <names>       only these pages, comma-separated: page ids, component.story or components;
+                        a name only one side has shows its pages as added or removed
   --sensitivity <0-1>   Argos's threshold: 0 counts any pixel, 1 doubles every tolerance (default ${String(ARGOS_SENSITIVITY)})
   --refresh             capture again even where a capture of the same commit is cached
   --keep-worktree       leave the base's worktree, under test-results/catalog-compare/, in place

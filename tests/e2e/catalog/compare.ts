@@ -25,7 +25,7 @@ import {
   type CatalogTier,
   type CompareOptions,
 } from '#catalog/options'
-import { readsPageFilter } from '#catalog/shards'
+import { readsPageFilter, unmatchedEverywhere } from '#catalog/shards'
 import {
   CompareFailure,
   Interrupted,
@@ -104,11 +104,16 @@ const pagesDir = (capture: string) => join(capture, 'pages')
 /** The ids the spec said it would draw, written by it as CATALOG_PAGES_OUT. */
 const manifestFile = (capture: string) => join(capture, 'pages.json')
 
-/** Empty where the spec predates the manifest. */
-function listedPages(capture: string): string[] {
-  const file = manifestFile(capture)
+/** The --pages names that matched no page, written by the spec as CATALOG_PAGES_UNMATCHED_OUT. */
+const unmatchedFile = (capture: string) => join(capture, 'unmatched.json')
+
+/** Empty where the spec did not write `file`. */
+function readNames(file: string): string[] {
   return existsSync(file) ? (JSON.parse(readFileSync(file, 'utf8')) as string[]) : []
 }
+
+/** Empty where the spec predates the manifest. */
+const listedPages = (capture: string) => readNames(manifestFile(capture))
 
 const SPEC_SOURCE = 'tests/e2e/specs/catalog.spec.ts'
 
@@ -227,15 +232,21 @@ async function buildAndCapture(
         CATALOG_OUT: pagesDir(dir),
         CATALOG_PAGES_OUT: manifest,
         CATALOG_PAGES: pages?.join(','),
+        CATALOG_PAGES_UNMATCHED_OUT: pages === undefined ? undefined : unmatchedFile(dir),
         SESSION_E2E_HIDDEN: '1',
       },
     },
   )
 
   const captured = pageIdsIn(pagesDir(dir))
-  if (captured.length === 0)
+  // A side where --pages names nothing, such as the base of a change that adds the component.
+  const filteredOut = pages !== undefined && existsSync(manifest) && listedPages(dir).length === 0
+  if (captured.length === 0 && !filteredOut)
     throw new CompareFailure(`${label}: the catalog spec wrote no pages (exit ${String(code)})`)
-  if (captured.every((id) => isBlank(decodePng(readFileSync(join(pagesDir(dir), `${id}.png`))))))
+  if (
+    captured.length > 0 &&
+    captured.every((id) => isBlank(decodePng(readFileSync(join(pagesDir(dir), `${id}.png`)))))
+  )
     throw new CompareFailure(
       `${label}: every page came out a single colour, which is a window that never painted: ` +
         'hidden capture is not drawing on this machine',
@@ -456,6 +467,15 @@ async function main(): Promise<number> {
     options.pages === undefined
       ? undefined
       : new Set([...listedPages(head.dir), ...(baseFilters ? listedPages(base.dir) : [])])
+  if (options.pages !== undefined) {
+    const sides = baseFilters ? [head.dir, base.dir] : [head.dir]
+    const unknown = unmatchedEverywhere(sides.map((dir) => readNames(unmatchedFile(dir))))
+    if (unknown.length > 0)
+      throw new CompareFailure(
+        `--pages names no page in base or working tree: ${unknown.join(', ')}; ` +
+          'give a page id, a component.story or a component',
+      )
+  }
   const filterNotes =
     options.pages !== undefined && !baseFilters
       ? [
