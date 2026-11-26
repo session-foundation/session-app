@@ -22,5 +22,3 @@ export const PUSH_WORDS = {
   file: { text: 'document' },
   attachments: { text: 'attachments' },
 } as const satisfies Record<string, { text: TokenSimpleNoArgs } | { one: TokenPluralWithArgs }>
-
-export type PushWordName = keyof typeof PUSH_WORDS
