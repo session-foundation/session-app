@@ -4,7 +4,8 @@ import { BRIDGE_UNAVAILABLE, KEY_INVALID, KEY_MISSING, KEY_UNAVAILABLE } from '@
  * Which kind of failed start this is, as far as what the person can do about it.
  *
  * - `unreadable`: the database cannot be opened with what is on this device, and starting again
- *   will not change that. Only clearing it gets past.
+ *   is unlikely to change that. Only clearing it is sure to get past. A key that reads as missing
+ *   may still be an Android Keystore that cannot be reached for now, which a restart can cure.
  * - `transient`: something that may be gone by the next start: a locked keychain, a database
  *   another process holds, a full disk.
  * - `noBridge`: the bridge could not be made for a reason that is not about the key, so nothing
