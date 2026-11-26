@@ -504,9 +504,6 @@ importers:
       '@session/eslint-config':
         specifier: workspace:*
         version: link:../../tooling/eslint-config
-      '@session/localization':
-        specifier: workspace:*
-        version: link:../../packages/localization
       '@session/typescript-config':
         specifier: workspace:*
         version: link:../../tooling/typescript-config
