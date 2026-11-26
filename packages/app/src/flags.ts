@@ -62,13 +62,13 @@ export const FLAGS = {
   forceOnboardingTabletDesign: false,
 
   /**
-   * **Force** fast notifications to look available, whatever the build can actually do.
+   * **Force** Instant to look available, whatever the build can actually do.
    *
    * Availability is a fact about the build -- a direct-download Android has no Play Services -- so
    * the "Recommended" state is unreachable on the machines it is developed on. Changes only what
    * the screen says about the option, never what a notification does.
    */
-  forceFastModeAvailable: false,
+  forceInstantAvailable: false,
 
   /**
    * Turn off every animation and transition.

@@ -14,6 +14,7 @@ describe('the command line', () => {
     expect(parseCompareArgs([])).toEqual({
       baseRef: undefined,
       tier: 'pr',
+      pages: undefined,
       sensitivity: 0.5,
       refresh: false,
       keepWorktree: false,
@@ -30,14 +31,24 @@ describe('the command line', () => {
         '--refresh',
         '--sensitivity',
         '0',
+        '--pages',
+        'messageQuote, messageFrame.bubble,',
       ]),
-    ).toMatchObject({ baseRef: 'origin/main~3', tier: 'nightly', sensitivity: 0, refresh: true })
+    ).toMatchObject({
+      baseRef: 'origin/main~3',
+      tier: 'nightly',
+      sensitivity: 0,
+      refresh: true,
+      pages: ['messageQuote', 'messageFrame.bubble'],
+    })
   })
 
   it('refuses what it cannot act on', () => {
     expect(() => parseCompareArgs(['--tier', 'weekly'])).toThrow(UsageError)
     expect(() => parseCompareArgs(['--sensitivity', '2'])).toThrow(UsageError)
     expect(() => parseCompareArgs(['--colour'])).toThrow(UsageError)
+    expect(() => parseCompareArgs(['--pages'])).toThrow(UsageError)
+    expect(() => parseCompareArgs(['--pages', ' , '])).toThrow(UsageError)
     expect(() => parseCompareArgs(['a', 'b'])).toThrow(UsageError)
   })
 })
@@ -61,6 +72,12 @@ describe('a cached capture', () => {
     expect(captureKey({ ...capture, overlayHash: 'f00d' })).toBe(
       'abc-pr-darwin-arm64-env-e0-hidden-f00d',
     )
+  })
+
+  it('is told apart by the pages it was limited to', () => {
+    const some = captureKey({ ...capture, pages: ['messageQuote'] })
+    expect(some).toMatch(/^abc-pr-darwin-arm64-env-e0-pages-[0-9a-f]{12}$/)
+    expect(captureKey({ ...capture, pages: ['messageFrame'] })).not.toBe(some)
   })
 
   it('is kept only when the spec passed and wrote every page it listed', () => {

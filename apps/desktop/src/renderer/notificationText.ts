@@ -1,15 +1,6 @@
 import type { NotificationTap } from '@session/app'
-import type { IncomingNotification, NotificationAttachment } from '@session/client'
-import { singular, tr } from '@session/localization'
-
-const ATTACHMENT_WORDS: Record<NotificationAttachment, () => string> = {
-  image: () => tr('image'),
-  animated: () => tr('gif'),
-  video: () => tr('video'),
-  audio: () => tr('audio'),
-  voice: () => tr('messageVoice'),
-  file: () => tr('document'),
-}
+import type { IncomingNotification } from '@session/client'
+import { notificationWords, tr } from '@session/localization'
 
 /**
  * What a notification says, as the phones' push handlers write it: the sender and the message; the
@@ -20,14 +11,14 @@ function notificationText(notification: IncomingNotification): {
   title: string
   body: string
 } {
-  if (notification.kind === 'request')
-    return { title: tr('appName'), body: tr('messageRequestsNew') }
-  const title = notification.sender ?? tr('appName')
+  // The phones' push handlers build theirs from the same words.
+  const words = notificationWords()
+  if (notification.kind === 'request') return { title: words.appName, body: words.request }
+  const title = notification.sender ?? words.appName
   if (notification.body !== undefined) return { title, body: notification.body }
-  if (notification.attachments > 1) return { title, body: tr('attachments') }
-  if (notification.attachment !== undefined)
-    return { title, body: ATTACHMENT_WORDS[notification.attachment]() }
-  return { title, body: singular('messageNewYouveGot') }
+  if (notification.attachments > 1) return { title, body: words.attachments }
+  if (notification.attachment !== undefined) return { title, body: words[notification.attachment] }
+  return { title, body: words.generic }
 }
 
 /** Where clicking it leads. */

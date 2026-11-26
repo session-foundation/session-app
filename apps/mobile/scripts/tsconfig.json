@@ -1,0 +1,11 @@
+{
+  // The generators run under node, which the app's own program leaves out: `src` ships to two
+  // platforms with no node.
+  "extends": "@session/typescript-config/bundler.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "allowImportingTsExtensions": true,
+    "noEmit": true
+  },
+  "include": ["."]
+}

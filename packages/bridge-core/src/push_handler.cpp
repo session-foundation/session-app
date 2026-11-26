@@ -38,13 +38,16 @@ namespace {
         return {generic_notification(), {}, std::nullopt, std::move(why)};
     }
 
+    constexpr std::string_view NO_DATABASE = "no database";
+
     /// Why `where` cannot be opened, or nullopt when it can be tried.
     std::optional<std::string> unopenable(const ColdPush& where) {
-        if (where.netid != "mainnet" && where.netid != "testnet")
+        // The push server watches mainnet's swarms only, so nothing else subscribes.
+        if (where.netid != "mainnet")
             return "no push handling on " + where.netid;
         std::error_code ec;
         if (!std::filesystem::exists(where.db_path, ec))
-            return "no database";
+            return std::string{NO_DATABASE};
         return std::nullopt;
     }
 
@@ -63,18 +66,11 @@ namespace {
                                       session::core::one_shot{});
         log("database open");
         const auto cache = where.db_path.parent_path() / "netcache";
-        if (where.netid == "testnet")
-            client->core.make_network(
-                    session::network::opt::netid::testnet(),
-                    session::network::opt::router::session_router(),
-                    session::network::opt::cache_directory{cache},
-                    session::network::opt::one_shot{});
-        else
-            client->core.make_network(
-                    session::network::opt::netid::mainnet(),
-                    session::network::opt::router::session_router(),
-                    session::network::opt::cache_directory{cache},
-                    session::network::opt::one_shot{});
+        client->core.make_network(
+                session::network::opt::netid::mainnet(),
+                session::network::opt::router::session_router(),
+                session::network::opt::cache_directory{cache},
+                session::network::opt::one_shot{});
         return client;
     }
 
@@ -140,8 +136,13 @@ PushResult handle_cold_push(
         std::string_view you,
         std::chrono::milliseconds deadline,
         const PushLog& log) {
-    if (auto why = unopenable(where))
+    if (auto why = unopenable(where)) {
+        // No database is no account on this device: a push for one cleared away, whose
+        // subscription the push server has not dropped yet. Nothing to tell anyone about.
+        if (*why == NO_DATABASE)
+            return {std::nullopt, {}, std::nullopt, *why + ": nothing shown"};
         return generic(*why);
+    }
     try {
         auto client = open_cold(where, log);
         PushResult out;

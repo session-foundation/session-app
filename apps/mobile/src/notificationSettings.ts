@@ -23,6 +23,7 @@ type NotificationSettings = Pick<
   | 'preview'
   | 'post'
   | 'remove'
+  | 'requestPermission'
 >
 
 /**
@@ -50,6 +51,7 @@ export const notificationSettings: NotificationSettings = {
   // The notification work iOS has not had yet: see the module's comment.
   post: null,
   remove: null,
+  requestPermission: () => Promise.resolve(true),
 }
 
 /** Nothing native to keep in step on iOS yet. */
