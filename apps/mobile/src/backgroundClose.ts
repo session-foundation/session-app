@@ -22,7 +22,10 @@ export interface BackgroundCloseDeps {
    * sends no change until it comes back.
    */
   onAppStateChange: (listener: (state: string) => void) => void
-  /** After a reopen that built the Client again: whatever it missed is read again. */
+  /**
+   * After a reopen, whether it built the Client again or cancelled a close still waiting: whatever
+   * a rebuilt Client missed is read again, which costs a read when nothing was missed.
+   */
   onReopened: () => void
   /** The OS's grace to finish in once the app has left the screen, as `backgroundTask` keeps it. */
   task: { begin: () => void; end: () => void }
