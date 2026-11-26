@@ -40,6 +40,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <unordered_set>
 #include <optional>
 #include <ranges>
 #include <shared_mutex>
@@ -65,6 +66,13 @@ namespace session_bridge {
 using namespace ::session;
 
 namespace {
+
+    /// A request refused, or cut off, because the Client is closed for the background: never a
+    /// wrong request, and one to ask again once the Client is back. The fake and the TypeScript
+    /// client say the same (`CLIENT_CLOSED`).
+    constexpr std::string_view CLIENT_CLOSED = "client.closed";
+    constexpr std::string_view CLIENT_CLOSED_MESSAGE =
+            "the client is closed while the app is in the background";
 
     /// libsession reports "no such thing" as an empty optional rather than an error, and the two
     /// mean different things to a caller. Said once here so every command spells it the same way.
@@ -467,6 +475,12 @@ struct ClientBridge::Impl {
     /// Set once it has answered, so that the next close can join it without waiting.
     std::thread closer;
     std::atomic<bool> closer_done{true};
+    /// Requests handed to the Client and not answered yet. Destroying the Client for the
+    /// background cancels the work that would have answered them, so the close answers them
+    /// instead; nothing above has a timeout, and a request left unanswered is a caller waiting for
+    /// ever.
+    std::mutex unanswered_m;
+    std::unordered_set<double> unanswered;
     /// What a destroy for the background is waiting on, shared with its watchdog: whether it is
     /// done, and whether its SQL was interrupted, at the deadline or because the app came back.
     struct CloseWatch {
@@ -858,7 +872,13 @@ struct ClientBridge::Impl {
     }
 
     void respond(double id, Result result) {
+        answered(id);
         emit(ResponseFrame{Response{id, std::nullopt, std::nullopt, std::move(result)}});
+    }
+
+    void answered(double id) {
+        std::lock_guard lock{unanswered_m};
+        unanswered.erase(id);
     }
 
     void ok(double id) {
@@ -867,6 +887,7 @@ struct ClientBridge::Impl {
 
     void fail(
             double id, std::string_view message, std::optional<std::string> code = std::nullopt) {
+        answered(id);
         emit(ResponseFrame{Response{id, std::string{message}, std::move(code), std::nullopt}});
     }
 
@@ -982,16 +1003,18 @@ struct ClientBridge::Impl {
             respond(id, AccountInfoResult{AccountInfo{false, std::nullopt, std::nullopt, false}});
             return;
         }
-        client->display_name(on(id, [this, id](std::string name) {
+        // The Client this was asked of, not the member: a close for the background can take the
+        // member before the answer runs, and the Client outlives its own loop's work.
+        client->display_name(on(id, [this, id, c = client.get()](std::string name) {
             std::optional<std::string> display_name;
             if (!name.empty())
                 display_name = std::move(name);
             respond(id,
                     AccountInfoResult{AccountInfo{
                             true,
-                            client->core.globals.session_id_hex(),
+                            c->core.globals.session_id_hex(),
                             std::move(display_name),
-                            client->core.network() != nullptr}});
+                            c->core.network() != nullptr}});
         }));
     }
 
@@ -1318,6 +1341,14 @@ struct ClientBridge::Impl {
             close_watch.reset();
             reopen = std::exchange(reopen_waiting, std::nullopt);
         }
+        std::unordered_set<double> cut_off;
+        {
+            std::lock_guard lock{unanswered_m};
+            cut_off = std::exchange(unanswered, {});
+        }
+        cut_off.erase(id);
+        for (auto request : cut_off)
+            fail(request, CLIENT_CLOSED_MESSAGE, std::string{CLIENT_CLOSED});
         respond(id, ClientClosedResult{true, waited_ms, close_ms, busy, interrupted, for_reopen});
         // Not while the bridge itself is closing, which sets `close_cancelled` to end this.
         if (reopen && close_cancelled) {
@@ -1564,8 +1595,12 @@ struct ClientBridge::Impl {
                 whole<int64_t>(from.id, std::string{field} + ".id")};
     }
 
-    void read_page(double id, const std::string& conversation_id, client::MessagePage page) {
-        convo(conversation_id)
+    void read_page(
+            client::Client& c,
+            double id,
+            const std::string& conversation_id,
+            client::MessagePage page) {
+        client::Conversation{c, client::ConversationId::parse(conversation_id)}
                 .messages(std::move(page), on(id, [this, id](client::MessagePageResult page) {
                     std::vector<Message> out;
                     out.reserve(page.messages.size());
@@ -1588,7 +1623,7 @@ struct ClientBridge::Impl {
         if (cmd.after)
             page.after = cursor(*cmd.after, "getMessages.after");
         if (!cmd.around) {
-            read_page(id, cmd.conversation_id, std::move(page));
+            read_page(*client, id, cmd.conversation_id, std::move(page));
             return;
         }
         // Checked here because the cursor is only read a call later, and libsession's own refusal
@@ -1602,7 +1637,8 @@ struct ClientBridge::Impl {
         client->message(
                 target,
                 on(id,
-                   [this, id, target, conversation_id, page](
+                   // The Client asked, not the member, as in `getAccountInfo`.
+                   [this, id, target, conversation_id, page, c = client.get()](
                            std::optional<client::Message> found) {
                        if (!found || found->conversation.to_string() != conversation_id) {
                            fail(id,
@@ -1612,7 +1648,7 @@ struct ClientBridge::Impl {
                        }
                        auto window = page;
                        window.around = found->cursor();
-                       read_page(id, conversation_id, std::move(window));
+                       read_page(*c, id, conversation_id, std::move(window));
                    }));
     }
 
@@ -2395,7 +2431,7 @@ void ClientBridge::call(Request request) {
             return;
         }
         if (!usable) {
-            _impl->fail(request.id, "the client is closed while the app is in the background");
+            _impl->fail(request.id, CLIENT_CLOSED_MESSAGE, std::string{CLIENT_CLOSED});
             return;
         }
     }
@@ -2408,6 +2444,11 @@ void ClientBridge::call(Request request) {
         return;
     }
 
+    // Not the warm-up, which runs on a network of its own and is answered whatever the Client does.
+    if (!std::holds_alternative<WarmNetworkCacheCommand>(request.command)) {
+        std::lock_guard tracked{_impl->unanswered_m};
+        _impl->unanswered.insert(request.id);
+    }
     try {
         _impl->dispatch(request);
     } catch (const std::exception& e) {

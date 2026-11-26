@@ -27,7 +27,8 @@ function deferred<T>() {
   return { promise, resolve }
 }
 
-function harness() {
+/** `initial` is the state the app is in when the close is attached, which it is told at once. */
+function harness(initial = 'active') {
   let listener: (state: string) => void = () => {}
   const log = vi.fn<BackgroundCloseDeps['log']>()
   const deps = {
@@ -39,7 +40,9 @@ function harness() {
     },
     onAppStateChange: (l: (state: string) => void) => {
       listener = l
+      l(initial)
     },
+    onReopened: vi.fn(),
     task: { begin: vi.fn(), end: vi.fn() },
     log,
     flushLog: vi.fn(() => Promise.resolve()),
@@ -180,5 +183,27 @@ describe('closing the database in the background', () => {
     await drain()
     expect(log).toHaveBeenCalledWith('error', 'close failed: closeClient: refused')
     expect(deps.task.end).toHaveBeenCalledTimes(1)
+  })
+
+  it('closes for an app that left the screen before it was attached', async () => {
+    const { deps } = harness('background')
+    await drain()
+    expect(deps.client.closeClient).toHaveBeenCalledTimes(1)
+  })
+
+  it('reads again after a reopen, and not after one that failed', async () => {
+    const { deps, to } = harness()
+    to('background')
+    await drain()
+    to('active')
+    await drain()
+    expect(deps.onReopened).toHaveBeenCalledTimes(1)
+
+    deps.client.reopenClient.mockRejectedValueOnce(new Error('no database'))
+    to('background')
+    await drain()
+    to('active')
+    await drain()
+    expect(deps.onReopened).toHaveBeenCalledTimes(1)
   })
 })
