@@ -142,6 +142,7 @@ PushResult handle_push(
         else {
             const auto& handled = **wait->result;
             log("handled: " + std::string{outcome_name(handled.outcome)});
+            out.stored = handled.message.has_value();
             out.show = notifications.decide(handled, you, on_screen);
             if (out.show && handled.message)
                 out.message_id = handled.message->id;

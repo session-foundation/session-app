@@ -65,17 +65,39 @@ enum AppGroup {
     return UNNotificationSound(named: UNNotificationSoundName(file))
   }
 
-  /// A word a notification is made of, as `setStrings` last handed them over; English before then.
+  /// A word a notification is made of, as `setStrings` last handed them over; before then, the
+  /// catalogue's for the device's language (`PushWordsGenerated`), then English.
   static func word(_ key: String) -> String {
-    let english = [
-      "appName": "Session", "generic": "You've got a new message.",
-      "request": "You have a new message request", "image": "Image", "animated": "GIF",
-      "video": "Video", "audio": "Audio", "voice": "Voice Message", "file": "Document",
-      "attachments": "Attachments", "markRead": "Mark read", "reply": "Reply", "send": "Send",
-      "replyFailed": "Message delivery failed",
-    ]
     let words = defaults?.dictionary(forKey: wordsKey) as? [String: String]
-    return words?[key] ?? english[key] ?? ""
+    return words?[key] ?? deviceWords[key] ?? PushWordsGenerated.english[key] ?? ""
+  }
+
+  /// The device's language's words: see `catalogueCode`.
+  private static let deviceWords: [String: String] = {
+    guard let preferred = Locale.preferredLanguages.first else { return [:] }
+    let locale = Locale(identifier: preferred)
+    let code = catalogueCode(
+      language: locale.languageCode ?? "", region: locale.regionCode ?? "",
+      script: locale.scriptCode ?? "")
+    return code.flatMap(PushWordsGenerated.translated) ?? [:]
+  }()
+
+  /// The catalogue's code for a device language, or nil where it has none: Chinese by its script,
+  /// the language with its region where the catalogue has that (`pt-BR`), Latin American Spanish
+  /// as `es-419`, then the language alone, then the language's one regional variant. Android's
+  /// push handler matches the same way (`PushStrings.kt`).
+  static func catalogueCode(language: String, region: String, script: String) -> String? {
+    let codes = PushWordsGenerated.codes
+    var candidates: [String] = []
+    if language == "zh" {
+      candidates.append(script == "Hant" || ["TW", "HK", "MO"].contains(region) ? "zh-TW" : "zh-CN")
+    }
+    if !region.isEmpty { candidates.append("\(language)-\(region)") }
+    if language == "es", !region.isEmpty, region != "ES" { candidates.append("es-419") }
+    candidates.append(language)
+    if let found = candidates.first(where: codes.contains) { return found }
+    let regional = codes.filter { $0.hasPrefix("\(language)-") }
+    return regional.count == 1 ? regional.first : nil
   }
 
   static func setOpenConversation(_ id: String?) {

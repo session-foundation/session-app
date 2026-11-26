@@ -117,7 +117,7 @@ export const withNotificationService: ConfigPlugin<NotificationServiceOptions> =
       const target = join(mod.modRequest.platformProjectRoot, NOTIFICATION_SERVICE_TARGET)
       const source = join(mod.modRequest.projectRoot, SOURCE_DIR)
       mkdirSync(target, { recursive: true })
-      for (const file of ['NotificationService.mm', 'Info.plist']) {
+      for (const file of ['NotificationService.mm', 'PushWords.generated.h', 'Info.plist']) {
         copyFileSync(join(source, file), join(target, file))
       }
       writeFileSync(
@@ -144,7 +144,7 @@ export const withNotificationService: ConfigPlugin<NotificationServiceOptions> =
       `${options.bundleId}.NotificationServiceExtension`,
     )
     const group = project.addPbxGroup(
-      ['NotificationService.mm', 'Info.plist', `${name}.entitlements`],
+      ['NotificationService.mm', 'PushWords.generated.h', 'Info.plist', `${name}.entitlements`],
       name,
       name,
     )

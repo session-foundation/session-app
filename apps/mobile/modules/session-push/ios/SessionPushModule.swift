@@ -1,12 +1,16 @@
 import ExpoModulesCore
 import UserNotifications
+import notify
 
 /// APNs registration, the notification settings, and what the notification extension shares with
 /// the app, for JavaScript. The same names as the Android module's, where the two do the same.
 public class SessionPushModule: Module {
+  /// The registration for the extension's "stored" signal, while JavaScript listens for it.
+  private var storedToken: Int32?
+
   public func definition() -> ModuleDefinition {
     Name("SessionPush")
-    Events("onTokenChange", "onTap", "onAction")
+    Events("onTokenChange", "onTap", "onAction", "onExtensionStored")
 
     /// Every iOS build has APNs behind it; whether a token comes is answered by `token`.
     Constant("available") { true }
@@ -150,8 +154,16 @@ public class SessionPushModule: Module {
       }
     }
 
-    OnStartObserving {
+    // Each event is handed over once something listens for that event itself. A tap or an action
+    // that launched the app is held by `NotificationPresenter` until then, and a listener for any
+    // other event, which the store adds long before the shell listens for taps, would flush it
+    // with nobody there to receive it.
+    OnStartObserving("onTokenChange") {
       PushToken.onChange = { [weak self] in self?.sendEvent("onTokenChange") }
+    }
+    OnStopObserving("onTokenChange") { PushToken.onChange = nil }
+
+    OnStartObserving("onAction") {
       NotificationPresenter.shared.onAction = { [weak self] action in
         var event: [String: Any] = [
           "token": action.token, "conversation": action.conversation,
@@ -160,6 +172,10 @@ public class SessionPushModule: Module {
         if let reply = action.reply { event["reply"] = reply }
         self?.sendEvent("onAction", event)
       }
+    }
+    OnStopObserving("onAction") { NotificationPresenter.shared.onAction = nil }
+
+    OnStartObserving("onTap") {
       NotificationPresenter.shared.onTap = { [weak self] tap in
         switch tap {
         case .conversation(let id, let message):
@@ -169,11 +185,23 @@ public class SessionPushModule: Module {
         }
       }
     }
+    OnStopObserving("onTap") { NotificationPresenter.shared.onTap = nil }
 
-    OnStopObserving {
-      PushToken.onChange = nil
-      NotificationPresenter.shared.onTap = nil
-      NotificationPresenter.shared.onAction = nil
+    // The notification extension stored a message, which the app's open Client will never be told
+    // of: its own receive finds it already there.
+    OnStartObserving("onExtensionStored") {
+      guard let group = Bundle.main.object(forInfoDictionaryKey: "SessionAppGroup") as? String,
+        self.storedToken == nil
+      else { return }
+      var token: Int32 = 0
+      let status = notify_register_dispatch("\(group).stored", &token, .main) { [weak self] _ in
+        self?.sendEvent("onExtensionStored")
+      }
+      if status == NOTIFY_STATUS_OK { self.storedToken = token }
+    }
+    OnStopObserving("onExtensionStored") {
+      if let token = self.storedToken { notify_cancel(token) }
+      self.storedToken = nil
     }
   }
 

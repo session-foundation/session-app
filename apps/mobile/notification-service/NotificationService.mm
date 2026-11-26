@@ -11,7 +11,10 @@
 
 #import <Security/Security.h>
 #import <UserNotifications/UserNotifications.h>
+#import <notify.h>
 #import <os/log.h>
+
+#import "PushWords.generated.h"
 
 #include <oxenc/hex.h>
 #include <session_bridge/push_handler.hpp>
@@ -53,8 +56,9 @@ NSString* const NOTIFICATION_ID_KEY = @"session_id";
 NSString* const MESSAGE_ID_KEY = @"session_message";
 NSString* const MESSAGE_CATEGORY = @"session-message";
 
-/// The networks a database may be under, in the order they are tried.
-const char* const NETWORKS[] = {"mainnet", "testnet"};
+/// The one network a push comes from: the push server watches the swarms of the network its oxend
+/// is on, mainnet, and the app subscribes nowhere else.
+const char* const NETWORK = "mainnet";
 
 os_log_t log_handle() {
     static os_log_t handle = os_log_create("org.getsession", "notification-service");
@@ -79,25 +83,57 @@ NSUserDefaults* shared_defaults() {
     return group ? [[NSUserDefaults alloc] initWithSuiteName:group] : nil;
 }
 
-/// A word a notification is made of, in the language the app last handed over; English for a push
-/// that arrives before the app has ever run.
+/// The catalogue's code for a device language, or nil where it has none, matched as the app's
+/// module matches it (`AppGroup.catalogueCode`).
+NSString* catalogue_code(NSString* language, NSString* region, NSString* script) {
+    NSDictionary* codes = push_words_by_locale();
+    NSMutableArray<NSString*>* candidates = [NSMutableArray array];
+    if ([language isEqualToString:@"zh"])
+        [candidates addObject:([script isEqualToString:@"Hant"] ||
+                                       [@[@"TW", @"HK", @"MO"] containsObject:region])
+                                      ? @"zh-TW"
+                                      : @"zh-CN"];
+    if (region.length)
+        [candidates addObject:[NSString stringWithFormat:@"%@-%@", language, region]];
+    if ([language isEqualToString:@"es"] && region.length && ![region isEqualToString:@"ES"])
+        [candidates addObject:@"es-419"];
+    [candidates addObject:language];
+    for (NSString* code in candidates)
+        if (codes[code])
+            return code;
+    NSString* prefix = [language stringByAppendingString:@"-"];
+    NSString* only = nil;
+    for (NSString* code in codes) {
+        if (![code hasPrefix:prefix])
+            continue;
+        if (only)
+            return nil;
+        only = code;
+    }
+    return only;
+}
+
+/// The device's language's words, for a push that arrives before the app has ever run.
+NSDictionary<NSString*, NSString*>* device_words() {
+    static NSDictionary* words;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+      NSString* preferred = NSLocale.preferredLanguages.firstObject;
+      NSLocale* locale = preferred ? [NSLocale localeWithLocaleIdentifier:preferred] : nil;
+      NSString* code = locale ? catalogue_code(locale.languageCode ?: @"", locale.countryCode ?: @"",
+                                               locale.scriptCode ?: @"")
+                              : nil;
+      words = (code ? push_words_by_locale()[code] : nil) ?: @{};
+    });
+    return words;
+}
+
+/// A word a notification is made of, in the language the app last handed over; before then, the
+/// catalogue's for the device's language (PushWords.generated.h), then English.
 NSString* word(NSString* key) {
-    static NSDictionary* const english = @{
-        @"appName": @"Session",
-        @"generic": @"You've got a new message.",
-        @"request": @"You have a new message request",
-        @"you": @"You",
-        @"image": @"Image",
-        @"animated": @"GIF",
-        @"video": @"Video",
-        @"audio": @"Audio",
-        @"voice": @"Voice Message",
-        @"file": @"Document",
-        @"attachments": @"Attachments",
-    };
     NSDictionary* words = [shared_defaults() dictionaryForKey:WORDS_KEY];
     NSString* found = [words[key] isKindOfClass:NSString.class] ? words[key] : nil;
-    return found ?: english[key] ?: @"";
+    return found ?: device_words()[key] ?: push_words_english()[key] ?: @"";
 }
 
 /// Whether the app is in front, by its lease: see AppGroup.swift.
@@ -176,6 +212,9 @@ UNMutableNotificationContent* content_for(
         std::optional<int64_t> message_id,
         UNNotificationContent* original) {
     UNMutableNotificationContent* out = [original mutableCopy];
+    // The push carries the notifier's badge of 1, which would replace the real count: only a count
+    // read from the database is set, below.
+    out.badge = nil;
     out.threadIdentifier = ns(c.thread);
     out.sound = chosen_sound();
     NSString* kind = @"generic";
@@ -267,12 +306,10 @@ std::optional<std::pair<std::filesystem::path, std::string>> database() {
         return std::nullopt;
     // The app's data root in the group, as modules/storage-roots makes it.
     auto root = std::filesystem::path{container.path.UTF8String} / "session";
-    for (const char* netid : NETWORKS) {
-        auto db = root / netid / "session.db";
-        std::error_code ec;
-        if (std::filesystem::exists(db, ec))
-            return std::pair{db, std::string{netid}};
-    }
+    auto db = root / NETWORK / "session.db";
+    std::error_code ec;
+    if (std::filesystem::exists(db, ec))
+        return std::pair{db, std::string{NETWORK}};
     return std::nullopt;
 }
 
@@ -313,7 +350,10 @@ std::optional<std::pair<std::filesystem::path, std::string>> database() {
     }
     auto db = database();
     if (!db) {
-        [self deliver:[self genericContent] why:"no database"];
+        // No account on this device: a push for one cleared away, whose subscription the push
+        // server has not dropped yet. Nothing to show, which with the filtering entitlement shows
+        // nothing at all; without it iOS shows the push's own text.
+        [self deliver:[[UNMutableNotificationContent alloc] init] why:"no database: nothing shown"];
         return;
     }
     auto key = database_key();
@@ -334,6 +374,12 @@ std::optional<std::pair<std::filesystem::path, std::string>> database() {
             word(@"you").UTF8String,
             std::chrono::duration_cast<std::chrono::milliseconds>(DEADLINE),
             log_line);
+
+    // The app, if it is open, never hears of a message stored here: its own receive finds it
+    // already there. Told, it reads its lists again (`SessionPushModule`, onExtensionStored).
+    if (result.stored)
+        if (NSString* group = app_group())
+            notify_post([group stringByAppendingString:@".stored"].UTF8String);
 
     if (!result.stale.empty()) {
         NSMutableArray* ids = [NSMutableArray array];

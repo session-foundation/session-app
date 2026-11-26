@@ -34,6 +34,9 @@ struct PushResult {
     std::string why;
     /// The message `show` is about, which tapping it lands on: set for a message the Client keeps.
     std::optional<int64_t> message_id;
+    /// Whether handling stored a message: one a Client open beside this process never hears
+    /// about, since it is already there when its own receive comes to it.
+    bool stored = false;
 };
 
 /// How long handling a push may take before it ends with whatever it has: inside iOS's 30 seconds
