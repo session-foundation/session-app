@@ -64,7 +64,8 @@ PushResult handle_push(
 struct ColdPush {
     std::filesystem::path db_path;
     std::array<std::byte, 32> key;
-    /// "mainnet" or "testnet": a devnet needs seed nodes only the app knows.
+    /// "mainnet": the push server watches mainnet's swarms only, so no other network subscribes,
+    /// and any other is refused.
     std::string netid = "mainnet";
     /// iOS opens its database with SQLite's header in plaintext (see the bridge); Android does not.
     bool plaintext_header = false;

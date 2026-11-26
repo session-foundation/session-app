@@ -30,8 +30,11 @@ object PushMessages {
    */
   @Volatile var openConversation: String? = null
 
-  /** The networks a database may be under, in the order a push is tried against them. */
-  private val NETWORKS = listOf("mainnet", "testnet")
+  /**
+   * The one network a push comes from: the push server watches the swarms of the network its oxend
+   * is on, mainnet, and the app subscribes nowhere else.
+   */
+  private const val NETWORK = "mainnet"
 
   fun received(context: Context, data: Map<String, String>) {
     val enc = data["enc_payload"]
@@ -41,7 +44,7 @@ object PushMessages {
     }
     // libsession's root, as modules/storage-roots makes it: a directory per network.
     val root = File(context.filesDir, "session")
-    val netid = NETWORKS.firstOrNull { File(root, "$it/session.db").exists() } ?: "mainnet"
+    val netid = NETWORK
     val key =
         try {
           DatabaseKeyStore.read(context)

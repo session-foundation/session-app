@@ -1,26 +1,20 @@
 import { subscribeLocale, tr } from '@session/localization'
 import { requireOptionalNativeModule } from 'expo'
 
+import { PUSH_WORDS } from './pushWords'
+
 const SessionPush = requireOptionalNativeModule<{
   setStrings(strings: Record<string, string>): void
 }>('SessionPush')
 
 /** What `modules/session-push` builds a notification from, by its names (`PushStrings.kt`). */
 function words(): Record<string, string> {
-  return {
-    appName: tr('appName'),
-    channel: tr('notificationsMessage'),
-    generic: tr('messageNewYouveGot', { count: 1 }),
-    request: tr('messageRequestsNew'),
-    you: tr('you'),
-    image: tr('image'),
-    animated: tr('gif'),
-    video: tr('video'),
-    audio: tr('audio'),
-    voice: tr('messageVoice'),
-    file: tr('document'),
-    attachments: tr('attachments'),
-  }
+  return Object.fromEntries(
+    Object.entries(PUSH_WORDS).map(([name, from]) => [
+      name,
+      'text' in from ? tr(from.text) : tr(from.one, { count: 1 }),
+    ]),
+  )
 }
 
 /**
