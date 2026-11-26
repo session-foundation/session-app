@@ -23,6 +23,7 @@ interface SessionPushModule {
   post(notification: IncomingNotification): void
   remove(ids: readonly string[]): void
   setBadgeCount(count: number): Promise<void>
+  requestPermission(): Promise<boolean>
   finishAction(token: string, done: boolean): void
   addListener(
     event: 'onTap',
@@ -68,6 +69,7 @@ type NotificationSettings = Pick<
   | 'post'
   | 'remove'
   | 'setBadgeCount'
+  | 'requestPermission'
 >
 
 /** iOS's part of the Notifications page, through `modules/session-push`. */
@@ -117,6 +119,8 @@ export const notificationSettings: NotificationSettings = {
   post: SessionPush === null ? null : (notification) => SessionPush.post(notification),
   remove: SessionPush === null ? null : (ids) => SessionPush.remove(ids),
   setBadgeCount: (count) => SessionPush?.setBadgeCount(count) ?? Promise.resolve(),
+  // Asked when a delivery mode is chosen, whichever it is: see `followNotificationPermission`.
+  requestPermission: () => SessionPush?.requestPermission() ?? Promise.resolve(false),
 }
 
 /**

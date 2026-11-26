@@ -1,5 +1,6 @@
 import {
   followFlagToggles,
+  followNotificationPermission,
   followNotifications,
   followPushRegistration,
   requirePorts,
@@ -19,8 +20,9 @@ import {
   type BridgeTransport,
   type FetchLike,
 } from '@session/client'
+import { tr } from '@session/localization'
 import { createSessionStore } from '@session/state'
-import { PixelRatio, Platform } from 'react-native'
+import { AppState, PixelRatio, Platform } from 'react-native'
 
 import {
   followNotificationActions,
@@ -117,6 +119,7 @@ async function openTransport(): Promise<BridgeTransport> {
     // devnet, which is the only thing a devnet can use.
     ...(router === undefined ? {} : { router }),
     deviceType: Platform.OS === 'ios' ? 'ios' : 'android',
+    notificationYou: tr('you'),
     // A default: a stored edge (setThumbnailEdge) wins over this at every open. Sized for the wide
     // layout, which a tablet or a phone turned sideways can switch to while running, because
     // thumbnails are made once. Neither layout draws a tile past 340 px, so a 3x phone stays
@@ -178,15 +181,38 @@ export const storePromise = openTransportOrRefusal().then((transport) => {
     attachmentCacheLimitBytes: ATTACHMENT_CACHE_LIMIT_BYTES,
     log: storeLog,
     libsessionLog,
+    timers: { setTimeout, clearTimeout },
   })
   watchStore(store)
   followFlagToggles(store)
-  const { whileOpen, onceInFront } = followAppLifecycle(client)
+  const { whileOpen, onceInFront } = followAppLifecycle(client, () => {
+    void store.actions.reread()
+  })
+  followNotificationPermission({
+    store,
+    requestPermission: () => requirePorts().notifications.requestPermission(),
+    log: (level, message) => {
+      storeLog(level, 'notifications', message)
+    },
+  })
   followPushRegistration({
     store,
     client,
-    source: requirePorts().notifications.pushTokens,
+    // Mainnet's swarms only: the push server watches the one network its oxend is on, so a
+    // subscription from another is accepted and never pushed to.
+    source:
+      parseNetworkName(process.env['EXPO_PUBLIC_SESSION_NETID']) === 'mainnet'
+        ? requirePorts().notifications.pushTokens
+        : null,
     marker: requirePorts().notifications.pushInstallMarker,
+    onActive: (listener) => {
+      const subscription = AppState.addEventListener('change', (state) => {
+        if (state === 'active') listener()
+      })
+      return () => {
+        subscription.remove()
+      }
+    },
     log: (level, message) => {
       storeLog(level, 'push', message)
     },

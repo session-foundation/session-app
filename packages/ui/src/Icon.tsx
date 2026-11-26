@@ -161,7 +161,8 @@ const GLYPHS = {
  * platforms' own players keep it pointing the same way in every locale, so mirroring it would make
  * this the only app on the device that disagrees. A picture of an object never does - a folded
  * page corner is a convention, not a direction. `reply` points back up the conversation toward the
- * message answered, which is reading order.
+ * message answered, which is reading order. `externalLink` points onward, out of the app, which
+ * is the reading direction too, and legacy Android mirrors its own.
  *
  * Here rather than at the call sites, because `IconName` is closed: one set keyed by it settles
  * each glyph once instead of a judgement repeated wherever one is drawn.
@@ -170,7 +171,7 @@ const GLYPHS = {
  * optical weight, and flipping one gives a worse result than drawing the other - so a caller that
  * needs the pair chooses between them with `isLayoutRtl()` and they are deliberately absent here.
  */
-const MIRRORED_IN_RTL: ReadonlySet<IconName> = new Set(['list', 'reply'])
+const MIRRORED_IN_RTL: ReadonlySet<IconName> = new Set(['list', 'reply', 'externalLink'])
 
 /**
  * One icon, drawn from the set the app has agreed on.

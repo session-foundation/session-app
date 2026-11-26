@@ -4,6 +4,7 @@ import type { SessionStore } from '@session/state'
 import { requireOptionalNativeModule } from 'expo'
 
 interface SessionPushModule {
+  requestPermission(): Promise<boolean>
   setSoundWhenOpen(on: boolean): void
   notificationsAllowed(): Promise<boolean>
   openNotificationSettings(): void
@@ -31,6 +32,7 @@ type NotificationSettings = Pick<
   | 'post'
   | 'remove'
   | 'setBadgeCount'
+  | 'requestPermission'
 >
 
 /** Android's part of the Notifications page, through `modules/session-push`. */
@@ -49,6 +51,7 @@ export const notificationSettings: NotificationSettings =
         post: null,
         remove: null,
         setBadgeCount: () => Promise.resolve(),
+        requestPermission: () => Promise.resolve(false),
       }
     : {
         soundWhenOpenDefault: true,
@@ -83,6 +86,7 @@ export const notificationSettings: NotificationSettings =
         },
         // No count on Android's launcher icon, as legacy Android has none.
         setBadgeCount: () => Promise.resolve(),
+        requestPermission: () => SessionPush.requestPermission(),
       }
 
 /**

@@ -1717,7 +1717,7 @@ struct SetPushTokenCommand {
             service{std::move(service_)}, token{std::move(token_)}, force{std::move(force_)} {}
 };
 
-/// Removes this device's push subscription, as when somebody switches to slow mode. Answers `ok`
+/// Removes this device's push subscription, as when somebody leaves Instant. Answers `ok`
 /// once the push server has accepted the removal, or at once when there was none to remove.
 struct ClearPushTokenCommand {
     static constexpr std::string_view type_tag = "clearPushToken";

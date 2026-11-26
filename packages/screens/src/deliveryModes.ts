@@ -6,7 +6,7 @@ import type { DeliveryMode } from '@session/state'
 export function deliveryOffers(notifications: NotificationsPort): readonly DeliveryModeOffer[] {
   // The flag is a way to look at the screens, not a second source of truth: see its entry in the
   // flag table for why Instant is otherwise unreachable on a development machine.
-  if (!flag('forceFastModeAvailable')) return notifications.deliveryModes
+  if (!flag('forceInstantAvailable')) return notifications.deliveryModes
   return notifications.deliveryModes.map((offer) =>
     offer.mode === 'instant' ? { ...offer, unavailable: null } : offer,
   )
@@ -49,10 +49,11 @@ function instantDescription(service: NotificationsPort['pushService']): string {
 }
 
 function unavailableReason(
-  why: 'build' | 'device',
+  why: 'build' | 'device' | 'network',
   service: NotificationsPort['pushService'],
 ): string {
   if (why === 'build') return PENDING_COPY.deliveryUnavailableBuild
+  if (why === 'network') return PENDING_COPY.deliveryUnavailableNetwork
   if (service === 'google') return PENDING_COPY.deliveryUnavailableDeviceGoogle
   if (service === 'huawei') return PENDING_COPY.deliveryUnavailableDeviceHuawei
   return PENDING_COPY.deliveryUnavailableDevice

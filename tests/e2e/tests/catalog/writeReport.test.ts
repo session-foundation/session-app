@@ -65,6 +65,25 @@ describe('writing the report from two folders of captures', () => {
     expect(results.find((result) => result.id === 'darker')?.differingPixels).toBe(1200)
   })
 
+  it('compares only the pages it is limited to, either side', () => {
+    const limited = writeReport({
+      beforeDir,
+      afterDir,
+      reportDir: join(root, 'report-limited'),
+      base: { label: 'base', sha: 'a'.repeat(40) },
+      head: { label: 'working tree', sha: 'b'.repeat(40) },
+      tier: 'pr',
+      sensitivity: 0.5,
+      only: new Set(['darker', 'new', 'gone']),
+      warnings: [],
+    })
+    expect(limited.results.map(({ id, status }) => `${id} ${status}`)).toEqual([
+      'darker changed',
+      'new added',
+      'gone removed',
+    ])
+  })
+
   it('puts each picture the report shows beside it, and a diff only for what changed', () => {
     const has = (path: string) => existsSync(join(reportDir, path))
     expect(['before/darker.png', 'after/darker.png', 'diff/darker.png'].every(has)).toBe(true)

@@ -25,6 +25,7 @@ import {
   type CatalogTier,
   type CompareOptions,
 } from '#catalog/options'
+import { readsPageFilter, unmatchedEverywhere } from '#catalog/shards'
 import {
   CompareFailure,
   Interrupted,
@@ -100,6 +101,26 @@ interface Capture {
 }
 
 const pagesDir = (capture: string) => join(capture, 'pages')
+/** The ids the spec said it would draw, written by it as CATALOG_PAGES_OUT. */
+const manifestFile = (capture: string) => join(capture, 'pages.json')
+
+/** The --pages names that matched no page, written by the spec as CATALOG_PAGES_UNMATCHED_OUT. */
+const unmatchedFile = (capture: string) => join(capture, 'unmatched.json')
+
+/** Empty where the spec did not write `file`. */
+function readNames(file: string): string[] {
+  return existsSync(file) ? (JSON.parse(readFileSync(file, 'utf8')) as string[]) : []
+}
+
+/** Empty where the spec predates the manifest. */
+const listedPages = (capture: string) => readNames(manifestFile(capture))
+
+const SPEC_SOURCE = 'tests/e2e/specs/catalog.spec.ts'
+
+/** Whether the spec at `sha` draws only the pages CATALOG_PAGES names; an older one draws all. */
+const specFiltersPages = (sha: string) =>
+  gitSucceeds(['cat-file', '-e', `${sha}:${SPEC_SOURCE}`]) &&
+  readsPageFilter(gitRaw(['show', `${sha}:${SPEC_SOURCE}`]))
 
 /** The harness that launches Electron, and the colour switch an older copy of it lacks. */
 const HARNESS_SOURCE = 'tests/e2e/harness/DesktopApp.ts'
@@ -164,6 +185,7 @@ async function buildAndCapture(
   dir: string,
   record: Omit<CaptureRecord, 'complete' | 'specPassed'>,
   label: string,
+  pages: readonly string[] | undefined,
 ): Promise<CaptureRecord> {
   if (!existsSync(join(checkout, 'node_modules/electron/dist')))
     throw new CompareFailure(
@@ -188,7 +210,7 @@ async function buildAndCapture(
 
   rmSync(dir, { recursive: true, force: true })
   mkdirSync(pagesDir(dir), { recursive: true })
-  const manifest = join(dir, 'pages.json')
+  const manifest = manifestFile(dir)
   const code = await step(
     `${label}: capture the ${record.tier} catalog, hidden`,
     [
@@ -209,15 +231,22 @@ async function buildAndCapture(
         CATALOG_TIER: record.tier,
         CATALOG_OUT: pagesDir(dir),
         CATALOG_PAGES_OUT: manifest,
+        CATALOG_PAGES: pages?.join(','),
+        CATALOG_PAGES_UNMATCHED_OUT: pages === undefined ? undefined : unmatchedFile(dir),
         SESSION_E2E_HIDDEN: '1',
       },
     },
   )
 
   const captured = pageIdsIn(pagesDir(dir))
-  if (captured.length === 0)
+  // A side where --pages names nothing, such as the base of a change that adds the component.
+  const filteredOut = pages !== undefined && existsSync(manifest) && listedPages(dir).length === 0
+  if (captured.length === 0 && !filteredOut)
     throw new CompareFailure(`${label}: the catalog spec wrote no pages (exit ${String(code)})`)
-  if (captured.every((id) => isBlank(decodePng(readFileSync(join(pagesDir(dir), `${id}.png`))))))
+  if (
+    captured.length > 0 &&
+    captured.every((id) => isBlank(decodePng(readFileSync(join(pagesDir(dir), `${id}.png`)))))
+  )
     throw new CompareFailure(
       `${label}: every page came out a single colour, which is a window that never painted: ` +
         'hidden capture is not drawing on this machine',
@@ -353,6 +382,7 @@ async function captureBase(
       dir,
       { sha, tier: options.tier, overlay: overlay !== null },
       'base',
+      options.pages,
     )
   } finally {
     if (options.keepWorktree) console.log(`  kept ${worktree}`)
@@ -400,6 +430,7 @@ async function main(): Promise<number> {
   const dotEnv = join(repoRoot, '.env')
   const host = {
     tier: options.tier,
+    pages: options.pages,
     platform: process.platform,
     arch: process.arch,
     environmentHash: buildEnvironmentHash(
@@ -420,6 +451,7 @@ async function main(): Promise<number> {
       dir,
       { sha: headSha, tier: options.tier, overlay: false },
       'working tree',
+      options.pages,
     )
   // Uncommitted changes are captured as they are, and never cached: no commit names them.
   const head: Capture = dirty
@@ -428,6 +460,29 @@ async function main(): Promise<number> {
         return { dir, record: await captureHead(dir), cached: false }
       })()
     : await cachedCapture(captureKey({ sha: headSha, ...host }), options, captureHead)
+
+  // A base that predates the filter drew every page; only the working tree's list then holds.
+  const baseFilters = options.pages !== undefined && specFiltersPages(baseSha)
+  const only =
+    options.pages === undefined
+      ? undefined
+      : new Set([...listedPages(head.dir), ...(baseFilters ? listedPages(base.dir) : [])])
+  if (options.pages !== undefined) {
+    const sides = baseFilters ? [head.dir, base.dir] : [head.dir]
+    const unknown = unmatchedEverywhere(sides.map((dir) => readNames(unmatchedFile(dir))))
+    if (unknown.length > 0)
+      throw new CompareFailure(
+        `--pages names no page in base or working tree: ${unknown.join(', ')}; ` +
+          'give a page id, a component.story or a component',
+      )
+  }
+  const filterNotes =
+    options.pages !== undefined && !baseFilters
+      ? [
+          'The base predates --pages and captured every page; only the pages the working tree ' +
+            'drew are compared, so a page the change removes is not listed.',
+        ]
+      : []
 
   console.log('\n▶ compare')
   const { results, file } = writeReport({
@@ -445,7 +500,9 @@ async function main(): Promise<number> {
     },
     tier: options.tier,
     sensitivity: options.sensitivity,
+    only,
     warnings: [
+      ...filterNotes,
       ...captureNotes('base', base.record, base.cached),
       ...captureNotes('working tree', head.record, head.cached),
     ],

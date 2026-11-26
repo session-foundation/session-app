@@ -100,6 +100,10 @@ struct InitOptions {
     /// yet - see docs/STATUS.md - so it reports the platform it is running on, which is true.
     std::string device_type;
 
+    /// The person's word for themselves in the app's language, which a mention of them becomes in
+    /// a notification; `setNotificationYou` replaces it. Each app passes its catalogue's.
+    std::string notification_you;
+
     /// How much of libsession's own logging to forward, as `log` events.
     ///
     /// "trace", "debug", "info", "warn", "error", "critical", or empty for none. Worth having

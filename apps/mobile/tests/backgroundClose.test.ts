@@ -42,6 +42,7 @@ function harness(initialState = 'active') {
       listener = l
     },
     initialState,
+    onReopened: vi.fn(),
     task: { begin: vi.fn(), end: vi.fn() },
     log,
     flushLog: vi.fn(() => Promise.resolve()),
@@ -337,5 +338,21 @@ describe('closing the database in the background', () => {
       await expect(onceInFront(run)).resolves.toBe('led')
       expect(deps.client.reopenClient).not.toHaveBeenCalled()
     })
+  })
+
+  it('reads again after a reopen, and not after one that failed', async () => {
+    const { deps, to } = harness()
+    to('background')
+    await drain()
+    to('active')
+    await drain()
+    expect(deps.onReopened).toHaveBeenCalledTimes(1)
+
+    deps.client.reopenClient.mockRejectedValueOnce(new Error('no database'))
+    to('background')
+    await drain()
+    to('active')
+    await drain()
+    expect(deps.onReopened).toHaveBeenCalledTimes(1)
   })
 })

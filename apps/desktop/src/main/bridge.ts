@@ -13,6 +13,7 @@ import {
   thumbnailEdgePxFor,
 } from '@session/basic-types'
 import type { BridgeTransport, DecodePlanner, MediaSource } from '@session/client'
+import { tr } from '@session/localization'
 import type { NetworkSettings } from '@session/logging'
 
 import { databasePaths, replaceDatabase, resolveDatabaseKey } from './databaseKey'
@@ -164,6 +165,7 @@ export async function createBridge(): Promise<Bridge> {
     // only way to exercise a transport we ship on a network that has it.
     ...(router === undefined ? {} : { router }),
     deviceType: 'desktop',
+    notificationYou: tr('you'),
     // The densest connected display's, since thumbnails are never remade: one made too small stays
     // soft, one made too large only costs memory. A stored edge (setThumbnailEdge) wins over this.
     thumbnailEdgePx: thumbnailEdgePxFor(
