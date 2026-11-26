@@ -90,9 +90,8 @@ object PushMessages {
         else @Suppress("DEPRECATION") Notification.Builder(context)
     val notification =
         builder
-            // TODO: a monochrome notification icon. The launcher icon draws as a white square on
-            // Android 5 and later, which tint every small icon to one colour.
-            .setSmallIcon(context.applicationInfo.icon)
+            // Drawn by its alpha alone, so a full-colour launcher icon would be a white square.
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(Notification.BigTextStyle().bigText(body))
