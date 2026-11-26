@@ -2,7 +2,6 @@ package org.getsession.databasekey
 
 import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
-import android.security.keystore.KeyPermanentlyInvalidatedException
 import android.security.keystore.KeyProperties
 import java.io.File
 import java.security.KeyStore
@@ -49,29 +48,48 @@ object DatabaseKeyStore {
   }
 
   /**
-   * The key as hex, or null when there is none. A sealing key the Keystore has invalidated reads as
-   * none, after removing what it can no longer open: the caller decides whether that is a first
-   * launch or a key lost beside a database.
+   * The pause before each further attempt at reading. The Keystore can fail a call it answers a
+   * moment later, as when its daemon is restarting, and a push can arrive just then.
+   */
+  private val RETRY_PAUSES_MS = longArrayOf(100, 300)
+
+  /**
+   * The key as hex, or null when there is none. **Nothing is deleted here.** On Android 8 to 11 a
+   * Keystore daemon that cannot be reached reads as no sealing key, and from 12 it is an
+   * UnrecoverableKeyException, so neither proves the key is gone; deleting on either would lose a
+   * database for good on a transient fault. A failure is tried again, then reported, and only the
+   * clear the person confirms removes the key (`clear`).
    */
   @Synchronized
   fun read(context: Context): String? {
     val sealed = file(context)
     if (!sealed.exists()) return null
-    try {
-      val bytes = sealed.readBytes()
-      if (bytes.size <= IV_BYTES) throw Unavailable("$FILE is ${bytes.size} bytes")
-      val key = sealingKey(create = false) ?: return forget(context)
-      val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-      cipher.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(TAG_BITS, bytes, 0, IV_BYTES))
-      return String(cipher.doFinal(bytes, IV_BYTES, bytes.size - IV_BYTES), Charsets.US_ASCII)
-    } catch (e: KeyPermanentlyInvalidatedException) {
-      return forget(context)
-    } catch (e: UnrecoverableKeyException) {
-      return forget(context)
-    } catch (e: Unavailable) {
-      throw e
-    } catch (e: Exception) {
-      throw Unavailable("the database key could not be unsealed: ${e.message}", e)
+    val bytes =
+        try {
+          sealed.readBytes()
+        } catch (e: Exception) {
+          throw Unavailable("$FILE could not be read: ${e.message}", e)
+        }
+    if (bytes.size <= IV_BYTES) throw Unavailable("$FILE is ${bytes.size} bytes")
+    var attempt = 0
+    while (true) {
+      val last = attempt == RETRY_PAUSES_MS.size
+      try {
+        val key = sealingKey(create = false)
+        if (key != null) {
+          val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+          cipher.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(TAG_BITS, bytes, 0, IV_BYTES))
+          return String(cipher.doFinal(bytes, IV_BYTES, bytes.size - IV_BYTES), Charsets.US_ASCII)
+        }
+        if (last) return null
+      } catch (e: UnrecoverableKeyException) {
+        if (last)
+            throw Unavailable("the Keystore could not recover the sealing key: ${e.message}", e)
+      } catch (e: Exception) {
+        if (last) throw Unavailable("the database key could not be unsealed: ${e.message}", e)
+      }
+      Thread.sleep(RETRY_PAUSES_MS[attempt])
+      attempt++
     }
   }
 
@@ -93,9 +111,18 @@ object DatabaseKeyStore {
     }
   }
 
-  private fun forget(context: Context): String? {
+  /**
+   * Removes the sealed key and its sealing key. Only for the clear the person confirms, once every
+   * database the key opened is gone: `write` keeps an existing sealing key, so one the Keystore can
+   * no longer use has to go first or no new key could be stored.
+   */
+  @Synchronized
+  fun clear(context: Context) {
+    try {
+      keystore().deleteEntry(ALIAS)
+    } catch (e: Exception) {
+      throw Unavailable("the sealing key could not be removed: ${e.message}", e)
+    }
     file(context).delete()
-    runCatching { keystore().deleteEntry(ALIAS) }
-    return null
   }
 }
