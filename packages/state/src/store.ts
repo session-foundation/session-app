@@ -636,32 +636,46 @@ export function createSessionStore(
     return write
   }
 
+  /** The start under way, so that a read after a reopen joins it rather than running another. */
+  let starting: Promise<void> | null = null
+
+  async function startOnce(): Promise<void> {
+    store.setState({ startupError: null, startupFailureKind: null })
+    try {
+      await actions.hydrate()
+    } catch (error) {
+      // Left for the background before the start finished (iOS): not a failure, and `reread`
+      // starts again once the Client is back.
+      if (error instanceof SessionClientError && error.code === CLIENT_CLOSED) {
+        log('info', 'session', 'start put off: the client closed for the background')
+        return
+      }
+      // **The one place a failed start is allowed to end up.** Everything that can go wrong
+      // between the app opening and libsession answering throws, and every one of those throws
+      // arrives here -- which is what makes "it did not start" a state the screens can render
+      // rather than a promise nobody was holding. Left uncaught it was an unhandled rejection
+      // and a launch screen that never went away, identical from the outside to a slow start.
+      const { message, kind } = startupFailure(error)
+      log('error', 'session', `could not start (${kind}): ${message}`)
+      store.setState({ startupError: message, startupFailureKind: kind })
+    }
+  }
+
   const actions: SessionActions = {
     async start(): Promise<void> {
-      store.setState({ startupError: null, startupFailureKind: null })
+      const run = startOnce()
+      starting = run
       try {
-        await actions.hydrate()
-      } catch (error) {
-        // Left for the background before the start finished (iOS): not a failure, and `reread`
-        // starts again once the Client is back.
-        if (error instanceof SessionClientError && error.code === CLIENT_CLOSED) {
-          log('info', 'session', 'start put off: the client closed for the background')
-          return
-        }
-        // **The one place a failed start is allowed to end up.** Everything that can go wrong
-        // between the app opening and libsession answering throws, and every one of those throws
-        // arrives here -- which is what makes "it did not start" a state the screens can render
-        // rather than a promise nobody was holding. Left uncaught it was an unhandled rejection
-        // and a launch screen that never went away, identical from the outside to a slow start.
-        const { message, kind } = startupFailure(error)
-        log('error', 'session', `could not start (${kind}): ${message}`)
-        store.setState({ startupError: message, startupFailureKind: kind })
+        await run
+      } finally {
+        if (starting === run) starting = null
       }
     },
 
     async reread(): Promise<void> {
       if (!store.getState().hydrated) {
-        await actions.start()
+        // A return during launch can come while the first start is still reading.
+        await (starting ?? actions.start())
         return
       }
       const loaded = Object.entries(store.getState().histories)
