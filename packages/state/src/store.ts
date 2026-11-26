@@ -386,7 +386,7 @@ const LIST_NAMES: readonly ListName[] = ['conversations', 'requests']
  * there is no history at all, so merging takes the page in and never reads what came before it.
  */
 function leavesGap(window: MessageWindow | undefined, page: MessagePage): boolean {
-  if (window === undefined || window.hasNewer || !page.hasOlder) return false
+  if (window?.ready !== true || window.hasNewer || !page.hasOlder) return false
   const newest = window.messages.at(-1)
   const oldest = page.messages[0]
   if (newest === undefined) return true
@@ -750,11 +750,10 @@ export function createSessionStore(
           whileReading(id, async () => {
             const page = await client.getMessages(id, { limit: FIRST_PAGE })
             // More arrived than a page holds: the page is the conversation's end now. A page still
-            // out was asked for from the old window's ends, so it is dropped rather than joined.
-            if (leavesGap(store.getState().histories[id], page)) {
-              interruptPaging(id)
-              replaceWindow(id, page)
-            } else
+            // out was read from the old window's ends and no longer joins; a jump or a first page
+            // still out lands after this, as it would after any other read.
+            if (leavesGap(store.getState().histories[id], page)) replaceWindow(id, page)
+            else
               store.setState((state) =>
                 applyEvent(state, { type: 'messages-updated', messages: page.messages }),
               )
@@ -957,10 +956,15 @@ export function createSessionStore(
           return
         }
         if (generationOf(id) !== generation) return
+        // Read from the window's oldest: joins only a window that still starts there. Whatever
+        // replaced the window meanwhile (a read after a reopen, a replaced history) cleared the
+        // flag, which a page asked for since may have set again.
+        const held = store.getState().histories[id]?.messages ?? []
+        if (held[0]?.id !== oldest.id) return
         patchWindow(id, {
           fetchingOlder: false,
           hasOlder: page.hasOlder,
-          messages: mergePages(page.messages, store.getState().histories[id]?.messages ?? []),
+          messages: mergePages(page.messages, held),
         })
       })
     },
@@ -986,10 +990,13 @@ export function createSessionStore(
           return
         }
         if (generationOf(id) !== generation) return
+        // Read from the window's newest: joins only a window that still ends there.
+        const held = store.getState().histories[id]?.messages ?? []
+        if (held.at(-1)?.id !== newest.id) return
         patchWindow(id, {
           fetchingNewer: false,
           hasNewer: page.hasNewer,
-          messages: mergePages(store.getState().histories[id]?.messages ?? [], page.messages),
+          messages: mergePages(held, page.messages),
         })
       })
     },
