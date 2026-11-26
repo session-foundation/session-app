@@ -31,6 +31,10 @@ export function writeDatabaseKey(hex: string): Promise<void> {
   return SecureStore.setItemAsync(KEY, hex, OPTIONS)
 }
 
+export function clearDatabaseKey(): Promise<void> {
+  return SecureStore.deleteItemAsync(KEY, OPTIONS)
+}
+
 /** Removes what older builds stored, on a true first launch. */
 export async function retireOldKeys(): Promise<void> {
   await Promise.all(RETIRED_KEYS.map((key) => SecureStore.deleteItemAsync(key)))
