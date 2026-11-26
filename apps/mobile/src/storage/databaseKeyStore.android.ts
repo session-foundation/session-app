@@ -4,6 +4,7 @@ import { requireNativeModule } from 'expo'
 const DatabaseKey = requireNativeModule<{
   read(): Promise<string | null>
   write(hex: string): Promise<void>
+  clear(): Promise<void>
 }>('DatabaseKey')
 
 /**
@@ -16,6 +17,11 @@ export function readDatabaseKey(): Promise<string | null> {
 
 export function writeDatabaseKey(hex: string): Promise<void> {
   return DatabaseKey.write(hex)
+}
+
+/** Removes the key and the Keystore key that seals it, which `write` would otherwise reuse. */
+export function clearDatabaseKey(): Promise<void> {
+  return DatabaseKey.clear()
 }
 
 /** Nothing to retire on Android: only development builds ever kept a key anywhere else. */

@@ -1,7 +1,12 @@
 import { keyInvalid, keyMissing, keyUnavailable } from '@session/client'
 import * as Crypto from 'expo-crypto'
 
-import { readDatabaseKey, retireOldKeys, writeDatabaseKey } from './databaseKeyStore'
+import {
+  clearDatabaseKey,
+  readDatabaseKey,
+  retireOldKeys,
+  writeDatabaseKey,
+} from './databaseKeyStore'
 
 export { readDatabaseKey, writeDatabaseKey }
 
@@ -27,12 +32,12 @@ async function mintDatabaseKey(): Promise<string> {
  * 32 bytes at first launch, kept in the OS keychain - which is the entire reason there is a
  * secure-storage port at all.
  *
- * **A key is made only when there is none and no database either.** An Android Keystore key that
- * has been invalidated reads as no key at all -- the store removes what it can no longer open and
- * answers null -- so a missing key beside a database is that, and minting would make the database
- * unreadable for good. It is thrown as `KEY_MISSING` instead, and clearing past it is the person's
+ * **A key is made only when there is none and no database either.** A missing key beside a
+ * database may be lost, or on Android may be a Keystore that cannot be reached right now, which
+ * some versions report as no key; minting would make the database unreadable for good either way.
+ * It is thrown as `KEY_MISSING` instead, nothing is deleted, and clearing past it is the person's
  * choice on the startup-failure screen. A read that throws is a keychain that will not answer now
- * (iOS before the first unlock), and is `KEY_UNAVAILABLE`.
+ * (iOS before the first unlock, an Android Keystore fault), and is `KEY_UNAVAILABLE`.
  *
  * `databaseExists` asks about every network's database, since one key opens them all.
  */
@@ -61,5 +66,7 @@ export async function resolveDatabaseKey(databaseExists: () => boolean): Promise
  * database the old key opened is gone: see `discardDatabases`.
  */
 export async function replaceDatabaseKey(): Promise<void> {
+  // Android keeps its Keystore key across a write, so one it can no longer use goes first.
+  await clearDatabaseKey()
   await mintDatabaseKey()
 }

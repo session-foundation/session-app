@@ -1,4 +1,5 @@
 import { KEY_INVALID, KEY_MISSING, KEY_UNAVAILABLE } from '@session/client'
+import * as SecureStore from 'expo-secure-store'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { replaceDatabaseKey, resolveDatabaseKey } from '#src/storage/databaseKey'
@@ -75,9 +76,11 @@ describe('the mobile database key', () => {
     expect(keychain.items.get(KEY)).toBe('abc')
   })
 
-  it('is replaced only by the clear, which writes over whatever is stored', async () => {
+  it('is replaced only by the clear, which removes whatever is stored first', async () => {
     keychain.items.set(KEY, 'abc')
+    const deleted = vi.spyOn(SecureStore, 'deleteItemAsync')
     await replaceDatabaseKey()
+    expect(deleted).toHaveBeenCalledWith(KEY, expect.anything())
     expect(keychain.items.get(KEY)).toMatch(/^[0-9a-f]{64}$/)
   })
 })
