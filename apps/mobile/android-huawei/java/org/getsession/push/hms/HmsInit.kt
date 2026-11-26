@@ -42,8 +42,8 @@ class HmsInit : ContentProvider() {
                     null
                   }
               // Some EMUI versions answer empty here and deliver the token to HmsService instead,
-              // which reports a change; the next request then has it.
-              callback(token?.takeIf { it.isNotEmpty() })
+              // which keeps it and reports a change.
+              callback(token?.takeIf { it.isNotEmpty() } ?: HmsService.remembered(context))
             }
           }
         }
