@@ -61,6 +61,7 @@ import {
   replyingToHeading,
 } from './quotedReply'
 import { TranscriptWidth } from './TranscriptWidth'
+import { useIsRoutedOnTop } from './shell/routedConversation'
 import { useMarkReadWhileOpen } from './useMarkReadWhileOpen'
 
 const messageKey = (message: Message) => String(message.id)
@@ -340,11 +341,13 @@ function Conversation({ conversationId }: { conversationId: ConversationId }) {
   const [viewer, setViewer] = useState<ViewerTarget | null>(null)
   const [sheet, setSheet] = useState<number | null>(null)
   const [menu, setMenu] = useState<MessageMenuTarget | null>(null)
-  // Settings and the other screens of the modal stack are drawn over the whole app.
+  // Settings and the other screens of the modal stack are drawn over the whole app, and another
+  // route can be pushed over this one while it stays mounted.
   const modals = useModalEntries()
+  const onTop = useIsRoutedOnTop(conversationId)
   const rowsSeen = useMarkReadWhileOpen(conversationId, {
     ready: ready && conversation !== undefined,
-    covered: viewer !== null || menu !== null || asking || modals.length > 0,
+    covered: !onTop || viewer !== null || menu !== null || asking || modals.length > 0,
     loaded: messages,
     keyOf: messageKey,
     lastActivity: conversation?.lastActivity,
