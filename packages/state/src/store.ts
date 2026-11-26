@@ -13,7 +13,13 @@ import type {
 import { CLIENT_CLOSED, MESSAGE_NOT_FOUND, SessionClientError } from '@session/client'
 import { createStore, type StoreApi } from 'zustand/vanilla'
 
-import { applyEvent, mergePages, recordRefusal, withoutHistory } from './applyEvent'
+import {
+  applyEvent,
+  compareMessages,
+  mergePages,
+  recordRefusal,
+  withoutHistory,
+} from './applyEvent'
 import { classifyStartupFailure, type StartupFailureKind } from './startupFailure'
 import {
   emptyState,
@@ -356,6 +362,20 @@ const FIRST_PAGE = 15
 const JUMP_WINDOW = 2 * PAGE
 const LIST_NAMES: readonly ListName[] = ['conversations', 'requests']
 
+/**
+ * Whether the newest page, read again, would leave messages between it and a window that ends
+ * where the conversation did: the window says nothing lies past its newest, so paging never reads
+ * them, and merging the page in leaves a hole. Only a window at the conversation's end is at risk;
+ * one held further back takes no message past its newest.
+ */
+function leavesGap(window: MessageWindow | undefined, page: MessagePage): boolean {
+  const newest = window?.messages.at(-1)
+  const oldest = page.messages[0]
+  if (window === undefined || window.hasNewer || !page.hasOlder) return false
+  if (newest === undefined || oldest === undefined) return false
+  return compareMessages(oldest, newest) > 0
+}
+
 export function createSessionStore(
   client: SessionClient,
   options: SessionStoreOptions = {},
@@ -687,9 +707,12 @@ export function createSessionStore(
         ...loaded.map((id) =>
           whileReading(id, async () => {
             const page = await client.getMessages(id, { limit: FIRST_PAGE })
-            store.setState((state) =>
-              applyEvent(state, { type: 'messages-updated', messages: page.messages }),
-            )
+            // More arrived than a page holds: the page is the conversation's end now.
+            if (leavesGap(store.getState().histories[id], page)) replaceWindow(id, page)
+            else
+              store.setState((state) =>
+                applyEvent(state, { type: 'messages-updated', messages: page.messages }),
+              )
           }),
         ),
       ])
