@@ -1,6 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
   <application>
-    <!-- No token until fast mode asks for one: Firebase reaches Google only after that choice. -->
+    <!-- No token until Instant asks for one: Firebase reaches Google only after that choice. -->
     <meta-data android:name="firebase_messaging_auto_init_enabled" android:value="false" />
     <meta-data android:name="firebase_analytics_collection_deactivated" android:value="true" />
 

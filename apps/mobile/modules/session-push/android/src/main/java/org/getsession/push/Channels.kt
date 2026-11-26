@@ -12,6 +12,9 @@ import android.os.Build
 internal enum class Channel(val id: String, private val nameKey: String) {
   MESSAGES("messages", "channel"),
   REQUESTS("requests", "requestsChannel");
+  // TODO: legacy Android also has channels for group messages and community messages, which wait
+  //  on groups and communities in libsession's Client; one for calls, which waits on calls; and a
+  //  low-importance one for the lock screen's status, which waits on the app lock.
 
   /** Creates the channel, or renames it in the current language. Android keeps what was set. */
   fun ensure(context: Context) {

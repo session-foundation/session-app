@@ -21,7 +21,7 @@ describe('the mobile flag overrides', () => {
   })
 
   it('says nothing is set when a build carries no override', () => {
-    expect(flagOverride('SESSION_FLAG_FORCE_FAST_MODE_AVAILABLE')).toBeNull()
+    expect(flagOverride('SESSION_FLAG_FORCE_INSTANT_AVAILABLE')).toBeNull()
   })
 
   it('has nothing to say about a name that is not a flag', () => {

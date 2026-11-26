@@ -230,6 +230,7 @@ export const PENDING_COPY = {
   deliveryUnavailableDeviceGoogle: 'Not available on this device: it needs Google Play services.',
   deliveryUnavailableDeviceHuawei: 'Not available on this device: it needs Huawei Mobile Services.',
   deliveryUnavailableDevice: 'Not available on this device.',
+  deliveryUnavailableNetwork: 'Push notifications work on mainnet only.',
   deliveryAlwaysConnected: 'Always connected',
   deliveryAlwaysConnectedDescription:
     'Instant, with a permanent notification. Session stays connected itself, so no one else is involved, but it uses more battery.',

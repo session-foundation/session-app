@@ -176,7 +176,7 @@ describe('the switched feature flags', () => {
     const { client, store } = alice()
     await store.actions.hydrate()
     await store.actions.setFlagToggle('disableAnimations', true)
-    await store.actions.setFlagToggle('forceFastModeAvailable', true)
+    await store.actions.setFlagToggle('forceInstantAvailable', true)
 
     await store.actions.replaceFlagToggles({ debugMode: false })
     expect(store.getState().flagToggles).toEqual({ debugMode: false })
@@ -191,10 +191,10 @@ describe('the switched feature flags', () => {
 
     await Promise.all([
       store.actions.setFlagToggle('disableAnimations', true),
-      store.actions.setFlagToggle('forceFastModeAvailable', true),
+      store.actions.setFlagToggle('forceInstantAvailable', true),
       store.actions.setFlagToggle('debugMode', false),
     ])
-    const all = { disableAnimations: true, forceFastModeAvailable: true, debugMode: false }
+    const all = { disableAnimations: true, forceInstantAvailable: true, debugMode: false }
     expect(store.getState().flagToggles).toEqual(all)
     const next = createSessionStore(client)
     await next.actions.hydrate()

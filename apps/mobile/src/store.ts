@@ -20,6 +20,7 @@ import {
   type BridgeTransport,
   type FetchLike,
 } from '@session/client'
+import { tr } from '@session/localization'
 import { createSessionStore } from '@session/state'
 import { AppState, PixelRatio, Platform } from 'react-native'
 
@@ -114,6 +115,7 @@ async function openTransport(): Promise<BridgeTransport> {
     // devnet, which is the only thing a devnet can use.
     ...(router === undefined ? {} : { router }),
     deviceType: Platform.OS === 'ios' ? 'ios' : 'android',
+    notificationYou: tr('you'),
     // A default: a stored edge (setThumbnailEdge) wins over this at every open. Sized for the wide
     // layout, which a tablet or a phone turned sideways can switch to while running, because
     // thumbnails are made once. Neither layout draws a tile past 340 px, so a 3x phone stays

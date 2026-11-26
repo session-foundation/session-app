@@ -505,7 +505,7 @@ struct ClientBridge::Impl {
         /// `client_lock`, and a job holding `m` takes `client_lock`, so setting it under `m`
         /// would let the two wait on each other.
         std::mutex you_m;
-        std::string you = "You";
+        std::string you;
 
         std::string you_now() {
             std::lock_guard lock{you_m};
@@ -592,7 +592,9 @@ struct ClientBridge::Impl {
         });
     }
 
-    explicit Impl(Sink s, InitOptions o) : sink{std::move(s)}, options{std::move(o)} {}
+    explicit Impl(Sink s, InitOptions o) : sink{std::move(s)}, options{std::move(o)} {
+        arrival->you = options.notification_you;
+    }
 
     /// Builds the Client, and can do it again.
     ///

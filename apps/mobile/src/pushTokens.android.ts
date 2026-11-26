@@ -12,7 +12,7 @@ interface SessionPushModule {
 const SessionPush = requireOptionalNativeModule<SessionPushModule>('SessionPush')
 
 /**
- * The token source behind fast mode, from `modules/session-push`. Null when the build has no push
+ * The token source behind Instant, from `modules/session-push`. Null when the build has no push
  * service behind it: an F-Droid or website build, or a Play build made without Firebase's values.
  */
 export const pushTokens: PushTokenSource | null =
