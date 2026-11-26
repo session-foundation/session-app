@@ -192,7 +192,12 @@ export const storePromise = openTransportOrRefusal().then((transport) => {
   followPushRegistration({
     store,
     client,
-    source: requirePorts().notifications.pushTokens,
+    // Mainnet's swarms only: the push server watches the one network its oxend is on, so a
+    // subscription from another is accepted and never pushed to.
+    source:
+      parseNetworkName(process.env['EXPO_PUBLIC_SESSION_NETID']) === 'mainnet'
+        ? requirePorts().notifications.pushTokens
+        : null,
     marker: requirePorts().notifications.pushInstallMarker,
     onActive: (listener) => {
       const subscription = AppState.addEventListener('change', (state) => {

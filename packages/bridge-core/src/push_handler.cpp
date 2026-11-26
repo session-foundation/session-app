@@ -42,7 +42,8 @@ namespace {
 
     /// Why `where` cannot be opened, or nullopt when it can be tried.
     std::optional<std::string> unopenable(const ColdPush& where) {
-        if (where.netid != "mainnet" && where.netid != "testnet")
+        // The push server watches mainnet's swarms only, so nothing else subscribes.
+        if (where.netid != "mainnet")
             return "no push handling on " + where.netid;
         std::error_code ec;
         if (!std::filesystem::exists(where.db_path, ec))
@@ -65,18 +66,11 @@ namespace {
                                       session::core::one_shot{});
         log("database open");
         const auto cache = where.db_path.parent_path() / "netcache";
-        if (where.netid == "testnet")
-            client->core.make_network(
-                    session::network::opt::netid::testnet(),
-                    session::network::opt::router::session_router(),
-                    session::network::opt::cache_directory{cache},
-                    session::network::opt::one_shot{});
-        else
-            client->core.make_network(
-                    session::network::opt::netid::mainnet(),
-                    session::network::opt::router::session_router(),
-                    session::network::opt::cache_directory{cache},
-                    session::network::opt::one_shot{});
+        client->core.make_network(
+                session::network::opt::netid::mainnet(),
+                session::network::opt::router::session_router(),
+                session::network::opt::cache_directory{cache},
+                session::network::opt::one_shot{});
         return client;
     }
 
