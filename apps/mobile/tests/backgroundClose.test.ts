@@ -338,6 +338,26 @@ describe('closing the database in the background', () => {
       await expect(onceInFront(run)).resolves.toBe('led')
       expect(deps.client.reopenClient).not.toHaveBeenCalled()
     })
+
+    it('runs at once in an app under Notification Centre, which is inactive and still open', async () => {
+      const { deps, onceInFront, to } = harness()
+      to('inactive')
+      const run = vi.fn(() => Promise.resolve('led'))
+      await expect(onceInFront(run)).resolves.toBe('led')
+      expect(deps.client.reopenClient).not.toHaveBeenCalled()
+    })
+
+    it('runs on a return before the close began, which reopens nothing', async () => {
+      const { deps, onceInFront, to } = harness()
+      to('background')
+      const run = vi.fn(() => Promise.resolve())
+      const stored = onceInFront(run)
+      expect(run).not.toHaveBeenCalled()
+      to('active')
+      await stored
+      expect(run).toHaveBeenCalledTimes(1)
+      expect(deps.client.reopenClient).not.toHaveBeenCalled()
+    })
   })
 
   it('reads again after a reopen, and not after one that failed', async () => {
