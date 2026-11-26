@@ -88,7 +88,14 @@ object DatabaseKeyStore {
       } catch (e: Exception) {
         if (last) throw Unavailable("the database key could not be unsealed: ${e.message}", e)
       }
-      Thread.sleep(RETRY_PAUSES_MS[attempt])
+      try {
+        Thread.sleep(RETRY_PAUSES_MS[attempt])
+      } catch (e: InterruptedException) {
+        // Callers handle every failure as Unavailable. The flag is set again for whoever asked
+        // the thread to stop.
+        Thread.currentThread().interrupt()
+        throw Unavailable("interrupted before reading the database key again", e)
+      }
       attempt++
     }
   }
