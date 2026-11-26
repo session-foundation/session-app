@@ -14,17 +14,26 @@ public class SessionPushModule: Module {
     /// Asks to show notifications (iOS asks once and answers from then on), registers with APNs,
     /// and answers the token and its service, or null. A token is answered even when notifications
     /// may not be shown: the extension still runs, and they can be allowed later in Settings.
+    // The APNs token and its service. Permission to show notifications is asked for separately,
+    // whatever the delivery mode (`requestPermission`): a token is no use without it, but costs
+    // nothing, and permission can be given later in Settings without registering again.
     AsyncFunction("token") { (promise: Promise) in
+      PushToken.wait { token in
+        promise.resolve(token.map { ["service": PushToken.service, "token": $0] })
+      }
+      DispatchQueue.main.async { UIApplication.shared.registerForRemoteNotifications() }
+    }
+
+    // Asks to show notifications, which iOS does only while nothing has been decided, and answers
+    // whether they may be shown.
+    AsyncFunction("requestPermission") { (promise: Promise) in
       UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) {
-        _, error in
+        granted, error in
         if let error {
           PushToken.log.error(
             "notification authorization failed: \(error.localizedDescription, privacy: .public)")
         }
-        PushToken.wait { token in
-          promise.resolve(token.map { ["service": PushToken.service, "token": $0] })
-        }
-        DispatchQueue.main.async { UIApplication.shared.registerForRemoteNotifications() }
+        promise.resolve(granted)
       }
     }
 
