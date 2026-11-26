@@ -686,6 +686,19 @@ describe('the Client closed for the background (iOS)', () => {
     expect(store.getState().conversations.length).toBeGreaterThan(0)
   })
 
+  it('joins a start still under way rather than starting again beside it', async () => {
+    const { clients } = friends(['Alice', 'Bob'])
+    const client = clients['Alice']
+    if (!client) throw new Error('fixture did not produce a client')
+    const store = createSessionStore(client)
+    const asked = vi.spyOn(client, 'getAccountInfo')
+
+    await Promise.all([store.actions.start(), store.actions.reread()])
+
+    expect(asked).toHaveBeenCalledTimes(1)
+    expect(store.getState().hydrated).toBe(true)
+  })
+
   it('merges what was stored unannounced into a loaded window, keeping what it holds', async () => {
     const { store, client, bob } = seeded()
     await store.actions.hydrate()
