@@ -688,4 +688,66 @@ describe('the Client closed for the background (iOS)', () => {
     expect(window?.messages.map((m) => m.id)).toEqual(stored.map((m) => m.id))
     expect(window?.hasOlder).toBe(true)
   })
+
+  it('takes the newest page as the window when the window it finds is empty', async () => {
+    const { store, client, bob } = seeded()
+    await store.actions.hydrate()
+    await store.actions.loadHistory(bob)
+    const newest = store.getState().histories[bob]?.messages.at(-1)
+    if (newest === undefined) throw new Error('expected a loaded window')
+    // A conversation with no messages on screen: nothing held, and nothing either side.
+    store.setState((state) => {
+      const window = state.histories[bob]
+      if (window === undefined) throw new Error('expected a window')
+      return {
+        histories: {
+          ...state.histories,
+          [bob]: { ...window, messages: [], hasOlder: false, hasNewer: false },
+        },
+      }
+    })
+    vi.spyOn(client, 'getMessages').mockResolvedValue({
+      messages: [newest],
+      hasOlder: true,
+      hasNewer: false,
+    })
+
+    await store.actions.reread()
+
+    expect(store.getState().histories[bob]?.hasOlder).toBe(true)
+  })
+
+  it('drops an older page still out when it takes the newest page as the window', async () => {
+    const { store, client, bob } = seeded()
+    await store.actions.hydrate()
+    await store.actions.loadHistory(bob)
+    const before = store.getState().histories[bob]?.messages ?? []
+    const newest = before.at(-1)
+    if (newest === undefined) throw new Error('expected a loaded window')
+    store.setState((state) => {
+      const window = state.histories[bob]
+      if (window === undefined) throw new Error('expected a window')
+      return { histories: { ...state.histories, [bob]: { ...window, hasOlder: true } } }
+    })
+    const stored = { ...newest, id: newest.id + 1000, timestamp: newest.timestamp + 10 }
+    let answerOlder: (page: MessagePage) => void = () => {}
+    vi.spyOn(client, 'getMessages').mockImplementation((_id, options) =>
+      options?.before === undefined
+        ? Promise.resolve({ messages: [stored], hasOlder: true, hasNewer: false })
+        : new Promise((resolve) => {
+            answerOlder = resolve
+          }),
+    )
+
+    const older = store.actions.loadOlder(bob)
+    await store.actions.reread()
+    answerOlder({
+      messages: [{ ...newest, id: newest.id - 5000 }],
+      hasOlder: true,
+      hasNewer: false,
+    })
+    await older
+
+    expect(store.getState().histories[bob]?.messages.map((m) => m.id)).toEqual([stored.id])
+  })
 })
