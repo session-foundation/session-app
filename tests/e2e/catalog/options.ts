@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 
 import { ARGOS_SENSITIVITY } from '#catalog/diff'
+import { parsePageFilter } from '#catalog/shards'
 
 export const USAGE = `usage: pnpm catalog:compare [base-ref] [options]
 
@@ -8,6 +9,8 @@ Captures the component catalog at base-ref and in the working tree, on this mach
 an HTML report of the pages that differ. base-ref defaults to the merge base with origin/main.
 
   --tier pr|nightly     which pages to capture (default pr, as a pull request's build)
+  --pages <names>       only these pages, comma-separated: page ids, component.story or components;
+                        a name only one side has shows its pages as added or removed
   --sensitivity <0-1>   Argos's threshold: 0 counts any pixel, 1 doubles every tolerance (default ${String(ARGOS_SENSITIVITY)})
   --refresh             capture again even where a capture of the same commit is cached
   --keep-worktree       leave the base's worktree, under test-results/catalog-compare/, in place
@@ -20,6 +23,8 @@ export interface CompareOptions {
   /** Undefined: the merge base with origin/main. */
   baseRef: string | undefined
   tier: CatalogTier
+  /** Undefined: every page of the tier. */
+  pages: string[] | undefined
   sensitivity: number
   refresh: boolean
   keepWorktree: boolean
@@ -35,6 +40,7 @@ export function parseCompareArgs(argv: readonly string[]): CompareOptions {
   const options: CompareOptions = {
     baseRef: undefined,
     tier: 'pr',
+    pages: undefined,
     sensitivity: ARGOS_SENSITIVITY,
     refresh: false,
     keepWorktree: false,
@@ -49,6 +55,10 @@ export function parseCompareArgs(argv: readonly string[]): CompareOptions {
       const tier = args.shift()
       if (tier !== 'pr' && tier !== 'nightly') throw new UsageError('--tier takes pr or nightly')
       options.tier = tier
+    } else if (arg === '--pages') {
+      const pages = parsePageFilter(args.shift())
+      if (pages === undefined) throw new UsageError('--pages takes comma-separated page names')
+      options.pages = pages
     } else if (arg === '--sensitivity') {
       const value = Number(args.shift())
       if (!Number.isFinite(value) || value < 0 || value > 1)
@@ -81,8 +91,8 @@ export function buildEnvironmentHash(dotEnv: string | null, env: NodeJS.ProcessE
 
 /**
  * Names a cached capture. A capture is only reused for the same commit, tier, host and build
- * environment, and with the same change applied to make an older base run hidden, since each of
- * those changes a picture.
+ * environment, with the same change applied to make an older base run hidden, since each of those
+ * changes a picture, and for the same pages.
  */
 export function captureKey(capture: {
   sha: string
@@ -91,11 +101,16 @@ export function captureKey(capture: {
   arch: string
   environmentHash: string
   overlayHash?: string | undefined
+  pages?: readonly string[] | undefined
 }): string {
   const overlay = capture.overlayHash === undefined ? '' : `-hidden-${capture.overlayHash}`
+  const pages =
+    capture.pages === undefined
+      ? ''
+      : `-pages-${createHash('sha256').update(capture.pages.join(',')).digest('hex').slice(0, 12)}`
   return (
     `${capture.sha}-${capture.tier}-${capture.platform}-${capture.arch}` +
-    `-env-${capture.environmentHash}${overlay}`
+    `-env-${capture.environmentHash}${overlay}${pages}`
   )
 }
 
