@@ -25,19 +25,29 @@ concurrency:
 
 jobs:
   desktop:
-    # Forks stay off this host, where docker is root. A pull request runs its own copy of this file,
-    # so the repository setting that refuses fork workflows is what holds; keep both if made public.
-    if: >-
-      github.event_name != 'pull_request' ||
-      github.event.pull_request.head.repo.full_name == github.repository
-    # The pinned capture image makes the pictures the same on any runner; this one is faster.
-    runs-on: [self-hosted, linux, x64, session-catalog]
+    # GitHub-hosted, so a fork's pull request can run it: no secret reaches a fork, and its captures
+    # are not uploaded. The pinned image makes the pictures the same whichever CPU the runner has.
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
     env:
       CATALOG_TIER: ${{ inputs.tier || (github.event_name == 'schedule' && 'nightly') || 'pr' }}
       CATALOG_OUT: ${{ github.workspace }}/test-results/catalog
       ARGOS_API_BASE_URL: ${{ vars.ARGOS_API_BASE_URL }}
     steps:
       - uses: actions/checkout@v5
+
+      # Published by catalog-image.yml. Behind the install and builds; "Wait for the capture image"
+      # joins it. Every descriptor is redirected, or the step waits for the fetch to close its output.
+      - name: Fetch the capture image
+        env:
+          IMAGE: ghcr.io/${{ github.repository_owner }}/session-catalog-capture:${{ hashFiles('tests/e2e/catalog/image/**') }}
+        run: |
+          echo "CATALOG_IMAGE=$IMAGE" >> "$GITHUB_ENV"
+          nohup sh -c 'tests/e2e/catalog/fetch-image.sh; echo $? > "$RUNNER_TEMP/image-status"' \
+            > "$RUNNER_TEMP/image.log" 2>&1 < /dev/null &
 
       # Only the localization submodule is built here. libsession-util drags in protobuf and
       # session-deps, and nothing in these checks compiles C++.
@@ -48,7 +58,6 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
-          check-latest: true
           cache: pnpm
 
       # A stacked pull request compares with the build of the one below it, which Argos otherwise
@@ -80,13 +89,35 @@ jobs:
           path: ~/.cache/session-app/dev-media
           key: ${{ steps.dev-media.outputs.cache-primary-key }}
 
-      # In the pinned image: see tests/e2e/catalog/Dockerfile.
+      - name: Wait for the capture image
+        timeout-minutes: 10
+        run: |
+          until [ -e "$RUNNER_TEMP/image-status" ]; do sleep 1; done
+          cat "$RUNNER_TEMP/image.log"
+          if [ "$(cat "$RUNNER_TEMP/image-status")" != 0 ]; then
+            echo "::error::The capture image could not be fetched; its log is above"
+            exit 1
+          fi
+
+      # In the pinned image: see tests/e2e/catalog/image/Dockerfile.
       - id: capture
         run: pnpm --filter @session/e2e test:catalog
 
+      # A capture that stopped part way still goes up, but one that wrote no screenshot would
+      # upload an empty build, which Argos reads as every page removed.
+      - id: captured
+        if: (success() || failure()) && steps.capture.outcome != 'skipped'
+        run: |
+          if compgen -G "$CATALOG_OUT/*.png" >/dev/null; then
+            echo "any=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::The capture wrote no screenshot to $CATALOG_OUT, so nothing goes to Argos"
+            exit 1
+          fi
+
       # Argos compares with the build of main's head or of the pull request below, which another
       # runner can still be capturing.
-      - if: github.event_name == 'pull_request' && (success() || failure())
+      - if: github.event_name == 'pull_request' && (success() || failure()) && steps.captured.outputs.any == 'true'
         run: tests/e2e/catalog/argos-base.sh await
         env:
           GH_TOKEN: ${{ github.token }}
@@ -94,7 +125,7 @@ jobs:
       # The captures go up even when the audit fails: the two are read separately.
       # A tier is its own build name, so a nightly build is never compared with a pr one. Skipped
       # where the token is not given: a fork's pull request, or a repository with no Argos yet.
-      - if: success() || failure()
+      - if: (success() || failure()) && steps.captured.outputs.any == 'true'
         run: |
           if [ -z "$ARGOS_TOKEN" ]; then echo "No ARGOS_TOKEN: captures not uploaded"; exit 0; fi
           set -o pipefail
@@ -106,7 +137,7 @@ jobs:
           # 250ms away times out on every one, so allow longer.
           NODE_OPTIONS: --network-family-autoselection-attempt-timeout=2000
 
-      - if: github.event_name == 'pull_request' && (success() || failure())
+      - if: github.event_name == 'pull_request' && (success() || failure()) && steps.captured.outputs.any == 'true'
         run: tests/e2e/catalog/argos-base.sh check
         env:
           GH_TOKEN: ${{ github.token }}
