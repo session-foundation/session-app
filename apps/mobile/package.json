@@ -25,6 +25,8 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@formatjs/intl-locale": "catalog:",
+    "@formatjs/intl-pluralrules": "catalog:",
     "@session/app": "workspace:*",
     "@session/basic-types": "workspace:*",
     "@session/bridge-rn": "workspace:*",
@@ -70,6 +72,7 @@
     "@expo/config-plugins": "catalog:",
     "@session/build-stamp": "workspace:*",
     "@session/eslint-config": "workspace:*",
+    "@session/localization": "workspace:*",
     "@session/typescript-config": "workspace:*",
     "@tamagui/babel-plugin": "catalog:",
     "@types/react": "catalog:",

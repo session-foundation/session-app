@@ -1,7 +1,7 @@
 import { act, fireEvent } from '@testing-library/react'
 import type * as ReactNative from 'react-native'
 import type { FlatListProps } from 'react-native'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { byId } from '@session/render-tier'
 import { ELEMENT } from '@session/test-ids'
@@ -46,6 +46,11 @@ const LIST = ELEMENT.conversation.screen
 const ROW = ELEMENT.conversation.messageRow
 /** Past the moment after a resize in which a scroll is taken for the list's own. */
 const AFTER_RESIZE_MS = 400
+/**
+ * Past react-native-web's scroll-end timer, 100 ms after the last scroll event. It is not cleared
+ * on unmount, so one still pending when the file ends fires after the document is torn down.
+ */
+const AFTER_SCROLL_END_MS = 150
 
 interface Item {
   id: string
@@ -82,6 +87,10 @@ function report(held: readonly Item[], first: number, last: number): void {
 }
 
 describe('TranscriptList, scrolled to its top by the status bar', () => {
+  afterEach(async () => {
+    await wait(AFTER_SCROLL_END_MS)
+  })
+
   it('asks for the page above once the scroll has stopped, not on its way there', async () => {
     const onStartReached = vi.fn()
     const onWaitsForStart = vi.fn()
