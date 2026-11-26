@@ -15,7 +15,7 @@ import {
   type FetchLike,
 } from '@session/client'
 import { createSessionStore } from '@session/state'
-import { PixelRatio, Platform } from 'react-native'
+import { AppState, PixelRatio, Platform } from 'react-native'
 
 import { mobileClient } from './client'
 import { followAppLifecycle } from './clientLifecycle'
@@ -166,6 +166,7 @@ export const storePromise = openTransportOrRefusal().then((transport) => {
     attachmentCacheLimitBytes: ATTACHMENT_CACHE_LIMIT_BYTES,
     log: storeLog,
     libsessionLog,
+    timers: { setTimeout, clearTimeout },
   })
   watchStore(store)
   followFlagToggles(store)
@@ -177,6 +178,14 @@ export const storePromise = openTransportOrRefusal().then((transport) => {
     client,
     source: requirePorts().notifications.pushTokens,
     marker: requirePorts().notifications.pushInstallMarker,
+    onActive: (listener) => {
+      const subscription = AppState.addEventListener('change', (state) => {
+        if (state === 'active') listener()
+      })
+      return () => {
+        subscription.remove()
+      }
+    },
     log: (level, message) => {
       storeLog(level, 'push', message)
     },

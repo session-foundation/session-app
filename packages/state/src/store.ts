@@ -344,6 +344,12 @@ export interface SessionStoreOptions {
    * it should be is a per-platform question a phone and a desktop answer differently.
    */
   attachmentCacheLimitBytes?: number
+  /**
+   * The app's timers, which this package has none of: what bounds the wait for the push server
+   * before a clear (`CLEAR_UNSUBSCRIBE_WAIT_MS`). Left out, a clear waits for its answer.
+   */
+  timers?:
+    { setTimeout(fn: () => void, ms: number): unknown; clearTimeout(id: unknown): void } | undefined
 }
 
 const PAGE = 30
@@ -358,6 +364,12 @@ const FIRST_PAGE = 15
  * once. Every row of it is drawn again, which on a phone is about 120 ms more than one page.
  */
 const JUMP_WINDOW = 2 * PAGE
+/**
+ * How long a clear waits for the push subscription to be removed before it goes on without it. The
+ * clear must not depend on the network: one left behind is pushed to until the push server lets
+ * it lapse, after 14 days, and a push for an account no longer here shows nothing.
+ */
+const CLEAR_UNSUBSCRIBE_WAIT_MS = 5_000
 const LIST_NAMES: readonly ListName[] = ['conversations', 'requests']
 
 export function createSessionStore(
@@ -640,6 +652,31 @@ export function createSessionStore(
     return write
   }
 
+  /** Removes this device's push subscription, waiting at most `CLEAR_UNSUBSCRIBE_WAIT_MS`. */
+  async function unsubscribeBeforeClear(): Promise<void> {
+    const timers = options.timers
+    let timer: unknown
+    const outcome = await Promise.race([
+      client.clearPushToken().then(
+        () => 'removed' as const,
+        (error: unknown) => `failed: ${String(error)}`,
+      ),
+      ...(timers === undefined
+        ? []
+        : [
+            new Promise<'timed out'>((resolve) => {
+              timer = timers.setTimeout(() => resolve('timed out'), CLEAR_UNSUBSCRIBE_WAIT_MS)
+            }),
+          ]),
+    ])
+    timers?.clearTimeout(timer)
+    log(
+      outcome === 'removed' ? 'info' : 'warn',
+      'session',
+      `push subscription before clearing the device: ${outcome}`,
+    )
+  }
+
   const actions: SessionActions = {
     async start(): Promise<void> {
       store.setState({ startupError: null, startupFailureKind: null })
@@ -694,6 +731,8 @@ export function createSessionStore(
       // which is where somebody restores from their recovery phrase -- so this is both of the
       // legacy client's options, clear and clear-then-restore, which differ there only in what
       // they do next.
+      // Its own step, best effort, before the account that signs it is gone.
+      if (store.getState().account?.haveAccount === true) await unsubscribeBeforeClear()
       try {
         await client.discardAccount()
       } catch (error) {

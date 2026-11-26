@@ -8,6 +8,8 @@ export interface PushRegistrationDeps {
   client: Pick<SessionClient, 'setPushToken' | 'clearPushToken'>
   source: PushTokenSource | null
   marker: PushInstallMarker | null
+  /** Calls back whenever the app comes to the front; answers how to stop. */
+  onActive: ((listener: () => void) => () => void) | null
   log: (level: 'info' | 'warn', message: string) => void
 }
 
@@ -18,15 +20,20 @@ export interface PushRegistrationDeps {
  * libsession, which subscribes with the push server or does nothing when the stored subscription
  * already matches; an install's first subscription is sent whatever is stored (see
  * `PushInstallMarker`). In slow mode the subscription is removed. Run again whenever the mode, the
- * account or the token changes, and whenever the network comes back after a refusal, so a
- * registration that failed offline is not left failed.
+ * account or the token changes, whenever the network comes back after a refusal, so a registration
+ * that failed offline is not left failed, and whenever the app comes to the front.
+ *
+ * Fast mode always calls through, rather than skipping a token it has already sent: libsession
+ * renews a subscription that has aged only when it is handed the token, and the push server drops
+ * one that is not renewed. A process can outlive that, and asking costs a database read when
+ * nothing is due.
  *
  * One step at a time: a change arriving while one runs is applied after it.
  */
 export function followPushRegistration(deps: PushRegistrationDeps): () => void {
-  const { store, client, source, marker, log } = deps
-  /** What was last applied successfully: the mode, and the token for fast mode. */
-  let applied: string | null = null
+  const { store, client, source, marker, onActive, log } = deps
+  /** The mode last applied successfully, so that slow mode is not removed again on every step. */
+  let applied: 'fast' | 'slow' | null = null
   let running = false
   let again = false
 
@@ -52,18 +59,15 @@ export function followPushRegistration(deps: PushRegistrationDeps): () => void {
       log('warn', 'fast mode, but no push token from this device')
       return
     }
-    const key = `fast:${token.service}:${token.token}`
-    if (applied === key) return
     const force = marker !== null && !marker.subscribed()
     const sent = await client.setPushToken(token.service, token.token, force)
     if (force) marker.markSubscribed()
-    applied = key
-    log(
-      'info',
-      sent
-        ? `push subscription sent (${token.service}${force ? ', first since install' : ''})`
-        : 'push subscription unchanged',
-    )
+    applied = 'fast'
+    if (sent)
+      log(
+        'info',
+        `push subscription sent (${token.service}${force ? ', first since install' : ''})`,
+      )
   }
 
   const run = (): void => {
@@ -101,14 +105,12 @@ export function followPushRegistration(deps: PushRegistrationDeps): () => void {
     lastTrigger = now
     run()
   })
-  const unsubscribeToken =
-    source?.onChange(() => {
-      applied = null
-      run()
-    }) ?? (() => {})
+  const unsubscribeToken = source?.onChange(run) ?? (() => {})
+  const unsubscribeActive = onActive?.(run) ?? (() => {})
   run()
   return () => {
     unsubscribeStore()
     unsubscribeToken()
+    unsubscribeActive()
   }
 }
