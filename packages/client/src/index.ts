@@ -67,7 +67,7 @@ export type {
   TransferProgress,
   WithAttachmentRef,
 } from '@session/bridge-types'
-export { BridgeClosedError, SessionClientError } from './errors'
+export { BridgeClosedError, CLIENT_CLOSED, SessionClientError } from './errors'
 export type {
   AttachmentMedia,
   AttachmentThumbhash,

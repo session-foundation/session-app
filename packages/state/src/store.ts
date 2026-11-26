@@ -10,7 +10,7 @@ import type {
   SendPlan,
   SessionClient,
 } from '@session/client'
-import { MESSAGE_NOT_FOUND, SessionClientError } from '@session/client'
+import { CLIENT_CLOSED, MESSAGE_NOT_FOUND, SessionClientError } from '@session/client'
 import { createStore, type StoreApi } from 'zustand/vanilla'
 
 import { applyEvent, mergePages, recordRefusal, withoutHistory } from './applyEvent'
@@ -77,6 +77,14 @@ export interface SessionActions {
    * has and what it has instead of a timeout.
    */
   start: () => Promise<void>
+  /**
+   * Reads the lists and the newest page of every loaded window again, after the Client was closed
+   * for the background and opened again: what another process stored meanwhile (the iOS
+   * notification extension) and the sends the reopen marked interrupted were never announced.
+   * Merged into each window rather than replacing it, so a reader keeps their place. Starts the
+   * store instead if it never got as far as hydrating.
+   */
+  reread: () => Promise<void>
   /**
    * Deletes everything on this device and starts again from nothing.
    *
@@ -336,6 +344,12 @@ export interface SessionStoreOptions {
    * it should be is a per-platform question a phone and a desktop answer differently.
    */
   attachmentCacheLimitBytes?: number
+  /**
+   * The app's timers, which this package has none of: what bounds the wait for the push server
+   * before a clear (`CLEAR_UNSUBSCRIBE_WAIT_MS`). Left out, a clear waits for its answer.
+   */
+  timers?:
+    { setTimeout(fn: () => void, ms: number): unknown; clearTimeout(id: unknown): void } | undefined
 }
 
 const PAGE = 30
@@ -350,6 +364,12 @@ const FIRST_PAGE = 15
  * once. Every row of it is drawn again, which on a phone is about 120 ms more than one page.
  */
 const JUMP_WINDOW = 2 * PAGE
+/**
+ * How long a clear waits for the push subscription to be removed before it goes on without it. The
+ * clear must not depend on the network: one left behind is pushed to until the push server lets
+ * it lapse, after 14 days, and a push for an account no longer here shows nothing.
+ */
+const CLEAR_UNSUBSCRIBE_WAIT_MS = 5_000
 const LIST_NAMES: readonly ListName[] = ['conversations', 'requests']
 
 export function createSessionStore(
@@ -632,12 +652,43 @@ export function createSessionStore(
     return write
   }
 
+  /** Removes this device's push subscription, waiting at most `CLEAR_UNSUBSCRIBE_WAIT_MS`. */
+  async function unsubscribeBeforeClear(): Promise<void> {
+    const timers = options.timers
+    let timer: unknown
+    const outcome = await Promise.race([
+      client.clearPushToken().then(
+        () => 'removed' as const,
+        (error: unknown) => `failed: ${String(error)}`,
+      ),
+      ...(timers === undefined
+        ? []
+        : [
+            new Promise<'timed out'>((resolve) => {
+              timer = timers.setTimeout(() => resolve('timed out'), CLEAR_UNSUBSCRIBE_WAIT_MS)
+            }),
+          ]),
+    ])
+    timers?.clearTimeout(timer)
+    log(
+      outcome === 'removed' ? 'info' : 'warn',
+      'session',
+      `push subscription before clearing the device: ${outcome}`,
+    )
+  }
+
   const actions: SessionActions = {
     async start(): Promise<void> {
       store.setState({ startupError: null, startupFailureKind: null })
       try {
         await actions.hydrate()
       } catch (error) {
+        // Left for the background before the start finished (iOS): not a failure, and `reread`
+        // starts again once the Client is back.
+        if (error instanceof SessionClientError && error.code === CLIENT_CLOSED) {
+          log('info', 'session', 'start put off: the client closed for the background')
+          return
+        }
         // **The one place a failed start is allowed to end up.** Everything that can go wrong
         // between the app opening and libsession answering throws, and every one of those throws
         // arrives here -- which is what makes "it did not start" a state the screens can render
@@ -649,12 +700,39 @@ export function createSessionStore(
       }
     },
 
+    async reread(): Promise<void> {
+      if (!store.getState().hydrated) {
+        await actions.start()
+        return
+      }
+      const loaded = Object.entries(store.getState().histories)
+        .filter(([, window]) => window.ready)
+        .map(([id]) => id)
+      const reads = await Promise.allSettled([
+        readList('conversations'),
+        readList('requests'),
+        ...loaded.map((id) =>
+          whileReading(id, async () => {
+            const page = await client.getMessages(id, { limit: FIRST_PAGE })
+            store.setState((state) =>
+              applyEvent(state, { type: 'messages-updated', messages: page.messages }),
+            )
+          }),
+        ),
+      ])
+      for (const read of reads)
+        if (read.status === 'rejected')
+          log('warn', 'session', `could not read again after a reopen: ${String(read.reason)}`)
+    },
+
     async clearDeviceData(): Promise<void> {
       // The same call onboarding's back uses: the database, its journals and the attachment cache
       // are removed and a fresh one is opened. What follows is a device with no account on it,
       // which is where somebody restores from their recovery phrase -- so this is both of the
       // legacy client's options, clear and clear-then-restore, which differ there only in what
       // they do next.
+      // Its own step, best effort, before the account that signs it is gone.
+      if (store.getState().account?.haveAccount === true) await unsubscribeBeforeClear()
       try {
         await client.discardAccount()
       } catch (error) {

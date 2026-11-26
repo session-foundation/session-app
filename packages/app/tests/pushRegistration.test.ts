@@ -43,8 +43,13 @@ function harness(
     clearPushToken: vi.fn(() => Promise.resolve()),
   }
   const log = vi.fn()
-  followPushRegistration({ store, client, source, marker, log })
-  return { store, tokenOf, client, log, tokenChanged: () => changed() }
+  let active: () => void = () => {}
+  const onActive = (listener: () => void) => {
+    active = listener
+    return () => {}
+  }
+  followPushRegistration({ store, client, source, marker, onActive, log })
+  return { store, tokenOf, client, log, tokenChanged: () => changed(), comeToFront: () => active() }
 }
 
 /** Lets every queued continuation run. */
@@ -108,6 +113,18 @@ describe('keeping the push subscription in step with the notification mode', () 
 
     store.set({ networkStatus: 'disconnected' })
     store.set({ networkStatus: 'connected' })
+    await drain()
+    expect(client.setPushToken).toHaveBeenCalledTimes(2)
+  })
+
+  it('hands libsession the token again on coming to the front, to renew it', async () => {
+    const { client, comeToFront } = harness({
+      account: ACCOUNT,
+      notificationMode: 'fast',
+      networkStatus: 'connected',
+    })
+    await drain()
+    comeToFront()
     await drain()
     expect(client.setPushToken).toHaveBeenCalledTimes(2)
   })

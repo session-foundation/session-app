@@ -24,6 +24,7 @@ export const store = createSessionStore(client, {
   // To the log files main keeps, and to the console in development, which reaches the terminal
   // when Electron is run with --enable-logging and the DevTools console otherwise.
   log: storeLog,
+  timers: { setTimeout, clearTimeout },
 })
 
 followFlagToggles(store)
