@@ -74,7 +74,6 @@
     "@expo/config-plugins": "catalog:",
     "@session/build-stamp": "workspace:*",
     "@session/eslint-config": "workspace:*",
-    "@session/localization": "workspace:*",
     "@session/typescript-config": "workspace:*",
     "@tamagui/babel-plugin": "catalog:",
     "@types/react": "catalog:",
