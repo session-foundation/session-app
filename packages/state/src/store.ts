@@ -10,7 +10,7 @@ import type {
   SendPlan,
   SessionClient,
 } from '@session/client'
-import { MESSAGE_NOT_FOUND, SessionClientError } from '@session/client'
+import { CLIENT_CLOSED, MESSAGE_NOT_FOUND, SessionClientError } from '@session/client'
 import { createStore, type StoreApi } from 'zustand/vanilla'
 
 import { applyEvent, mergePages, recordRefusal, withoutHistory } from './applyEvent'
@@ -75,6 +75,14 @@ export interface SessionActions {
    * has and what it has instead of a timeout.
    */
   start: () => Promise<void>
+  /**
+   * Reads the lists and the newest page of every loaded window again, after the Client was closed
+   * for the background and opened again: what another process stored meanwhile (the iOS
+   * notification extension) and the sends the reopen marked interrupted were never announced.
+   * Merged into each window rather than replacing it, so a reader keeps their place. Starts the
+   * store instead if it never got as far as hydrating.
+   */
+  reread: () => Promise<void>
   /**
    * Deletes everything on this device and starts again from nothing.
    *
@@ -634,6 +642,12 @@ export function createSessionStore(
       try {
         await actions.hydrate()
       } catch (error) {
+        // Left for the background before the start finished (iOS): not a failure, and `reread`
+        // starts again once the Client is back.
+        if (error instanceof SessionClientError && error.code === CLIENT_CLOSED) {
+          log('info', 'session', 'start put off: the client closed for the background')
+          return
+        }
         // **The one place a failed start is allowed to end up.** Everything that can go wrong
         // between the app opening and libsession answering throws, and every one of those throws
         // arrives here -- which is what makes "it did not start" a state the screens can render
@@ -643,6 +657,31 @@ export function createSessionStore(
         log('error', 'session', `could not start (${kind}): ${message}`)
         store.setState({ startupError: message, startupFailureKind: kind })
       }
+    },
+
+    async reread(): Promise<void> {
+      if (!store.getState().hydrated) {
+        await actions.start()
+        return
+      }
+      const loaded = Object.entries(store.getState().histories)
+        .filter(([, window]) => window.ready)
+        .map(([id]) => id)
+      const reads = await Promise.allSettled([
+        readList('conversations'),
+        readList('requests'),
+        ...loaded.map((id) =>
+          whileReading(id, async () => {
+            const page = await client.getMessages(id, { limit: FIRST_PAGE })
+            store.setState((state) =>
+              applyEvent(state, { type: 'messages-updated', messages: page.messages }),
+            )
+          }),
+        ),
+      ])
+      for (const read of reads)
+        if (read.status === 'rejected')
+          log('warn', 'session', `could not read again after a reopen: ${String(read.reason)}`)
     },
 
     async clearDeviceData(): Promise<void> {

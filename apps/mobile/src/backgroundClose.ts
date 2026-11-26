@@ -16,8 +16,14 @@ export const CLOSE_INTERRUPT_MS = 15_000
 
 export interface BackgroundCloseDeps {
   client: Pick<SessionClient, 'closeClient' | 'reopenClient'>
-  /** Calls back with each change of the app's state: `background`, `active`, and the others. */
+  /**
+   * Calls back with the app's state as it is now, then with each change: `background`, `active`,
+   * and the others. The first call matters: an app that left the screen before this was attached
+   * sends no change until it comes back.
+   */
   onAppStateChange: (listener: (state: string) => void) => void
+  /** After a reopen that built the Client again: whatever it missed is read again. */
+  onReopened: () => void
   /** The OS's grace to finish in once the app has left the screen, as `backgroundTask` keeps it. */
   task: { begin: () => void; end: () => void }
   log: (level: 'info' | 'warn' | 'error' | 'critical', message: string) => void
@@ -116,7 +122,10 @@ export function closeClientInBackground(deps: BackgroundCloseDeps): void {
       const startedMs = Date.now()
       reopening = client
         .reopenClient()
-        .then(() => log('info', `reopened in ${String(Date.now() - startedMs)} ms`))
+        .then(() => {
+          log('info', `reopened in ${String(Date.now() - startedMs)} ms`)
+          deps.onReopened()
+        })
         .catch((error: unknown) =>
           log('error', `reopen failed: ${error instanceof Error ? error.message : String(error)}`),
         )

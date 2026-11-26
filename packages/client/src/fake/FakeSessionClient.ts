@@ -1,6 +1,6 @@
 import { isHex64, isIpv4, isPort } from '@session/basic-types'
 
-import { BridgeClosedError, SessionClientError } from '../errors'
+import { BridgeClosedError, CLIENT_CLOSED, SessionClientError } from '../errors'
 import {
   MESSAGE_NOT_FOUND,
   type AccountInfo,
@@ -111,7 +111,8 @@ export class FakeSessionClient implements SessionClient {
 
   private assertOpen(): void {
     if (this.closed) throw new BridgeClosedError()
-    if (this.background === 'closed') throw new SessionClientError(CLOSED_IN_BACKGROUND)
+    if (this.background === 'closed')
+      throw new SessionClientError(CLOSED_IN_BACKGROUND, CLIENT_CLOSED)
   }
 
   async closeClient(waitMs: number, interruptMs: number): Promise<ClientClosed> {
@@ -226,7 +227,8 @@ export class FakeSessionClient implements SessionClient {
   discardAccount(): Promise<void> {
     this.assertOpen()
     // Nothing may replace the Client while a close waits on it.
-    if (this.background !== 'open') throw new SessionClientError(CLOSED_IN_BACKGROUND)
+    if (this.background !== 'open')
+      throw new SessionClientError(CLOSED_IN_BACKGROUND, CLIENT_CLOSED)
     // The real bridge deletes the database and opens a new one, so what survives is nothing the
     // account put there. Modelled as the account being emptied rather than the client being
     // replaced, because a caller keeps the same client across a discard either way.
