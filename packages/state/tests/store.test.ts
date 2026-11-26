@@ -839,6 +839,32 @@ describe('the Client closed for the background (iOS)', () => {
     expect(store.getState().histories[bob]?.hasOlder).toBe(true)
   })
 
+  it('lets a jump still out land after it takes the newest page as the window', async () => {
+    // Back by tapping the notification for one of many stored messages: the jump starts first.
+    const { store, client, bob } = seeded()
+    await store.actions.hydrate()
+    await store.actions.loadHistory(bob)
+    const newest = store.getState().histories[bob]?.messages.at(-1)
+    if (newest === undefined) throw new Error('expected a loaded window')
+    const tapped = { ...newest, id: newest.id + 2000, timestamp: newest.timestamp + 5 }
+    const stored = { ...newest, id: newest.id + 3000, timestamp: newest.timestamp + 50 }
+    let answerJump: (page: MessagePage) => void = () => {}
+    vi.spyOn(client, 'getMessages').mockImplementation((_id, options) =>
+      options?.around === undefined
+        ? Promise.resolve({ messages: [stored], hasOlder: true, hasNewer: false })
+        : new Promise((resolve) => {
+            answerJump = resolve
+          }),
+    )
+
+    const jump = store.actions.jumpToMessage(bob, tapped.id)
+    await store.actions.reread()
+    answerJump({ messages: [tapped], hasOlder: true, hasNewer: true })
+
+    await expect(jump).resolves.toBe('landed')
+    expect(store.getState().histories[bob]?.messages.map((m) => m.id)).toEqual([tapped.id])
+  })
+
   it('drops an older page still out when it takes the newest page as the window', async () => {
     const { store, client, bob } = seeded()
     await store.actions.hydrate()
