@@ -27,5 +27,13 @@ class DatabaseKeyModule : Module() {
         throw CodedException("ERR_KEY_UNAVAILABLE", e.message, e)
       }
     }
+
+    AsyncFunction("clear") {
+      try {
+        DatabaseKeyStore.clear(context)
+      } catch (e: DatabaseKeyStore.Unavailable) {
+        throw CodedException("ERR_KEY_UNAVAILABLE", e.message, e)
+      }
+    }
   }
 }
