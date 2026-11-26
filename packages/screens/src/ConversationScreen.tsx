@@ -23,6 +23,7 @@ import {
   ScrollToLatest,
   Text,
   TranscriptList,
+  useModalEntries,
   useToast,
   XStack,
   YStack,
@@ -60,6 +61,8 @@ import {
   replyingToHeading,
 } from './quotedReply'
 import { TranscriptWidth } from './TranscriptWidth'
+import { useIsRoutedOnTop } from './shell/routedConversation'
+import { useMarkReadWhileOpen } from './useMarkReadWhileOpen'
 
 const messageKey = (message: Message) => String(message.id)
 
@@ -88,6 +91,7 @@ function Transcript({
   showsOnceAtEnd,
   onAtEnd,
   onRowsOnScreen,
+  onRowsSeen,
 }: {
   conversationId: ConversationId
   transcript: LoadedTranscript
@@ -101,6 +105,8 @@ function Transcript({
   showsOnceAtEnd?: boolean | undefined
   onAtEnd: () => void
   onRowsOnScreen: (keys: ReadonlySet<string>) => void
+  /** The rows whose bottom edge is on screen: see `TranscriptListProps.onRowsSeen`. */
+  onRowsSeen?: ((keys: readonly string[]) => void) | undefined
 }) {
   const {
     messages,
@@ -139,6 +145,7 @@ function Transcript({
       showsOnceAtEnd={showsOnceAtEnd}
       onAtEnd={onAtEnd}
       onRowsOnScreen={onRowsOnScreen}
+      onRowsSeen={onRowsSeen}
       onWaitsForStart={setWaitsForOlder}
       header={
         <PageStatus
@@ -160,7 +167,8 @@ function Transcript({
         />
       }
       // TODO: enter on the oldest unread message once the bridge carries libsession's
-      // `first_unread`; a conversation's unread count is all it gives today.
+      // `first_unread`; a conversation's unread count is all it gives today. Until then, opening
+      // at the end marks every older unread message read too: the read point only moves forwards.
       rovingFocus="last"
       renderItem={(message, index) => (
         <YStack paddingHorizontal="$md" paddingBottom="$sm">
@@ -333,6 +341,19 @@ function Conversation({ conversationId }: { conversationId: ConversationId }) {
   const [viewer, setViewer] = useState<ViewerTarget | null>(null)
   const [sheet, setSheet] = useState<number | null>(null)
   const [menu, setMenu] = useState<MessageMenuTarget | null>(null)
+  // Settings and the other screens of the modal stack are drawn over the whole app, and another
+  // route can be pushed over this one while it stays mounted.
+  const modals = useModalEntries()
+  const onTop = useIsRoutedOnTop(conversationId)
+  const rowsSeen = useMarkReadWhileOpen(conversationId, {
+    ready: ready && conversation !== undefined,
+    covered: !onTop || viewer !== null || menu !== null || asking || modals.length > 0,
+    loaded: messages,
+    keyOf: messageKey,
+    lastActivity: conversation?.lastActivity,
+    unreadCount: conversation?.unreadCount ?? 0,
+    markedUnread: conversation?.markedUnread ?? false,
+  })
 
   // On the names alone: the conversation itself changes with every message it receives.
   const ownId = account?.sessionId
@@ -506,6 +527,7 @@ function Conversation({ conversationId }: { conversationId: ConversationId }) {
                     onFarFromEnd={setFarFromEnd}
                     onAtEnd={reachedEnd}
                     onRowsOnScreen={followRows}
+                    onRowsSeen={rowsSeen}
                   />
                 </QuoteJumpContext.Provider>
                 {offersLatest ? (

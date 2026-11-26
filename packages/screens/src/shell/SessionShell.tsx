@@ -1,6 +1,6 @@
 import { requirePorts } from '@session/app'
 import { useAccount, useHydrated, useStartupError, useStartupFailureKind } from '@session/state'
-import { useState, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 
 import { ConversationListScreen } from '../ConversationListScreen'
 import { OnboardingFlow } from '../onboarding/OnboardingFlow'
@@ -11,6 +11,7 @@ import { usePersistedLocale } from '../usePersistedLocale'
 import { ActionRail } from './ActionRail'
 import { AdaptiveShell } from './AdaptiveShell'
 import { NoSelectionPane } from './NoSelectionPane'
+import { RoutedConversationProvider } from './routedConversation'
 
 interface SessionShellProps {
   detail: ReactNode
@@ -25,6 +26,7 @@ function ShellContent({ detail, hasDetail, openConversationId }: SessionShellPro
   const startupFailureKind = useStartupFailureKind()
   const account = useAccount()
   const [onboarding, setOnboarding] = useState(false)
+  const routed = useMemo(() => ({ id: openConversationId }), [openConversationId])
   // Here rather than at the root, which creates the store provider and so cannot read from it.
   usePersistedLocale()
 
@@ -44,7 +46,7 @@ function ShellContent({ detail, hasDetail, openConversationId }: SessionShellPro
   return (
     <AdaptiveShell
       list={<ConversationListScreen openConversationId={openConversationId} />}
-      detail={detail}
+      detail={<RoutedConversationProvider value={routed}>{detail}</RoutedConversationProvider>}
       hasDetail={hasDetail}
       placeholder={<NoSelectionPane />}
       rail={<ActionRail />}
