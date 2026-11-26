@@ -3,7 +3,14 @@ import { friends, type FakeAccount, type FakeWorld } from '@session/client/fake'
 import { createSessionStore, type SessionStore } from '@session/state'
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 
-import { createReadMarker, READ_SETTLE_MS, readTarget, type ReadView } from '#src/readMarker'
+import {
+  CLEAR_FLAG_ONLY,
+  createReadMarker,
+  READ_MAX_WAIT_MS,
+  READ_SETTLE_MS,
+  readTarget,
+  type ReadView,
+} from '#src/readMarker'
 
 /**
  * The open conversation keeping itself read, driven the way the screen drives it: a store on the
@@ -56,7 +63,8 @@ function viewOf(store: SessionStore, id: ConversationId, seenCount?: number): Re
   const window = state.histories[id]
   const messages = window?.messages ?? []
   return {
-    ready: window?.ready ?? false,
+    ready: (window?.ready ?? false) && conversation !== undefined,
+    covered: false,
     messages: seenCount === undefined ? messages : messages.slice(0, seenCount),
     lastActivity: conversation?.lastActivity,
     unreadCount: conversation?.unreadCount ?? 0,
@@ -99,6 +107,7 @@ async function opened({
     markRead: (upToMs) => store.actions.markRead(bob.sessionId, upToMs),
     focus,
     settleMs: READ_SETTLE_MS,
+    maxWaitMs: READ_MAX_WAIT_MS,
   })
   const show = (): void => {
     marker.update(viewOf(store, bob.sessionId))
@@ -191,12 +200,13 @@ describe('opening a conversation', () => {
     close()
     markRead.mockClear()
 
-    // Marked unread from the list, then opened again: nothing is unread, but the flag is.
+    // Marked unread on another device, then opened again: nothing is unread, but the flag is.
     world.account('Alice').touch(bob.sessionId, { markedUnread: true })
     const marker = createReadMarker({
       markRead: (upToMs) => store.actions.markRead(bob.sessionId, upToMs),
       focus: focusPort(true),
       settleMs: READ_SETTLE_MS,
+      maxWaitMs: READ_MAX_WAIT_MS,
     })
     marker.update(viewOf(store, bob.sessionId))
     vi.advanceTimersByTime(READ_SETTLE_MS)
@@ -323,10 +333,12 @@ describe('a mark that fails', () => {
       },
       focus,
       settleMs: READ_SETTLE_MS,
+      maxWaitMs: READ_MAX_WAIT_MS,
       onError: (error) => failures.push(error),
     })
     const view: ReadView = {
       ready: true,
+      covered: false,
       messages: [incoming(1, 1000)],
       lastActivity: 1,
       unreadCount: 1,
@@ -349,6 +361,7 @@ describe('a mark that fails', () => {
 describe('what is read up to', () => {
   const base: ReadView = {
     ready: true,
+    covered: false,
     messages: [],
     lastActivity: undefined,
     unreadCount: 1,
@@ -384,6 +397,7 @@ describe('only what has been seen', () => {
       markRead: (upToMs) => store.actions.markRead(bob.sessionId, upToMs),
       focus: focusPort(true),
       settleMs: READ_SETTLE_MS,
+      maxWaitMs: READ_MAX_WAIT_MS,
     })
     // Only the first two on screen, so only the incoming message among them counts.
     const firstTwo = viewOf(store, bob.sessionId, 2)
@@ -408,6 +422,7 @@ describe('only what has been seen', () => {
       markRead: (upToMs) => store.actions.markRead(bob.sessionId, upToMs),
       focus: focusPort(true),
       settleMs: READ_SETTLE_MS,
+      maxWaitMs: READ_MAX_WAIT_MS,
     })
     marker.update(viewOf(store, bob.sessionId, 0))
     vi.advanceTimersByTime(READ_SETTLE_MS * 10)
@@ -417,7 +432,7 @@ describe('only what has been seen', () => {
 })
 
 describe('marked unread while it is open', () => {
-  /** Opened and read, then marked unread from the list beside it. */
+  /** Opened and read, then marked unread on another device. */
   async function markedWhileOpen() {
     const open = await opened()
     vi.advanceTimersByTime(READ_SETTLE_MS)
@@ -462,5 +477,143 @@ describe('marked unread while it is open', () => {
     vi.advanceTimersByTime(READ_SETTLE_MS)
     expect(markRead).toHaveBeenCalledTimes(1)
     close()
+  })
+})
+
+/** A marker on pure views, recording what it asks for. */
+function recordingMarker() {
+  const asked: number[] = []
+  const marker = createReadMarker({
+    markRead: (upToMs) => {
+      asked.push(upToMs)
+      return Promise.resolve()
+    },
+    focus: focusPort(true),
+    settleMs: READ_SETTLE_MS,
+    maxWaitMs: READ_MAX_WAIT_MS,
+  })
+  return { asked, marker }
+}
+
+const unreadView: ReadView = {
+  ready: true,
+  covered: false,
+  messages: [incoming(1, 1000)],
+  lastActivity: 1000,
+  unreadCount: 1,
+  markedUnread: false,
+}
+
+describe('covered by something drawn over it', () => {
+  it('marks nothing while covered, and marks once it is uncovered', () => {
+    const { asked, marker } = recordingMarker()
+    marker.update({ ...unreadView, covered: true })
+    vi.advanceTimersByTime(READ_SETTLE_MS * 10)
+    expect(asked).toEqual([])
+
+    marker.update(unreadView)
+    vi.advanceTimersByTime(READ_SETTLE_MS)
+    expect(asked).toEqual([1000])
+    marker.dispose()
+  })
+
+  it('drops a mark still waiting when it is covered', () => {
+    const { asked, marker } = recordingMarker()
+    marker.update(unreadView)
+    marker.update({ ...unreadView, covered: true })
+    vi.advanceTimersByTime(READ_SETTLE_MS * 10)
+    marker.dispose()
+    expect(asked).toEqual([])
+  })
+})
+
+describe('marked unread with no incoming message on screen', () => {
+  it('clears the flag without moving the read point', async () => {
+    const { world, clients } = friends(['Alice', 'Bob'], { history: 0 })
+    const client = clients['Alice']
+    if (!client) throw new Error('fixture did not produce a client')
+    const bob = world.account('Bob')
+    const alice = world.account('Alice')
+    const store = createSessionStore(client)
+    await store.actions.hydrate()
+    await store.actions.loadHistory(bob.sessionId)
+    // Only our own message, then marked unread on another device before it is opened.
+    alice.send(bob.sessionId, 'note to self, more or less')
+    world.settle()
+    alice.touch(bob.sessionId, { markedUnread: true })
+    await store.actions.loadHistory(bob.sessionId)
+    const markRead = vi.spyOn(client, 'markRead')
+    const marker = createReadMarker({
+      markRead: (upToMs) => store.actions.markRead(bob.sessionId, upToMs),
+      focus: focusPort(true),
+      settleMs: READ_SETTLE_MS,
+      maxWaitMs: READ_MAX_WAIT_MS,
+    })
+
+    marker.update(viewOf(store, bob.sessionId))
+    vi.advanceTimersByTime(READ_SETTLE_MS)
+    marker.dispose()
+
+    expect(markRead).toHaveBeenCalledWith(bob.sessionId, CLEAR_FLAG_ONLY)
+    const row = store.getState().conversations.find((c) => c.id === bob.sessionId)
+    expect(row?.markedUnread).toBe(false)
+    expect(row?.unreadCount).toBe(0)
+  })
+
+  it('leaves the flag while an unread message is off screen', () => {
+    expect(
+      readTarget({ ...unreadView, messages: [], unreadCount: 1, markedUnread: true }),
+    ).toBeUndefined()
+  })
+})
+
+describe('the hold, from what the marker knows', () => {
+  it('ends when the unread count rises, though the last activity stays', () => {
+    const { asked, marker } = recordingMarker()
+    const read: ReadView = { ...unreadView, unreadCount: 0 }
+    marker.update(read)
+    marker.update({ ...read, markedUnread: true })
+    vi.advanceTimersByTime(READ_SETTLE_MS * 10)
+    expect(asked).toEqual([])
+
+    // A reply stamped by a slow clock: counted unread, and older than our last message.
+    marker.update({
+      ...read,
+      markedUnread: true,
+      unreadCount: 1,
+      messages: [incoming(1, 1000), incoming(2, 900)],
+    })
+    vi.advanceTimersByTime(READ_SETTLE_MS)
+    expect(asked).toEqual([1000])
+    marker.dispose()
+  })
+
+  it('does not start from a row that was not loaded yet', () => {
+    const { asked, marker } = recordingMarker()
+    marker.update({ ...unreadView, ready: false, unreadCount: 0 })
+    marker.update({ ...unreadView, unreadCount: 0, markedUnread: true })
+    vi.advanceTimersByTime(READ_SETTLE_MS)
+    expect(asked).toEqual([1000])
+    marker.dispose()
+  })
+})
+
+describe('a stream of arrivals', () => {
+  it('is marked within the longest wait, though it never stops', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
+    const { asked, marker } = recordingMarker()
+    let timestamp = 1000
+    const arrive = (): void => {
+      timestamp += 1
+      marker.update({ ...unreadView, messages: [incoming(timestamp, timestamp)] })
+    }
+    arrive()
+    for (let elapsed = 0; elapsed < READ_MAX_WAIT_MS; elapsed += READ_SETTLE_MS / 2) {
+      vi.advanceTimersByTime(READ_SETTLE_MS / 2)
+      if (asked.length > 0) break
+      arrive()
+    }
+    expect(asked).toHaveLength(1)
+    marker.dispose()
   })
 })

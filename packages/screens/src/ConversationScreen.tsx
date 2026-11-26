@@ -23,6 +23,7 @@ import {
   ScrollToLatest,
   Text,
   TranscriptList,
+  useModalEntries,
   useToast,
   XStack,
   YStack,
@@ -165,7 +166,8 @@ function Transcript({
         />
       }
       // TODO: enter on the oldest unread message once the bridge carries libsession's
-      // `first_unread`; a conversation's unread count is all it gives today.
+      // `first_unread`; a conversation's unread count is all it gives today. Until then, opening
+      // at the end marks every older unread message read too: the read point only moves forwards.
       rovingFocus="last"
       renderItem={(message, index) => (
         <YStack paddingHorizontal="$md" paddingBottom="$sm">
@@ -280,19 +282,6 @@ function Conversation({ conversationId }: { conversationId: ConversationId }) {
   const { messages, ready, firstPageFailed, reload } = transcript
   const showLoading = useShowAfter(!ready && !firstPageFailed)
   const actions = useSessionActions()
-  // The messages whose bottom edge is on screen, as the transcript reports them, by key.
-  const [seenKeys, setSeenKeys] = useState<readonly string[]>([])
-  const seen = useMemo(() => {
-    const keys = new Set(seenKeys)
-    return messages.filter((message) => keys.has(messageKey(message)))
-  }, [messages, seenKeys])
-  useMarkReadWhileOpen(conversationId, {
-    ready,
-    messages: seen,
-    lastActivity: conversation?.lastActivity,
-    unreadCount: conversation?.unreadCount ?? 0,
-    markedUnread: conversation?.markedUnread ?? false,
-  })
   const toasts = useToast()
   const list = useRef<TranscriptListHandle | null>(null)
   const highlight = useLanding(transcript, list)
@@ -351,6 +340,17 @@ function Conversation({ conversationId }: { conversationId: ConversationId }) {
   const [viewer, setViewer] = useState<ViewerTarget | null>(null)
   const [sheet, setSheet] = useState<number | null>(null)
   const [menu, setMenu] = useState<MessageMenuTarget | null>(null)
+  // Settings and the other screens of the modal stack are drawn over the whole app.
+  const modals = useModalEntries()
+  const rowsSeen = useMarkReadWhileOpen(conversationId, {
+    ready: ready && conversation !== undefined,
+    covered: viewer !== null || menu !== null || asking || modals.length > 0,
+    loaded: messages,
+    keyOf: messageKey,
+    lastActivity: conversation?.lastActivity,
+    unreadCount: conversation?.unreadCount ?? 0,
+    markedUnread: conversation?.markedUnread ?? false,
+  })
 
   // On the names alone: the conversation itself changes with every message it receives.
   const ownId = account?.sessionId
@@ -524,7 +524,7 @@ function Conversation({ conversationId }: { conversationId: ConversationId }) {
                     onFarFromEnd={setFarFromEnd}
                     onAtEnd={reachedEnd}
                     onRowsOnScreen={followRows}
-                    onRowsSeen={setSeenKeys}
+                    onRowsSeen={rowsSeen}
                   />
                 </QuoteJumpContext.Provider>
                 {offersLatest ? (
