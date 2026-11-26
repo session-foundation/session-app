@@ -179,7 +179,6 @@ const ports = memoryPorts({
     ...notificationSettings,
     deliveryModes: deliveryModes(),
     pushService: VARIANT_TRAITS[VARIANT].pushService,
-    requestPermission: () => Promise.resolve(true),
     onTap: () => () => undefined,
     setBadgeCount: () => Promise.resolve(),
   },

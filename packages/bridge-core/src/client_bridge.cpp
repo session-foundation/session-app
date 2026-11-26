@@ -500,8 +500,17 @@ struct ClientBridge::Impl {
     struct ArrivalState {
         std::mutex m;
         Impl* impl = nullptr;
-        /// The person's word for themselves, which a mention of them becomes.
+        /// The person's word for themselves, which a mention of them becomes. Under its own lock,
+        /// taken with nothing else held after it: it is set from `call`, which holds
+        /// `client_lock`, and a job holding `m` takes `client_lock`, so setting it under `m`
+        /// would let the two wait on each other.
+        std::mutex you_m;
         std::string you = "You";
+
+        std::string you_now() {
+            std::lock_guard lock{you_m};
+            return you;
+        }
         /// A refresh is queued and not yet started, so another change need not queue one.
         std::atomic<bool> refresh_queued{false};
         /// The badge last reported, so that only a change is.
@@ -560,7 +569,7 @@ struct ClientBridge::Impl {
                 if (!stored)
                     globals.set(HORIZON_KEY, int64_t{now.time_since_epoch().count()});
                 sys_ms horizon = stored ? sys_ms{std::chrono::milliseconds{*stored}} : now;
-                for (auto& shown : decide_arrivals(n, incoming, state->you, horizon))
+                for (auto& shown : decide_arrivals(n, incoming, state->you_now(), horizon))
                     state->impl->event(NotificationSessionEvent{
                             to_bridge(std::move(shown.content), shown.message_id)});
                 state->impl->refresh_notifications_now(c, n);
@@ -615,6 +624,8 @@ struct ClientBridge::Impl {
                         [impl](client::ConversationId&& id, client::ConversationList list) {
                             impl->event(ConversationRemovedSessionEvent{
                                     id.to_string(), to_bridge(list)});
+                            // Its unread messages leave the badge, and its notifications go stale.
+                            impl->queue_notification_refresh();
                         },
                 // No whole-list handlers. The placements above are complete on their own, and an
                 // unset list handler is what spares libsession reading the whole list on every
@@ -1481,7 +1492,7 @@ struct ClientBridge::Impl {
 
     void handle(double id, const SetNotificationYouCommand& cmd) {
         {
-            std::lock_guard guard{arrival->m};
+            std::lock_guard guard{arrival->you_m};
             arrival->you = cmd.you;
         }
         ok(id);

@@ -1,5 +1,6 @@
 import {
   followFlagToggles,
+  followNotificationPermission,
   followNotifications,
   followPushRegistration,
   requirePorts,
@@ -180,6 +181,13 @@ export const storePromise = openTransportOrRefusal().then((transport) => {
   followFlagToggles(store)
   followAppLifecycle(client, () => {
     void store.actions.reread()
+  })
+  followNotificationPermission({
+    store,
+    requestPermission: () => requirePorts().notifications.requestPermission(),
+    log: (level, message) => {
+      storeLog(level, 'notifications', message)
+    },
   })
   followPushRegistration({
     store,

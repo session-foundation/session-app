@@ -4,6 +4,7 @@ import type { SessionStore } from '@session/state'
 import { requireOptionalNativeModule } from 'expo'
 
 interface SessionPushModule {
+  requestPermission(): Promise<boolean>
   setSoundWhenOpen(on: boolean): void
   notificationsAllowed(): Promise<boolean>
   openNotificationSettings(): void
@@ -29,6 +30,7 @@ type NotificationSettings = Pick<
   | 'preview'
   | 'post'
   | 'remove'
+  | 'requestPermission'
 >
 
 /** Android's part of the Notifications page, through `modules/session-push`. */
@@ -45,6 +47,7 @@ export const notificationSettings: NotificationSettings =
         preview: null,
         post: null,
         remove: null,
+        requestPermission: () => Promise.resolve(false),
       }
     : {
         soundWhenOpenDefault: true,
@@ -75,6 +78,7 @@ export const notificationSettings: NotificationSettings =
         remove: (ids) => {
           SessionPush.remove(ids)
         },
+        requestPermission: () => SessionPush.requestPermission(),
       }
 
 /**
