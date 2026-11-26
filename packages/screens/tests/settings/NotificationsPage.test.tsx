@@ -1,4 +1,4 @@
-import { PENDING_COPY, singular, tr } from '@session/localization'
+import { PENDING_COPY, tr } from '@session/localization'
 import { ELEMENT } from '@session/test-ids'
 import { fireEvent, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
@@ -88,7 +88,7 @@ describe('Preview Notification', () => {
       body: PENDING_COPY.previewNotificationBody,
     })
     expect(previewSample('nameOnly').title).toBe(tr('preview'))
-    expect(previewSample('nameOnly').body).toBe(singular('messageNewYouveGot'))
+    expect(previewSample('nameOnly').body).toBe("You've got a new message.")
     expect(previewSample('none').title).toBe(tr('appName'))
   })
 })

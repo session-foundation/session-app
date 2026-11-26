@@ -4,7 +4,7 @@ import {
   type NotificationChannel,
   type NotificationsPort,
 } from '@session/app'
-import { PENDING_COPY, singular, tr } from '@session/localization'
+import { notificationWords, PENDING_COPY, tr } from '@session/localization'
 import {
   useNotificationSettings,
   useSessionActions,
@@ -57,8 +57,8 @@ function contentDescription(content: NotificationContent): string {
  * handler would draw it.
  */
 export function previewSample(content: NotificationContent): { title: string; body: string } {
-  const generic = singular('messageNewYouveGot')
-  if (content === 'none') return { title: tr('appName'), body: generic }
+  const { appName, generic } = notificationWords()
+  if (content === 'none') return { title: appName, body: generic }
   if (content === 'nameOnly') return { title: tr('preview'), body: generic }
   return { title: tr('preview'), body: PENDING_COPY.previewNotificationBody }
 }

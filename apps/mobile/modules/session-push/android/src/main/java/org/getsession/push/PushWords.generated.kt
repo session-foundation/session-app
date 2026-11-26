@@ -5,8 +5,6 @@ package org.getsession.push
 internal object PushWordsGenerated {
   val ENGLISH: Map<String, String> = mapOf(
     "appName" to "Session",
-    "channel" to "Message notifications",
-    "requestsChannel" to "Message Requests",
     "generic" to "You've got a new message.",
     "request" to "You have a new message request",
     "you" to "You",
@@ -17,6 +15,8 @@ internal object PushWordsGenerated {
     "voice" to "Voice Message",
     "file" to "Document",
     "attachments" to "Attachments",
+    "channel" to "Message notifications",
+    "requestsChannel" to "Message Requests",
     "markRead" to "Mark read",
     "reply" to "Reply",
     "replyFailed" to "Message delivery failed",
@@ -108,22 +108,20 @@ internal object PushWordsGenerated {
     )
 
   private fun l0() = mapOf(
-    "channel" to "Boodskap kennisgewings",
-    "requestsChannel" to "Boodskap Versoeke",
     "generic" to "Jy het 'n nuwe boodskap.",
     "request" to "Jy het 'n nuwe boodskapversoek",
     "you" to "Jy",
     "image" to "Beelde",
     "voice" to "Stemboodskap",
     "file" to "Dokument",
+    "channel" to "Boodskap kennisgewings",
+    "requestsChannel" to "Boodskap Versoeke",
     "markRead" to "Merk gelees",
     "reply" to "Antwoord",
     "replyFailed" to "Boodskap aflewering het misluk",
   )
 
   private fun l1() = mapOf(
-    "channel" to "إشعارات الرسالة",
-    "requestsChannel" to "طلبات المُراسلة",
     "generic" to "لديك رسالة جديدة.",
     "request" to "لديكم طلب مراسلة جديدة",
     "you" to "أنتم",
@@ -134,14 +132,14 @@ internal object PushWordsGenerated {
     "voice" to "رسالة صوتية",
     "file" to "وثيقة",
     "attachments" to "المرفقات",
+    "channel" to "إشعارات الرسالة",
+    "requestsChannel" to "طلبات المُراسلة",
     "markRead" to "تحديد كمقروء",
     "reply" to "رد",
     "replyFailed" to "فشل توصيل الرسالة",
   )
 
   private fun l2() = mapOf(
-    "channel" to "Mesaj bildirişləri",
-    "requestsChannel" to "Mesaj tələbləri",
     "generic" to "Yeni bir mesajınız var.",
     "request" to "Yeni bir mesaj tələbiniz var",
     "you" to "Siz",
@@ -150,6 +148,8 @@ internal object PushWordsGenerated {
     "voice" to "Səsli mesaj",
     "file" to "Sənəd",
     "attachments" to "Qoşmalar",
+    "channel" to "Mesaj bildirişləri",
+    "requestsChannel" to "Mesaj tələbləri",
     "markRead" to "Oxundu olaraq işarələ",
     "reply" to "Cavabla",
     "replyFailed" to "Mesaj çatdırılmadı",
@@ -168,8 +168,6 @@ internal object PushWordsGenerated {
   )
 
   private fun l4() = mapOf(
-    "channel" to "Апавяшчэнні пра паведамленні",
-    "requestsChannel" to "Запыты на паведамленні",
     "generic" to "Вы атрымалі новае паведамленне.",
     "request" to "У вас ёсць запыт на новае паведамленне",
     "you" to "Вы",
@@ -178,14 +176,14 @@ internal object PushWordsGenerated {
     "audio" to "Аўдыё",
     "voice" to "Галасавое паведамленне",
     "file" to "Дакумент",
+    "channel" to "Апавяшчэнні пра паведамленні",
+    "requestsChannel" to "Запыты на паведамленні",
     "markRead" to "Пазначыць як прачытанае",
     "reply" to "Адказаць",
     "replyFailed" to "Не ўдалося даставіць паведамленне",
   )
 
   private fun l5() = mapOf(
-    "channel" to "Съобщения за известия",
-    "requestsChannel" to "Заявки за съобщения",
     "generic" to "Имате ново съобщение.",
     "request" to "Имате ново искане за съобщение",
     "you" to "Вие",
@@ -194,14 +192,14 @@ internal object PushWordsGenerated {
     "audio" to "Аудио",
     "voice" to "Гласово съобщение",
     "file" to "Документ",
+    "channel" to "Съобщения за известия",
+    "requestsChannel" to "Заявки за съобщения",
     "markRead" to "Прочетено",
     "reply" to "Отговор",
     "replyFailed" to "Доставката на съобщението неуспешна",
   )
 
   private fun l6() = mapOf(
-    "channel" to "বার্তা বিজ্ঞপ্তি",
-    "requestsChannel" to "বার্তা অনুরোধ",
     "request" to "আপনার কাছে একটি নতুন মেসেজ অনুরোধ এসেছে",
     "you" to "তুমি",
     "image" to "ইমেজ",
@@ -209,14 +207,14 @@ internal object PushWordsGenerated {
     "audio" to "অডিও",
     "voice" to "ভয়েস বার্তা",
     "file" to "নথি",
+    "channel" to "বার্তা বিজ্ঞপ্তি",
+    "requestsChannel" to "বার্তা অনুরোধ",
     "markRead" to "পড়া হিসেবে চিহ্নিত করুন",
     "reply" to "উত্তর দিন",
     "replyFailed" to "বার্তা ডেলিভারি ব্যর্থ",
   )
 
   private fun l7() = mapOf(
-    "channel" to "Notificacions de missatges",
-    "requestsChannel" to "Sol·licituds de missatges",
     "generic" to "Tens un missatge nou.",
     "request" to "Teniu una sol·licitud de missatge nova",
     "you" to "Vós",
@@ -225,14 +223,14 @@ internal object PushWordsGenerated {
     "audio" to "Àudio",
     "voice" to "Missatge de veu",
     "attachments" to "Adjunts",
+    "channel" to "Notificacions de missatges",
+    "requestsChannel" to "Sol·licituds de missatges",
     "markRead" to "Marcar com a llegit",
     "reply" to "Responeu",
     "replyFailed" to "Error en el lliurament del missatge",
   )
 
   private fun l8() = mapOf(
-    "channel" to "Upozornění na zprávy",
-    "requestsChannel" to "Žádosti o komunikaci",
     "generic" to "Máte novou zprávu.",
     "request" to "Máte novou žádost o komunikaci",
     "you" to "Vy",
@@ -241,14 +239,14 @@ internal object PushWordsGenerated {
     "voice" to "Hlasová zpráva",
     "file" to "Dokument",
     "attachments" to "Přílohy",
+    "channel" to "Upozornění na zprávy",
+    "requestsChannel" to "Žádosti o komunikaci",
     "markRead" to "Označit jako přečtené",
     "reply" to "Odpovědět",
     "replyFailed" to "Selhalo doručení zprávy",
   )
 
   private fun l9() = mapOf(
-    "channel" to "Hysbysiadau neges",
-    "requestsChannel" to "Ceisiadau Negeseuon",
     "generic" to "Mae gennych 1 negeseuon newydd.",
     "request" to "Mae gennych geisiad negeseuon newydd",
     "you" to "Chi",
@@ -257,14 +255,14 @@ internal object PushWordsGenerated {
     "audio" to "Sain",
     "voice" to "Neges Llais",
     "file" to "Dogfen",
+    "channel" to "Hysbysiadau neges",
+    "requestsChannel" to "Ceisiadau Negeseuon",
     "markRead" to "Marcio wedi'i ddarllen",
     "reply" to "Ateb",
     "replyFailed" to "Methodd trosglwyddo neges",
   )
 
   private fun l10() = mapOf(
-    "channel" to "Beskednotifikationer",
-    "requestsChannel" to "Beskedanmodninger",
     "generic" to "Du har en ny besked.",
     "request" to "Du har en ny beskedanmodning",
     "you" to "Du",
@@ -273,14 +271,14 @@ internal object PushWordsGenerated {
     "voice" to "Talebesked",
     "file" to "Dokument",
     "attachments" to "Vedhæftninger",
+    "channel" to "Beskednotifikationer",
+    "requestsChannel" to "Beskedanmodninger",
     "markRead" to "Marker som læst",
     "reply" to "Svar",
     "replyFailed" to "Levering af besked mislykkedes",
   )
 
   private fun l11() = mapOf(
-    "channel" to "Benachrichtigungen für Mitteilungen",
-    "requestsChannel" to "Nachrichtenanfragen",
     "generic" to "Du hast eine neue Nachricht.",
     "request" to "Du hast eine neue Nachrichtenanfrage",
     "you" to "Du",
@@ -288,14 +286,14 @@ internal object PushWordsGenerated {
     "voice" to "Sprachnachricht",
     "file" to "Dokument",
     "attachments" to "Anhänge",
+    "channel" to "Benachrichtigungen für Mitteilungen",
+    "requestsChannel" to "Nachrichtenanfragen",
     "markRead" to "Als gelesen markieren",
     "reply" to "Antworten",
     "replyFailed" to "Diese Nachricht konnte nicht zugestellt werden",
   )
 
   private fun l12() = mapOf(
-    "channel" to "Ειδοποιήσεις μηνυμάτων",
-    "requestsChannel" to "Αιτήματα μηνυμάτων",
     "generic" to "Έχετε ένα νέο μήνυμα.",
     "request" to "Έχετε ένα νέο αίτημα μηνύματος",
     "you" to "Εσείς",
@@ -304,14 +302,14 @@ internal object PushWordsGenerated {
     "audio" to "Ήχος",
     "voice" to "Ηχητικό μήνυμα",
     "file" to "Έγγραφο",
+    "channel" to "Ειδοποιήσεις μηνυμάτων",
+    "requestsChannel" to "Αιτήματα μηνυμάτων",
     "markRead" to "Σήμανση ως αναγνωσμένο",
     "reply" to "Απάντηση",
     "replyFailed" to "Η παράδοση του μηνύματος απέτυχε",
   )
 
   private fun l13() = mapOf(
-    "channel" to "Sciigoj pri Mesaĝoj",
-    "requestsChannel" to "Mesaĝpetoj",
     "generic" to "Vi ricevis novan mesaĝon.",
     "request" to "Vi havas novan mesaĝan peton",
     "you" to "Vi",
@@ -321,14 +319,14 @@ internal object PushWordsGenerated {
     "voice" to "Voĉmesaĝo",
     "file" to "Dokumento",
     "attachments" to "Alfiksitaĵoj",
+    "channel" to "Sciigoj pri Mesaĝoj",
+    "requestsChannel" to "Mesaĝpetoj",
     "markRead" to "Marki legita",
     "reply" to "Respondi",
     "replyFailed" to "Mesaĝa livero malsukcesis",
   )
 
   private fun l14() = mapOf(
-    "channel" to "Notificaciones de mensajes",
-    "requestsChannel" to "Solicitudes de mensajes",
     "generic" to "Tienes un mensaje nuevo.",
     "request" to "Tienes una solicitud de mensaje nueva",
     "you" to "Tú",
@@ -337,14 +335,14 @@ internal object PushWordsGenerated {
     "voice" to "Mensaje de voz",
     "file" to "Documento",
     "attachments" to "Archivos adjuntos",
+    "channel" to "Notificaciones de mensajes",
+    "requestsChannel" to "Solicitudes de mensajes",
     "markRead" to "Marcar como leído",
     "reply" to "Responder",
     "replyFailed" to "Fallo al entregar el mensaje",
   )
 
   private fun l15() = mapOf(
-    "channel" to "Notificaciones de mensajes",
-    "requestsChannel" to "Solicitudes de Mensaje",
     "generic" to "Tienes un mensaje nuevo.",
     "request" to "Tienes una nueva solicitud de mensaje",
     "you" to "Tú",
@@ -352,14 +350,14 @@ internal object PushWordsGenerated {
     "voice" to "Mensaje de voz",
     "file" to "Documento",
     "attachments" to "Archivos adjuntos",
+    "channel" to "Notificaciones de mensajes",
+    "requestsChannel" to "Solicitudes de Mensaje",
     "markRead" to "Marcar como leído",
     "reply" to "Responder",
     "replyFailed" to "Fallo al entregar el mensaje",
   )
 
   private fun l16() = mapOf(
-    "channel" to "Sõnumiteatised",
-    "requestsChannel" to "Sõnumitaotlused",
     "generic" to "Sul on uus sõnum.",
     "request" to "Teil on uus sõnumitaotlus",
     "you" to "Sina",
@@ -367,14 +365,14 @@ internal object PushWordsGenerated {
     "audio" to "Heli",
     "voice" to "Häälsõnum",
     "file" to "Dokument",
+    "channel" to "Sõnumiteatised",
+    "requestsChannel" to "Sõnumitaotlused",
     "markRead" to "Märgi loetuks",
     "reply" to "Vasta",
     "replyFailed" to "Sõnumi kohaletoimetamine ebaõnnestus",
   )
 
   private fun l17() = mapOf(
-    "channel" to "Mezuen jakinarazpenak",
-    "requestsChannel" to "Mezu-eskaerak",
     "generic" to "Mezu berria duzu.",
     "request" to "Mezu-eskaera berri bat daukazu",
     "you" to "Zuk",
@@ -383,14 +381,14 @@ internal object PushWordsGenerated {
     "audio" to "Audioa",
     "voice" to "Ahots-mezua",
     "file" to "Dokumentua",
+    "channel" to "Mezuen jakinarazpenak",
+    "requestsChannel" to "Mezu-eskaerak",
     "markRead" to "Irakurriak markatu",
     "reply" to "Erantzun",
     "replyFailed" to "Mezuaren entrega huts egin du",
   )
 
   private fun l18() = mapOf(
-    "channel" to "اعلان‌های پیام",
-    "requestsChannel" to "درخواست‌های پیام",
     "generic" to "شما یک پیام جدید دریافت کردید.",
     "request" to "شما درخواست پیام جدیدی دارید",
     "you" to "شما",
@@ -401,14 +399,14 @@ internal object PushWordsGenerated {
     "voice" to "پیام صوتی",
     "file" to "سند",
     "attachments" to "پیوست‌ها",
+    "channel" to "اعلان‌های پیام",
+    "requestsChannel" to "درخواست‌های پیام",
     "markRead" to "علامت خوانده شده",
     "reply" to "پاسخ",
     "replyFailed" to "تحویل پیام شکست خورد",
   )
 
   private fun l19() = mapOf(
-    "channel" to "Viesti-ilmoitukset",
-    "requestsChannel" to "Viestipyynnöt",
     "generic" to "Sinulla on uusi viesti.",
     "request" to "Sinulla on uusi viestipyyntö",
     "you" to "Sinä",
@@ -417,41 +415,41 @@ internal object PushWordsGenerated {
     "voice" to "Ääniviesti",
     "file" to "Dokumentti",
     "attachments" to "Liitteet",
+    "channel" to "Viesti-ilmoitukset",
+    "requestsChannel" to "Viestipyynnöt",
     "markRead" to "Merkitse luetuksi",
     "reply" to "Vastaa",
     "replyFailed" to "Viestin toimitus epäonnistui",
   )
 
   private fun l20() = mapOf(
-    "channel" to "Mga paalaala sa Mensahe",
-    "requestsChannel" to "Mga Kahilingan sa Pagmemensahe",
     "generic" to "Mayroon kang bagong mensahe.",
     "request" to "May bagong kahilingan sa pagmemensahe ka",
     "you" to "Ikaw",
     "voice" to "Boses na Mensahe",
     "file" to "Dokumento",
+    "channel" to "Mga paalaala sa Mensahe",
+    "requestsChannel" to "Mga Kahilingan sa Pagmemensahe",
     "markRead" to "Markahan bilang nabasa",
     "reply" to "Sagutin",
     "replyFailed" to "Nabigo ang pagdala ng mensahe",
   )
 
   private fun l21() = mapOf(
-    "channel" to "Notifications de message",
-    "requestsChannel" to "Demandes de message",
     "generic" to "Vous avez un nouveau message.",
     "request" to "Vous avez une nouvelle demande de message",
     "you" to "Vous",
     "video" to "Vidéo",
     "voice" to "Message vocal",
     "attachments" to "Pièces jointes",
+    "channel" to "Notifications de message",
+    "requestsChannel" to "Demandes de message",
     "markRead" to "Marquer comme lu",
     "reply" to "Répondre",
     "replyFailed" to "La transmission du message a échoué",
   )
 
   private fun l22() = mapOf(
-    "channel" to "Notificacións de mensaxes",
-    "requestsChannel" to "Solicitudes de mensaxes",
     "generic" to "Tes unha nova mensaxe.",
     "request" to "Tes unha nova solicitude de mensaxe",
     "you" to "Ti",
@@ -459,14 +457,14 @@ internal object PushWordsGenerated {
     "video" to "Vídeo",
     "voice" to "Mensaxe de voz",
     "file" to "Documento",
+    "channel" to "Notificacións de mensaxes",
+    "requestsChannel" to "Solicitudes de mensaxes",
     "markRead" to "Marcar como lida",
     "reply" to "Responder",
     "replyFailed" to "Erro na entrega da mensaxe",
   )
 
   private fun l23() = mapOf(
-    "channel" to "Sanarwar aika saƙo",
-    "requestsChannel" to "Neman Saƙo",
     "generic" to "Ka samu sabuwar saƙo.",
     "request" to "Kana da sabon tambayar saƙo",
     "you" to "Kai",
@@ -475,14 +473,14 @@ internal object PushWordsGenerated {
     "audio" to "Sauti",
     "voice" to "Saƙon Murya",
     "file" to "Takarda",
+    "channel" to "Sanarwar aika saƙo",
+    "requestsChannel" to "Neman Saƙo",
     "markRead" to "Alamar Karantawa",
     "reply" to "Amsa",
     "replyFailed" to "An kasa aikawa saƙo",
   )
 
   private fun l24() = mapOf(
-    "channel" to "התראות הודעה",
-    "requestsChannel" to "בקשות הודעה",
     "generic" to "יש לך הודעה חדשה.",
     "request" to "יש לך בקשת הודעה חדשה",
     "you" to "את/ה",
@@ -491,14 +489,14 @@ internal object PushWordsGenerated {
     "audio" to "שמע",
     "voice" to "הודעה קולית",
     "file" to "מסמך",
+    "channel" to "התראות הודעה",
+    "requestsChannel" to "בקשות הודעה",
     "markRead" to "סמן כנקרא",
     "reply" to "השב",
     "replyFailed" to "מסירת ההודעה נכשלה",
   )
 
   private fun l25() = mapOf(
-    "channel" to "संदेश सूचनाएं",
-    "requestsChannel" to "संदेश अनुरोध",
     "generic" to "आपको एक नया संदेश मिला है।",
     "request" to "आपके पास एक नया संदेश अनुरोध है",
     "you" to "आप",
@@ -508,14 +506,14 @@ internal object PushWordsGenerated {
     "voice" to "वॉइस संदेश",
     "file" to "दस्तावेज़",
     "attachments" to "अटैचमेंट्स",
+    "channel" to "संदेश सूचनाएं",
+    "requestsChannel" to "संदेश अनुरोध",
     "markRead" to "पढ़ा हुआ चिह्नित करें",
     "reply" to "जवाब",
     "replyFailed" to "संदेश प्रेषण असफल हुआ",
   )
 
   private fun l26() = mapOf(
-    "channel" to "Obavijesti o poruci",
-    "requestsChannel" to "Zahtjevi za porukama",
     "generic" to "Imate novu poruku!",
     "request" to "Imate novi zahtjev za poruku",
     "you" to "Vi",
@@ -523,14 +521,14 @@ internal object PushWordsGenerated {
     "audio" to "Zvuk",
     "voice" to "Glasovna poruka",
     "file" to "Dokument",
+    "channel" to "Obavijesti o poruci",
+    "requestsChannel" to "Zahtjevi za porukama",
     "markRead" to "Označi kao pročitano",
     "reply" to "Odgovori",
     "replyFailed" to "Neuspješno dostavljanje poruke",
   )
 
   private fun l27() = mapOf(
-    "channel" to "Üzenet értesítések",
-    "requestsChannel" to "Üzenetkérelmek",
     "generic" to "Új üzenete érkezett",
     "request" to "Új üzeneted érkezett",
     "you" to "Te",
@@ -540,14 +538,14 @@ internal object PushWordsGenerated {
     "voice" to "Hangüzenet",
     "file" to "Dokumentum",
     "attachments" to "Mellékletek",
+    "channel" to "Üzenet értesítések",
+    "requestsChannel" to "Üzenetkérelmek",
     "markRead" to "Jelölés olvasottként",
     "reply" to "Válasz",
     "replyFailed" to "Üzenet kézbesítése sikertelen",
   )
 
   private fun l28() = mapOf(
-    "channel" to "Հաղորդագրության ծանուցումներ",
-    "requestsChannel" to "Հաղորդագրության հարցումներ",
     "generic" to "Դուք ունեք նոր հաղորդագրություն:",
     "request" to "Դուք ունեք նոր հաղորդագրության հարցում",
     "you" to "Դուք",
@@ -557,14 +555,14 @@ internal object PushWordsGenerated {
     "audio" to "Աուդիո",
     "voice" to "Ձայնային հաղորդագրություն",
     "file" to "Փաստաթուղթ",
+    "channel" to "Հաղորդագրության ծանուցումներ",
+    "requestsChannel" to "Հաղորդագրության հարցումներ",
     "markRead" to "Նշել որպես ընթերցված",
     "reply" to "Պատասխանել",
     "replyFailed" to "Հաղորդագրության առաքումը ձախողվեց",
   )
 
   private fun l29() = mapOf(
-    "channel" to "Notifikasi Pesan",
-    "requestsChannel" to "Permintaan Pesan",
     "generic" to "Anda menerima pesan baru 1.",
     "request" to "Anda mendapatkan permintaan pesan baru",
     "you" to "Anda",
@@ -573,14 +571,14 @@ internal object PushWordsGenerated {
     "voice" to "Pesan Suara",
     "file" to "Dokumen",
     "attachments" to "Lampiran",
+    "channel" to "Notifikasi Pesan",
+    "requestsChannel" to "Permintaan Pesan",
     "markRead" to "Tandai dibaca",
     "reply" to "Balas",
     "replyFailed" to "Pengiriman pesan gagal",
   )
 
   private fun l30() = mapOf(
-    "channel" to "Notifiche messaggi",
-    "requestsChannel" to "Richieste di messaggi",
     "generic" to "Hai ricevuto un nuovo messaggio.",
     "request" to "Hai una nuova richiesta di messaggio",
     "you" to "Tu",
@@ -588,14 +586,14 @@ internal object PushWordsGenerated {
     "voice" to "Messaggio vocale",
     "file" to "Documento",
     "attachments" to "Allegati",
+    "channel" to "Notifiche messaggi",
+    "requestsChannel" to "Richieste di messaggi",
     "markRead" to "Segna come letto",
     "reply" to "Rispondi",
     "replyFailed" to "L'invio del messaggio non è riuscito",
   )
 
   private fun l31() = mapOf(
-    "channel" to "メッセージ通知",
-    "requestsChannel" to "メッセージリクエスト",
     "generic" to "1 件の新規メッセージがあります",
     "request" to "新しいリクエストがあります",
     "you" to "あなた",
@@ -605,14 +603,14 @@ internal object PushWordsGenerated {
     "voice" to "音声メッセージ",
     "file" to "ドキュメント",
     "attachments" to "添付ファイル",
+    "channel" to "メッセージ通知",
+    "requestsChannel" to "メッセージリクエスト",
     "markRead" to "既読にする",
     "reply" to "返信",
     "replyFailed" to "メッセージの配信に失敗しました",
   )
 
   private fun l32() = mapOf(
-    "channel" to "შეტყობინების შეტყობინებები",
-    "requestsChannel" to "შეტყობინების მოთხოვნები",
     "generic" to "თქვენ გაქვთ ახალი შეტყობინება.",
     "request" to "თქვენ გაქვთ ახალი მესიჯ ითხოვა",
     "you" to "თქვენ",
@@ -621,14 +619,14 @@ internal object PushWordsGenerated {
     "audio" to "აუდიო",
     "voice" to "ხმოვანი შეტყობინება",
     "file" to "დოკუმენტი",
+    "channel" to "შეტყობინების შეტყობინებები",
+    "requestsChannel" to "შეტყობინების მოთხოვნები",
     "markRead" to "მონიშვნა, როგორც წაკითხული",
     "reply" to "Პასუხი",
     "replyFailed" to "შეტყობინების მიწოდება ვერ განხორციელდა",
   )
 
   private fun l33() = mapOf(
-    "channel" to "ការជូនដំណឹងអំពីសារ​",
-    "requestsChannel" to "សំណាងល្អនៅមុខបន្ថែម!",
     "generic" to "អ្នកមានសារថ្មី 1 សារ។",
     "request" to "អ្នក​មាន​ការស្នើសុំ​សារ​ថ្មី​មួយ",
     "you" to "អ្នក",
@@ -637,14 +635,14 @@ internal object PushWordsGenerated {
     "audio" to "សំឡេង",
     "voice" to "សារសំឡេង",
     "file" to "ឯកសារ",
+    "channel" to "ការជូនដំណឹងអំពីសារ​",
+    "requestsChannel" to "សំណាងល្អនៅមុខបន្ថែម!",
     "markRead" to "សម្គាល់ថាបានអាន",
     "reply" to "ឆ្លើយតប",
     "replyFailed" to "ការចែកសារប្រើវិញដោយម្ចាស់",
   )
 
   private fun l34() = mapOf(
-    "channel" to "Agahdarîyên Peyamê",
-    "requestsChannel" to "Daxwazên Peyamê",
     "generic" to "Peyameke te yê nû heye.",
     "request" to "Te daxwaza peyamê ya nû heye",
     "you" to "Tu",
@@ -653,13 +651,14 @@ internal object PushWordsGenerated {
     "audio" to "Deng",
     "voice" to "Peyama dengî",
     "file" to "Dokument",
+    "channel" to "Agahdarîyên Peyamê",
+    "requestsChannel" to "Daxwazên Peyamê",
     "markRead" to "Wekî Xwendî Nîşan Bide",
     "reply" to "Cewab bide",
     "replyFailed" to "Teslîmkirina peyamê bi ser neket",
   )
 
   private fun l35() = mapOf(
-    "channel" to "ಸಂದೇಶ ಅಧಿಸೂಚನೆಗಳು",
     "generic" to "ನಿಮಗೆ ಹೊಸ ಸಂದೇಶವಿದೆ.",
     "request" to "ನಿಮ್ಮಲ್ಲಿ ಹೊಸ ಸಂದೇಶ ವಿನંતಿಯಿದೆ",
     "you" to "ನೀವು",
@@ -669,14 +668,13 @@ internal object PushWordsGenerated {
     "audio" to "ಆಡಿಯೋ",
     "voice" to "ವಾಯ್ಸ್ ಸಂದೇಶ",
     "file" to "ಡಾಕಿುಮೆಂಟ್",
+    "channel" to "ಸಂದೇಶ ಅಧಿಸೂಚನೆಗಳು",
     "markRead" to "ಓದಿದ ಎಂದು ಗುರುತು",
     "reply" to "ಮಾರುತ್ತರ",
     "replyFailed" to "ಸಂದೇಶ ವಿತರಣೆಗೆ ವೈಫಲ್ಯ",
   )
 
   private fun l36() = mapOf(
-    "channel" to "메시지 알림",
-    "requestsChannel" to "메시지 요청",
     "generic" to "1개의 새 메시지가 도착했습니다.",
     "request" to "새로운 메시지 요청이 있습니다.",
     "you" to "나",
@@ -686,14 +684,14 @@ internal object PushWordsGenerated {
     "voice" to "음성 메시지",
     "file" to "문서",
     "attachments" to "첨부 파일",
+    "channel" to "메시지 알림",
+    "requestsChannel" to "메시지 요청",
     "markRead" to "읽음으로 표시",
     "reply" to "답장",
     "replyFailed" to "메시지 전송 실패",
   )
 
   private fun l37() = mapOf(
-    "channel" to "ئەدەی پەیام",
-    "requestsChannel" to "داواکارییەکانی نامە",
     "generic" to "پەیامێکی نوێت هەیە.",
     "request" to "تۆ داواکاری نامەی نوێیەکتان هەیە",
     "you" to "تۆ",
@@ -702,14 +700,14 @@ internal object PushWordsGenerated {
     "audio" to "ئەم پەڕەیە ناوبردنی پەیامی دەنگیەکی تێدایە.",
     "voice" to "نامەی دەنگی",
     "file" to "بەڵگەنامە",
+    "channel" to "ئەدەی پەیام",
+    "requestsChannel" to "داواکارییەکانی نامە",
     "markRead" to "Mark ئیبیننیشت",
     "reply" to "وەلامدانەوە",
     "replyFailed" to "فیر خالةنامە",
   )
 
   private fun l38() = mapOf(
-    "channel" to "Okuteecho ekikomezza obubaka",
-    "requestsChannel" to "Okikusa ekizamanyo",
     "generic" to "Ofunye obubaka obupya.",
     "request" to "Olinayo obubaka obujja obusabiddwa",
     "you" to "Ggwe",
@@ -717,6 +715,8 @@ internal object PushWordsGenerated {
     "video" to "Vidiyo",
     "voice" to "Obubaka Obw'eddoboozi",
     "file" to "Dokumenti",
+    "channel" to "Okuteecho ekikomezza obubaka",
+    "requestsChannel" to "Okikusa ekizamanyo",
     "markRead" to "Kaka somesa",
     "reply" to "Ddamu",
     "replyFailed" to "Okutuusibwa okw’obubaka kugalindwa",
@@ -728,7 +728,6 @@ internal object PushWordsGenerated {
   )
 
   private fun l40() = mapOf(
-    "channel" to "Pranešimai apie žinutes",
     "generic" to "Gavote naują žinutę.",
     "request" to "Jūs turite naują žinučių užklausą",
     "you" to "Jūs",
@@ -737,14 +736,13 @@ internal object PushWordsGenerated {
     "audio" to "Garsas",
     "voice" to "Balso žinutė",
     "file" to "Dokumentas",
+    "channel" to "Pranešimai apie žinutes",
     "markRead" to "Žymėti kaip skaitytą",
     "reply" to "Atsakyti",
     "replyFailed" to "Žinutės pristatymas nepavyko",
   )
 
   private fun l41() = mapOf(
-    "channel" to "Paziņojumi par ziņojumiem",
-    "requestsChannel" to "Ziņu pieprasījumi",
     "generic" to "Jums ir 1 jaunas ziņas.",
     "request" to "Jums ir jauns ziņojuma pieprasījums",
     "you" to "Jūs",
@@ -752,14 +750,14 @@ internal object PushWordsGenerated {
     "audio" to "Skaņa",
     "voice" to "Balss ziņojums",
     "file" to "Dokuments",
+    "channel" to "Paziņojumi par ziņojumiem",
+    "requestsChannel" to "Ziņu pieprasījumi",
     "markRead" to "Atzīmēt kā izlasītu",
     "reply" to "Atbildēt",
     "replyFailed" to "Ziņojuma piegāde neizdevās",
   )
 
   private fun l42() = mapOf(
-    "channel" to "Известувања за пораки",
-    "requestsChannel" to "Барања за пораки",
     "generic" to "Имате нова порака.",
     "request" to "Имате ново барање за порака",
     "you" to "Вие",
@@ -768,14 +766,14 @@ internal object PushWordsGenerated {
     "audio" to "Аудио",
     "voice" to "Гласовна порака",
     "file" to "Документ",
+    "channel" to "Известувања за пораки",
+    "requestsChannel" to "Барања за пораки",
     "markRead" to "Означи како прочитано",
     "reply" to "Одговори",
     "replyFailed" to "Неуспешно испраќање порака",
   )
 
   private fun l43() = mapOf(
-    "channel" to "Мессежийн мэдэгдэл",
-    "requestsChannel" to "Мессеж хүсэлтүүд",
     "generic" to "Танд шинэ мессеж ирлээ.",
     "request" to "Танд шинэ мессеж хүсэлт ирсэн байна",
     "you" to "Та",
@@ -784,28 +782,28 @@ internal object PushWordsGenerated {
     "audio" to "Аудио",
     "voice" to "Дуу Хүсэлт",
     "file" to "Баримт бичиг",
+    "channel" to "Мессежийн мэдэгдэл",
+    "requestsChannel" to "Мессеж хүсэлтүүд",
     "markRead" to "Уншсан тэмдэглэгээ",
     "reply" to "Хариулах",
     "replyFailed" to "Мессеж хүргэлт амжилтгүй",
   )
 
   private fun l44() = mapOf(
-    "channel" to "Pemberitahuan Mesej",
-    "requestsChannel" to "Permintaan Mesej",
     "generic" to "Anda telah menerima 1 mesej baru.",
     "request" to "Anda mempunyai permintaan mesej baru",
     "you" to "Anda",
     "image" to "Imej",
     "voice" to "Mesej Suara",
     "file" to "Dokumen",
+    "channel" to "Pemberitahuan Mesej",
+    "requestsChannel" to "Permintaan Mesej",
     "markRead" to "Tandakan Dibaca",
     "reply" to "Balas",
     "replyFailed" to "Penghantaran mesej gagal",
   )
 
   private fun l45() = mapOf(
-    "channel" to "မက်ဆေ့ချ် အသိပေးချက်များ",
-    "requestsChannel" to "မက်ဆေ့ချ် တောင်းဆိုမှုများ",
     "generic" to "သင်သည် မက်ဆေ့ချ်အသစ် 1 ခု ရရှိထားသည်။",
     "request" to "သင်တို့အတွက် အသစ်သော စာတောင်းဆိုခြင်း ရှိပါသည်",
     "you" to "သင်",
@@ -815,14 +813,14 @@ internal object PushWordsGenerated {
     "voice" to "အသံမက်ဆေ့ခ်ျ",
     "file" to "စာရွက်စာတမ်း",
     "attachments" to "ပူးတွဲပါဖိုင်များ",
+    "channel" to "မက်ဆေ့ချ် အသိပေးချက်များ",
+    "requestsChannel" to "မက်ဆေ့ချ် တောင်းဆိုမှုများ",
     "markRead" to "ဖတ်ပြီးပြီဟု မှတ်သားပါ",
     "reply" to "အကြောင်းပြန်ရန်",
     "replyFailed" to "မက်ဆေ့ချ် ပို့ခြင်း မအောင်မြင်ပါ။",
   )
 
   private fun l46() = mapOf(
-    "channel" to "Meldingsvarsler",
-    "requestsChannel" to "Meldingsforespørsler",
     "generic" to "Du har fått en ny melding.",
     "request" to "Du har en ny meldingsforespørsel",
     "you" to "Du",
@@ -831,14 +829,14 @@ internal object PushWordsGenerated {
     "voice" to "Talemelding",
     "file" to "Dokument",
     "attachments" to "Vedlegg",
+    "channel" to "Meldingsvarsler",
+    "requestsChannel" to "Meldingsforespørsler",
     "markRead" to "Merk som lest",
     "reply" to "Svare",
     "replyFailed" to "Levering av melding mislyktes",
   )
 
   private fun l47() = mapOf(
-    "channel" to "सन्देश सूचनाहरू",
-    "requestsChannel" to "सन्देश अनुरोधहरू",
     "generic" to "तपाईंको नयाँ सन्देश आएको छ।",
     "request" to "तपाईंको एउटा नयाँ सन्देश अनुरोध आएको छ",
     "you" to "तपाईं",
@@ -848,28 +846,28 @@ internal object PushWordsGenerated {
     "audio" to "अडियो",
     "voice" to "आवाज सन्देश",
     "file" to "कागजात",
+    "channel" to "सन्देश सूचनाहरू",
+    "requestsChannel" to "सन्देश अनुरोधहरू",
     "markRead" to "पढिएको",
     "reply" to "जवाफ",
     "replyFailed" to "सन्देश वितरण असफल भयो",
   )
 
   private fun l48() = mapOf(
-    "channel" to "Berichtmeldingen",
-    "requestsChannel" to "Berichtverzoeken",
     "generic" to "Je hebt een nieuw bericht.",
     "request" to "U heeft een nieuw berichtverzoek",
     "you" to "Uw",
     "image" to "Afbeelding",
     "voice" to "Spraakbericht",
     "attachments" to "Bijlagen",
+    "channel" to "Berichtmeldingen",
+    "requestsChannel" to "Berichtverzoeken",
     "markRead" to "Markeren als gelezen",
     "reply" to "Antwoord",
     "replyFailed" to "Berichtaflevering mislukt",
   )
 
   private fun l49() = mapOf(
-    "channel" to "Meldingsvarsel",
-    "requestsChannel" to "Meldingsforespørsler",
     "generic" to "Du har fått ei ny melding.",
     "request" to "Du har en ny meldingsforespørsel",
     "you" to "Du",
@@ -878,14 +876,14 @@ internal object PushWordsGenerated {
     "voice" to "Talemelding",
     "file" to "Dokument",
     "attachments" to "Vedlegg",
+    "channel" to "Meldingsvarsel",
+    "requestsChannel" to "Meldingsforespørsler",
     "markRead" to "Merk lesen",
     "reply" to "Svare",
     "replyFailed" to "Feil ved meldingslevering",
   )
 
   private fun l50() = mapOf(
-    "channel" to "Meldingsvarsel",
-    "requestsChannel" to "Meldingsforespørsler",
     "generic" to "Du har fått en ny melding.",
     "request" to "Du har en ny meldingsforespørsel",
     "you" to "Du",
@@ -894,14 +892,14 @@ internal object PushWordsGenerated {
     "voice" to "Talemelding",
     "file" to "Dokument",
     "attachments" to "Vedlegg",
+    "channel" to "Meldingsvarsel",
+    "requestsChannel" to "Meldingsforespørsler",
     "markRead" to "Merk som lest",
     "reply" to "Svar",
     "replyFailed" to "Levering av melding mislyktes",
   )
 
   private fun l51() = mapOf(
-    "channel" to "Zindikirani chikalata",
-    "requestsChannel" to "Kapebangu kachikalata",
     "generic" to "Mwatenga uthenga watsopano.",
     "request" to "Muli ndi pempho latsopano la uthenga",
     "you" to "Inu",
@@ -910,14 +908,14 @@ internal object PushWordsGenerated {
     "audio" to "Uthenga Wamawu",
     "voice" to "Chakwera Chumbe Chokwama",
     "file" to "Zolemba",
+    "channel" to "Zindikirani chikalata",
+    "requestsChannel" to "Kapebangu kachikalata",
     "markRead" to "Thambitsani werenga",
     "reply" to "Yankhani",
     "replyFailed" to "Kulephera kwachukulidwako chikalata",
   )
 
   private fun l52() = mapOf(
-    "channel" to "ਸੁਨੇਹਾ ਸੂਚਨਾਵਾਂ",
-    "requestsChannel" to "ਸੁਨੇਹਾ ਬੇਨਤੀ",
     "generic" to "ਤੁਹਾਨੂੰ ਇੱਕ ਨਵਾਂ ਸੁਨੇਹਾ ਮਿਲਿਆ ਹੈ।",
     "request" to "ਤੁਹਾਨੂੰ ਇੱਕ ਨਵਾਂ ਮੈਸਜ ਰਿਕਵੇਸਟ ਮਿਲਿਆ ਹੈ",
     "you" to "ਤੁਸੀਂ",
@@ -926,14 +924,14 @@ internal object PushWordsGenerated {
     "audio" to "ਆਡੀਓ",
     "voice" to "ਆਵਾਜ਼ ਸੰਦੇਸ਼",
     "file" to "ਦਸਤਾਵੇਜ਼",
+    "channel" to "ਸੁਨੇਹਾ ਸੂਚਨਾਵਾਂ",
+    "requestsChannel" to "ਸੁਨੇਹਾ ਬੇਨਤੀ",
     "markRead" to "ਪੜ੍ਹਿਆ ਦਰਜ ਕਰੋ",
     "reply" to "sooner ",
     "replyFailed" to "ਸੁਨੇਹਾ ਡਿਲਿਵਰੀ ਅਸਫਲ ਹੋਈ",
   )
 
   private fun l53() = mapOf(
-    "channel" to "Powiadomienia o wiadomościach",
-    "requestsChannel" to "Prośby o wiadomość",
     "generic" to "Masz nową wiadomość",
     "request" to "Masz nową prośbę o wiadomość",
     "you" to "Ty",
@@ -942,14 +940,14 @@ internal object PushWordsGenerated {
     "voice" to "Wiadomość głosowa",
     "file" to "Dokument",
     "attachments" to "Załączniki",
+    "channel" to "Powiadomienia o wiadomościach",
+    "requestsChannel" to "Prośby o wiadomość",
     "markRead" to "Oznacz jako przeczytane",
     "reply" to "Odpowiedz",
     "replyFailed" to "Nie udało się dostarczyć wiadomości",
   )
 
   private fun l54() = mapOf(
-    "channel" to "پیغام خبرتیاوې",
-    "requestsChannel" to "پیغام غوښتنې",
     "generic" to "تاسو یو نوې پیغام ترلاسه کړی.",
     "request" to "تاسو یوه نوې د پیغام غوښتنه لرئ",
     "you" to "تاسو",
@@ -957,14 +955,14 @@ internal object PushWordsGenerated {
     "video" to "ویډیو",
     "voice" to "غږ پېغام",
     "file" to "سند",
+    "channel" to "پیغام خبرتیاوې",
+    "requestsChannel" to "پیغام غوښتنې",
     "markRead" to "لوستل شوی",
     "reply" to "ځواب",
     "replyFailed" to "پیغام تحویل ناکام",
   )
 
   private fun l55() = mapOf(
-    "channel" to "Notificação de Mensangens",
-    "requestsChannel" to "Pedidos de mensagem",
     "generic" to "Você recebeu uma nova mensagem.",
     "request" to "Você tem uma nova solicitação de mensagem",
     "you" to "Você",
@@ -974,14 +972,14 @@ internal object PushWordsGenerated {
     "voice" to "Mensagem de Voz",
     "file" to "Documento",
     "attachments" to "Anexos",
+    "channel" to "Notificação de Mensangens",
+    "requestsChannel" to "Pedidos de mensagem",
     "markRead" to "Marcar como lida",
     "reply" to "Responder",
     "replyFailed" to "Envio de mensagem falhou",
   )
 
   private fun l56() = mapOf(
-    "channel" to "Notificações de mensagem",
-    "requestsChannel" to "Pedidos de Mensagem",
     "generic" to "Tem uma nova mensagem.",
     "request" to "Tem um novo pedido de mensagem",
     "you" to "Você",
@@ -991,28 +989,28 @@ internal object PushWordsGenerated {
     "voice" to "Mensagem de voz",
     "file" to "Documento",
     "attachments" to "Anexos",
+    "channel" to "Notificações de mensagem",
+    "requestsChannel" to "Pedidos de Mensagem",
     "markRead" to "Marcar como lida",
     "reply" to "Responder",
     "replyFailed" to "Falha na entrega de mensagem",
   )
 
   private fun l57() = mapOf(
-    "channel" to "Notificări mesaje",
-    "requestsChannel" to "Solicitări de mesaje",
     "generic" to "Ai primit un mesaj nou.",
     "request" to "Ai o cerere de mesaj nouă",
     "you" to "Tu",
     "image" to "Imagine",
     "voice" to "Mesaj vocal",
     "attachments" to "Atașamente",
+    "channel" to "Notificări mesaje",
+    "requestsChannel" to "Solicitări de mesaje",
     "markRead" to "Marchează ca citit",
     "reply" to "Răspunde",
     "replyFailed" to "Eroare la livrarea mesajului",
   )
 
   private fun l58() = mapOf(
-    "channel" to "Уведомления о сообщениях",
-    "requestsChannel" to "Запросы на переписку",
     "generic" to "У вас новое сообщение.",
     "request" to "У вас новый запрос на переписку",
     "you" to "Вы",
@@ -1022,28 +1020,28 @@ internal object PushWordsGenerated {
     "voice" to "Голосовое сообщение",
     "file" to "Документ",
     "attachments" to "Вложения",
+    "channel" to "Уведомления о сообщениях",
+    "requestsChannel" to "Запросы на переписку",
     "markRead" to "Пометить как прочитанное",
     "reply" to "Ответить",
     "replyFailed" to "Ошибка доставки сообщения",
   )
 
   private fun l59() = mapOf(
-    "channel" to "Obavijesti o porukama",
-    "requestsChannel" to "Zahtjevi za poruke",
     "generic" to "Imate novu poruku.",
     "request" to "Imaš novi zahtjev za poruku",
     "you" to "Ti",
     "image" to "Slika",
     "voice" to "Glasovna poruka",
     "file" to "Dokument",
+    "channel" to "Obavijesti o porukama",
+    "requestsChannel" to "Zahtjevi za poruke",
     "markRead" to "Označi pročitano",
     "reply" to "Odgovori",
     "replyFailed" to "Neuspješna isporuka poruke",
   )
 
   private fun l60() = mapOf(
-    "channel" to "පණිවිඩ දැනුම්දීම්",
-    "requestsChannel" to "පණිවිඩ ඉල්ලීම්",
     "generic" to "ඔබට නව පණිවිඩයක් ලැබී ඇත.",
     "request" to "ඔබට නව පණිවිඩ ඉල්ලීමක් ඇත",
     "you" to "ඔබ",
@@ -1052,14 +1050,14 @@ internal object PushWordsGenerated {
     "audio" to "ශ්‍රව්‍ය",
     "voice" to "හඬ පණිවිඩය",
     "file" to "ලේඛනය",
+    "channel" to "පණිවිඩ දැනුම්දීම්",
+    "requestsChannel" to "පණිවිඩ ඉල්ලීම්",
     "markRead" to "මග කියනවා",
     "reply" to "පිළිතුරු",
     "replyFailed" to "පණිවිඩය අසමත් වීම",
   )
 
   private fun l61() = mapOf(
-    "channel" to "Upozornenia na správy",
-    "requestsChannel" to "Žiadosti o správu",
     "generic" to "Máte novú správu.",
     "request" to "Máte novú žiadosť o správu",
     "you" to "Vy",
@@ -1067,14 +1065,14 @@ internal object PushWordsGenerated {
     "audio" to "Zvuk",
     "voice" to "Hlasová správa",
     "file" to "Dokument",
+    "channel" to "Upozornenia na správy",
+    "requestsChannel" to "Žiadosti o správu",
     "markRead" to "Označiť ako prečítané",
     "reply" to "Odpovedať",
     "replyFailed" to "Doručenie správy zlyhalo",
   )
 
   private fun l62() = mapOf(
-    "channel" to "Obvestila o sporočilih",
-    "requestsChannel" to "Zahteve za sporočila",
     "generic" to "Imate novo sporočilo.",
     "request" to "Imate novo zahtevo za sporočilo",
     "you" to "Vi",
@@ -1083,28 +1081,28 @@ internal object PushWordsGenerated {
     "audio" to "Zvok",
     "voice" to "Glasovno sporočilo",
     "file" to "Dokument",
+    "channel" to "Obvestila o sporočilih",
+    "requestsChannel" to "Zahteve za sporočila",
     "markRead" to "Označi kot prebrano",
     "reply" to "Odgovori",
     "replyFailed" to "Dostava sporočila ni uspela",
   )
 
   private fun l63() = mapOf(
-    "channel" to "Njoftime mesazhesh",
-    "requestsChannel" to "Mesazhe Session",
     "generic" to "Ke një mesazh të ri.",
     "request" to "Ju keni një kërkesë të re për mesazh",
     "you" to "Ju",
     "image" to "Figurë",
     "voice" to "Mesazh Zanor",
     "file" to "Dokument",
+    "channel" to "Njoftime mesazhesh",
+    "requestsChannel" to "Mesazhe Session",
     "markRead" to "Vëri shenjë si të lexuar",
     "reply" to "Përgjigju",
     "replyFailed" to "Dërgimi i mesazhit dështoi",
   )
 
   private fun l64() = mapOf(
-    "channel" to "Obaveštenja o porukama",
-    "requestsChannel" to "Zahtevi za poruke",
     "generic" to "Imate novu poruku.",
     "request" to "Imate novi zahtev za poruku",
     "you" to "Ti",
@@ -1112,14 +1110,14 @@ internal object PushWordsGenerated {
     "audio" to "Zvuk",
     "voice" to "Glasovna poruka",
     "file" to "Dokument",
+    "channel" to "Obaveštenja o porukama",
+    "requestsChannel" to "Zahtevi za poruke",
     "markRead" to "Označi kao pročitano",
     "reply" to "Odgovori",
     "replyFailed" to "Dostava poruke nije uspela",
   )
 
   private fun l65() = mapOf(
-    "channel" to "Обавештења порука",
-    "requestsChannel" to "Захтеви за поруке",
     "generic" to "Имате нову поруку.",
     "request" to "Имате нови захтев за поруку",
     "you" to "Ти",
@@ -1129,14 +1127,14 @@ internal object PushWordsGenerated {
     "audio" to "Звук",
     "voice" to "Гласовна порука",
     "file" to "Документ",
+    "channel" to "Обавештења порука",
+    "requestsChannel" to "Захтеви за поруке",
     "markRead" to "Означи прочитаним",
     "reply" to "Одговор",
     "replyFailed" to "Испорука поруке није успела",
   )
 
   private fun l66() = mapOf(
-    "channel" to "Meddelandeaviseringar",
-    "requestsChannel" to "Meddelandeförfrågningar",
     "generic" to "Du har ett nytt meddelande.",
     "request" to "Du har en ny meddelandeförfrågan",
     "you" to "Du",
@@ -1145,13 +1143,14 @@ internal object PushWordsGenerated {
     "voice" to "Röstmeddelande",
     "file" to "Dokument",
     "attachments" to "Bilagor",
+    "channel" to "Meddelandeaviseringar",
+    "requestsChannel" to "Meddelandeförfrågningar",
     "markRead" to "Markera som läst",
     "reply" to "Svara",
     "replyFailed" to "Meddelandet kunde inte levereras",
   )
 
   private fun l67() = mapOf(
-    "channel" to "Arifa za Jumbe",
     "generic" to "Umepewa ujumbe mpya.",
     "request" to "Una ombi jipya la ujumbe",
     "you" to "Wewe",
@@ -1159,13 +1158,13 @@ internal object PushWordsGenerated {
     "audio" to "Sauti",
     "voice" to "Ujumbe-Sauti",
     "file" to "Hati",
+    "channel" to "Arifa za Jumbe",
     "markRead" to "Soma nakili",
     "reply" to "Jibu",
     "replyFailed" to "Ujumbe haujatumwa",
   )
 
   private fun l68() = mapOf(
-    "channel" to "செய்தி அறிவிப்புகள்",
     "generic" to "உங்களுக்கு ஒரு புதிய செய்தி வந்துள்ளது.",
     "request" to "உங்களுக்கு புதிய செய்தித்தொகுப்பு உள்ளது",
     "you" to "நீங்கள்",
@@ -1174,14 +1173,13 @@ internal object PushWordsGenerated {
     "audio" to "கேட்பொலி",
     "voice" to "குரல் செய்தி",
     "file" to "ஆவணம்",
+    "channel" to "செய்தி அறிவிப்புகள்",
     "markRead" to "வாசிப்பு",
     "reply" to "பதில்",
     "replyFailed" to "செய்தி விநியோகம் தோல்வியுற்றது",
   )
 
   private fun l69() = mapOf(
-    "channel" to "సందేశ ప్రకటనలు",
-    "requestsChannel" to "సందేశ అభ్యర్ధనలు",
     "generic" to "You've got a new message.",
     "request" to "మీకు ఒక కొత్త మెసేజ్ అభ్యర్థన వచ్చింది",
     "you" to "మీరు",
@@ -1191,14 +1189,14 @@ internal object PushWordsGenerated {
     "audio" to "ఆడియో",
     "voice" to "వాయిస్ సందేశం",
     "file" to "పత్రం",
+    "channel" to "సందేశ ప్రకటనలు",
+    "requestsChannel" to "సందేశ అభ్యర్ధనలు",
     "markRead" to "చదివినట్టు గుర్తుపెట్టు",
     "reply" to "స్పంధించు",
     "replyFailed" to "సందేశం పంపుట విఫలమైనది",
   )
 
   private fun l70() = mapOf(
-    "channel" to "แจ้งเตือนข้อความ",
-    "requestsChannel" to "ข้อความร้องขอ",
     "generic" to "คุณมี 1 ข้อความใหม่",
     "request" to "คุณมีคำขอข้อความใหม่",
     "you" to "คุณ",
@@ -1207,28 +1205,28 @@ internal object PushWordsGenerated {
     "audio" to "เสียง",
     "voice" to "ข้อความเสียง",
     "file" to "เอกสาร",
+    "channel" to "แจ้งเตือนข้อความ",
+    "requestsChannel" to "ข้อความร้องขอ",
     "markRead" to "ทำเครื่องหมายว่าอ่านแล้ว",
     "reply" to "ตอบกลับ",
     "replyFailed" to "ส่งข้อความล้มเหลว",
   )
 
   private fun l71() = mapOf(
-    "channel" to "Mga Notipikasyon ng Mensahe",
-    "requestsChannel" to "Mga Kahilingan sa Pagmemensahe",
     "generic" to "Mayroon kang bagong mensahe.",
     "request" to "Mayroon kang bagong kahilingan sa pagmemensahe",
     "you" to "Ikaw",
     "image" to "Imahe",
     "voice" to "Mensahe ng Boses",
     "file" to "Dokumento",
+    "channel" to "Mga Notipikasyon ng Mensahe",
+    "requestsChannel" to "Mga Kahilingan sa Pagmemensahe",
     "markRead" to "Markahan bilang nabasa na",
     "reply" to "Sagutin",
     "replyFailed" to "Nabigo ang pagpapadala ng mensahe",
   )
 
   private fun l72() = mapOf(
-    "channel" to "İleti Bildirimleri",
-    "requestsChannel" to "İleti İstekleri",
     "generic" to "Yeni bir iletiniz var.",
     "request" to "Yeni bir ileti isteğiniz var",
     "you" to "Siz",
@@ -1237,14 +1235,14 @@ internal object PushWordsGenerated {
     "voice" to "Sesli İleti",
     "file" to "Belge",
     "attachments" to "Ekler",
+    "channel" to "İleti Bildirimleri",
+    "requestsChannel" to "İleti İstekleri",
     "markRead" to "Okundu işaretle",
     "reply" to "Yanıtla",
     "replyFailed" to "İleti teslimi başarısız oldu",
   )
 
   private fun l73() = mapOf(
-    "channel" to "Сповіщення про повідомлення",
-    "requestsChannel" to "Запити на повідомлення",
     "generic" to "Ви отримали нове повідомлення.",
     "request" to "У вас є новий запит на повідомлення",
     "you" to "Ви",
@@ -1255,14 +1253,14 @@ internal object PushWordsGenerated {
     "voice" to "Голосове повідомлення",
     "file" to "Документ",
     "attachments" to "Вкладення",
+    "channel" to "Сповіщення про повідомлення",
+    "requestsChannel" to "Запити на повідомлення",
     "markRead" to "Позначити як прочитане",
     "reply" to "Відповісти",
     "replyFailed" to "Збій доставки повідомлення",
   )
 
   private fun l74() = mapOf(
-    "channel" to "پیغام کی اطلاعات",
-    "requestsChannel" to "پیغام کی درخواستیں",
     "generic" to "آپ کو ایک نیا پیغام موصول ہوا ہے۔",
     "request" to "آپ کے پاس ایک نیا پیغام درخواست ہے",
     "you" to "آپ",
@@ -1270,14 +1268,14 @@ internal object PushWordsGenerated {
     "video" to "ویڈیو",
     "voice" to "وائس پیغام",
     "file" to "دستاویز",
+    "channel" to "پیغام کی اطلاعات",
+    "requestsChannel" to "پیغام کی درخواستیں",
     "markRead" to "پڑھا ہوا مارک کریں",
     "reply" to "جواب",
     "replyFailed" to "پیغام کی ترسیل ناکام ہوگئی",
   )
 
   private fun l75() = mapOf(
-    "channel" to "Xabar bildirishnomalari",
-    "requestsChannel" to "Xabar So'rovlari",
     "generic" to "Sizga yangi xabar keldi.",
     "request" to "Sizda yangi xabar so'rovi bor",
     "you" to "Siz",
@@ -1285,14 +1283,14 @@ internal object PushWordsGenerated {
     "audio" to "Ovoz",
     "voice" to "Ovozli xabar",
     "file" to "Hujjat",
+    "channel" to "Xabar bildirishnomalari",
+    "requestsChannel" to "Xabar So'rovlari",
     "markRead" to "O'qilgan deb belgilash",
     "reply" to "Javob berish",
     "replyFailed" to "Xabar yetkazib berishda xato",
   )
 
   private fun l76() = mapOf(
-    "channel" to "Thông báo tin nhắn",
-    "requestsChannel" to "Các yêu cầu tin nhắn",
     "generic" to "Bạn có 1 tin nhắn mới.",
     "request" to "Bạn có yêu cầu tin nhắn mới",
     "you" to "Bạn",
@@ -1300,14 +1298,14 @@ internal object PushWordsGenerated {
     "audio" to "Âm thanh",
     "voice" to "Tin nhắn thoại",
     "file" to "Tài liệu",
+    "channel" to "Thông báo tin nhắn",
+    "requestsChannel" to "Các yêu cầu tin nhắn",
     "markRead" to "Đánh dấu đã đọc",
     "reply" to "Trả lời",
     "replyFailed" to "Phân phối tin nhắn bị thất bại",
   )
 
   private fun l77() = mapOf(
-    "channel" to "Izaziso zomyalezo",
-    "requestsChannel" to "Izicelo zoMyalezo",
     "generic" to "Unomyalezo omtsha.",
     "request" to "Unesicelo esitsha somyalezo",
     "you" to "Gwe",
@@ -1316,14 +1314,14 @@ internal object PushWordsGenerated {
     "audio" to "Udiyo",
     "voice" to "Umyalezo weSandi",
     "file" to "Ixwebhu",
+    "channel" to "Izaziso zomyalezo",
+    "requestsChannel" to "Izicelo zoMyalezo",
     "markRead" to "Marka ukufundwayo",
     "reply" to "Phendula",
     "replyFailed" to "Ukuleyisa komyalezo kuyasilela",
   )
 
   private fun l78() = mapOf(
-    "channel" to "消息通知",
-    "requestsChannel" to "消息请求",
     "generic" to "您有1条新消息。",
     "request" to "您有一个新的消息请求",
     "you" to "您",
@@ -1333,14 +1331,14 @@ internal object PushWordsGenerated {
     "voice" to "语音消息",
     "file" to "文档",
     "attachments" to "附件",
+    "channel" to "消息通知",
+    "requestsChannel" to "消息请求",
     "markRead" to "标记为已读",
     "reply" to "回复",
     "replyFailed" to "消息发送失败",
   )
 
   private fun l79() = mapOf(
-    "channel" to "訊息通知",
-    "requestsChannel" to "訊息請求",
     "generic" to "你有 1 則新訊息。",
     "request" to "您有一個新的訊息請求",
     "you" to "你",
@@ -1350,6 +1348,8 @@ internal object PushWordsGenerated {
     "voice" to "語音訊息",
     "file" to "文件",
     "attachments" to "附件",
+    "channel" to "訊息通知",
+    "requestsChannel" to "訊息請求",
     "markRead" to "標示已讀",
     "reply" to "回覆",
     "replyFailed" to "訊息傳送失敗",
