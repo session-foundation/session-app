@@ -336,12 +336,20 @@ width), and that decides which extra pages it gets. The `pr` tier draws two them
 accent with the forced states, plus one unforced page in every accent for a story that draws the
 accent; `nightly` draws every theme and accent, every night. The desktop app opens the catalog instead of the app under the
 `componentCatalog` flag; `catalog.spec.ts` captures each page and runs axe over it, inside the image
-`tests/e2e/catalog/Dockerfile` pins (fonts, fontconfig, the libraries Electron draws with) so a
+`tests/e2e/catalog/image/Dockerfile` pins (fonts, fontconfig, the libraries Electron draws with) so a
 capture is the same on any Linux x86_64 host, and the `catalog` workflow uploads the captures to Argos.
 A capture paints only what lies inside the window, so each page is laid out in a 3000x2400 window
 and the window then grows to hold the page, the height alone unless the page is wider too
 (`tests/e2e/catalog/captureWindow.ts`). A page past the cap there is left out and fails the run
 rather than coming out black below the fold; the Xvfb screen in `capture.sh` is sized to the cap.
+Several apps capture at once, taking pages heaviest first from one queue
+(`tests/e2e/catalog/shards.ts`): one per core, at most eight, or `CATALOG_SHARDS`. On Linux
+each app gets its own Xvfb screen, since stacked windows draw no faster than one. The audit verdict
+is taken once over every app's findings, so no app alone calls a known issue fixed. A page's capture
+must not depend on the pages its app drew before it: each window ignores the pointer, which would
+otherwise leave whatever it rests on hovered, and the renderer drops its decoded images before each
+page, since a photograph decoded earlier at another size is resampled from that decode.
+`CATALOG_PAGES` limits a run to some pages: page ids, `component.story`s or components.
 
 **Comparing the catalog locally.** `pnpm catalog:compare [base-ref]` answers "which pages does my
 change move?" before a push, on any host, macOS included. It captures the catalog twice on this
@@ -362,7 +370,9 @@ does and 2 when it could not compare or was interrupted, so it can gate a script
 spec passed and wrote every page it listed is cached under `test-results/catalog-compare/cache/`,
 keyed by commit, tier, host and build environment (the repo-root `.env` and every `EXPO_PUBLIC_*`
 variable), so a second run against the same base captures only the working tree; `--refresh`
-captures again, `--tier nightly` compares every page. Ctrl-C stops the whole command, removing
+captures again, `--tier nightly` compares every page, and `--pages messageQuote,messageFrame`
+compares only those: a name only one side has shows its pages as added or removed, and one
+neither side has fails the comparison. Ctrl-C stops the whole command, removing
 the base's worktree and any half-written capture.
 
 Both sides are drawn by this machine, so its fonts and rendering cancel out: the pictures are not

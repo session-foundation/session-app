@@ -22,10 +22,15 @@ const LABEL_WIDTH = 96
 const SETTLE_POLL_MS = 100
 const SETTLE_TRIES = 100
 
-/** Until every picture on the page has decoded and no new one has appeared for one poll. */
-async function picturesSettled(): Promise<void> {
+/**
+ * Until every picture on the page has decoded and no new one has appeared for one poll, or until
+ * `signal` aborts. The polls outlive an unmounted page by up to ten seconds otherwise, and in a
+ * test the next one can run after the document has been torn down.
+ */
+async function picturesSettled(signal: AbortSignal): Promise<void> {
   let seen = -1
   for (let attempt = 0; attempt < SETTLE_TRIES; attempt++) {
+    if (signal.aborted) return
     const pictures = Array.from(document.images)
     // A source that never answers leaves `decode` pending for good, so each poll waits one round.
     const poll = new Promise((resolve) => setTimeout(resolve, SETTLE_POLL_MS))
@@ -37,6 +42,7 @@ async function picturesSettled(): Promise<void> {
     if (pictures.length === seen && pictures.every((picture) => picture.complete)) return
     seen = pictures.length
   }
+  if (signal.aborted) return
   const pending = Array.from(document.images).filter((picture) => !picture.complete)
   console.warn(`[catalog] ${String(pending.length)} pictures never loaded`, pending[0]?.src)
 }
@@ -115,17 +121,18 @@ export function CatalogPage({ page }: { page: CatalogPageSpec }) {
   })
   const [ready, setReady] = useState(false)
   useEffect(() => {
-    let cancelled = false
+    const unmounted = new AbortController()
     // Fonts first, then two frames: one to lay out in them, one to paint.
-    void Promise.all([document.fonts.ready, picturesSettled()]).then(() =>
+    void Promise.all([document.fonts.ready, picturesSettled(unmounted.signal)]).then(() => {
+      if (unmounted.signal.aborted) return
       requestAnimationFrame(() =>
         requestAnimationFrame(() => {
-          if (!cancelled) setReady(true)
+          if (!unmounted.signal.aborted) setReady(true)
         }),
-      ),
-    )
+      )
+    })
     return () => {
-      cancelled = true
+      unmounted.abort()
     }
   }, [])
 
