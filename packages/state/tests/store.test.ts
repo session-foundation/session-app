@@ -721,4 +721,30 @@ describe('the Client closed for the background (iOS)', () => {
     const after = store.getState().histories[bob]?.messages ?? []
     expect(after.map((m) => m.id)).toEqual([...before.map((m) => m.id), stored.id])
   })
+
+  it('takes the newest page as the window when more was stored than a page holds', async () => {
+    const { store, client, bob } = seeded()
+    await store.actions.hydrate()
+    await store.actions.loadHistory(bob)
+    const newest = store.getState().histories[bob]?.messages.at(-1)
+    if (newest === undefined) throw new Error('expected a loaded window')
+
+    // A page of what the extension stored, with more of it before the page than after the window.
+    const stored = [1, 2, 3].map((n) => ({
+      ...newest,
+      id: newest.id + 1000 + n,
+      timestamp: newest.timestamp + 10 + n,
+    }))
+    vi.spyOn(client, 'getMessages').mockResolvedValue({
+      messages: stored,
+      hasOlder: true,
+      hasNewer: false,
+    })
+
+    await store.actions.reread()
+
+    const window = store.getState().histories[bob]
+    expect(window?.messages.map((m) => m.id)).toEqual(stored.map((m) => m.id))
+    expect(window?.hasOlder).toBe(true)
+  })
 })
