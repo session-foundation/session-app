@@ -146,8 +146,8 @@ const ports = memoryPorts({
     notificationModesApply: true,
     pushTokens,
     pushInstallMarker,
-    // A source exists only where the build registered a push service with the device at startup,
-    // which on Android also means the device has that service (Play Services, or microG).
+    // A source exists only where the build registered a push service at startup, which on Android
+    // it does only when the device has that service too: Play services, or microG.
     fastModeAvailable: pushTokens !== null,
     pushService: VARIANT_TRAITS[VARIANT].pushService,
     requestPermission: () => Promise.resolve(true),
