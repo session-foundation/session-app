@@ -7,6 +7,10 @@ export { conversationFromPath, LAND_ON_PARAM, landingFromParam, routes } from '.
 export { requirePorts, resetPorts, setPorts } from './ports'
 export { followPushRegistration, type PushRegistrationDeps } from './pushRegistration'
 export { followNotifications, type NotificationDeps } from './notifications'
+export {
+  followNotificationPermission,
+  type NotificationPermissionDeps,
+} from './notificationPermission'
 export { ExportAccessRefused } from './exportAccess'
 export { suggestedExportName } from './exportFileName'
 export type { ExportAccess } from './exportAccess'

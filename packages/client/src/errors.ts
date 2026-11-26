@@ -15,6 +15,12 @@ export class SessionClientError extends Error {
 }
 
 /**
+ * The code of a request refused, or cut off, because the Client is closed while the app is in the
+ * background (iOS). Never a wrong request: one to ask again once the Client is back.
+ */
+export const CLIENT_CLOSED = 'client.closed'
+
+/**
  * Thrown at every promise still waiting when the client closes.
  *
  * libsession's own contract is that a handler runs exactly once "unless the Client is

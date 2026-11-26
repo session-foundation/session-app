@@ -122,6 +122,8 @@ class SessionBridge : public Napi::ObjectWrap<SessionBridge> {
         }
         if (options.Has("deviceType") && !options.Get("deviceType").IsUndefined())
             init.device_type = options.Get("deviceType").As<Napi::String>().Utf8Value();
+        if (options.Has("notificationYou") && !options.Get("notificationYou").IsUndefined())
+            init.notification_you = options.Get("notificationYou").As<Napi::String>().Utf8Value();
         if (options.Has("logCategories") && !options.Get("logCategories").IsUndefined()) {
             Napi::Value value = options.Get("logCategories");
             if (!value.IsArray())

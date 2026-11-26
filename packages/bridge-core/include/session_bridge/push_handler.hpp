@@ -34,6 +34,9 @@ struct PushResult {
     std::string why;
     /// The message `show` is about, which tapping it lands on: set for a message the Client keeps.
     std::optional<int64_t> message_id;
+    /// Whether handling stored a message: one a Client open beside this process never hears
+    /// about, since it is already there when its own receive comes to it.
+    bool stored = false;
 };
 
 /// How long handling a push may take before it ends with whatever it has: inside iOS's 30 seconds
@@ -66,7 +69,8 @@ PushResult handle_push(
 struct ColdPush {
     std::filesystem::path db_path;
     std::array<std::byte, 32> key;
-    /// "mainnet" or "testnet": a devnet needs seed nodes only the app knows.
+    /// "mainnet": the push server watches mainnet's swarms only, so no other network subscribes,
+    /// and any other is refused.
     std::string netid = "mainnet";
     /// How long to keep trying to open a database another process has locked. iOS's app holds it
     /// for up to its close's interrupt deadline after leaving the screen, and the extension waits

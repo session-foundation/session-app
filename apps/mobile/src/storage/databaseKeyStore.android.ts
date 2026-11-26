@@ -1,5 +1,4 @@
 import { requireNativeModule } from 'expo'
-import * as SecureStore from 'expo-secure-store'
 
 /** `modules/database-key`: the key sealed with an Android Keystore key, in no-backup storage. */
 const DatabaseKey = requireNativeModule<{
@@ -19,14 +18,7 @@ export function writeDatabaseKey(hex: string): Promise<void> {
   return DatabaseKey.write(hex)
 }
 
-/**
- * Removes what older builds stored, on a true first launch: the key used to be kept by
- * expo-secure-store, under these names. Not read, so nothing is carried over.
- */
-export async function retireOldKeys(): Promise<void> {
-  await Promise.all(
-    ['session.db.key.this-device', 'session.db.key', 'session2.database-key'].map((key) =>
-      SecureStore.deleteItemAsync(key),
-    ),
-  )
+/** Nothing to retire on Android: only development builds ever kept a key anywhere else. */
+export function retireOldKeys(): Promise<void> {
+  return Promise.resolve()
 }

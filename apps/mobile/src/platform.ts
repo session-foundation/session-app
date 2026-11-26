@@ -137,12 +137,15 @@ async function diagnosticsSnapshot(): Promise<DiagnosticsSnapshot> {
 function deliveryModes(): DeliveryModeOffer[] {
   const instant: DeliveryModeOffer = {
     mode: 'instant',
+    // The network first: off mainnet there is nothing to subscribe to, whatever the device has.
     unavailable:
-      pushTokens !== null
-        ? null
-        : VARIANT_TRAITS[VARIANT].pushService === null
-          ? 'build'
-          : 'device',
+      parseNetworkName(process.env['EXPO_PUBLIC_SESSION_NETID']) !== 'mainnet'
+        ? 'network'
+        : pushTokens !== null
+          ? null
+          : VARIANT_TRAITS[VARIANT].pushService === null
+            ? 'build'
+            : 'device',
   }
   const background: DeliveryModeOffer[] = [
     { mode: 'periodic', unavailable: null },
@@ -187,7 +190,6 @@ const ports = memoryPorts({
     ...notificationSettings,
     deliveryModes: deliveryModes(),
     pushService: VARIANT_TRAITS[VARIANT].pushService,
-    requestPermission: () => Promise.resolve(true),
   },
   build: {
     // The version app.json gives the build, which is what the stores and the OS know it as.

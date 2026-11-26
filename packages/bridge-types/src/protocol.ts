@@ -280,7 +280,7 @@ export type Command =
    */
   | { type: 'setPushToken'; service: PushService; token: string; force?: boolean }
   /**
-   * Removes this device's push subscription, as when somebody switches to slow mode. Answers `ok`
+   * Removes this device's push subscription, as when somebody leaves Instant. Answers `ok`
    * once the push server has accepted the removal, or at once when there was none to remove.
    */
   | { type: 'clearPushToken' }

@@ -25,6 +25,20 @@
       "outputs": ["src/urls.generated.ts"],
       "cache": false
     },
+    "@session/mobile#codegen": {
+      "inputs": [
+        "scripts/generatePushWords.ts",
+        "src/pushWords.ts",
+        "../../packages/localization/src/notificationWordSources.ts",
+        "../../packages/localization/src/localization-src/generated/**"
+      ],
+      "outputs": [
+        "modules/session-push/android/src/main/java/org/getsession/push/PushWords.generated.kt",
+        "modules/session-push/ios/PushWords.generated.swift",
+        "notification-service/PushWords.generated.h"
+      ],
+      "cache": false
+    },
     "@session/bridge-codegen#codegen": {
       "inputs": ["src/**", "../../packages/bridge-types/src/**"],
       "cache": false

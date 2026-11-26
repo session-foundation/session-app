@@ -176,7 +176,7 @@ describe('the switched feature flags', () => {
     const { client, store } = alice()
     await store.actions.hydrate()
     await store.actions.setFlagToggle('disableAnimations', true)
-    await store.actions.setFlagToggle('forceFastModeAvailable', true)
+    await store.actions.setFlagToggle('forceInstantAvailable', true)
 
     await store.actions.replaceFlagToggles({ debugMode: false })
     expect(store.getState().flagToggles).toEqual({ debugMode: false })
@@ -191,10 +191,10 @@ describe('the switched feature flags', () => {
 
     await Promise.all([
       store.actions.setFlagToggle('disableAnimations', true),
-      store.actions.setFlagToggle('forceFastModeAvailable', true),
+      store.actions.setFlagToggle('forceInstantAvailable', true),
       store.actions.setFlagToggle('debugMode', false),
     ])
-    const all = { disableAnimations: true, forceFastModeAvailable: true, debugMode: false }
+    const all = { disableAnimations: true, forceInstantAvailable: true, debugMode: false }
     expect(store.getState().flagToggles).toEqual(all)
     const next = createSessionStore(client)
     await next.actions.hydrate()
@@ -446,6 +446,65 @@ describe('a clear that fails', () => {
   })
 })
 
+describe('clearing the device', () => {
+  async function started() {
+    const { clients } = friends(['Alice', 'Bob'])
+    const alice = clients['Alice']
+    if (!alice) throw new Error('fixture did not produce a client')
+    // Timers the test fires by hand: this package has no timers of its own.
+    const due = new Map<number, () => void>()
+    let nextTimer = 0
+    const timers = {
+      setTimeout: (fn: () => void) => {
+        due.set(++nextTimer, fn)
+        return nextTimer
+      },
+      clearTimeout: (id: unknown) => {
+        due.delete(id as number)
+      },
+    }
+    const store = createSessionStore(alice, { timers })
+    await store.actions.start()
+    return { alice, store, fireTimers: () => [...due.values()].forEach((fn) => fn()) }
+  }
+
+  it('removes the push subscription first, while the account can still sign for it', async () => {
+    const { alice, store } = await started()
+    const order: string[] = []
+    vi.spyOn(alice, 'clearPushToken').mockImplementation(() => {
+      order.push('unsubscribe')
+      return Promise.resolve()
+    })
+    const discard = alice.discardAccount.bind(alice)
+    vi.spyOn(alice, 'discardAccount').mockImplementation(() => {
+      order.push('discard')
+      return discard()
+    })
+    await store.actions.clearDeviceData()
+    expect(order).toEqual(['unsubscribe', 'discard'])
+  })
+
+  it('goes on without it when the push server does not answer in time', async () => {
+    const { alice, store, fireTimers } = await started()
+    vi.spyOn(alice, 'clearPushToken').mockImplementation(() => new Promise(() => {}))
+    const discard = vi.spyOn(alice, 'discardAccount')
+    const clearing = store.actions.clearDeviceData()
+    await Promise.resolve()
+    expect(discard).not.toHaveBeenCalled()
+    fireTimers()
+    await clearing
+    expect(discard).toHaveBeenCalledTimes(1)
+  })
+
+  it('goes on without it when the unsubscribe fails', async () => {
+    const { alice, store } = await started()
+    vi.spyOn(alice, 'clearPushToken').mockRejectedValue(new Error('offline'))
+    const discard = vi.spyOn(alice, 'discardAccount')
+    await store.actions.clearDeviceData()
+    expect(discard).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe('the store', () => {
   let fixture: ReturnType<typeof seeded>
 
@@ -669,5 +728,47 @@ describe('the conversation lists', () => {
       expect(store.getState().listsOutOfStep.conversations).toBe(false)
       expect(store.getState().conversations.map((c) => c.id)).toEqual(order)
     })
+  })
+})
+
+describe('the Client closed for the background (iOS)', () => {
+  it('puts off a start it cut short, and starts again on the read after the reopen', async () => {
+    const { clients } = friends(['Alice', 'Bob'])
+    const client = clients['Alice']
+    if (!client) throw new Error('fixture did not produce a client')
+    const store = createSessionStore(client)
+    await client.closeClient(0, 0)
+
+    await store.actions.start()
+    expect(store.getState().startupError).toBeNull()
+    expect(store.getState().hydrated).toBe(false)
+
+    await client.reopenClient()
+    await store.actions.reread()
+    expect(store.getState().hydrated).toBe(true)
+    expect(store.getState().conversations.length).toBeGreaterThan(0)
+  })
+
+  it('merges what was stored unannounced into a loaded window, keeping what it holds', async () => {
+    const { store, client, bob } = seeded()
+    await store.actions.hydrate()
+    await store.actions.loadHistory(bob)
+    const before = store.getState().histories[bob]?.messages ?? []
+    const newest = before.at(-1)
+    if (newest === undefined) throw new Error('expected a loaded window')
+
+    // What the notification extension stored while the Client was closed: in the database, and
+    // never announced to this one.
+    const stored = { ...newest, id: newest.id + 1000, timestamp: newest.timestamp + 1, body: 'x' }
+    const read = client.getMessages.bind(client)
+    vi.spyOn(client, 'getMessages').mockImplementation(async (id, options) => {
+      const page = await read(id, options)
+      return { ...page, messages: [...page.messages, stored] }
+    })
+
+    await store.actions.reread()
+
+    const after = store.getState().histories[bob]?.messages ?? []
+    expect(after.map((m) => m.id)).toEqual([...before.map((m) => m.id), stored.id])
   })
 })

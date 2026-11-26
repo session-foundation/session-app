@@ -1,6 +1,13 @@
+import { readFileSync } from 'node:fs'
+
 import { describe, expect, it } from 'vitest'
 
-import { CAPTURE_WINDOW, MAX_CAPTURE_WINDOW, windowFor } from '#catalog/captureWindow'
+import {
+  CAPTURE_SCREEN,
+  CAPTURE_WINDOW,
+  MAX_CAPTURE_WINDOW,
+  windowFor,
+} from '#catalog/captureWindow'
 
 describe('the capture window', () => {
   it('stays at the capture window for a page inside it', () => {
@@ -31,6 +38,20 @@ describe('the capture window', () => {
     )
     expect(() => windowFor({ width: MAX_CAPTURE_WINDOW.width + 1, height: 100 })).toThrow(
       /past the \d+x\d+ capture window/,
+    )
+  })
+})
+
+describe('the capture screen', () => {
+  it('holds the largest window', () => {
+    expect(CAPTURE_SCREEN.width).toBeGreaterThan(MAX_CAPTURE_WINDOW.width)
+    expect(CAPTURE_SCREEN.height).toBeGreaterThan(MAX_CAPTURE_WINDOW.height)
+  })
+
+  it('is the screen capture.sh gives xvfb-run', () => {
+    const script = readFileSync(new URL('../../catalog/capture.sh', import.meta.url), 'utf8')
+    expect(script).toContain(
+      `-screen 0 ${String(CAPTURE_SCREEN.width)}x${String(CAPTURE_SCREEN.height)}x24`,
     )
   })
 })

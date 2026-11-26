@@ -18,4 +18,11 @@ RUN sed -i -e '/^URIs:/d' \
 
 COPY fonts.conf /etc/fonts/local.conf
 
-RUN corepack enable && fc-cache -f
+# pnpm prepared here rather than downloaded by every capture. Keep it in step with packageManager in
+# the root package.json: a mismatch still works, at the cost of that download.
+ARG PNPM_VERSION=10.30.3
+ENV COREPACK_HOME=/opt/corepack
+RUN corepack enable \
+  && corepack prepare "pnpm@${PNPM_VERSION}" \
+  && chmod -R a+rwX /opt/corepack \
+  && fc-cache -f

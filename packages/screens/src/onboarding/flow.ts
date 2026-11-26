@@ -14,7 +14,7 @@ import type { DeliveryMode } from '@session/state'
  * account exists and has no name yet, so it is asked for. See `afterFailedRestore`.
  *
  * **The two designs run different sequences, not the same one laid out differently.** Desktop has
- * no notification-mode step: fast mode is a push service and desktop has none to offer.
+ * no delivery-mode step: Instant is a push service and desktop has none to offer.
  *
  * A pure reducer rather than `useState` across five screens, because three things here are easy to
  * get subtly wrong and invisible afterwards:

@@ -209,9 +209,10 @@ export interface DeliveryModeOffer {
   /**
    * Why the mode cannot be used, or null when it can: `build` when this build leaves it out (no
    * push service in an F-Droid build), `device` when the device lacks what it needs (no Play
-   * services).
+   * services), `network` when the app is on a network the push server does not watch (anything
+   * but mainnet).
    */
-  unavailable: 'build' | 'device' | null
+  unavailable: 'build' | 'device' | 'network' | null
 }
 
 export interface NotificationsPort {
@@ -226,9 +227,9 @@ export interface NotificationsPort {
    */
   readonly deliveryModes: readonly DeliveryModeOffer[]
   /**
-   * Which push service fast mode would use.
+   * Which push service Instant would use.
    *
-   * Not decoration: the catalogue carries three descriptions of fast mode -- Apple's, Google's and
+   * Not decoration: the catalogue carries three descriptions of Instant -- Apple's, Google's and
    * Huawei's -- and onboarding has to name the one this build would actually talk to. Reading it
    * off `Platform.OS` would be wrong on Android, where a Play build and a Huawei build are the
    * same platform and different services, so this is answered where the build is assembled.
@@ -251,7 +252,7 @@ export interface NotificationsPort {
    */
   readonly notificationModesApply: boolean
   /**
-   * Where fast mode gets its push token: null where this build has no push service behind it,
+   * Where Instant gets its push token: null where this build has no push service behind it,
    * which is also when Instant is unavailable. See `PushTokenSource`.
    */
   readonly pushTokens: PushTokenSource | null

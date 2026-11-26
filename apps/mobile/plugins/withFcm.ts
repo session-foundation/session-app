@@ -15,7 +15,7 @@ import { type ConfigPlugin, withAppBuildGradle, withDangerousMod } from '@expo/c
  * **No google-services.json in the repository, and no Google Services Gradle plugin.** The build
  * reads the file named by `SESSION_GOOGLE_SERVICES_JSON` (a path on the build machine) and writes
  * the values Firebase initialises itself from as play-only string resources, which is all that
- * plugin does. A build without it has no FCM: fast mode is then unavailable rather than broken.
+ * plugin does. A build without it has no FCM: Instant is then unavailable rather than broken.
  */
 
 const MARKER = '// Firebase Cloud Messaging: see apps/mobile/plugins/withFcm.ts'

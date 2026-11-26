@@ -212,6 +212,7 @@ describe('screen copy', () => {
       'deliveryUnavailableDeviceGoogle',
       'deliveryUnavailableDeviceHuawei',
       'deliveryUnavailableDevice',
+      'deliveryUnavailableNetwork',
       'deliveryAlwaysConnected',
       'deliveryAlwaysConnectedDescription',
       'deliveryPeriodic',

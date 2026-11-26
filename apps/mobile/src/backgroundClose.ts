@@ -23,6 +23,8 @@ export interface BackgroundCloseDeps {
    * action, which closes the database again once the action is over.
    */
   initialState: string
+  /** After a reopen that built the Client again: whatever it missed is read again. */
+  onReopened: () => void
   /** The OS's grace to finish in once the app has left the screen, as `backgroundTask` keeps it. */
   task: { begin: () => void; end: () => void }
   log: (level: 'info' | 'warn' | 'error' | 'critical', message: string) => void
@@ -147,9 +149,10 @@ export function closeClientInBackground(deps: BackgroundCloseDeps): OpenHolds {
   const reopen = (): Promise<void> => {
     closeAsked = false
     const startedMs = Date.now()
-    return client
-      .reopenClient()
-      .then(() => log('info', `reopened in ${String(Date.now() - startedMs)} ms`))
+    return client.reopenClient().then(() => {
+      log('info', `reopened in ${String(Date.now() - startedMs)} ms`)
+      deps.onReopened()
+    })
   }
 
   deps.onAppStateChange((state) => {

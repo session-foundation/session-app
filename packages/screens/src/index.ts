@@ -4,14 +4,12 @@ export { OnboardingFlow } from './onboarding/OnboardingFlow'
 export { RequestsScreen } from './RequestsScreen'
 export { AccountHeader } from './settings/AccountHeader'
 export { AttachmentCacheFigures, AttachmentCacheSection } from './settings/AttachmentCacheSection'
-export {
-  DesktopNotificationsContent,
-  MessageDeliveryContent,
-  MobileNotificationsContent,
-  NotificationContentChoice,
-  NotificationSoundChoice,
-  NotificationsPage,
-} from './settings/NotificationsPage'
+export { NotificationContentChoice } from './settings/notifications/ContentChoice'
+export { DesktopNotificationsContent } from './settings/notifications/DesktopNotificationsContent'
+export { MessageDeliveryContent } from './settings/notifications/MessageDeliveryContent'
+export { MobileNotificationsContent } from './settings/notifications/MobileNotificationsContent'
+export { NotificationsPage } from './settings/notifications/NotificationsPage'
+export { NotificationSoundChoice } from './settings/notifications/SoundChoice'
 export {
   DeveloperRestartBanner,
   DeveloperSettingsContent,
