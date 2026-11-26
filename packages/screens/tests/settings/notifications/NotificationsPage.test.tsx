@@ -3,14 +3,14 @@ import { ELEMENT } from '@session/test-ids'
 import { fireEvent, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
+import { previewSample } from '#src/settings/notifications/choices'
 import {
   MessageDeliveryContent,
-  NotificationSoundChoice,
-  previewSample,
   type MessageDeliveryContentProps,
-} from '#src/settings/NotificationsPage'
+} from '#src/settings/notifications/MessageDeliveryContent'
+import { NotificationSoundChoice } from '#src/settings/notifications/SoundChoice'
 
-import { renderScreen } from '../support/render'
+import { renderScreen } from '../../support/render'
 
 function draw(overrides: Partial<MessageDeliveryContentProps> = {}): MessageDeliveryContentProps {
   const props: MessageDeliveryContentProps = {
