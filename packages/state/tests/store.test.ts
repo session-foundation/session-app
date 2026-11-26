@@ -608,3 +608,45 @@ describe('the conversation lists', () => {
     })
   })
 })
+
+describe('the Client closed for the background (iOS)', () => {
+  it('puts off a start it cut short, and starts again on the read after the reopen', async () => {
+    const { clients } = friends(['Alice', 'Bob'])
+    const client = clients['Alice']
+    if (!client) throw new Error('fixture did not produce a client')
+    const store = createSessionStore(client)
+    await client.closeClient(0, 0)
+
+    await store.actions.start()
+    expect(store.getState().startupError).toBeNull()
+    expect(store.getState().hydrated).toBe(false)
+
+    await client.reopenClient()
+    await store.actions.reread()
+    expect(store.getState().hydrated).toBe(true)
+    expect(store.getState().conversations.length).toBeGreaterThan(0)
+  })
+
+  it('merges what was stored unannounced into a loaded window, keeping what it holds', async () => {
+    const { store, client, bob } = seeded()
+    await store.actions.hydrate()
+    await store.actions.loadHistory(bob)
+    const before = store.getState().histories[bob]?.messages ?? []
+    const newest = before.at(-1)
+    if (newest === undefined) throw new Error('expected a loaded window')
+
+    // What the notification extension stored while the Client was closed: in the database, and
+    // never announced to this one.
+    const stored = { ...newest, id: newest.id + 1000, timestamp: newest.timestamp + 1, body: 'x' }
+    const read = client.getMessages.bind(client)
+    vi.spyOn(client, 'getMessages').mockImplementation(async (id, options) => {
+      const page = await read(id, options)
+      return { ...page, messages: [...page.messages, stored] }
+    })
+
+    await store.actions.reread()
+
+    const after = store.getState().histories[bob]?.messages ?? []
+    expect(after.map((m) => m.id)).toEqual([...before.map((m) => m.id), stored.id])
+  })
+})

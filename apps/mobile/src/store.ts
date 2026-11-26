@@ -169,7 +169,9 @@ export const storePromise = openTransportOrRefusal().then((transport) => {
   })
   watchStore(store)
   followFlagToggles(store)
-  followAppLifecycle(client)
+  followAppLifecycle(client, () => {
+    void store.actions.reread()
+  })
   followPushRegistration({
     store,
     client,
