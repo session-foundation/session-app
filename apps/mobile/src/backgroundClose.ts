@@ -23,7 +23,10 @@ export interface BackgroundCloseDeps {
    * action, which closes the database again once the action is over.
    */
   initialState: string
-  /** After a reopen that built the Client again: whatever it missed is read again. */
+  /**
+   * After a reopen, whether it built the Client again or cancelled a close still waiting: whatever
+   * a rebuilt Client missed is read again, which costs a read when nothing was missed.
+   */
   onReopened: () => void
   /** The OS's grace to finish in once the app has left the screen, as `backgroundTask` keeps it. */
   task: { begin: () => void; end: () => void }
