@@ -28,8 +28,10 @@ type NotificationSettings = Pick<
   | 'backgroundRefreshOn'
   | 'playSound'
   | 'preview'
+  | 'onTap'
   | 'post'
   | 'remove'
+  | 'setBadgeCount'
   | 'requestPermission'
 >
 
@@ -45,8 +47,10 @@ export const notificationSettings: NotificationSettings =
         backgroundRefreshOn: null,
         playSound: null,
         preview: null,
+        onTap: () => () => undefined,
         post: null,
         remove: null,
+        setBadgeCount: () => Promise.resolve(),
         requestPermission: () => Promise.resolve(false),
       }
     : {
@@ -71,6 +75,8 @@ export const notificationSettings: NotificationSettings =
           SessionPush.preview(title, body)
           return Promise.resolve()
         },
+        // Android opens a tapped conversation through the app's own link: see PushMessages.kt.
+        onTap: () => () => undefined,
         // Posted as a push's notification is, in the words the push handler holds.
         post: (notification) => {
           SessionPush.post(notification)
@@ -78,6 +84,8 @@ export const notificationSettings: NotificationSettings =
         remove: (ids) => {
           SessionPush.remove(ids)
         },
+        // No count on Android's launcher icon, as legacy Android has none.
+        setBadgeCount: () => Promise.resolve(),
         requestPermission: () => SessionPush.requestPermission(),
       }
 
@@ -97,3 +105,9 @@ export function followNotificationPrefs(store: SessionStore): void {
   apply()
   store.subscribe(apply)
 }
+
+/** Android carries out a notification's actions natively, the app running or not. */
+export function followNotificationActions(_client: unknown, _whileOpen: unknown): void {}
+
+/** Android's taps open the app's own link, and its database is never closed for the background. */
+export function holdTapsUntilOpen(_whileOpen: unknown): void {}

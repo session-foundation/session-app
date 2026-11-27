@@ -13,5 +13,6 @@ export const PUSH_ONLY_WORDS = {
   requestsChannel: { text: 'sessionMessageRequests' },
   markRead: { text: 'messageMarkRead' },
   reply: { text: 'reply' },
+  send: { text: 'send' },
   replyFailed: { text: 'messageErrorDelivery' },
 } as const satisfies Record<string, WordSource>

@@ -182,8 +182,6 @@ const ports = memoryPorts({
     ...notificationSettings,
     deliveryModes: deliveryModes(),
     pushService: VARIANT_TRAITS[VARIANT].pushService,
-    onTap: () => () => undefined,
-    setBadgeCount: () => Promise.resolve(),
   },
   build: {
     // The version app.json gives the build, which is what the stores and the OS know it as.

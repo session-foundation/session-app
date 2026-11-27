@@ -71,6 +71,11 @@ struct InitOptions {
     std::optional<std::array<std::byte, 32>> raw_key;
     std::optional<std::string> password;
 
+    /// Whether a database created with `raw_key` keeps SQLite's header in plaintext: iOS's, for its
+    /// shared container. One that exists is opened as it was made: see
+    /// `opens_with_plaintext_header`.
+    bool plaintext_header_when_new = false;
+
     /// Passes libsession's `session::core::defer_account` to the Client constructor; the bridge
     /// adds nothing of its own here.
     ///

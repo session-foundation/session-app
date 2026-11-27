@@ -1654,6 +1654,20 @@ struct ReopenClientCommand {
     static constexpr std::string_view type_tag = "reopenClient";
 };
 
+/// Stops or restarts fetching new messages: no polling and no swarm subscription while off, and
+/// whatever the subscribed node still pushes is ignored, to be fetched by the first poll after
+/// receiving restarts. Sends and uploads carry on. For iOS, as the app leaves the screen, so that
+/// its notification extension receives meanwhile. Answers `ok`; refused while the Client is
+/// closed. A Client built again by `reopenClient` receives.
+struct SetReceivingCommand {
+    static constexpr std::string_view type_tag = "setReceiving";
+
+    bool on;
+
+    explicit SetReceivingCommand(bool on_) :
+            on{std::move(on_)} {}
+};
+
 /// The push server's name for the service that delivers a device's pushes. `apns-sandbox` is APNs
 /// for a build signed for development, whose tokens production APNs refuses.
 enum class PushService {
@@ -2211,6 +2225,7 @@ using Command = std::variant<
         PollOnceCommand,
         CloseClientCommand,
         ReopenClientCommand,
+        SetReceivingCommand,
         SetPushTokenCommand,
         ClearPushTokenCommand,
         GetNotificationContentCommand,

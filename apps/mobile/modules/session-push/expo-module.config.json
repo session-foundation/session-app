@@ -1,6 +1,10 @@
 {
-  "platforms": ["android"],
+  "platforms": ["android", "apple"],
   "android": {
     "modules": ["org.getsession.push.SessionPushModule"]
+  },
+  "apple": {
+    "modules": ["SessionPushModule"],
+    "appDelegateSubscribers": ["SessionPushAppDelegateSubscriber"]
   }
 }

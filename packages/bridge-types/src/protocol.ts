@@ -257,6 +257,14 @@ export type Command =
    */
   | { type: 'reopenClient' }
   /**
+   * Stops or restarts fetching new messages: no polling and no swarm subscription while off, and
+   * whatever the subscribed node still pushes is ignored, to be fetched by the first poll after
+   * receiving restarts. Sends and uploads carry on. For iOS, as the app leaves the screen, so that
+   * its notification extension receives meanwhile. Answers `ok`; refused while the Client is
+   * closed. A Client built again by `reopenClient` receives.
+   */
+  | { type: 'setReceiving'; on: boolean }
+  /**
    * Subscribes this device to pushes for the account through `service`, or renews or changes its
    * subscription; `token` is what the service issued (an APNs token in hex, an FCM or Huawei token
    * as given). Sends only when needed: nothing is sent when the stored subscription already

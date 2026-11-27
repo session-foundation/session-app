@@ -1,4 +1,5 @@
 #include "session_bridge/client_bridge.hpp"
+#include "session_bridge/database_header.hpp"
 
 #include <session/client.hpp>
 #include <session/client/conversation.hpp>
@@ -692,8 +693,12 @@ struct ClientBridge::Impl {
             return with_edge(std::forward<decltype(key)>(key)...);
         };
 
-        if (options.raw_key)
-            client = open(sqlite::raw_key{*options.raw_key});
+        if (options.raw_key) {
+            sqlite::raw_key raw{*options.raw_key};
+            client = opens_with_plaintext_header(options.db_path, options.plaintext_header_when_new)
+                           ? open(raw, sqlite::plaintext_header)
+                           : open(raw);
+        }
         else if (options.password)
             client = open(sqlite::argon2id_password{*options.password});
         else
@@ -1373,6 +1378,11 @@ struct ClientBridge::Impl {
     }
 
     void handle(double id, const ReopenClientCommand&) { reopen_client(id); }
+
+    void handle(double id, const SetReceivingCommand& cmd) {
+        client->core.set_receiving(cmd.on);
+        ok(id);
+    }
 
     /// Under `client_lock`.
     void reopen_client(double id) {

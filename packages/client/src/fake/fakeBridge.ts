@@ -153,6 +153,10 @@ const handlers: { [K in Command['type']]: Handler<K> } = {
     type: 'bool',
     value: await client.setPushToken(cmd.service, cmd.token, cmd.force),
   }),
+  setReceiving: async (client, cmd) => {
+    await client.setReceiving(cmd.on)
+    return empty
+  },
   clearPushToken: async (client) => {
     await client.clearPushToken()
     return empty
