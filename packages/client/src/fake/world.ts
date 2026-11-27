@@ -317,11 +317,20 @@ interface FakeConversationState {
   /** As stored: a reply holds only its `FakeQuote`, which `withAvailability` resolves. */
   messages: Message[]
   /**
-   * Which incoming messages are still unread. Held beside the messages rather than on them
-   * because libsession counts unread on the conversation and reports nothing per message -
-   * this is the fake's own bookkeeping and it does not belong on the wire.
+   * The read watermark, in epoch milliseconds: an incoming message is unread when it is newer
+   * than this. A watermark rather than a set of message ids because that is libsession's model, and
+   * the two disagree about a late arrival older than the mark - libsession counts it read. Held
+   * beside the messages because libsession reports nothing per message, so it is the fake's own
+   * bookkeeping and does not belong on the wire.
    */
-  unread: Set<number>
+  lastReadMs: number
+}
+
+/** What libsession counts as unread: incoming, not deleted, and newer than the watermark. */
+function unreadIn(state: FakeConversationState): Message[] {
+  return state.messages.filter(
+    (m) => !m.outgoing && m.deleted === undefined && m.timestamp > state.lastReadMs,
+  )
 }
 
 export class FakeAccount {
@@ -563,8 +572,8 @@ export class FakeAccount {
   upsertConversation(conversation: Conversation, { announce = true } = {}): Conversation {
     const existing = this.conversations.get(conversation.id)
     const state: FakeConversationState = existing
-      ? { conversation, messages: existing.messages, unread: existing.unread }
-      : { conversation, messages: [], unread: new Set() }
+      ? { conversation, messages: existing.messages, lastReadMs: existing.lastReadMs }
+      : { conversation, messages: [], lastReadMs: 0 }
     this.conversations.set(conversation.id, state)
 
     if (!announce) return conversation
@@ -596,7 +605,6 @@ export class FakeAccount {
   addMessage(id: ConversationId, message: Message): Message {
     const state = this.conversations.get(id)
     if (!state) throw new Error(`No conversation ${id}`)
-    if (!message.outgoing) state.unread.add(message.id)
     for (const attachment of message.attachments) {
       if (isVerdict(attachment.availability))
         this.verdicts.set(
@@ -607,13 +615,12 @@ export class FakeAccount {
     state.messages.push(message)
     state.messages.sort((a, b) => a.timestamp - b.timestamp || a.id - b.id)
 
-    const unreadCount = state.messages.filter((m) => state.unread.has(m.id) && !m.outgoing).length
     const conversation: Conversation = {
       ...state.conversation,
       // Only ever forwards, as libsession moves it: a message can arrive dated before the last.
       lastActivity: Math.max(state.conversation.lastActivity, message.timestamp),
       snippet: message.body,
-      unreadCount,
+      unreadCount: unreadIn(state).length,
       // Writing to someone is what approves them, as in libsession: a request written back to
       // leaves the requests for the conversations.
       ...(message.outgoing ? { request: false } : {}),
@@ -638,16 +645,31 @@ export class FakeAccount {
     this.announce('messages-updated', [updated])
   }
 
-  markRead(id: ConversationId): void {
+  /**
+   * Moves the watermark to `upToMs`, inclusive, or to the newest incoming message when it is left
+   * out - which, as in libsession, reads what is here now rather than everything that ever
+   * arrives. Never moves it backwards and clears `markedUnread`, and announces the row only when
+   * one of the two changed, as libsession does. Left out with no incoming message to read up to,
+   * libsession changes nothing at all, `markedUnread` included, and so does this.
+   */
+  markRead(id: ConversationId, upToMs?: number): void {
     const state = this.conversations.get(id)
     if (!state) return
-    state.unread.clear()
+    const incoming = state.messages.filter((m) => !m.outgoing && m.deleted === undefined)
+    if (upToMs === undefined && incoming.length === 0) return
+    const target = upToMs ?? Math.max(...incoming.map((m) => m.timestamp))
+    const next: FakeConversationState = { ...state, lastReadMs: Math.max(state.lastReadMs, target) }
     const conversation: Conversation = {
       ...state.conversation,
-      unreadCount: 0,
+      unreadCount: unreadIn(next).length,
       markedUnread: false,
     }
-    this.conversations.set(id, { ...state, conversation })
+    this.conversations.set(id, { ...next, conversation })
+    if (
+      next.lastReadMs === state.lastReadMs &&
+      state.conversation.markedUnread === conversation.markedUnread
+    )
+      return
     this.announceRow(state.conversation, conversation)
   }
 
