@@ -54,6 +54,7 @@ export type {
   PathDestination,
   PathHop,
   PixelSize,
+  PushService,
   QuotedMessage,
   Reply,
   Request,

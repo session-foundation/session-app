@@ -383,6 +383,65 @@ describe('a clear that fails', () => {
   })
 })
 
+describe('clearing the device', () => {
+  async function started() {
+    const { clients } = friends(['Alice', 'Bob'])
+    const alice = clients['Alice']
+    if (!alice) throw new Error('fixture did not produce a client')
+    // Timers the test fires by hand: this package has no timers of its own.
+    const due = new Map<number, () => void>()
+    let nextTimer = 0
+    const timers = {
+      setTimeout: (fn: () => void) => {
+        due.set(++nextTimer, fn)
+        return nextTimer
+      },
+      clearTimeout: (id: unknown) => {
+        due.delete(id as number)
+      },
+    }
+    const store = createSessionStore(alice, { timers })
+    await store.actions.start()
+    return { alice, store, fireTimers: () => [...due.values()].forEach((fn) => fn()) }
+  }
+
+  it('removes the push subscription first, while the account can still sign for it', async () => {
+    const { alice, store } = await started()
+    const order: string[] = []
+    vi.spyOn(alice, 'clearPushToken').mockImplementation(() => {
+      order.push('unsubscribe')
+      return Promise.resolve()
+    })
+    const discard = alice.discardAccount.bind(alice)
+    vi.spyOn(alice, 'discardAccount').mockImplementation(() => {
+      order.push('discard')
+      return discard()
+    })
+    await store.actions.clearDeviceData()
+    expect(order).toEqual(['unsubscribe', 'discard'])
+  })
+
+  it('goes on without it when the push server does not answer in time', async () => {
+    const { alice, store, fireTimers } = await started()
+    vi.spyOn(alice, 'clearPushToken').mockImplementation(() => new Promise(() => {}))
+    const discard = vi.spyOn(alice, 'discardAccount')
+    const clearing = store.actions.clearDeviceData()
+    await Promise.resolve()
+    expect(discard).not.toHaveBeenCalled()
+    fireTimers()
+    await clearing
+    expect(discard).toHaveBeenCalledTimes(1)
+  })
+
+  it('goes on without it when the unsubscribe fails', async () => {
+    const { alice, store } = await started()
+    vi.spyOn(alice, 'clearPushToken').mockRejectedValue(new Error('offline'))
+    const discard = vi.spyOn(alice, 'discardAccount')
+    await store.actions.clearDeviceData()
+    expect(discard).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe('the store', () => {
   let fixture: ReturnType<typeof seeded>
 

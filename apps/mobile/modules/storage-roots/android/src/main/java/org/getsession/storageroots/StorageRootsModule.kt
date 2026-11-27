@@ -93,5 +93,21 @@ class StorageRootsModule : Module() {
         "excludedFromBackup" to isExcluded(file),
       )
     }
+
+    // An uninstall removes these with everything else on Android; kept beside iOS's, whose
+    // database can outlive the app. See `PushInstallMarker` in packages/app.
+    Function("pushSubscribedThisInstall") {
+      installPrefs().getBoolean(PUSH_SUBSCRIBED_KEY, false)
+    }
+
+    Function("markPushSubscribedThisInstall") {
+      installPrefs().edit().putBoolean(PUSH_SUBSCRIBED_KEY, true).apply()
+    }
+  }
+
+  private fun installPrefs() = context.getSharedPreferences("install", Context.MODE_PRIVATE)
+
+  private companion object {
+    const val PUSH_SUBSCRIBED_KEY = "pushSubscribedThisInstall"
   }
 }

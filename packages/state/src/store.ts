@@ -27,6 +27,7 @@ import {
   MAX_JUMPS,
   type ListName,
   type MessageWindow,
+  type NotificationMode,
   type SessionState,
   type StoredAppearance,
 } from './types'
@@ -34,6 +35,7 @@ import {
 /** Where the account's theme and accent are kept, as libsession preferences. */
 const THEME_PREF = 'appearance.theme'
 const ACCENT_PREF = 'appearance.accent'
+const NOTIFICATION_MODE_PREF = 'notifications.mode'
 /** Where the flags switched in Developer Settings are kept: a JSON object of name to value. */
 const FLAG_TOGGLES_PREF = 'developer.flagToggles'
 
@@ -119,6 +121,8 @@ export interface SessionActions {
    * the Appearance screen, once built, will too.
    */
   setAppearance: (appearance: StoredAppearance) => Promise<void>
+  /** Stores how this device hears about messages. See `notificationMode`. */
+  setNotificationMode: (mode: NotificationMode) => Promise<void>
   /**
    * The recovery password, handed straight to the caller and never kept in the store: a string in
    * JavaScript cannot be wiped, so the fewer places hold it the better, and none of them a log.
@@ -351,6 +355,12 @@ export interface SessionStoreOptions {
    * it should be is a per-platform question a phone and a desktop answer differently.
    */
   attachmentCacheLimitBytes?: number
+  /**
+   * The app's timers, which this package has none of: what bounds the wait for the push server
+   * before a clear (`CLEAR_UNSUBSCRIBE_WAIT_MS`). Left out, a clear waits for its answer.
+   */
+  timers?:
+    { setTimeout(fn: () => void, ms: number): unknown; clearTimeout(id: unknown): void } | undefined
 }
 
 const PAGE = 30
@@ -365,6 +375,12 @@ const FIRST_PAGE = 15
  * once. Every row of it is drawn again, which on a phone is about 120 ms more than one page.
  */
 const JUMP_WINDOW = 2 * PAGE
+/**
+ * How long a clear waits for the push subscription to be removed before it goes on without it. The
+ * clear must not depend on the network: one left behind is pushed to until the push server lets
+ * it lapse, after 14 days, and a push for an account no longer here shows nothing.
+ */
+const CLEAR_UNSUBSCRIBE_WAIT_MS = 5_000
 const LIST_NAMES: readonly ListName[] = ['conversations', 'requests']
 
 /**
@@ -662,6 +678,31 @@ export function createSessionStore(
     return write
   }
 
+  /** Removes this device's push subscription, waiting at most `CLEAR_UNSUBSCRIBE_WAIT_MS`. */
+  async function unsubscribeBeforeClear(): Promise<void> {
+    const timers = options.timers
+    let timer: unknown
+    const outcome = await Promise.race([
+      client.clearPushToken().then(
+        () => 'removed' as const,
+        (error: unknown) => `failed: ${String(error)}`,
+      ),
+      ...(timers === undefined
+        ? []
+        : [
+            new Promise<'timed out'>((resolve) => {
+              timer = timers.setTimeout(() => resolve('timed out'), CLEAR_UNSUBSCRIBE_WAIT_MS)
+            }),
+          ]),
+    ])
+    timers?.clearTimeout(timer)
+    log(
+      outcome === 'removed' ? 'info' : 'warn',
+      'session',
+      `push subscription before clearing the device: ${outcome}`,
+    )
+  }
+
   /** The start under way, so that a read after a reopen joins it rather than running another. */
   let starting: Promise<void> | null = null
 
@@ -735,6 +776,8 @@ export function createSessionStore(
       // which is where somebody restores from their recovery phrase -- so this is both of the
       // legacy client's options, clear and clear-then-restore, which differ there only in what
       // they do next.
+      // Its own step, best effort, before the account that signs it is gone.
+      if (store.getState().account?.haveAccount === true) await unsubscribeBeforeClear()
       try {
         await client.discardAccount()
       } catch (error) {
@@ -811,11 +854,12 @@ export function createSessionStore(
         return
       }
 
-      const [theme, accent, hidden, toggles] = await Promise.all([
+      const [theme, accent, hidden, toggles, mode] = await Promise.all([
         client.getPref(THEME_PREF),
         client.getPref(ACCENT_PREF),
         client.getRecoveryPasswordHidden(),
         client.getPref(FLAG_TOGGLES_PREF),
+        client.getPref(NOTIFICATION_MODE_PREF),
         readList('conversations'),
         readList('requests'),
         askNetworkStatus(),
@@ -829,6 +873,7 @@ export function createSessionStore(
         appearance,
         recoveryPasswordHidden: hidden,
         flagToggles: parseFlagToggles(toggles),
+        notificationMode: mode === 'fast' || mode === 'slow' ? mode : null,
         hydrated: true,
       })
     },
@@ -849,6 +894,12 @@ export function createSessionStore(
       await client.setPref(THEME_PREF, appearance.theme)
       await client.setPref(ACCENT_PREF, appearance.accent)
       store.setState({ appearance })
+    },
+
+    async setNotificationMode(mode): Promise<void> {
+      if (store.getState().account?.haveAccount !== true) return
+      await client.setPref(NOTIFICATION_MODE_PREF, mode)
+      store.setState({ notificationMode: mode })
     },
 
     async getRecoveryPassword(): Promise<RecoveryPassword> {

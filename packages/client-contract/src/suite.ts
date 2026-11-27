@@ -957,6 +957,22 @@ export function runSessionClientContract(
       expect(['interrupted', 'sent', 'failed']).toContain(inFlight?.sendState)
     })
 
+    it('refuses a push token that is empty, before asking the push server', async () => {
+      const { alice } = await harness.friends()
+      const error = await failure(() => alice.setPushToken('firebase', ''))
+      expect(error instanceof SessionClientError).toBe(true)
+      const forced = await failure(() => alice.setPushToken('firebase', '', true))
+      expect(forced instanceof SessionClientError).toBe(true)
+    })
+
+    it('clears a push subscription that was never made without asking anything', async () => {
+      // Answered at once, network or not: switching to slow mode must never hang on a server it
+      // has nothing to tell.
+      const { alice } = await harness.friends()
+      await alice.clearPushToken()
+      await alice.clearPushToken()
+    })
+
     it('closes for the background, refusing requests until it is reopened', async () => {
       const { alice, bobId } = await harness.friends()
       const before = await alice.getAccountInfo()

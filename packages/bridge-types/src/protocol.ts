@@ -14,6 +14,7 @@ import type {
   NetworkPaths,
   NetworkStatus,
   OutgoingAttachment,
+  PushService,
   SendPlan,
 } from './domain'
 import type { FileServerConfig, RouterKind, SeedNode } from './sessionBridgeOptions'
@@ -252,7 +253,26 @@ export type Command =
    * there again; nothing to do if it never closed.
    */
   | { type: 'reopenClient' }
-  | { type: 'setPushToken'; platform: string; token: string }
+  /**
+   * Subscribes this device to pushes for the account through `service`, or renews or changes its
+   * subscription; `token` is what the service issued (an APNs token in hex, an FCM or Huawei token
+   * as given). Sends only when needed: nothing is sent when the stored subscription already
+   * matches and is under a day old, so this is cheap to call on every launch. A changed token
+   * unsubscribes the old one too.
+   *
+   * Answers `bool`: true when a request went out and was accepted, false when nothing needed
+   * sending. Refused without a network or an account.
+   *
+   * `force` sends whatever is stored. A reinstall on iOS can keep the database, which lives in the
+   * app group, while the push server has dropped the subscription; the stored one then matches
+   * and nothing would be sent for up to a day.
+   */
+  | { type: 'setPushToken'; service: PushService; token: string; force?: boolean }
+  /**
+   * Removes this device's push subscription, as when somebody switches to slow mode. Answers `ok`
+   * once the push server has accepted the removal, or at once when there was none to remove.
+   */
+  | { type: 'clearPushToken' }
   /**
    * Interpret a push payload far enough to notify. Answering from the payload alone matters on
    * iOS, where the notification service extension runs while the app holds the database.

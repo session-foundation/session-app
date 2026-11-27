@@ -1455,14 +1455,59 @@ struct ReopenClientCommand {
     static constexpr std::string_view type_tag = "reopenClient";
 };
 
+/// The push server's name for the service that delivers a device's pushes. `apns-sandbox` is APNs
+/// for a build signed for development, whose tokens production APNs refuses.
+enum class PushService {
+    apns,
+    apns_sandbox,
+    firebase,
+    huawei,
+};
+
+template <>
+struct EnumTraits<PushService> {
+    static constexpr std::string_view name = "PushService";
+    static constexpr std::array<std::string_view, 4> names{"apns", "apns-sandbox", "firebase", "huawei"};
+
+    static constexpr std::string_view to_string(PushService value) {
+        return names[static_cast<std::size_t>(value)];
+    }
+
+    static constexpr std::optional<PushService> parse(std::string_view text) {
+        for (std::size_t i = 0; i < names.size(); i++)
+            if (names[i] == text)
+                return static_cast<PushService>(i);
+        return std::nullopt;
+    }
+};
+
+/// Subscribes this device to pushes for the account through `service`, or renews or changes its
+/// subscription; `token` is what the service issued (an APNs token in hex, an FCM or Huawei token
+/// as given). Sends only when needed: nothing is sent when the stored subscription already
+/// matches and is under a day old, so this is cheap to call on every launch. A changed token
+/// unsubscribes the old one too.
+///
+/// Answers `bool`: true when a request went out and was accepted, false when nothing needed
+/// sending. Refused without a network or an account.
+///
+/// `force` sends whatever is stored. A reinstall on iOS can keep the database, which lives in the
+/// app group, while the push server has dropped the subscription; the stored one then matches
+/// and nothing would be sent for up to a day.
 struct SetPushTokenCommand {
     static constexpr std::string_view type_tag = "setPushToken";
 
-    std::string platform;
+    ::session_bridge::PushService service;
     std::string token;
+    std::optional<bool> force;
 
-    SetPushTokenCommand(std::string platform_, std::string token_) :
-            platform{std::move(platform_)}, token{std::move(token_)} {}
+    SetPushTokenCommand(::session_bridge::PushService service_, std::string token_, std::optional<bool> force_) :
+            service{std::move(service_)}, token{std::move(token_)}, force{std::move(force_)} {}
+};
+
+/// Removes this device's push subscription, as when somebody switches to slow mode. Answers `ok`
+/// once the push server has accepted the removal, or at once when there was none to remove.
+struct ClearPushTokenCommand {
+    static constexpr std::string_view type_tag = "clearPushToken";
 };
 
 /// Interpret a push payload far enough to notify. Answering from the payload alone matters on
@@ -1925,6 +1970,7 @@ using Command = std::variant<
         CloseClientCommand,
         ReopenClientCommand,
         SetPushTokenCommand,
+        ClearPushTokenCommand,
         HandlePushPayloadCommand,
         GetConversationsCommand,
         GetMessageRequestsCommand,

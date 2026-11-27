@@ -2,6 +2,8 @@ import ExpoModulesCore
 
 /// The protected roots, to JavaScript. See `ProtectedRoots`.
 public class StorageRootsModule: Module {
+  private static let pushSubscribedKey = "pushSubscribedThisInstall"
+
   public func definition() -> ModuleDefinition {
     Name("StorageRoots")
 
@@ -30,6 +32,16 @@ public class StorageRootsModule: Module {
 
     Function("inspect") { (path: String) throws -> [String: Any] in
       try ProtectedRoots.inspect(URL(fileURLWithPath: path))
+    }
+
+    /// In the app's own defaults, which an uninstall removes, unlike the app group the roots can
+    /// be in. See `PushInstallMarker` in packages/app.
+    Function("pushSubscribedThisInstall") { () -> Bool in
+      UserDefaults.standard.bool(forKey: Self.pushSubscribedKey)
+    }
+
+    Function("markPushSubscribedThisInstall") {
+      UserDefaults.standard.set(true, forKey: Self.pushSubscribedKey)
     }
   }
 }

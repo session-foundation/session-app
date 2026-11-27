@@ -241,6 +241,34 @@ describeAddon('the N-API addon', () => {
     transport.close()
   })
 
+  it('reads a forced push subscription, refusing a force that is not a boolean', async () => {
+    const transport = createNodeBridgeTransport({
+      dbPath: join(dir, 'force.db'),
+      cacheDir: join(dir, 'cache'),
+      rawKey: new Uint8Array(32).fill(5),
+      deferAccount: true,
+    })
+
+    const answered = new Promise<string | undefined>((resolve) => {
+      transport.setSink((frame) => {
+        if (frame.type === 'response' && frame.response.id === 9) resolve(frame.response.error)
+      })
+    })
+
+    transport.send({
+      id: 9,
+      command: {
+        type: 'setPushToken',
+        service: 'apns',
+        token: 'aa',
+        force: 1 as unknown as boolean,
+      },
+    })
+
+    await expect(answered).resolves.toMatch(/SetPushTokenCommand\.force: expected a boolean/)
+    transport.close()
+  })
+
   it('refuses a number that no whole number can hold, rather than casting it', async () => {
     const transport = createNodeBridgeTransport({
       dbPath: join(dir, 'huge.db'),

@@ -1,5 +1,5 @@
 import type { NetworkName, QrMark, WithSpan } from '@session/basic-types'
-import type { AttachmentRef, PixelSize } from '@session/client'
+import type { AttachmentRef, PixelSize, PushService } from '@session/client'
 import type { BuildFacts, DiagnosticsSnapshot, ExportPart, LogFileInfo } from '@session/logging'
 
 import type { BuildVariant } from './buildVariant'
@@ -146,6 +146,41 @@ export interface MediaProbePort {
   imageSize(path: string): Promise<PixelSize | null>
 }
 
+/** A push token, named by the push server's name for the service that issued it. */
+export interface PushToken {
+  service: PushService
+  token: string
+}
+
+/**
+ * This device's push token, from APNs, FCM or Huawei's push kit as the build has.
+ *
+ * Kept apart from registering it with the push server, which is libsession's (`setPushToken`), so
+ * every platform shares one rule for when that happens: see `followPushRegistration`.
+ */
+export interface PushTokenSource {
+  /**
+   * Asks for permission to notify where the OS needs it, then answers the token. Null when the
+   * service can't issue one: no Play Services, say, or registration refused.
+   */
+  token(): Promise<PushToken | null>
+  /** Calls back when the service issues a new token, which it can do at any launch. */
+  onChange(listener: () => void): () => void
+}
+
+/**
+ * Whether this install has subscribed for pushes, kept where an uninstall always removes it.
+ *
+ * libsession keeps the subscription it last sent in the database and sends nothing while it still
+ * matches. On iOS the database can be in the app group, which can outlive the app: a reinstall
+ * then finds a matching record for a subscription the push server may have dropped, and gets no
+ * pushes until the record is a day old. So the first subscription of an install is forced.
+ */
+export interface PushInstallMarker {
+  subscribed(): boolean
+  markSubscribed(): void
+}
+
 export interface NotificationsPort {
   /**
    * Whether this build has a push service behind it.
@@ -184,6 +219,13 @@ export interface NotificationsPort {
    * off the other is what put a phone's question on a desktop screen.
    */
   readonly notificationModesApply: boolean
+  /**
+   * Where fast mode gets its push token: null where this build has no push service behind it,
+   * which is also when `fastModeAvailable` is false. See `PushTokenSource`.
+   */
+  readonly pushTokens: PushTokenSource | null
+  /** Null where there is no push service. See `PushInstallMarker`. */
+  readonly pushInstallMarker: PushInstallMarker | null
   requestPermission(): Promise<boolean>
   show(notification: { conversationId: string; title: string; body: string }): Promise<void>
   onTap(handler: (conversationId: string) => void): () => void

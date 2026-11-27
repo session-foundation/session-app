@@ -13,6 +13,7 @@
 #include <session/network/ip_country.hpp>
 #include <session/network/network_opt.hpp>
 #include <session/network/session_network.hpp>
+#include <session/push/notifications.hpp>
 #include <session/sqlite.hpp>
 
 #include <oxenc/hex.h>
@@ -372,6 +373,9 @@ namespace {
 struct ClientBridge::Impl {
     Sink sink;
     std::unique_ptr<client::Client> client;
+    /// Push subscription for `client`, made on first use. It holds a reference to the Client it was
+    /// made for, so it goes first wherever the Client is replaced or destroyed.
+    std::optional<push::Notifications> notifications;
     /// Why there is no client, when the database would not open: what every request is refused
     /// with until a discard opens a fresh one. Empty while a client is open.
     std::string open_failure;
@@ -483,6 +487,7 @@ struct ClientBridge::Impl {
     /// can be rebuilt as often as needed. They are moved into the Client, which is why they are
     /// constructed here on each call rather than held.
     void open_client() {
+        notifications.reset();
         auto* impl = this;
 
         // Every handler does the same two things and nothing else: fill a frame, and hand it to the
@@ -983,6 +988,7 @@ struct ClientBridge::Impl {
         // Closed before anything is removed. Deleting a database out from under an open handle
         // leaves its pages alive until the last descriptor closes, which looks exactly like having
         // worked and is not.
+        notifications.reset();
         client.reset();
 
         std::error_code ec;
@@ -1179,6 +1185,7 @@ struct ClientBridge::Impl {
             background = Background::destroying;
             watch->handle = client->core.database().interrupt_handle();
             close_watch = watch;
+            notifications.reset();
             dying = std::move(client);
         }
 
@@ -1285,8 +1292,36 @@ struct ClientBridge::Impl {
         fail(id, "pollOnce is not supported by this libsession build");
     }
 
-    void handle(double id, const SetPushTokenCommand&) {
-        fail(id, "setPushToken is not implemented by the bridge yet");
+    static push::Service push_service(PushService service) {
+        switch (service) {
+            case PushService::apns: return push::Service::apns;
+            case PushService::apns_sandbox: return push::Service::apns_sandbox;
+            case PushService::firebase: return push::Service::firebase;
+            case PushService::huawei: return push::Service::huawei;
+        }
+        throw std::invalid_argument{"setPushToken.service is not a push service"};
+    }
+
+    push::Notifications& push_notifications() {
+        if (!notifications)
+            notifications.emplace(*client);
+        return *notifications;
+    }
+
+    void handle(double id, const SetPushTokenCommand& cmd) {
+        if (cmd.token.empty())
+            throw std::invalid_argument{"setPushToken.token must not be empty"};
+        push_notifications().subscribe(
+                {push_service(cmd.service), cmd.token},
+                on(id,
+                   [this, id](push::SubscribeResult r) {
+                       respond(id, BoolResult{r == push::SubscribeResult::subscribed});
+                   }),
+                cmd.force.value_or(false));
+    }
+
+    void handle(double id, const ClearPushTokenCommand&) {
+        push_notifications().unsubscribe(on(id, [this, id](bool) { ok(id); }));
     }
 
     void handle(double id, const HandlePushPayloadCommand&) {
@@ -1889,6 +1924,7 @@ void ClientBridge::close() {
         std::lock_guard lock{_impl->network_status_lock};
         _impl->network_status_open = false;
     }
+    _impl->notifications.reset();
     _impl->client.reset();
     // Waits a bounded moment for a decode under way, so a stuck one cannot hold up a quit.
     _impl->staged->close();

@@ -41,6 +41,12 @@ export type Deletion = 'here' | 'everywhere'
 export type AutoDownload = 'none' | 'image-attachments' | 'all'
 
 /**
+ * The push server's name for the service that delivers a device's pushes. `apns-sandbox` is APNs
+ * for a build signed for development, whose tokens production APNs refuses.
+ */
+export type PushService = 'apns' | 'apns-sandbox' | 'firebase' | 'huawei'
+
+/**
  * What sending a file as an attachment will do with it, decided from its header alone as the send
  * decides it: libsession's `image::SendPlan`.
  *

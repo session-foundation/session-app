@@ -56,6 +56,7 @@ if(SESSION_BRIDGE_LIBSESSION_BUNDLE)
     endif()
     add_library(libsession::client ALIAS session-libsession-prebuilt)
     add_library(libsession::protos ALIAS session-libsession-prebuilt)
+    add_library(libsession::push ALIAS session-libsession-prebuilt)
 elseif(NOT TARGET libsession::client)
     # Stand-alone build, for compiling the shim on its own.
     add_subdirectory(${SESSION_BRIDGE_LIBSESSION} libsession-util)
@@ -97,7 +98,7 @@ target_include_directories(session-bridge-core
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
-target_link_libraries(session-bridge-core PUBLIC libsession::client)
+target_link_libraries(session-bridge-core PUBLIC libsession::client libsession::push)
 
 # What `mark_downloaded` sets the quarantine property through. macOS only: iOS has no Gatekeeper.
 if(APPLE AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")

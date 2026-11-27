@@ -1,4 +1,4 @@
-import { followFlagToggles } from '@session/app'
+import { followFlagToggles, followPushRegistration, requirePorts } from '@session/app'
 import {
   netidForTransport,
   parseDevnetConfig,
@@ -15,7 +15,7 @@ import {
   type FetchLike,
 } from '@session/client'
 import { createSessionStore } from '@session/state'
-import { PixelRatio, Platform } from 'react-native'
+import { AppState, PixelRatio, Platform } from 'react-native'
 
 import { mobileClient } from './client'
 import { followAppLifecycle } from './clientLifecycle'
@@ -166,11 +166,34 @@ export const storePromise = openTransportOrRefusal().then((transport) => {
     attachmentCacheLimitBytes: ATTACHMENT_CACHE_LIMIT_BYTES,
     log: storeLog,
     libsessionLog,
+    timers: { setTimeout, clearTimeout },
   })
   watchStore(store)
   followFlagToggles(store)
   followAppLifecycle(client, () => {
     void store.actions.reread()
+  })
+  followPushRegistration({
+    store,
+    client,
+    // Mainnet's swarms only: the push server watches the one network its oxend is on, so a
+    // subscription from another is accepted and never pushed to.
+    source:
+      parseNetworkName(process.env['EXPO_PUBLIC_SESSION_NETID']) === 'mainnet'
+        ? requirePorts().notifications.pushTokens
+        : null,
+    marker: requirePorts().notifications.pushInstallMarker,
+    onActive: (listener) => {
+      const subscription = AppState.addEventListener('change', (state) => {
+        if (state === 'active') listener()
+      })
+      return () => {
+        subscription.remove()
+      }
+    },
+    log: (level, message) => {
+      storeLog(level, 'push', message)
+    },
   })
   return store
 })

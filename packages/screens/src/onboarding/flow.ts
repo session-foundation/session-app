@@ -1,3 +1,5 @@
+import type { NotificationMode } from '@session/state'
+
 /**
  * Onboarding as a state machine, ported from the legacy clients.
  *
@@ -68,7 +70,7 @@ export type RecoveryInput = { words: string[]; language?: string } | { hexSeed: 
  * Named for what it is rather than for the marketing: fast mode is a push service, and on a build
  * without one it is not merely slower but absent, which is what `unavailable` marks.
  */
-export type NotificationMode = 'fast' | 'slow'
+export type { NotificationMode }
 
 export interface OnboardingState {
   step: OnboardingStep

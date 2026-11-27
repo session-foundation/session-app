@@ -1979,18 +1979,39 @@ struct JSIConverter<::session_bridge::ReopenClientCommand> final {
 };
 
 template <>
+struct JSIConverter<::session_bridge::PushService> final {
+    static inline ::session_bridge::PushService fromJSI(jsi::Runtime& runtime, const jsi::Value& arg) {
+        std::string text = JSIConverter<std::string>::fromJSI(runtime, arg);
+        auto parsed = ::session_bridge::EnumTraits<::session_bridge::PushService>::parse(text);
+        if (!parsed) [[unlikely]]
+            throw std::invalid_argument("Cannot convert \"" + text + "\" to PushService");
+        return *parsed;
+    }
+    static inline jsi::Value toJSI(jsi::Runtime& runtime, ::session_bridge::PushService arg) {
+        return ::session_bridge::ascii(runtime, ::session_bridge::EnumTraits<::session_bridge::PushService>::to_string(arg));
+    }
+    static inline bool canConvert(jsi::Runtime& runtime, const jsi::Value& value) {
+        return value.isString() &&
+               ::session_bridge::EnumTraits<::session_bridge::PushService>::parse(JSIConverter<std::string>::fromJSI(runtime, value)).has_value();
+    }
+};
+
+template <>
 struct JSIConverter<::session_bridge::SetPushTokenCommand> final {
     static inline ::session_bridge::SetPushTokenCommand fromJSI(jsi::Runtime& runtime, const jsi::Value& arg) {
         jsi::Object obj = arg.asObject(runtime);
         return ::session_bridge::SetPushTokenCommand(
-                JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "platform"))),
-                JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "token"))));
+                JSIConverter<::session_bridge::PushService>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "service"))),
+                JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "token"))),
+                ::session_bridge::optional_from_jsi<bool>(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "force"))));
     }
     static inline jsi::Value toJSI(jsi::Runtime& runtime, const ::session_bridge::SetPushTokenCommand& arg) {
         jsi::Object obj(runtime);
         obj.setProperty(runtime, PropNameIDCache::get(runtime, "type"), ::session_bridge::ascii(runtime, ::session_bridge::SetPushTokenCommand::type_tag));
-        obj.setProperty(runtime, PropNameIDCache::get(runtime, "platform"), JSIConverter<std::string>::toJSI(runtime, arg.platform));
+        obj.setProperty(runtime, PropNameIDCache::get(runtime, "service"), JSIConverter<::session_bridge::PushService>::toJSI(runtime, arg.service));
         obj.setProperty(runtime, PropNameIDCache::get(runtime, "token"), JSIConverter<std::string>::toJSI(runtime, arg.token));
+        if (arg.force)
+            obj.setProperty(runtime, PropNameIDCache::get(runtime, "force"), JSIConverter<bool>::toJSI(runtime, *arg.force));
         return obj;
     }
     static inline bool canConvert(jsi::Runtime& runtime, const jsi::Value& value) {
@@ -1998,6 +2019,25 @@ struct JSIConverter<::session_bridge::SetPushTokenCommand> final {
             return false;
         jsi::Value type = value.getObject(runtime).getProperty(runtime, PropNameIDCache::get(runtime, "type"));
         return type.isString() && type.getString(runtime).utf8(runtime) == ::session_bridge::SetPushTokenCommand::type_tag;
+    }
+};
+
+template <>
+struct JSIConverter<::session_bridge::ClearPushTokenCommand> final {
+    static inline ::session_bridge::ClearPushTokenCommand fromJSI(jsi::Runtime&, const jsi::Value&) {
+        return ::session_bridge::ClearPushTokenCommand{};
+    }
+    static inline jsi::Value toJSI(jsi::Runtime& runtime, const ::session_bridge::ClearPushTokenCommand& arg) {
+        (void)arg;
+        jsi::Object obj(runtime);
+        obj.setProperty(runtime, PropNameIDCache::get(runtime, "type"), ::session_bridge::ascii(runtime, ::session_bridge::ClearPushTokenCommand::type_tag));
+        return obj;
+    }
+    static inline bool canConvert(jsi::Runtime& runtime, const jsi::Value& value) {
+        if (!value.isObject())
+            return false;
+        jsi::Value type = value.getObject(runtime).getProperty(runtime, PropNameIDCache::get(runtime, "type"));
+        return type.isString() && type.getString(runtime).utf8(runtime) == ::session_bridge::ClearPushTokenCommand::type_tag;
     }
 };
 
@@ -2914,6 +2954,8 @@ struct JSIConverter<::session_bridge::Command> final {
             return JSIConverter<::session_bridge::ReopenClientCommand>::fromJSI(runtime, arg);
         if (tag == "setPushToken")
             return JSIConverter<::session_bridge::SetPushTokenCommand>::fromJSI(runtime, arg);
+        if (tag == "clearPushToken")
+            return JSIConverter<::session_bridge::ClearPushTokenCommand>::fromJSI(runtime, arg);
         if (tag == "handlePushPayload")
             return JSIConverter<::session_bridge::HandlePushPayloadCommand>::fromJSI(runtime, arg);
         if (tag == "getConversations")
@@ -3000,7 +3042,7 @@ struct JSIConverter<::session_bridge::Command> final {
         if (!type.isString())
             return false;
         std::string tag = type.getString(runtime).utf8(runtime);
-        return tag == "getAccountInfo" || tag == "createAccount" || tag == "restoreAccountFromWords" || tag == "checkRecoveryPhrase" || tag == "restoreAccountFromSeed" || tag == "discardAccount" || tag == "keepAccount" || tag == "getSeedMnemonic" || tag == "getSeedHex" || tag == "hideRecoveryPassword" || tag == "getRecoveryPasswordHidden" || tag == "setDisplayName" || tag == "attachNetwork" || tag == "warmNetworkCache" || tag == "getNetworkStatus" || tag == "setPollInterval" || tag == "pollOnce" || tag == "closeClient" || tag == "reopenClient" || tag == "setPushToken" || tag == "handlePushPayload" || tag == "getConversations" || tag == "getMessageRequests" || tag == "getConversation" || tag == "openDm" || tag == "markRead" || tag == "setBlocked" || tag == "setNickname" || tag == "setPriority" || tag == "approveConversation" || tag == "deleteConversation" || tag == "getMessages" || tag == "sendMessage" || tag == "attachmentSendPlan" || tag == "getAttachmentUploadLimit" || tag == "retrySend" || tag == "deleteMessage" || tag == "setGallery" || tag == "downloadAttachment" || tag == "exportAttachment" || tag == "setAutoDownload" || tag == "getCacheDir" || tag == "getAttachmentCacheLimit" || tag == "setAttachmentCacheLimit" || tag == "getAttachmentCacheSize" || tag == "getThumbnailEdge" || tag == "setThumbnailEdge" || tag == "getConfigSizes" || tag == "getNetworkPaths" || tag == "getPref" || tag == "setPref" || tag == "deliverTestMessage" || tag == "getTestAccountSeed" || tag == "approveTestContact" || tag == "echoTestFrame";
+        return tag == "getAccountInfo" || tag == "createAccount" || tag == "restoreAccountFromWords" || tag == "checkRecoveryPhrase" || tag == "restoreAccountFromSeed" || tag == "discardAccount" || tag == "keepAccount" || tag == "getSeedMnemonic" || tag == "getSeedHex" || tag == "hideRecoveryPassword" || tag == "getRecoveryPasswordHidden" || tag == "setDisplayName" || tag == "attachNetwork" || tag == "warmNetworkCache" || tag == "getNetworkStatus" || tag == "setPollInterval" || tag == "pollOnce" || tag == "closeClient" || tag == "reopenClient" || tag == "setPushToken" || tag == "clearPushToken" || tag == "handlePushPayload" || tag == "getConversations" || tag == "getMessageRequests" || tag == "getConversation" || tag == "openDm" || tag == "markRead" || tag == "setBlocked" || tag == "setNickname" || tag == "setPriority" || tag == "approveConversation" || tag == "deleteConversation" || tag == "getMessages" || tag == "sendMessage" || tag == "attachmentSendPlan" || tag == "getAttachmentUploadLimit" || tag == "retrySend" || tag == "deleteMessage" || tag == "setGallery" || tag == "downloadAttachment" || tag == "exportAttachment" || tag == "setAutoDownload" || tag == "getCacheDir" || tag == "getAttachmentCacheLimit" || tag == "setAttachmentCacheLimit" || tag == "getAttachmentCacheSize" || tag == "getThumbnailEdge" || tag == "setThumbnailEdge" || tag == "getConfigSizes" || tag == "getNetworkPaths" || tag == "getPref" || tag == "setPref" || tag == "deliverTestMessage" || tag == "getTestAccountSeed" || tag == "approveTestContact" || tag == "echoTestFrame";
     }
 };
 

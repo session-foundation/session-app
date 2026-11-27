@@ -6,6 +6,7 @@
  * Documents, which iCloud backs up -- would escape both, so dependency-cruiser and ESLint refuse
  * `expo-file-system` outside `src/storage/`. See docs/STORAGE.md.
  */
+import type { PushInstallMarker } from '@session/app'
 import type { NetworkName } from '@session/basic-types'
 import { requireOptionalNativeModule } from 'expo'
 import { Directory as ExpoDirectory, File as ExpoFile } from 'expo-file-system'
@@ -61,6 +62,8 @@ interface StorageRootsModule {
   protect(path: string): boolean
   /** Throws when there is nothing there. */
   inspect(path: string): RootState
+  pushSubscribedThisInstall(): boolean
+  markPushSubscribedThisInstall(): void
 }
 
 /**
@@ -254,4 +257,15 @@ export function checkRoots(): { row: readonly [string, string]; warnings: string
     warnings.push(...native.ensure().map((failure) => `could not protect ${failure}`))
   }
   return { row: ['Storage', storageRow(native.location, reports)], warnings }
+}
+
+/**
+ * Kept in the app's own preferences, which an uninstall removes, unlike the app group the roots can
+ * be in. See `PushInstallMarker`.
+ */
+export const pushInstallMarker: PushInstallMarker = {
+  subscribed: () => native.pushSubscribedThisInstall(),
+  markSubscribed: () => {
+    native.markPushSubscribedThisInstall()
+  },
 }

@@ -39,6 +39,7 @@ export type {
   Landing,
   MessageTransfers,
   MessageWindow,
+  NotificationMode,
   SessionState,
   StoredAppearance,
 } from './types'

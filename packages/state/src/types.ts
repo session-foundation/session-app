@@ -103,6 +103,9 @@ export function transferKey(transfer: AttachmentTransfer, index: number): string
 /** One message's live transfers, keyed by `transferKey`. */
 export type MessageTransfers = Record<string, AttachmentTransferState>
 
+/** See `SessionState.notificationMode`. */
+export type NotificationMode = 'fast' | 'slow'
+
 export interface SessionState {
   hydrated: boolean
   account: AccountInfo | null
@@ -174,6 +177,13 @@ export interface SessionState {
   recoveryPasswordHidden: boolean
 
   /**
+   * How this device hears about messages while the app isn't running: `fast` through a push
+   * service, `slow` through the background windows the OS grants. Device-local, as each device has
+   * its own push token; null until onboarding has asked, and on a device with no account.
+   */
+  notificationMode: NotificationMode | null
+
+  /**
    * The feature flags switched in Developer Settings, by name, as stored. Read with the account, as
    * the appearance is, and empty without one. Names rather than the flag table's type: this
    * package does not know which flags exist, and one a later build drops is simply ignored.
@@ -209,6 +219,7 @@ export const emptyState: SessionState = {
   transfers: {},
   appearance: null,
   recoveryPasswordHidden: false,
+  notificationMode: null,
   flagToggles: {},
   networkStatus: 'unknown',
 }

@@ -149,7 +149,14 @@ const handlers: { [K in Command['type']]: Handler<K> } = {
     type: 'networkStatus',
     status: await client.getNetworkStatus(),
   }),
-  setPushToken: () => unsupported('setPushToken'),
+  setPushToken: async (client, cmd) => ({
+    type: 'bool',
+    value: await client.setPushToken(cmd.service, cmd.token, cmd.force),
+  }),
+  clearPushToken: async (client) => {
+    await client.clearPushToken()
+    return empty
+  },
   handlePushPayload: () => unsupported('handlePushPayload'),
 
   getConversations: async (client) => ({

@@ -445,6 +445,9 @@ async function commit(
     // restart throws it away -- which is exactly what should happen if onboarding died before
     // reaching here, and exactly what must not happen now that it has.
     await actions.keepAccount()
+    // After the account is kept, as the store only saves it for an account. Null where onboarding
+    // didn't ask: desktop, which keeps polling and has nothing to choose.
+    if (state.notifications !== null) await actions.setNotificationMode(state.notifications)
   } finally {
     setBusy(false)
   }
