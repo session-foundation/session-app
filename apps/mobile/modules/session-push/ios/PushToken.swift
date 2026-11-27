@@ -35,8 +35,16 @@ enum PushToken {
   /// The push server's name for the APNs environment this build's tokens come from, which is the
   /// signing profile's `aps-environment`, not the build configuration: a Release build signed for
   /// development gets sandbox tokens, which production refuses. A store build carries no embedded
-  /// profile, and is production.
+  /// profile, and is production. A simulator has no profile either, and its tokens are sandbox ones.
   static var service: String {
+    #if targetEnvironment(simulator)
+      return "apns-sandbox"
+    #else
+      return deviceService
+    #endif
+  }
+
+  private static var deviceService: String {
     guard
       let url = Bundle.main.url(forResource: "embedded", withExtension: "mobileprovision"),
       let data = try? Data(contentsOf: url),
