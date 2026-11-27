@@ -18,6 +18,7 @@ function withLogs(
   deliver: (name: string, parts: readonly ExportPart[]) => Promise<boolean>,
   redactions?: SweepCounts,
   diagnostics?: Ports['diagnostics'],
+  extensionRuns: Ports['logs']['extensionRuns'] = null,
 ) {
   const base = memoryPorts()
   setPorts(
@@ -40,6 +41,7 @@ function withLogs(
             firstLine: '2026-10-08T00:00:00.000Z first',
             lastLine: '2026-10-09T00:00:09.000Z last',
           }),
+        extensionRuns,
         deliver,
         deliversBy: 'saveDialog',
       },
@@ -55,6 +57,53 @@ function withLogs(
 }
 
 describe('exportLogs', () => {
+  it("adds the extensions' runs after the app's own files, each under whose they are", async () => {
+    let parts: readonly ExportPart[] = []
+    withLogs(
+      (_name, delivered) => {
+        parts = delivered
+        return Promise.resolve(true)
+      },
+      undefined,
+      undefined,
+      () =>
+        Promise.resolve([
+          {
+            extension: 'notification-service',
+            files: [
+              { name: 'session-20261009T010000Z-0.log', sizeBytes: FILE_BYTES },
+              { name: 'session-20261009T020000Z-0.log', sizeBytes: FILE_BYTES },
+            ],
+          },
+        ]),
+    )
+    expect(await exportLogs()).toBe('exported')
+    expect(parts.slice(1)).toEqual([
+      { file: 'session-20261008T000000Z-0.log' },
+      { file: 'session-20261009T000000Z-0.log' },
+      { text: '── notification-service: 2 runs, oldest first\n' },
+      { file: 'session-20261009T010000Z-0.log', extension: 'notification-service' },
+      { file: 'session-20261009T020000Z-0.log', extension: 'notification-service' },
+    ])
+  })
+
+  it("exports the app's files when the extensions' runs cannot be listed", async () => {
+    let parts: readonly ExportPart[] = []
+    withLogs(
+      (_name, delivered) => {
+        parts = delivered
+        return Promise.resolve(true)
+      },
+      undefined,
+      undefined,
+      () => Promise.reject(new Error('no app group')),
+    )
+    expect(await exportLogs()).toBe('exported')
+    expect(parts.slice(1)).toEqual([
+      { file: 'session-20261008T000000Z-0.log' },
+      { file: 'session-20261009T000000Z-0.log' },
+    ])
+  })
   it('hands the platform a header and every retained file, oldest first', async () => {
     let delivered: { name: string; parts: readonly ExportPart[] } | null = null
     withLogs((name, parts) => {

@@ -110,6 +110,7 @@ setPorts(
     // Main owns the files, compresses with zlib, and asks where to save; see main/logs.ts.
     logs: {
       retained: () => window.sessionDesktop.retainedLogs(),
+      extensionRuns: null,
       span: (first, last) => window.sessionDesktop.logSpan(first, last),
       deliver: (name, parts) => window.sessionDesktop.exportLogs(name, parts),
       deliversBy: 'saveDialog',

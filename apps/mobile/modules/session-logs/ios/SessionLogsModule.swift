@@ -97,6 +97,10 @@ enum Gzip {
   /// The writer's `LOG_FILE_NAME` in `@session/logging`, without its groups;
   /// `packages/app/tests/logFileName.contract.test.ts` reads this line and fails when they differ.
   private static let logFile = "^session-\\d{8}T\\d{6}Z-\\d+\\.log$"
+  /// The directories beside the logs that a part may name with `extension`: `EXTENSION_LOG_DIRS`
+  /// in `@session/logging`, checked by the same contract test. Nothing else, so a part cannot
+  /// reach outside the log directory through it.
+  private static let extensionDirs: Set<String> = ["notification-service"]
   private static let chunk = 64 * 1024
 
   static func write(parts: [[String: String]], directory: URL, to out: URL) throws -> Int {
@@ -141,8 +145,15 @@ enum Gzip {
         guard name.range(of: logFile, options: .regularExpression) != nil else {
           throw Failure(description: "not a log file name: \(name)")
         }
+        var folder = directory
+        if let ext = part["extension"] {
+          guard extensionDirs.contains(ext) else {
+            throw Failure(description: "not an extension log directory: \(ext)")
+          }
+          folder = directory.appendingPathComponent(ext, isDirectory: true)
+        }
         // A file rotated away since the list was taken is skipped rather than failing the export.
-        guard let input = FileHandle(forReadingAtPath: directory.appendingPathComponent(name).path) else { continue }
+        guard let input = FileHandle(forReadingAtPath: folder.appendingPathComponent(name).path) else { continue }
         defer { try? input.close() }
         while true {
           guard let data = try input.read(upToCount: chunk), !data.isEmpty else { break }

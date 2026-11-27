@@ -4,10 +4,14 @@ import {
   consoleDirectory,
   createLogger,
   databaseFields,
+  EXTENSION_LOG_DIRS,
   libsessionLine,
+  LOG_FILE_NAME,
   LogWriter,
   minLevelFromSpec,
   Pseudonyms,
+  sortLogFiles,
+  type ExtensionRuns,
   type LogDirectory,
   type LogFields,
 } from '@session/logging'
@@ -184,6 +188,32 @@ export const logDirectory: Directory = logsRoot
 
 /** The log directory as the writer and the export read it. */
 export const logFiles = expoDirectory(logDirectory)
+
+/**
+ * The notification extension's runs, which it writes beside the app's logs in the app group with
+ * the same prefix and sweep (bridge-core's `RunLog`). iOS only: Android's push handler runs in the
+ * app's process, through the app's own logger.
+ */
+export function extensionRuns(): Promise<ExtensionRuns[]> {
+  if (Platform.OS !== 'ios') return Promise.resolve([])
+  return Promise.resolve(
+    EXTENSION_LOG_DIRS.map((extension) => {
+      const dir = logDirectory
+        .list()
+        .find((entry) => !(entry instanceof File) && entry.name === extension) as
+        Directory | undefined
+      const files =
+        dir === undefined
+          ? []
+          : dir
+              .list()
+              .filter((entry): entry is File => entry instanceof File)
+              .filter((file) => LOG_FILE_NAME.test(file.name))
+              .map((file) => ({ name: file.name, sizeBytes: file.size }))
+      return { extension, files: sortLogFiles(files) }
+    }),
+  )
+}
 
 /**
  * The logs: the storage module's `logs` root, a new file for this launch, and the lifecycle

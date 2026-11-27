@@ -18,12 +18,15 @@
 
 #include <oxenc/hex.h>
 #include <session_bridge/push_handler.hpp>
+#include <session_bridge/run_log.hpp>
 
 #include <array>
 #include <atomic>
 #include <chrono>
 #include <cstddef>
 #include <filesystem>
+#include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 
@@ -65,8 +68,54 @@ os_log_t log_handle() {
     return handle;
 }
 
+std::optional<std::filesystem::path> group_container();
+
+/// This process's run in the extension's log directory, opened on its first line, or null where
+/// it cannot be: no app group, or no salt because the app has never run (see `RunLog`).
+session_bridge::RunLog* run_log() {
+    static std::once_flag once;
+    static std::unique_ptr<session_bridge::RunLog> log;
+    std::call_once(once, [] {
+        auto container = group_container();
+        if (!container)
+            return;
+        // Beside the app's own logs, in the logs root modules/storage-roots makes in the group.
+        auto logs = *container / "logs";
+        auto dir = logs / "notification-service";
+        // Protected as the roots are: readable after the first unlock, and out of every backup.
+        NSString* path = [NSString stringWithUTF8String:dir.c_str()];
+        NSDictionary* protection =
+                @{NSFileProtectionKey: NSFileProtectionCompleteUntilFirstUserAuthentication};
+        [NSFileManager.defaultManager createDirectoryAtPath:path
+                                withIntermediateDirectories:YES
+                                                 attributes:protection
+                                                      error:nil];
+        [[NSURL fileURLWithPath:path] setResourceValue:@YES
+                                                forKey:NSURLIsExcludedFromBackupKey
+                                                 error:nil];
+        NSDictionary* info = NSBundle.mainBundle.infoDictionary;
+        NSString* version = [NSString stringWithFormat:@"%@ (%@)",
+                                                       info[@"CFBundleShortVersionString"] ?: @"?",
+                                                       info[@"CFBundleVersion"] ?: @"?"];
+        log = session_bridge::RunLog::open(
+                dir, logs / ".salt", "notification service", version.UTF8String);
+        if (log)
+            [NSFileManager.defaultManager
+                    setAttributes:protection
+                     ofItemAtPath:[NSString stringWithUTF8String:log->path().c_str()]
+                            error:nil];
+    });
+    return log.get();
+}
+
 void log_line(std::string_view line) {
     os_log(log_handle(), "%{public}.*s", static_cast<int>(line.size()), line.data());
+    // One writer at a time: the handler's thread and the delivery path both log.
+    static std::mutex writing;
+    if (auto* log = run_log()) {
+        std::lock_guard lock{writing};
+        log->write("info", "push", line);
+    }
 }
 
 NSString* ns(const std::string& s) {
@@ -295,8 +344,8 @@ void take_down(NSArray<NSString*>* ids) {
     wait(removed);
 }
 
-/// The database to hand a push to: the first network directory that has one.
-std::optional<std::pair<std::filesystem::path, std::string>> database() {
+/// The app group's container, which holds the app's data and logs roots.
+std::optional<std::filesystem::path> group_container() {
     NSString* group = app_group();
     NSURL* container =
             group ? [NSFileManager.defaultManager
@@ -304,8 +353,16 @@ std::optional<std::pair<std::filesystem::path, std::string>> database() {
                   : nil;
     if (!container)
         return std::nullopt;
+    return std::filesystem::path{container.path.UTF8String};
+}
+
+/// The database to hand a push to: the first network directory that has one.
+std::optional<std::pair<std::filesystem::path, std::string>> database() {
+    auto container = group_container();
+    if (!container)
+        return std::nullopt;
     // The app's data root in the group, as modules/storage-roots makes it.
-    auto root = std::filesystem::path{container.path.UTF8String} / "session";
+    auto root = *container / "session";
     auto db = root / NETWORK / "session.db";
     std::error_code ec;
     if (std::filesystem::exists(db, ec))

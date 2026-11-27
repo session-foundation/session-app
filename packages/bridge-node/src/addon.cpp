@@ -1,6 +1,7 @@
 #include <napi.h>
 #include <session_bridge/client_bridge.hpp>
 #include <session_bridge/decode_plan.hpp>
+#include <session_bridge/log_sweep.hpp>
 #include <session_bridge/gen/napi.hpp>
 #include <session_bridge/media_url.hpp>
 #include <session_bridge/utf8_path.hpp>
@@ -487,6 +488,53 @@ Napi::Value PlanDecode(const Napi::CallbackInfo& info) {
     return result;
 }
 
+/// `sweepLog(salt, text) -> string`, the shim's copy of the log sweep, so the addon's tests can
+/// hold it to the vectors `@session/logging` answers (see `log_sweep.hpp`).
+Napi::Value SweepLog(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+    if (info.Length() < 2 || !info[0].IsTypedArray() ||
+        info[0].As<Napi::TypedArray>().TypedArrayType() != napi_uint8_array || !info[1].IsString())
+        throw Napi::TypeError::New(env, "sweepLog(salt: Uint8Array, text: string)");
+    auto salt = info[0].As<Napi::Uint8Array>();
+    std::vector<std::byte> bytes(
+            reinterpret_cast<const std::byte*>(salt.Data()),
+            reinterpret_cast<const std::byte*>(salt.Data()) + salt.ElementLength());
+    try {
+        session_bridge::LogSweeper sweeper{std::move(bytes)};
+        return Napi::String::New(env, sweeper.sweep(info[1].As<Napi::String>().Utf8Value()));
+    } catch (const std::invalid_argument& e) {
+        throw Napi::TypeError::New(env, e.what());
+    }
+}
+
+/// `formatLogPrefix(wallMs, uptimeMs, level, category, op?) -> string`, for the same reason.
+Napi::Value FormatLogPrefix(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+    if (info.Length() < 4 || !info[0].IsNumber() || !info[1].IsNumber() || !info[2].IsString() ||
+        !info[3].IsString())
+        throw Napi::TypeError::New(
+                env, "formatLogPrefix(wallMs, uptimeMs, level, category, op?: string)");
+    std::string op = info.Length() > 4 && info[4].IsString() ? info[4].As<Napi::String>().Utf8Value()
+                                                            : std::string{};
+    return Napi::String::New(
+            env,
+            session_bridge::format_prefix(
+                    info[0].As<Napi::Number>().Int64Value(),
+                    info[1].As<Napi::Number>().Int64Value(),
+                    info[2].As<Napi::String>().Utf8Value(),
+                    info[3].As<Napi::String>().Utf8Value(),
+                    op));
+}
+
+/// `escapeLogMessage(text) -> string`, for the same reason.
+Napi::Value EscapeLogMessage(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+    if (info.Length() < 1 || !info[0].IsString())
+        throw Napi::TypeError::New(env, "escapeLogMessage(text: string)");
+    return Napi::String::New(
+            env, session_bridge::escape_message(info[0].As<Napi::String>().Utf8Value()));
+}
+
 }  // namespace
 
 static Napi::Object InitAll(Napi::Env env, Napi::Object exports) {
@@ -495,6 +543,9 @@ static Napi::Object InitAll(Napi::Env env, Napi::Object exports) {
             "servableContentType",
             Napi::Function::New<ServableContentType>(env, "servableContentType"));
     exports.Set("planDecode", Napi::Function::New<PlanDecode>(env, "planDecode"));
+    exports.Set("sweepLog", Napi::Function::New<SweepLog>(env, "sweepLog"));
+    exports.Set("formatLogPrefix", Napi::Function::New<FormatLogPrefix>(env, "formatLogPrefix"));
+    exports.Set("escapeLogMessage", Napi::Function::New<EscapeLogMessage>(env, "escapeLogMessage"));
     return SessionBridge::Init(env, exports);
 }
 

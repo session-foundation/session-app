@@ -2,6 +2,7 @@ import {
   exportFileName,
   exportHeader,
   exportParts,
+  extensionParts,
   planExport,
   unknownDiagnostics,
   type ExportFacts,
@@ -44,8 +45,13 @@ export async function exportLogs(sources: ExportSources = {}): Promise<ExportOut
     appLog.marker('export', 'export')
     // The header's facts are the least of what the export is for: a platform that cannot give
     // them costs the header rows, never the files.
-    const [files, snapshot] = await Promise.all([
+    const [files, extensions, snapshot] = await Promise.all([
       logs.retained(),
+      // An extension's runs are extra: one that cannot be listed costs those, never the export.
+      (logs.extensionRuns?.() ?? Promise.resolve([])).catch((error: unknown) => {
+        appLog.warn('export', 'extension logs could not be listed', { reason: reason(error) })
+        return []
+      }),
       diagnostics.snapshot().catch((error: unknown) => {
         appLog.warn('export', 'diagnostics failed; the header says unknown', {
           reason: reason(error),
@@ -80,10 +86,12 @@ export async function exportLogs(sources: ExportSources = {}): Promise<ExportOut
     }
 
     const name = exportFileName(platform, build.version, now)
-    const delivered = await logs.deliver(name, exportParts(exportHeader(facts), plan))
+    const parts = [...exportParts(exportHeader(facts), plan), ...extensionParts(extensions)]
+    const delivered = await logs.deliver(name, parts)
     appLog.info('export', delivered ? 'export delivered' : 'export cancelled', {
       files: plan.included.length,
       bytes: plan.bytes,
+      extensionRuns: extensions.reduce((sum, { files: runs }) => sum + runs.length, 0),
     })
     return delivered ? 'exported' : 'cancelled'
   } catch (error) {
