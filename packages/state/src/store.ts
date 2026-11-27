@@ -235,7 +235,12 @@ export interface SessionActions {
   send: (id: ConversationId, message: OutgoingMessage) => Promise<void>
   /** What sending the file at `path` would do with it: whether the composer may stage it. */
   attachmentSendPlan: (path: string, contentType?: string) => Promise<SendPlan>
-  markRead: (id: ConversationId) => Promise<void>
+  /**
+   * Reads incoming messages up to and including `upTo`, an epoch-millisecond message timestamp,
+   * or everything stored now when it is left out. libsession never moves the mark backwards, so a
+   * stale `upTo` is harmless.
+   */
+  markRead: (id: ConversationId, upTo?: number) => Promise<void>
   approve: (id: ConversationId) => Promise<void>
   /**
    * Mints an identity, and re-hydrates because everything else waits on there being one.
@@ -1169,8 +1174,8 @@ export function createSessionStore(
       return client.attachmentSendPlan(path, contentType)
     },
 
-    async markRead(id): Promise<void> {
-      await client.markRead(id)
+    async markRead(id, upTo): Promise<void> {
+      await client.markRead(id, upTo)
     },
 
     async approve(id): Promise<void> {
