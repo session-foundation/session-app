@@ -233,6 +233,25 @@ export type Command =
    * WorkManager job, iOS's BGAppRefreshTask and a push-triggered fetch all reduce to it.
    */
   | { type: 'pollOnce' }
+  /**
+   * Closes the database before the OS suspends the process: destroys the Client once it has no
+   * outbound work left or after `waitMs`, whichever is first. If destroying it is still not done
+   * `interruptMs` after the command, the database's SQL is interrupted so that it can finish, and
+   * whatever statement was running is rolled back.
+   *
+   * For iOS, which kills a suspended app holding a lock on a file in its shared container
+   * (0xdead10cc), and the database is in the app group so the notification extension can open
+   * it. While it waits, the Client works as before and `reopenClient` cancels the close; once it is
+   * destroying, every request but `reopenClient` is refused at once rather than left waiting.
+   * Answers `clientClosed`.
+   */
+  | { type: 'closeClient'; waitMs: number; interruptMs: number }
+  /**
+   * Undoes `closeClient`: cancels it while it is still waiting for outbound work, or builds the
+   * Client again and attaches its network once it has closed. Answers `ok` when the Client is
+   * there again; nothing to do if it never closed.
+   */
+  | { type: 'reopenClient' }
   | { type: 'setPushToken'; platform: string; token: string }
   /**
    * Interpret a push payload far enough to notify. Answering from the payload alone matters on
@@ -447,6 +466,23 @@ export type Result =
   | { type: 'hex'; hex: string }
   | { type: 'pref'; value?: string }
   | { type: 'bool'; value: boolean }
+  /**
+   * How `closeClient` went. `closed` is false when `reopenClient` cancelled it while it waited.
+   * `waitedMs` is how long it waited for outbound work, `closeMs` how long destroying the Client
+   * took, `outboundBusy` whether outbound work was still in flight when it did -- a send that will
+   * show as interrupted when the Client is back -- and `interrupted` whether the database's SQL had
+   * to be interrupted. `interruptedForReopen`: interrupted early, because `reopenClient` came while
+   * the Client was being destroyed and the app was in front again.
+   */
+  | {
+      type: 'clientClosed'
+      closed: boolean
+      waitedMs: number
+      closeMs: number
+      outboundBusy: boolean
+      interrupted: boolean
+      interruptedForReopen: boolean
+    }
   /** The answer to a seed read once the recovery password is hidden: see `hideRecoveryPassword`. */
   | { type: 'seedHidden' }
   /**

@@ -10,10 +10,16 @@ import type {
   SendPlan,
   SessionClient,
 } from '@session/client'
-import { MESSAGE_NOT_FOUND, SessionClientError } from '@session/client'
+import { CLIENT_CLOSED, MESSAGE_NOT_FOUND, SessionClientError } from '@session/client'
 import { createStore, type StoreApi } from 'zustand/vanilla'
 
-import { applyEvent, mergePages, recordRefusal, withoutHistory } from './applyEvent'
+import {
+  applyEvent,
+  compareMessages,
+  mergePages,
+  recordRefusal,
+  withoutHistory,
+} from './applyEvent'
 import { classifyStartupFailure, type StartupFailureKind } from './startupFailure'
 import {
   emptyState,
@@ -75,6 +81,14 @@ export interface SessionActions {
    * has and what it has instead of a timeout.
    */
   start: () => Promise<void>
+  /**
+   * Reads the lists and the newest page of every loaded window again, after the Client was closed
+   * for the background and opened again: what another process stored meanwhile (the iOS
+   * notification extension) and the sends the reopen marked interrupted were never announced.
+   * Merged into each window rather than replacing it, so a reader keeps their place. Starts the
+   * store instead if it never got as far as hydrating.
+   */
+  reread: () => Promise<void>
   /**
    * Deletes everything on this device and starts again from nothing.
    *
@@ -352,6 +366,21 @@ const FIRST_PAGE = 15
  */
 const JUMP_WINDOW = 2 * PAGE
 const LIST_NAMES: readonly ListName[] = ['conversations', 'requests']
+
+/**
+ * Whether the newest page, read again, would leave messages between it and a window that ends
+ * where the conversation did: the window says nothing lies past its newest, so paging never reads
+ * them, and merging the page in leaves a hole. Only a window at the conversation's end is at risk;
+ * one held further back takes no message past its newest. An empty window is at risk too: it says
+ * there is no history at all, so merging takes the page in and never reads what came before it.
+ */
+function leavesGap(window: MessageWindow | undefined, page: MessagePage): boolean {
+  if (window?.ready !== true || window.hasNewer || !page.hasOlder) return false
+  const newest = window.messages.at(-1)
+  const oldest = page.messages[0]
+  if (newest === undefined) return true
+  return oldest !== undefined && compareMessages(oldest, newest) > 0
+}
 
 export function createSessionStore(
   client: SessionClient,
@@ -633,21 +662,71 @@ export function createSessionStore(
     return write
   }
 
+  /** The start under way, so that a read after a reopen joins it rather than running another. */
+  let starting: Promise<void> | null = null
+
+  async function startOnce(): Promise<void> {
+    store.setState({ startupError: null, startupFailureKind: null })
+    try {
+      await actions.hydrate()
+    } catch (error) {
+      // Left for the background before the start finished (iOS): not a failure, and `reread`
+      // starts again once the Client is back.
+      if (error instanceof SessionClientError && error.code === CLIENT_CLOSED) {
+        log('info', 'session', 'start put off: the client closed for the background')
+        return
+      }
+      // **The one place a failed start is allowed to end up.** Everything that can go wrong
+      // between the app opening and libsession answering throws, and every one of those throws
+      // arrives here -- which is what makes "it did not start" a state the screens can render
+      // rather than a promise nobody was holding. Left uncaught it was an unhandled rejection
+      // and a launch screen that never went away, identical from the outside to a slow start.
+      const { message, kind } = startupFailure(error)
+      log('error', 'session', `could not start (${kind}): ${message}`)
+      store.setState({ startupError: message, startupFailureKind: kind })
+    }
+  }
+
   const actions: SessionActions = {
     async start(): Promise<void> {
-      store.setState({ startupError: null, startupFailureKind: null })
+      const run = startOnce()
+      starting = run
       try {
-        await actions.hydrate()
-      } catch (error) {
-        // **The one place a failed start is allowed to end up.** Everything that can go wrong
-        // between the app opening and libsession answering throws, and every one of those throws
-        // arrives here -- which is what makes "it did not start" a state the screens can render
-        // rather than a promise nobody was holding. Left uncaught it was an unhandled rejection
-        // and a launch screen that never went away, identical from the outside to a slow start.
-        const { message, kind } = startupFailure(error)
-        log('error', 'session', `could not start (${kind}): ${message}`)
-        store.setState({ startupError: message, startupFailureKind: kind })
+        await run
+      } finally {
+        if (starting === run) starting = null
       }
+    },
+
+    async reread(): Promise<void> {
+      if (!store.getState().hydrated) {
+        // A return during launch can come while the first start is still reading.
+        await (starting ?? actions.start())
+        return
+      }
+      const loaded = Object.entries(store.getState().histories)
+        .filter(([, window]) => window.ready)
+        .map(([id]) => id)
+      const reads = await Promise.allSettled([
+        readList('conversations'),
+        readList('requests'),
+        ...loaded.map((id) =>
+          whileReading(id, async () => {
+            const page = await client.getMessages(id, { limit: FIRST_PAGE })
+            // More arrived than a page holds: the page is the conversation's end now. A page still
+            // out was read from the old window's ends and no longer joins; a jump or a first page
+            // still out lands after this, as it would after any other read.
+            if (leavesGap(store.getState().histories[id], page)) replaceWindow(id, page)
+            else
+              store.setState((state) =>
+                applyEvent(state, { type: 'messages-updated', messages: page.messages }),
+              )
+          }),
+        ),
+      ])
+      for (const read of reads)
+        if (read.status === 'rejected')
+          log('warn', 'session', `could not read again after a reopen: ${String(read.reason)}`)
     },
 
     async clearDeviceData(): Promise<void> {
@@ -831,10 +910,15 @@ export function createSessionStore(
           return
         }
         if (generationOf(id) !== generation) return
+        // Read from the window's oldest: joins only a window that still starts there. Whatever
+        // replaced the window meanwhile (a read after a reopen, a replaced history) cleared the
+        // flag, which a page asked for since may have set again.
+        const held = store.getState().histories[id]?.messages ?? []
+        if (held[0]?.id !== oldest.id) return
         patchWindow(id, {
           fetchingOlder: false,
           hasOlder: page.hasOlder,
-          messages: mergePages(page.messages, store.getState().histories[id]?.messages ?? []),
+          messages: mergePages(page.messages, held),
         })
       })
     },
@@ -860,10 +944,13 @@ export function createSessionStore(
           return
         }
         if (generationOf(id) !== generation) return
+        // Read from the window's newest: joins only a window that still ends there.
+        const held = store.getState().histories[id]?.messages ?? []
+        if (held.at(-1)?.id !== newest.id) return
         patchWindow(id, {
           fetchingNewer: false,
           hasNewer: page.hasNewer,
-          messages: mergePages(store.getState().histories[id]?.messages ?? [], page.messages),
+          messages: mergePages(held, page.messages),
         })
       })
     },

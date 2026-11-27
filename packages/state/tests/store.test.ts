@@ -608,3 +608,172 @@ describe('the conversation lists', () => {
     })
   })
 })
+
+describe('the Client closed for the background (iOS)', () => {
+  it('puts off a start it cut short, and starts again on the read after the reopen', async () => {
+    const { clients } = friends(['Alice', 'Bob'])
+    const client = clients['Alice']
+    if (!client) throw new Error('fixture did not produce a client')
+    const store = createSessionStore(client)
+    await client.closeClient(0, 0)
+
+    await store.actions.start()
+    expect(store.getState().startupError).toBeNull()
+    expect(store.getState().hydrated).toBe(false)
+
+    await client.reopenClient()
+    await store.actions.reread()
+    expect(store.getState().hydrated).toBe(true)
+    expect(store.getState().conversations.length).toBeGreaterThan(0)
+  })
+
+  it('joins a start still under way rather than starting again beside it', async () => {
+    const { clients } = friends(['Alice', 'Bob'])
+    const client = clients['Alice']
+    if (!client) throw new Error('fixture did not produce a client')
+    const store = createSessionStore(client)
+    const asked = vi.spyOn(client, 'getAccountInfo')
+
+    await Promise.all([store.actions.start(), store.actions.reread()])
+
+    expect(asked).toHaveBeenCalledTimes(1)
+    expect(store.getState().hydrated).toBe(true)
+  })
+
+  it('merges what was stored unannounced into a loaded window, keeping what it holds', async () => {
+    const { store, client, bob } = seeded()
+    await store.actions.hydrate()
+    await store.actions.loadHistory(bob)
+    const before = store.getState().histories[bob]?.messages ?? []
+    const newest = before.at(-1)
+    if (newest === undefined) throw new Error('expected a loaded window')
+
+    // What the notification extension stored while the Client was closed: in the database, and
+    // never announced to this one.
+    const stored = { ...newest, id: newest.id + 1000, timestamp: newest.timestamp + 1, body: 'x' }
+    const read = client.getMessages.bind(client)
+    vi.spyOn(client, 'getMessages').mockImplementation(async (id, options) => {
+      const page = await read(id, options)
+      return { ...page, messages: [...page.messages, stored] }
+    })
+
+    await store.actions.reread()
+
+    const after = store.getState().histories[bob]?.messages ?? []
+    expect(after.map((m) => m.id)).toEqual([...before.map((m) => m.id), stored.id])
+  })
+
+  it('takes the newest page as the window when more was stored than a page holds', async () => {
+    const { store, client, bob } = seeded()
+    await store.actions.hydrate()
+    await store.actions.loadHistory(bob)
+    const newest = store.getState().histories[bob]?.messages.at(-1)
+    if (newest === undefined) throw new Error('expected a loaded window')
+
+    // A page of what the extension stored, with more of it before the page than after the window.
+    const stored = [1, 2, 3].map((n) => ({
+      ...newest,
+      id: newest.id + 1000 + n,
+      timestamp: newest.timestamp + 10 + n,
+    }))
+    vi.spyOn(client, 'getMessages').mockResolvedValue({
+      messages: stored,
+      hasOlder: true,
+      hasNewer: false,
+    })
+
+    await store.actions.reread()
+
+    const window = store.getState().histories[bob]
+    expect(window?.messages.map((m) => m.id)).toEqual(stored.map((m) => m.id))
+    expect(window?.hasOlder).toBe(true)
+  })
+
+  it('takes the newest page as the window when the window it finds is empty', async () => {
+    const { store, client, bob } = seeded()
+    await store.actions.hydrate()
+    await store.actions.loadHistory(bob)
+    const newest = store.getState().histories[bob]?.messages.at(-1)
+    if (newest === undefined) throw new Error('expected a loaded window')
+    // A conversation with no messages on screen: nothing held, and nothing either side.
+    store.setState((state) => {
+      const window = state.histories[bob]
+      if (window === undefined) throw new Error('expected a window')
+      return {
+        histories: {
+          ...state.histories,
+          [bob]: { ...window, messages: [], hasOlder: false, hasNewer: false },
+        },
+      }
+    })
+    vi.spyOn(client, 'getMessages').mockResolvedValue({
+      messages: [newest],
+      hasOlder: true,
+      hasNewer: false,
+    })
+
+    await store.actions.reread()
+
+    expect(store.getState().histories[bob]?.hasOlder).toBe(true)
+  })
+
+  it('lets a jump still out land after it takes the newest page as the window', async () => {
+    // Back by tapping the notification for one of many stored messages: the jump starts first.
+    const { store, client, bob } = seeded()
+    await store.actions.hydrate()
+    await store.actions.loadHistory(bob)
+    const newest = store.getState().histories[bob]?.messages.at(-1)
+    if (newest === undefined) throw new Error('expected a loaded window')
+    const tapped = { ...newest, id: newest.id + 2000, timestamp: newest.timestamp + 5 }
+    const stored = { ...newest, id: newest.id + 3000, timestamp: newest.timestamp + 50 }
+    let answerJump: (page: MessagePage) => void = () => {}
+    vi.spyOn(client, 'getMessages').mockImplementation((_id, options) =>
+      options?.around === undefined
+        ? Promise.resolve({ messages: [stored], hasOlder: true, hasNewer: false })
+        : new Promise((resolve) => {
+            answerJump = resolve
+          }),
+    )
+
+    const jump = store.actions.jumpToMessage(bob, tapped.id)
+    await store.actions.reread()
+    answerJump({ messages: [tapped], hasOlder: true, hasNewer: true })
+
+    await expect(jump).resolves.toBe('landed')
+    expect(store.getState().histories[bob]?.messages.map((m) => m.id)).toEqual([tapped.id])
+  })
+
+  it('drops an older page still out when it takes the newest page as the window', async () => {
+    const { store, client, bob } = seeded()
+    await store.actions.hydrate()
+    await store.actions.loadHistory(bob)
+    const before = store.getState().histories[bob]?.messages ?? []
+    const newest = before.at(-1)
+    if (newest === undefined) throw new Error('expected a loaded window')
+    store.setState((state) => {
+      const window = state.histories[bob]
+      if (window === undefined) throw new Error('expected a window')
+      return { histories: { ...state.histories, [bob]: { ...window, hasOlder: true } } }
+    })
+    const stored = { ...newest, id: newest.id + 1000, timestamp: newest.timestamp + 10 }
+    let answerOlder: (page: MessagePage) => void = () => {}
+    vi.spyOn(client, 'getMessages').mockImplementation((_id, options) =>
+      options?.before === undefined
+        ? Promise.resolve({ messages: [stored], hasOlder: true, hasNewer: false })
+        : new Promise((resolve) => {
+            answerOlder = resolve
+          }),
+    )
+
+    const older = store.actions.loadOlder(bob)
+    await store.actions.reread()
+    answerOlder({
+      messages: [{ ...newest, id: newest.id - 5000 }],
+      hasOlder: true,
+      hasNewer: false,
+    })
+    await older
+
+    expect(store.getState().histories[bob]?.messages.map((m) => m.id)).toEqual([stored.id])
+  })
+})

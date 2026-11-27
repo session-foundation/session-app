@@ -608,6 +608,32 @@ struct Codec<::session_bridge::BoolResult> {
 };
 
 template <>
+struct Codec<::session_bridge::ClientClosedResult> {
+    static constexpr std::string_view name = "ClientClosedResult";
+    static Napi::Value to(Napi::Env env, const ::session_bridge::ClientClosedResult& value) {
+        Napi::Object obj = Napi::Object::New(env);
+        obj.Set("type", Napi::String::New(env, ::session_bridge::ClientClosedResult::type_tag.data(), ::session_bridge::ClientClosedResult::type_tag.size()));
+        obj.Set("closed", Codec<bool>::to(env, value.closed));
+        obj.Set("waitedMs", Codec<double>::to(env, value.waited_ms));
+        obj.Set("closeMs", Codec<double>::to(env, value.close_ms));
+        obj.Set("outboundBusy", Codec<bool>::to(env, value.outbound_busy));
+        obj.Set("interrupted", Codec<bool>::to(env, value.interrupted));
+        obj.Set("interruptedForReopen", Codec<bool>::to(env, value.interrupted_for_reopen));
+        return obj;
+    }
+    static ::session_bridge::ClientClosedResult from(const Napi::Value& value, std::string_view where) {
+        Napi::Object obj = object(value, where);
+        return ::session_bridge::ClientClosedResult(
+                Codec<bool>::from(obj.Get("closed"), "ClientClosedResult.closed"),
+                Codec<double>::from(obj.Get("waitedMs"), "ClientClosedResult.waitedMs"),
+                Codec<double>::from(obj.Get("closeMs"), "ClientClosedResult.closeMs"),
+                Codec<bool>::from(obj.Get("outboundBusy"), "ClientClosedResult.outboundBusy"),
+                Codec<bool>::from(obj.Get("interrupted"), "ClientClosedResult.interrupted"),
+                Codec<bool>::from(obj.Get("interruptedForReopen"), "ClientClosedResult.interruptedForReopen"));
+    }
+};
+
+template <>
 struct Codec<::session_bridge::SeedHiddenResult> {
     static constexpr std::string_view name = "SeedHiddenResult";
     static Napi::Value to(Napi::Env env, const ::session_bridge::SeedHiddenResult& value) {
@@ -921,6 +947,8 @@ struct Codec<::session_bridge::Result> {
             return Codec<::session_bridge::PrefResult>::from(value, where);
         if (tag == "bool")
             return Codec<::session_bridge::BoolResult>::from(value, where);
+        if (tag == "clientClosed")
+            return Codec<::session_bridge::ClientClosedResult>::from(value, where);
         if (tag == "seedHidden")
             return Codec<::session_bridge::SeedHiddenResult>::from(value, where);
         if (tag == "path")
@@ -1637,6 +1665,39 @@ struct Codec<::session_bridge::PollOnceCommand> {
     static ::session_bridge::PollOnceCommand from(const Napi::Value& value, std::string_view where) {
         object(value, where);
         return ::session_bridge::PollOnceCommand{};
+    }
+};
+
+template <>
+struct Codec<::session_bridge::CloseClientCommand> {
+    static constexpr std::string_view name = "CloseClientCommand";
+    static Napi::Value to(Napi::Env env, const ::session_bridge::CloseClientCommand& value) {
+        Napi::Object obj = Napi::Object::New(env);
+        obj.Set("type", Napi::String::New(env, ::session_bridge::CloseClientCommand::type_tag.data(), ::session_bridge::CloseClientCommand::type_tag.size()));
+        obj.Set("waitMs", Codec<double>::to(env, value.wait_ms));
+        obj.Set("interruptMs", Codec<double>::to(env, value.interrupt_ms));
+        return obj;
+    }
+    static ::session_bridge::CloseClientCommand from(const Napi::Value& value, std::string_view where) {
+        Napi::Object obj = object(value, where);
+        return ::session_bridge::CloseClientCommand(
+                Codec<double>::from(obj.Get("waitMs"), "CloseClientCommand.waitMs"),
+                Codec<double>::from(obj.Get("interruptMs"), "CloseClientCommand.interruptMs"));
+    }
+};
+
+template <>
+struct Codec<::session_bridge::ReopenClientCommand> {
+    static constexpr std::string_view name = "ReopenClientCommand";
+    static Napi::Value to(Napi::Env env, const ::session_bridge::ReopenClientCommand& value) {
+        (void)value;
+        Napi::Object obj = Napi::Object::New(env);
+        obj.Set("type", Napi::String::New(env, ::session_bridge::ReopenClientCommand::type_tag.data(), ::session_bridge::ReopenClientCommand::type_tag.size()));
+        return obj;
+    }
+    static ::session_bridge::ReopenClientCommand from(const Napi::Value& value, std::string_view where) {
+        object(value, where);
+        return ::session_bridge::ReopenClientCommand{};
     }
 };
 
@@ -2400,6 +2461,10 @@ struct Codec<::session_bridge::Command> {
             return Codec<::session_bridge::SetPollIntervalCommand>::from(value, where);
         if (tag == "pollOnce")
             return Codec<::session_bridge::PollOnceCommand>::from(value, where);
+        if (tag == "closeClient")
+            return Codec<::session_bridge::CloseClientCommand>::from(value, where);
+        if (tag == "reopenClient")
+            return Codec<::session_bridge::ReopenClientCommand>::from(value, where);
         if (tag == "setPushToken")
             return Codec<::session_bridge::SetPushTokenCommand>::from(value, where);
         if (tag == "handlePushPayload")

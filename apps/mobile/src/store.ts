@@ -18,6 +18,7 @@ import { createSessionStore } from '@session/state'
 import { PixelRatio, Platform } from 'react-native'
 
 import { mobileClient } from './client'
+import { followAppLifecycle } from './clientLifecycle'
 import { libsessionLog, storeLog, watchStore } from './logs'
 import { replaceDatabaseKey, resolveDatabaseKey } from './storage/databaseKey'
 import { anyDatabaseExists, discardDatabases, protectDatabase, sessionPaths } from './storage/roots'
@@ -160,12 +161,16 @@ async function openTransportOrRefusal(): Promise<BridgeTransport> {
 }
 
 export const storePromise = openTransportOrRefusal().then((transport) => {
-  const store = createSessionStore(mobileClient(transport), {
+  const client = mobileClient(transport)
+  const store = createSessionStore(client, {
     attachmentCacheLimitBytes: ATTACHMENT_CACHE_LIMIT_BYTES,
     log: storeLog,
     libsessionLog,
   })
   watchStore(store)
   followFlagToggles(store)
+  followAppLifecycle(client, () => {
+    void store.actions.reread()
+  })
   return store
 })

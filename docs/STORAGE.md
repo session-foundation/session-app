@@ -31,6 +31,14 @@ delegate registers its subscribers, before JavaScript runs. A build without the 
 entitlement falls back to Application Support with the same attributes, and says so in the startup
 block.
 
+**The database is closed whenever the app leaves the screen.** iOS kills an app that is suspended
+while it holds a lock on a file in a shared container (exception code 0xdead10cc), and any write
+in flight at that moment is enough. So as the app goes to the background it destroys the Client
+under a background task: once nothing is outbound, or after 10 s, with the database's SQL
+interrupted and rolled back if that is still not done 15 s in. It builds the Client again when the
+app comes back. A send the close did not wait out shows as interrupted. Android keeps the database
+open: it has no such rule. `apps/mobile/src/backgroundClose.ts` has the details.
+
 A new file inherits its directory's class. A **moved or copied** file does not: since iOS 26 it
 keeps the class of the directory it was first written in, and the temporary directory, where such
 files usually start, defaults to `complete`, which a locked phone cannot open. Legacy hit this with

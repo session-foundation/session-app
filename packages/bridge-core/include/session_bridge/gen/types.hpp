@@ -519,6 +519,26 @@ struct BoolResult {
             value{std::move(value_)} {}
 };
 
+/// How `closeClient` went. `closed` is false when `reopenClient` cancelled it while it waited.
+/// `waitedMs` is how long it waited for outbound work, `closeMs` how long destroying the Client
+/// took, `outboundBusy` whether outbound work was still in flight when it did -- a send that will
+/// show as interrupted when the Client is back -- and `interrupted` whether the database's SQL had
+/// to be interrupted. `interruptedForReopen`: interrupted early, because `reopenClient` came while
+/// the Client was being destroyed and the app was in front again.
+struct ClientClosedResult {
+    static constexpr std::string_view type_tag = "clientClosed";
+
+    bool closed;
+    double waited_ms;
+    double close_ms;
+    bool outbound_busy;
+    bool interrupted;
+    bool interrupted_for_reopen;
+
+    ClientClosedResult(bool closed_, double waited_ms_, double close_ms_, bool outbound_busy_, bool interrupted_, bool interrupted_for_reopen_) :
+            closed{std::move(closed_)}, waited_ms{std::move(waited_ms_)}, close_ms{std::move(close_ms_)}, outbound_busy{std::move(outbound_busy_)}, interrupted{std::move(interrupted_)}, interrupted_for_reopen{std::move(interrupted_for_reopen_)} {}
+};
+
 /// The answer to a seed read once the recovery password is hidden: see `hideRecoveryPassword`.
 struct SeedHiddenResult {
     static constexpr std::string_view type_tag = "seedHidden";
@@ -801,6 +821,7 @@ using Result = std::variant<
         HexResult,
         PrefResult,
         BoolResult,
+        ClientClosedResult,
         SeedHiddenResult,
         PathResult,
         ByteCountResult,
@@ -1407,6 +1428,33 @@ struct PollOnceCommand {
     static constexpr std::string_view type_tag = "pollOnce";
 };
 
+/// Closes the database before the OS suspends the process: destroys the Client once it has no
+/// outbound work left or after `waitMs`, whichever is first. If destroying it is still not done
+/// `interruptMs` after the command, the database's SQL is interrupted so that it can finish, and
+/// whatever statement was running is rolled back.
+///
+/// For iOS, which kills a suspended app holding a lock on a file in its shared container
+/// (0xdead10cc), and the database is in the app group so the notification extension can open
+/// it. While it waits, the Client works as before and `reopenClient` cancels the close; once it is
+/// destroying, every request but `reopenClient` is refused at once rather than left waiting.
+/// Answers `clientClosed`.
+struct CloseClientCommand {
+    static constexpr std::string_view type_tag = "closeClient";
+
+    double wait_ms;
+    double interrupt_ms;
+
+    CloseClientCommand(double wait_ms_, double interrupt_ms_) :
+            wait_ms{std::move(wait_ms_)}, interrupt_ms{std::move(interrupt_ms_)} {}
+};
+
+/// Undoes `closeClient`: cancels it while it is still waiting for outbound work, or builds the
+/// Client again and attaches its network once it has closed. Answers `ok` when the Client is
+/// there again; nothing to do if it never closed.
+struct ReopenClientCommand {
+    static constexpr std::string_view type_tag = "reopenClient";
+};
+
 struct SetPushTokenCommand {
     static constexpr std::string_view type_tag = "setPushToken";
 
@@ -1874,6 +1922,8 @@ using Command = std::variant<
         GetNetworkStatusCommand,
         SetPollIntervalCommand,
         PollOnceCommand,
+        CloseClientCommand,
+        ReopenClientCommand,
         SetPushTokenCommand,
         HandlePushPayloadCommand,
         GetConversationsCommand,

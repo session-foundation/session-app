@@ -664,6 +664,22 @@ describeEcho('the generated converters', () => {
     { type: 'response', response: { id: 900_010, result: { type: 'pref', value: 'v' } } },
     { type: 'response', response: { id: 900_011, result: { type: 'pref' } } },
     { type: 'response', response: { id: 900_012, result: { type: 'bool', value: true } } },
+    {
+      type: 'response',
+      response: {
+        id: 900_101,
+        result: {
+          type: 'clientClosed',
+          closed: true,
+          // Not whole numbers, so a converter that rounds or truncates cannot pass.
+          waitedMs: 9_999.5,
+          closeMs: 2_161.25,
+          outboundBusy: true,
+          interrupted: true,
+          interruptedForReopen: true,
+        },
+      },
+    },
     { type: 'response', response: { id: 900_013, result: { type: 'empty' } } },
     { type: 'response', response: { id: 900_050, result: { type: 'seedHidden' } } },
     {

@@ -716,13 +716,7 @@ export class FakeAccount {
    * show a spinner for ever after a crash.
    */
   restart(): void {
-    // A transfer is not stored anywhere, so one that was running is simply gone: its remaining
-    // reports are dropped and whoever was waiting is told, rather than left holding a promise.
-    const lost = [...this.transfers.values()]
-    this.transfers.clear()
-    for (const { consumers } of lost)
-      for (const consumer of consumers)
-        consumer.reject(new Error('the transfer did not survive the restart'))
+    this.dropTransfers('the transfer did not survive the restart')
     // An account nobody confirmed does not survive a restart, the way it does not survive one
     // against the real bridge. Checked before the send states are settled, because there is no
     // point settling messages that are about to be thrown away with the account.
@@ -730,7 +724,39 @@ export class FakeAccount {
       this.discard()
       return
     }
+    this.interruptInFlight()
+  }
 
+  /**
+   * The Client built again after `closeClient` destroyed it: what a restart does to sends and
+   * transfers, since libsession reads the same rows at construction either way. An unconfirmed
+   * account stays, as it does against the real bridge: only a launch sweeps one away.
+   */
+  reopen(): void {
+    this.dropTransfers('the transfer did not survive closing the client')
+    this.interruptInFlight()
+  }
+
+  /** Whether anything is still going somewhere, as libsession's `outbound_busy` answers. */
+  outboundBusy(): boolean {
+    const outbound: (SendState | undefined)[] = ['pending', 'sending', 'uploading']
+    for (const state of this.conversations.values())
+      for (const message of state.messages)
+        if (outbound.includes(message.sendState) || outbound.includes(message.syncState))
+          return true
+    return false
+  }
+
+  // A transfer is not stored anywhere, so one that was running is simply gone: its remaining
+  // reports are dropped and whoever was waiting is told, rather than left holding a promise.
+  private dropTransfers(reason: string): void {
+    const lost = [...this.transfers.values()]
+    this.transfers.clear()
+    for (const { consumers } of lost)
+      for (const consumer of consumers) consumer.reject(new Error(reason))
+  }
+
+  private interruptInFlight(): void {
     const inFlight: SendState[] = ['pending', 'sending']
     for (const [id, state] of this.conversations) {
       for (const message of state.messages) {

@@ -22,6 +22,7 @@ import { BridgeClosedError, SessionClientError } from './errors'
 import { BRIDGE_UNAVAILABLE } from './refusingTransport'
 import type {
   BridgeTransport,
+  ClientClosed,
   MessagePage,
   OutgoingMessage,
   SessionClient,
@@ -239,6 +240,16 @@ export function createSessionClient(transport: BridgeTransport): SessionClient {
 
     async setPollInterval(intervalMs): Promise<void> {
       await call({ type: 'setPollInterval', intervalMs })
+    },
+    async closeClient(waitMs, interruptMs): Promise<ClientClosed> {
+      const { type: _type, ...closed } = resultOf(
+        await call({ type: 'closeClient', waitMs, interruptMs }),
+        'clientClosed',
+      )
+      return closed
+    },
+    async reopenClient(): Promise<void> {
+      await call({ type: 'reopenClient' })
     },
     async setBlocked(id, blocked): Promise<void> {
       await call({ type: 'setBlocked', conversationId: id, blocked })

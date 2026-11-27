@@ -26,8 +26,10 @@
 #endif
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cmath>
+#include <condition_variable>
 #include <cstddef>
 #include <cstring>
 #include <filesystem>
@@ -36,10 +38,12 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <unordered_set>
 #include <optional>
 #include <ranges>
 #include <span>
 #include <stdexcept>
+#include <thread>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -56,6 +60,13 @@ namespace session_bridge {
 using namespace ::session;
 
 namespace {
+
+    /// A request refused, or cut off, because the Client is closed for the background: never a
+    /// wrong request, and one to ask again once the Client is back. The fake and the TypeScript
+    /// client say the same (`CLIENT_CLOSED`).
+    constexpr std::string_view CLIENT_CLOSED = "client.closed";
+    constexpr std::string_view CLIENT_CLOSED_MESSAGE =
+            "the client is closed while the app is in the background";
 
     /// libsession reports "no such thing" as an empty optional rather than an error, and the two
     /// mean different things to a caller. Said once here so every command spells it the same way.
@@ -421,6 +432,48 @@ struct ClientBridge::Impl {
     /// its destructor, which would otherwise reach a sink the adapter is tearing down.
     bool network_status_open = true;
 
+    /// Where the Client is in closing for the background (`closeClient`).
+    ///
+    /// While `waiting`, it works as before and nothing may replace it, so the close can ask it
+    /// whether anything is outbound without holding `client_lock`. From `destroying` on, `client`
+    /// is empty and every request but `reopenClient` is refused at once.
+    enum class Background { open, waiting, destroying, closed };
+    Background background = Background::open;
+    /// Held by every request and media fetch while it reads `client`, and by the close while it
+    /// moves between states. Never held while the Client is destroyed, which can take until the
+    /// interrupt: a request then is refused rather than left waiting on the caller's thread.
+    /// Recursive, so a sink that answers synchronously and is asked again from there cannot
+    /// deadlock against itself.
+    std::recursive_mutex client_lock;
+    /// Set by `reopenClient` while the close waits, so that it keeps the Client; read by the close
+    /// without the lock, between its checks for outbound work.
+    std::atomic<bool> close_cancelled{false};
+    /// A `reopenClient` that came while the Client was being destroyed: answered by the close
+    /// once it has built the Client again. Under `client_lock`.
+    std::optional<double> reopen_waiting;
+    /// The close's own thread, so that `close` can wait for it before the Impl it answers on goes.
+    /// Set once it has answered, so that the next close can join it without waiting.
+    std::thread closer;
+    std::atomic<bool> closer_done{true};
+    /// Requests handed to the Client and not answered yet. Destroying the Client for the
+    /// background cancels the work that would have answered them, so the close answers them
+    /// instead; nothing above has a timeout, and a request left unanswered is a caller waiting for
+    /// ever.
+    std::mutex unanswered_m;
+    std::unordered_set<double> unanswered;
+    /// What a destroy for the background is waiting on, shared with its watchdog: whether it is
+    /// done, and whether its SQL was interrupted, at the deadline or because the app came back.
+    struct CloseWatch {
+        std::mutex m;
+        std::condition_variable cv;
+        bool done = false;
+        bool interrupted = false;
+        bool for_reopen = false;
+        std::shared_ptr<sqlite::InterruptHandle> handle;
+    };
+    /// The destroy under way, if any. Under `client_lock`.
+    std::shared_ptr<CloseWatch> close_watch;
+
     explicit Impl(Sink s, InitOptions o) : sink{std::move(s)}, options{std::move(o)} {}
 
     /// Builds the Client, and can do it again.
@@ -695,7 +748,13 @@ struct ClientBridge::Impl {
     }
 
     void respond(double id, Result result) {
+        answered(id);
         emit(ResponseFrame{Response{id, std::nullopt, std::nullopt, std::move(result)}});
+    }
+
+    void answered(double id) {
+        std::lock_guard lock{unanswered_m};
+        unanswered.erase(id);
     }
 
     void ok(double id) {
@@ -704,6 +763,7 @@ struct ClientBridge::Impl {
 
     void fail(
             double id, std::string_view message, std::optional<std::string> code = std::nullopt) {
+        answered(id);
         emit(ResponseFrame{Response{id, std::string{message}, std::move(code), std::nullopt}});
     }
 
@@ -819,16 +879,18 @@ struct ClientBridge::Impl {
             respond(id, AccountInfoResult{AccountInfo{false, std::nullopt, std::nullopt, false}});
             return;
         }
-        client->display_name(on(id, [this, id](std::string name) {
+        // The Client this was asked of, not the member: a close for the background can take the
+        // member before the answer runs, and the Client outlives its own loop's work.
+        client->display_name(on(id, [this, id, c = client.get()](std::string name) {
             std::optional<std::string> display_name;
             if (!name.empty())
                 display_name = std::move(name);
             respond(id,
                     AccountInfoResult{AccountInfo{
                             true,
-                            client->core.globals.session_id_hex(),
+                            c->core.globals.session_id_hex(),
                             std::move(display_name),
-                            client->core.network() != nullptr}});
+                            c->core.network() != nullptr}});
         }));
     }
 
@@ -1066,6 +1128,156 @@ struct ClientBridge::Impl {
         ok(id);
     }
 
+    void handle(double id, const CloseClientCommand& cmd) {
+        auto wait = std::chrono::milliseconds{whole<int64_t>(cmd.wait_ms, "closeClient.waitMs")};
+        auto interrupt_after = std::chrono::milliseconds{
+                whole<int64_t>(cmd.interrupt_ms, "closeClient.interruptMs")};
+        if (wait.count() < 0 || interrupt_after.count() < 0)
+            throw std::invalid_argument{"closeClient: waitMs and interruptMs must not be negative"};
+        if (background != Background::open || !closer_done)
+            throw std::logic_error{"closeClient: the client is already closing"};
+        if (closer.joinable())
+            closer.join();
+        background = Background::waiting;
+        close_cancelled = false;
+        closer_done = false;
+        // Off the caller's thread, which is the app's JavaScript thread: the wait and the
+        // destruction together can run until the interrupt and past it.
+        closer = std::thread([this, id, wait, interrupt_after] {
+            close_for_background(id, wait, interrupt_after);
+            closer_done = true;
+        });
+    }
+
+    /// `closeClient`'s work, on its own thread.
+    void close_for_background(
+            double id, std::chrono::milliseconds wait, std::chrono::milliseconds interrupt_after) {
+        auto started = std::chrono::steady_clock::now();
+        auto since = [](std::chrono::steady_clock::time_point from) {
+            return static_cast<double>(std::chrono::duration_cast<std::chrono::milliseconds>(
+                                               std::chrono::steady_clock::now() - from)
+                                               .count());
+        };
+
+        // Nothing replaces the Client while `waiting` (see `call`), so it can be asked without
+        // the lock, and a request meanwhile is not held up by this.
+        bool busy = client->outbound_busy();
+        while (busy && !close_cancelled && std::chrono::steady_clock::now() - started < wait) {
+            std::this_thread::sleep_for(std::chrono::milliseconds{50});
+            busy = client->outbound_busy();
+        }
+        auto waited_ms = since(started);
+
+        std::unique_ptr<client::Client> dying;
+        auto watch = std::make_shared<CloseWatch>();
+        {
+            std::lock_guard lock{client_lock};
+            if (close_cancelled) {
+                respond(id, ClientClosedResult{false, waited_ms, 0, busy, false, false});
+                return;
+            }
+            background = Background::destroying;
+            watch->handle = client->core.database().interrupt_handle();
+            close_watch = watch;
+            dying = std::move(client);
+        }
+
+        // Destroying the Client waits for whatever SQL Core is running. Still going at the
+        // deadline, the SQL is interrupted and rolled back, so that the database is closed before
+        // the OS suspends the process; a reopen does the same at once (see `reopen_client`). The
+        // watchdog can outlive this by a moment, hence shared.
+        std::thread watchdog([watch, deadline = started + interrupt_after] {
+            std::unique_lock w{watch->m};
+            if (watch->cv.wait_until(
+                        w, deadline, [&] { return watch->done || watch->interrupted; }))
+                return;
+            watch->interrupted = true;
+            w.unlock();
+            watch->handle->interrupt();
+        });
+        auto destroying = std::chrono::steady_clock::now();
+        dying.reset();
+        auto close_ms = since(destroying);
+        bool interrupted, for_reopen;
+        {
+            std::lock_guard w{watch->m};
+            watch->done = true;
+            interrupted = watch->interrupted;
+            for_reopen = watch->for_reopen;
+        }
+        watch->cv.notify_all();
+        watchdog.join();
+
+        std::optional<double> reopen;
+        {
+            std::lock_guard lock{client_lock};
+            background = Background::closed;
+            close_watch.reset();
+            reopen = std::exchange(reopen_waiting, std::nullopt);
+        }
+        std::unordered_set<double> cut_off;
+        {
+            std::lock_guard lock{unanswered_m};
+            cut_off = std::exchange(unanswered, {});
+        }
+        cut_off.erase(id);
+        for (auto request : cut_off)
+            fail(request, CLIENT_CLOSED_MESSAGE, std::string{CLIENT_CLOSED});
+        respond(id, ClientClosedResult{true, waited_ms, close_ms, busy, interrupted, for_reopen});
+        // Not while the bridge itself is closing, which sets `close_cancelled` to end this.
+        if (reopen && close_cancelled) {
+            fail(*reopen, "reopenClient: the bridge is closing");
+        } else if (reopen) {
+            std::lock_guard lock{client_lock};
+            reopen_client(*reopen);
+        }
+    }
+
+    void handle(double id, const ReopenClientCommand&) { reopen_client(id); }
+
+    /// Under `client_lock`.
+    void reopen_client(double id) {
+        switch (background) {
+            case Background::open: ok(id); return;
+            case Background::waiting:
+                // Kept: the close sees this before it lets the Client go.
+                close_cancelled = true;
+                background = Background::open;
+                ok(id);
+                return;
+            case Background::destroying:
+                if (reopen_waiting)
+                    fail(*reopen_waiting, "reopenClient: asked again before the client was back");
+                reopen_waiting = id;
+                // The app is in front again, so the deadline no longer matters: whatever SQL the
+                // destroy is waiting on is interrupted now rather than left to run to it. Rolled
+                // back as it would have been there, and answered once the Client is built again.
+                if (auto watch = close_watch) {
+                    bool interrupt_now = false;
+                    {
+                        std::lock_guard w{watch->m};
+                        if (!watch->done && !watch->interrupted) {
+                            watch->interrupted = watch->for_reopen = interrupt_now = true;
+                        }
+                    }
+                    watch->cv.notify_all();
+                    if (interrupt_now)
+                        watch->handle->interrupt();
+                }
+                return;
+            case Background::closed: break;
+        }
+        try {
+            open_client();
+        } catch (const std::exception& e) {
+            fail(id, std::string{"reopenClient: "} + e.what());
+            return;
+        }
+        background = Background::open;
+        on_account();
+        ok(id);
+    }
+
     void handle(double id, const PollOnceCommand&) {
         // Core owns its poll ticker and exposes no one-shot entry point. Asking for one is the
         // first of the background-and-push questions in docs/STATUS.md; until it is answered
@@ -1171,8 +1383,12 @@ struct ClientBridge::Impl {
                 whole<int64_t>(from.id, std::string{field} + ".id")};
     }
 
-    void read_page(double id, const std::string& conversation_id, client::MessagePage page) {
-        convo(conversation_id)
+    void read_page(
+            client::Client& c,
+            double id,
+            const std::string& conversation_id,
+            client::MessagePage page) {
+        client::Conversation{c, client::ConversationId::parse(conversation_id)}
                 .messages(std::move(page), on(id, [this, id](client::MessagePageResult page) {
                     std::vector<Message> out;
                     out.reserve(page.messages.size());
@@ -1195,7 +1411,7 @@ struct ClientBridge::Impl {
         if (cmd.after)
             page.after = cursor(*cmd.after, "getMessages.after");
         if (!cmd.around) {
-            read_page(id, cmd.conversation_id, std::move(page));
+            read_page(*client, id, cmd.conversation_id, std::move(page));
             return;
         }
         // Checked here because the cursor is only read a call later, and libsession's own refusal
@@ -1209,7 +1425,8 @@ struct ClientBridge::Impl {
         client->message(
                 target,
                 on(id,
-                   [this, id, target, conversation_id, page](
+                   // The Client asked, not the member, as in `getAccountInfo`.
+                   [this, id, target, conversation_id, page, c = client.get()](
                            std::optional<client::Message> found) {
                        if (!found || found->conversation.to_string() != conversation_id) {
                            fail(id,
@@ -1219,7 +1436,7 @@ struct ClientBridge::Impl {
                        }
                        auto window = page;
                        window.around = found->cursor();
-                       read_page(id, conversation_id, std::move(window));
+                       read_page(*c, id, conversation_id, std::move(window));
                    }));
     }
 
@@ -1655,6 +1872,11 @@ ClientBridge::~ClientBridge() {
 void ClientBridge::close() {
     if (!_impl)
         return;
+    // A close for the background still under way answers on this Impl, so it has to end first:
+    // cancelled if it is still waiting, and otherwise done once the Client it took is destroyed.
+    _impl->close_cancelled = true;
+    if (_impl->closer.joinable())
+        _impl->closer.join();
     // Order matters. remove_logger is serialised against logging, so once it returns the callback
     // is neither running nor reachable; destroying the Client then joins Core's loop, so nothing
     // is mid-emit by the time the Impl the two of them write to goes.
@@ -1674,6 +1896,8 @@ void ClientBridge::close() {
 }
 
 void ClientBridge::fetch_media(double message_id, double index, MediaHandler cb) {
+    // Held while the Client is read, so a close for the background cannot take it meanwhile.
+    auto lock = _impl ? std::unique_lock{_impl->client_lock} : std::unique_lock<std::recursive_mutex>{};
     if (!_impl || !_impl->client) {
         cb(Media{"the bridge is closed", {}, {}});
         return;
@@ -1742,6 +1966,8 @@ void ClientBridge::fetch_media(double message_id, double index, MediaHandler cb)
 constexpr uint32_t thumbhash_long_edge = 32;
 
 void ClientBridge::fetch_thumbhash(double message_id, double index, ThumbhashHandler cb) {
+    // Held while the Client is read, so a close for the background cannot take it meanwhile.
+    auto lock = _impl ? std::unique_lock{_impl->client_lock} : std::unique_lock<std::recursive_mutex>{};
     if (!_impl || !_impl->client) {
         cb(Thumbhash{"the bridge is closed", 0, 0, {}});
         return;
@@ -1795,6 +2021,8 @@ void ClientBridge::fetch_thumbhash(double message_id, double index, ThumbhashHan
 }
 
 void ClientBridge::fetch_thumbnail(double message_id, double index, MediaHandler cb) {
+    // Held while the Client is read, so a close for the background cannot take it meanwhile.
+    auto lock = _impl ? std::unique_lock{_impl->client_lock} : std::unique_lock<std::recursive_mutex>{};
     if (!_impl || !_impl->client) {
         cb(Media{"the bridge is closed", {}, {}});
         return;
@@ -1829,6 +2057,8 @@ void ClientBridge::fetch_thumbnail(double message_id, double index, MediaHandler
 }
 
 void ClientBridge::fetch_rendition(double message_id, double index, MediaHandler cb) {
+    // Held while the Client is read, so a close for the background cannot take it meanwhile.
+    auto lock = _impl ? std::unique_lock{_impl->client_lock} : std::unique_lock<std::recursive_mutex>{};
     if (!_impl || !_impl->client) {
         cb(Media{"the bridge is closed", {}, {}});
         return;
@@ -1866,6 +2096,8 @@ void ClientBridge::fetch_rendition(double message_id, double index, MediaHandler
 }
 
 std::function<void()> ClientBridge::fetch_staged_thumbnail(std::string path, MediaHandler cb) {
+    // Held while the Client is read, so a close for the background cannot take it meanwhile.
+    auto lock = _impl ? std::unique_lock{_impl->client_lock} : std::unique_lock<std::recursive_mutex>{};
     if (!_impl || !_impl->client) {
         cb(Media{"the bridge is closed", {}, {}});
         return [] {};
@@ -1908,6 +2140,21 @@ void ClientBridge::call(Request request) {
     // simply stopped, with nothing said anywhere.
     //
     // A discard is the exception: it is what replaces a database that would not open.
+    std::unique_lock lock{_impl->client_lock};
+    if (_impl->background != Impl::Background::open) {
+        bool reopen = std::holds_alternative<ReopenClientCommand>(request.command);
+        // While the close waits, the Client works as before, but nothing may replace it.
+        bool usable = _impl->background == Impl::Background::waiting &&
+                      !std::holds_alternative<DiscardAccountCommand>(request.command);
+        if (reopen) {
+            _impl->reopen_client(request.id);
+            return;
+        }
+        if (!usable) {
+            _impl->fail(request.id, CLIENT_CLOSED_MESSAGE, std::string{CLIENT_CLOSED});
+            return;
+        }
+    }
     if (!_impl->client && !std::holds_alternative<DiscardAccountCommand>(request.command)) {
         _impl->fail(
                 request.id,
@@ -1917,6 +2164,11 @@ void ClientBridge::call(Request request) {
         return;
     }
 
+    // Not the warm-up, which runs on a network of its own and is answered whatever the Client does.
+    if (!std::holds_alternative<WarmNetworkCacheCommand>(request.command)) {
+        std::lock_guard tracked{_impl->unanswered_m};
+        _impl->unanswered.insert(request.id);
+    }
     try {
         _impl->dispatch(request);
     } catch (const std::exception& e) {

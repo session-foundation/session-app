@@ -957,6 +957,91 @@ export function runSessionClientContract(
       expect(['interrupted', 'sent', 'failed']).toContain(inFlight?.sendState)
     })
 
+    it('closes for the background, refusing requests until it is reopened', async () => {
+      const { alice, bobId } = await harness.friends()
+      const before = await alice.getAccountInfo()
+
+      // Nothing outbound, so nothing to wait for.
+      const closed = await alice.closeClient(10_000, 15_000)
+      expect(closed.closed).toBe(true)
+      expect(closed.outboundBusy).toBe(false)
+      expect(closed.interrupted).toBe(false)
+
+      // Refused rather than left waiting: the app may still be asking things as it goes.
+      expect((await failure(() => alice.getAccountInfo())) instanceof SessionClientError).toBe(true)
+      expect(
+        (await failure(() => alice.closeClient(10_000, 15_000))) instanceof SessionClientError,
+      ).toBe(true)
+
+      await alice.reopenClient()
+      expect((await alice.getAccountInfo()).sessionId).toBe(before.sessionId)
+      expect((await alice.getConversations()).some((c) => c.id === bobId)).toBe(true)
+      // Nothing to undo a second time.
+      await alice.reopenClient()
+      expect((await alice.getAccountInfo()).sessionId).toBe(before.sessionId)
+    })
+
+    it('makes an account after closing for the background during onboarding', async () => {
+      // Onboarding is where the app spends its first background trip: somebody looks away while
+      // choosing a name, and the account has to be made on the Client built on return.
+      const { client } = await harness.newcomer()
+      expect((await client.closeClient(10_000, 15_000)).closed).toBe(true)
+      await client.reopenClient()
+
+      await client.createAccount()
+      await client.setDisplayName('Back again')
+      await client.keepAccount()
+      const info = await client.getAccountInfo()
+      expect(info.haveAccount).toBe(true)
+      expect(info.displayName).toBe('Back again')
+    })
+
+    it('keeps the client when it is reopened while the close waits for a send', async () => {
+      const { alice, bobId } = await harness.friends()
+      await alice.sendMessage(bobId, { body: 'still going' })
+
+      const closing = alice.closeClient(10_000, 15_000)
+      // Working while it waits, but nothing may replace the Client the close is waiting on.
+      expect((await alice.getConversations()).some((c) => c.id === bobId)).toBe(true)
+      expect((await failure(() => alice.discardAccount())) instanceof SessionClientError).toBe(true)
+
+      await alice.reopenClient()
+      const closed = await closing
+      expect(closed.closed).toBe(false)
+      expect(closed.waitedMs < 10_000).toBe(true)
+      expect((await alice.getMessages(bobId)).messages.some((m) => m.body === 'still going')).toBe(
+        true,
+      )
+    })
+
+    it('leaves a send the close did not wait out interrupted once reopened', async () => {
+      const { alice, bobId } = await harness.friends()
+      await alice.sendMessage(bobId, { body: 'cut off' })
+
+      const closed = await alice.closeClient(0, 15_000)
+      expect(closed.closed).toBe(true)
+      await alice.reopenClient()
+
+      const { messages } = await alice.getMessages(bobId)
+      const cutOff = messages.find((m) => m.body === 'cut off')
+      // As after a restart: the send queue went with the Client, and a send left spinning would
+      // spin for ever.
+      expect(['interrupted', 'sent', 'failed']).toContain(cutOff?.sendState)
+    })
+
+    it('refuses a negative wait or interrupt', async () => {
+      const { alice } = await harness.friends()
+      for (const [waitMs, interruptMs] of [
+        [-1, 15_000],
+        [10_000, -1],
+      ] as const) {
+        const error = await failure(() => alice.closeClient(waitMs, interruptMs))
+        expect(error instanceof SessionClientError).toBe(true)
+      }
+      // Refused before it began, so the client is open as before.
+      await alice.getAccountInfo()
+    })
+
     it('retries a send a restart stopped, uploading again and settling by update', async () => {
       const { alice, bobId, settle, writeFile } = await harness.friends()
       const path = await writeFile('again.txt', 1_200)

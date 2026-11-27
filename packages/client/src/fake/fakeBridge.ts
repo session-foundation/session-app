@@ -176,6 +176,14 @@ const handlers: { [K in Command['type']]: Handler<K> } = {
     await client.setPollInterval(cmd.intervalMs)
     return empty
   },
+  closeClient: async (client, cmd) => ({
+    type: 'clientClosed',
+    ...(await client.closeClient(cmd.waitMs, cmd.interruptMs)),
+  }),
+  reopenClient: async (client) => {
+    await client.reopenClient()
+    return empty
+  },
   setBlocked: async (client, cmd) => {
     await client.setBlocked(cmd.conversationId, cmd.blocked)
     return empty
