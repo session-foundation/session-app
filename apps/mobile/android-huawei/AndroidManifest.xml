@@ -1,0 +1,20 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <application>
+    <!-- The app id HMS Core identifies the app by; withHms writes it from agconnect-services.json. -->
+    <meta-data android:name="com.huawei.hms.client.appid" android:value="@string/session_hms_app_id_meta" />
+    <!-- No token until Instant asks for one: HMS reaches Huawei only after that choice. -->
+    <meta-data android:name="push_kit_auto_init_enabled" android:value="false" />
+
+    <service android:name="org.getsession.push.hms.HmsService" android:exported="false">
+      <intent-filter>
+        <action android:name="com.huawei.push.action.MESSAGING_EVENT" />
+      </intent-filter>
+    </service>
+
+    <!-- Runs before the app's own code, so the provider is set before JS can ask for a token. -->
+    <provider
+      android:name="org.getsession.push.hms.HmsInit"
+      android:authorities="${applicationId}.hmsinit"
+      android:exported="false" />
+  </application>
+</manifest>
