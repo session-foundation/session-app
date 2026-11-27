@@ -1,0 +1,2 @@
+# Generated sources: GitHub collapses them in review. Each says at its top what writes it.
+*.generated.* linguist-generated=true
