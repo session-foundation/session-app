@@ -1,4 +1,3 @@
-import { Icon } from '../../Icon'
 import { SettingsNote, SettingsRow, type SettingsRowProps } from '../../SettingsRow'
 import { Switch } from '../../Switch'
 import { Text } from '../../Text'
@@ -56,6 +55,14 @@ export const settingsRow = defineStory<SettingsRowProps | NoteVariant>({
         />
       ),
     },
+    // A choice with an aside: the note set apart from the description, in the secondary colour.
+    withNote: {
+      ...ROW,
+      testID: 'catalog-settings-row-note',
+      label: 'Apple push',
+      subtitle: 'Instant. Apple learns when a message arrives, not who sent it or what it says.',
+      note: 'Community messages arrive with periodic checks.',
+    },
     // A developer setting: an explanation in paragraphs, then how it stands, a line under it.
     details: {
       testID: 'catalog-settings-row-details',
@@ -85,7 +92,31 @@ export const settingsRow = defineStory<SettingsRowProps | NoteVariant>({
         { label: 'Mock Status:', value: 'None', inactive: true },
         { label: 'Server:', value: 'a-rather-long-host-name.example.org/files/v2' },
       ],
-      trailing: <Icon name="chevronRight" size="md" color="$textPrimary" />,
+      leadsTo: 'screen',
+    },
+    // A choice that opens its own screen: the choice under the name, the chevron after it.
+    choice: {
+      ...ROW,
+      testID: 'catalog-settings-row-choice',
+      label: 'Notification Content',
+      subtitle: 'Name and Content',
+      leadsTo: 'screen',
+    },
+    // One that leaves the app, for a website or the OS's settings.
+    outside: {
+      ...ROW,
+      testID: 'catalog-settings-row-outside',
+      label: 'Go to device notification settings',
+      leadsTo: 'outside',
+    },
+    // The glyph dims with the row it is on.
+    outsideDisabled: {
+      ...ROW,
+      testID: 'catalog-settings-row-outsideDisabled',
+      label: 'Calls',
+      subtitle: 'Sound, vibration and more',
+      leadsTo: 'outside',
+      disabled: true,
     },
     accentIcon: {
       ...ROW,
@@ -131,9 +162,9 @@ export const settingsRow = defineStory<SettingsRowProps | NoteVariant>({
     noteLong: { testID: 'catalog-settings-note-long', note: LONG },
   },
   render: (props) =>
-    'note' in props ? (
-      <SettingsNote text={props.note} testID={props.testID} />
-    ) : (
+    'label' in props ? (
       <SettingsRow {...props} />
+    ) : (
+      <SettingsNote text={props.note} testID={props.testID} />
     ),
 })

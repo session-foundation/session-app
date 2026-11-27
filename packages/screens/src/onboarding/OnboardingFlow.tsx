@@ -447,7 +447,7 @@ async function commit(
     await actions.keepAccount()
     // After the account is kept, as the store only saves it for an account. Null where onboarding
     // didn't ask: desktop, which keeps polling and has nothing to choose.
-    if (state.notifications !== null) await actions.setNotificationMode(state.notifications)
+    if (state.notifications !== null) await actions.setDeliveryMode(state.notifications)
   } finally {
     setBusy(false)
   }

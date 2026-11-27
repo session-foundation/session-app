@@ -292,6 +292,8 @@ void HybridSessionBridge::init(const SessionBridgeOptions& options) {
         init.network.router = router_of(*options.router);
     if (options.deviceType)
         init.device_type = device_type_name(*options.deviceType);
+    if (options.notificationYou)
+        init.notification_you = *options.notificationYou;
     if (options.logLevel)
         init.log_level = log_level_name(*options.logLevel);
     init.thumbnail_edge_px = options.thumbnailEdgePx;

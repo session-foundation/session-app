@@ -1,15 +1,21 @@
-import { flag, type NotificationsPort, requirePorts } from '@session/app'
-import { tr } from '@session/localization'
+import { requirePorts } from '@session/app'
+import { PENDING_COPY, tr } from '@session/localization'
+import type { DeliveryMode } from '@session/state'
 import { ELEMENT } from '@session/test-ids'
 import { Button, RadioIndicator, Text, XStack, YStack } from '@session/ui'
 import { useState } from 'react'
 
+import {
+  deliveryModeDescription,
+  deliveryModeTitle,
+  deliveryOffers,
+  recommendedMode,
+} from '../deliveryModes'
 import { OnboardingStep } from './OnboardingStep'
-import type { NotificationMode } from './flow'
 
 interface MessageNotificationsScreenProps {
   onBack: () => void
-  onContinue: (mode: NotificationMode) => void
+  onContinue: (mode: DeliveryMode) => void
   busy?: boolean
 }
 
@@ -19,27 +25,16 @@ const BOX_PADDING_Y = 12
 const TEXT_GAP = 8
 const ROW_GAP = 24
 
-/**
- * The description of fast mode, by whose servers it would use.
- *
- * Three strings in the catalogue and only one of them is true of any given build -- an iOS build
- * saying "Google's notification Servers" is simply wrong, and it is what ours said. The fallback is
- * the unqualified one, for a build with no push service to name at all.
- */
-function fastModeDescription(service: NotificationsPort['pushService']): string {
-  if (service === 'apple') return tr('notificationsFastModeDescriptionIos')
-  if (service === 'huawei') return tr('notificationsFastModeDescriptionHuawei')
-  return tr('notificationsFastModeDescription')
-}
-
 interface NotificationOptionProps {
-  value: NotificationMode
+  value: DeliveryMode
   title: string
   description: string
+  /** A further line, as Instant's about communities. */
+  note: string | null
   badge: string | null
   selected: boolean
   disabled: boolean
-  onSelect: (mode: NotificationMode) => void
+  onSelect: (mode: DeliveryMode) => void
 }
 
 /**
@@ -52,6 +47,7 @@ function NotificationOption({
   value,
   title,
   description,
+  note,
   badge,
   selected,
   disabled,
@@ -87,6 +83,11 @@ function NotificationOption({
         <Text size="$label" {...(disabled ? { tone: 'disabled' as const } : {})}>
           {description}
         </Text>
+        {note === null ? null : (
+          <Text size="$label" tone={disabled ? 'disabled' : 'secondary'}>
+            {note}
+          </Text>
+        )}
         {badge === null ? null : (
           <Text size="$body" weight="bold" tone={disabled ? 'secondary' : 'accent'}>
             {badge}
@@ -99,33 +100,31 @@ function NotificationOption({
 }
 
 /**
- * Which way notifications arrive.
+ * How new messages reach the device: every delivery mode this platform offers.
  *
  * The last screen of the create sequence, and **the point at which the account is actually made**
  * -- everything before it was collected and held. It comes before the restore wait rather than
  * after, so that a restore is not fifteen seconds of nothing followed by a question.
  *
- * Fast mode is push and slow mode is polling. Where the build has no push service the fast option
- * is shown and marked unavailable rather than hidden: it is the recommended choice everywhere it
- * exists, and quietly dropping it makes polling look like the only design rather than the fallback.
+ * The same list as the Message delivery settings screen. A mode this build or device cannot use is
+ * shown disabled with the reason rather than hidden: Instant is the recommended choice everywhere
+ * it exists, and quietly dropping it makes the others look like the only design rather than the
+ * fallback. The first usable mode is preselected, so the button is never one that cannot be used.
  */
 export function MessageNotificationsScreen({
   onBack,
   onContinue,
   busy = false,
 }: MessageNotificationsScreenProps) {
-  // The flag is a way to look at the screen, not a second source of truth: see its entry in the
-  // flag table for why the recommended state is otherwise unreachable on a development machine.
   const notifications = requirePorts().notifications
-  const fastAvailable = notifications.fastModeAvailable || flag('forceFastModeAvailable')
-  // Slow mode preselected where fast is unavailable, so the button is never the one that cannot
-  // be used.
-  const [mode, setMode] = useState<NotificationMode>(fastAvailable ? 'fast' : 'slow')
+  const offers = deliveryOffers(notifications)
+  const recommended = recommendedMode(offers)
+  const [mode, setMode] = useState<DeliveryMode>(recommended ?? 'while-open')
 
   return (
     <OnboardingStep
       title={tr('notificationsMessage')}
-      description={tr('onboardingMessageNotificationExplanation')}
+      description={PENDING_COPY.messageDeliveryDescription}
       onBack={onBack}
       // A back press while the account is being made, or discarded, starts a second one.
       backDisabled={busy}
@@ -147,24 +146,26 @@ export function MessageNotificationsScreen({
       }
     >
       <YStack gap="$sm">
-        <NotificationOption
-          value="fast"
-          title={tr('notificationsFastMode')}
-          description={fastModeDescription(notifications.pushService)}
-          badge={fastAvailable ? tr('recommended') : tr('unavailable')}
-          selected={mode === 'fast'}
-          disabled={!fastAvailable}
-          onSelect={setMode}
-        />
-        <NotificationOption
-          value="slow"
-          title={tr('notificationsSlowMode')}
-          description={tr('notificationsSlowModeDescription')}
-          badge={null}
-          selected={mode === 'slow'}
-          disabled={false}
-          onSelect={setMode}
-        />
+        {offers.map((offer) => {
+          const usable = offer.unavailable === null
+          return (
+            <NotificationOption
+              key={offer.mode}
+              value={offer.mode}
+              title={deliveryModeTitle(offer.mode, notifications.pushService)}
+              description={deliveryModeDescription(offer, notifications.pushService)}
+              note={
+                offer.mode === 'instant' && usable ? PENDING_COPY.deliveryInstantCommunities : null
+              }
+              badge={
+                !usable ? tr('unavailable') : offer.mode === recommended ? tr('recommended') : null
+              }
+              selected={mode === offer.mode}
+              disabled={!usable}
+              onSelect={setMode}
+            />
+          )
+        })}
       </YStack>
     </OnboardingStep>
   )

@@ -55,6 +55,40 @@ function run(from: number, to: number): string[] {
   return Array.from({ length: to - from + 1 }, (_, i) => `m${String(from + i)}`)
 }
 
+describe('opening a conversation on a message', () => {
+  it('reads the first window around it and lands there, with no newest page first', async () => {
+    const { store, client, bob, idOf, window, bodies } = await longHistory()
+    const reads: unknown[] = []
+    const read = client.getMessages.bind(client)
+    client.getMessages = (...args) => {
+      reads.push(args[1])
+      return read(...args)
+    }
+
+    await store.actions.loadHistory(bob, idOf('m40'))
+
+    expect(reads).toHaveLength(1)
+    expect(bodies()).toEqual(run(11, 70))
+    expect(window().landing?.messageId).toBe(idOf('m40'))
+    // Opened there, not jumped to: there is nothing to walk back to.
+    expect(window().jumps).toEqual([])
+  })
+
+  it('opens on the newest page for a message deleted since, or never received', async () => {
+    const { store, client, bob, idOf, window, bodies } = await longHistory()
+    await client.deleteMessage(idOf('m40'), 'here')
+
+    await store.actions.loadHistory(bob, idOf('m40'))
+    expect(bodies()).toEqual(run(85, 99))
+    expect(window().landing).toBeUndefined()
+
+    const other = await longHistory()
+    await other.store.actions.loadHistory(other.bob, 987_654)
+    expect(other.bodies()).toEqual(run(85, 99))
+    expect(other.window().landing).toBeUndefined()
+  })
+})
+
 describe('a window on a long history', () => {
   let fixture: Fixture
   beforeEach(async () => {

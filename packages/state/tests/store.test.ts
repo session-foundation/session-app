@@ -176,7 +176,7 @@ describe('the switched feature flags', () => {
     const { client, store } = alice()
     await store.actions.hydrate()
     await store.actions.setFlagToggle('disableAnimations', true)
-    await store.actions.setFlagToggle('forceFastModeAvailable', true)
+    await store.actions.setFlagToggle('forceInstantAvailable', true)
 
     await store.actions.replaceFlagToggles({ debugMode: false })
     expect(store.getState().flagToggles).toEqual({ debugMode: false })
@@ -191,10 +191,10 @@ describe('the switched feature flags', () => {
 
     await Promise.all([
       store.actions.setFlagToggle('disableAnimations', true),
-      store.actions.setFlagToggle('forceFastModeAvailable', true),
+      store.actions.setFlagToggle('forceInstantAvailable', true),
       store.actions.setFlagToggle('debugMode', false),
     ])
-    const all = { disableAnimations: true, forceFastModeAvailable: true, debugMode: false }
+    const all = { disableAnimations: true, forceInstantAvailable: true, debugMode: false }
     expect(store.getState().flagToggles).toEqual(all)
     const next = createSessionStore(client)
     await next.actions.hydrate()
@@ -209,6 +209,69 @@ describe('the switched feature flags', () => {
     world.account('Alice').haveAccount = false
     await store.actions.hydrate()
     expect(store.getState().flagToggles).toEqual({})
+  })
+})
+
+describe('the delivery mode', () => {
+  function alice() {
+    const { clients } = friends(['Alice', 'Bob'])
+    const client = clients['Alice']
+    if (!client) throw new Error('fixture did not produce a client')
+    return { client, store: createSessionStore(client) }
+  }
+
+  it('is stored on the device and read back', async () => {
+    const { client, store } = alice()
+    await store.actions.hydrate()
+    expect(store.getState().deliveryMode).toBeNull()
+
+    await store.actions.setDeliveryMode('while-open')
+    const next = createSessionStore(client)
+    await next.actions.hydrate()
+    expect(next.getState().deliveryMode).toBe('while-open')
+  })
+
+  it('reads what builds with two modes stored as the modes they meant, and nothing else', async () => {
+    const { client, store } = alice()
+    await store.actions.hydrate()
+    for (const [stored, read] of [
+      ['fast', 'instant'],
+      ['slow', 'periodic'],
+      ['always-connected', 'always-connected'],
+      ['loud', null],
+    ] as const) {
+      await client.setPref('notifications.mode', stored)
+      const next = createSessionStore(client)
+      await next.actions.hydrate()
+      expect(next.getState().deliveryMode, stored).toBe(read)
+    }
+  })
+})
+
+describe('the notification settings', () => {
+  it('read what notifications show and play from libsession, and keep the switches unset until chosen', async () => {
+    const { clients } = friends(['Alice', 'Bob'])
+    const client = clients['Alice']
+    if (!client) throw new Error('fixture did not produce a client')
+    const store = createSessionStore(client)
+    await store.actions.hydrate()
+    expect(store.getState().notificationContent).toBe('nameAndContent')
+    expect(store.getState().notificationSound).toBe('note')
+    expect(store.getState().soundWhenOpen).toBeNull()
+
+    await store.actions.setNotificationContent('nameOnly')
+    await store.actions.setNotificationSound('chord')
+    await store.actions.setNotificationSwitch('soundWhenOpen', false)
+    await store.actions.setNotificationSwitch('audioNotifications', true)
+    const next = createSessionStore(client)
+    await next.actions.hydrate()
+    expect(next.getState()).toMatchObject({
+      notificationContent: 'nameOnly',
+      notificationSound: 'chord',
+      soundWhenOpen: false,
+      notificationsShown: null,
+      audioNotifications: true,
+    })
   })
 })
 

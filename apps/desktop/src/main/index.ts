@@ -25,6 +25,7 @@ import { launchColors } from './launchColors'
 import { launchOverridesSwitch } from '../shared/launchOverrides'
 import { finishLogs, logDatabase, logLibsession, openLogs, serveLogs } from './logs'
 import { registerMediaScheme, serveMedia, stopServingMedia } from './media'
+import { serveNotifications } from './notifications'
 import { PreviewGrants } from './previewGrants'
 import {
   acceptsCopy,
@@ -138,6 +139,11 @@ function installAppMenu(): void {
  * the same cached bridge, so closing the window quits on macOS too.
  */
 let startFailed = false
+/**
+ * Set once the app is quitting, so that macOS's close-to-hide gives way: the window closes for
+ * real then.
+ */
+let quitting = false
 
 /** A bridge that could not be made, standing in for one: see `createRefusingTransport`. */
 function refusingBridge(reason: string): Bridge {
@@ -298,6 +304,7 @@ async function createWindow(): Promise<Electron.BrowserWindow> {
 
   const files = serveFiles(window, appUrl, previews)
   serveLogs(window, appUrl)
+  serveNotifications(window, appUrl)
 
   // Rejects rather than resolving, so a refused copy is not reported to the person as done.
   ipc.handle('clipboard-write-text', async (event, text: unknown) => {
@@ -433,6 +440,15 @@ async function createWindow(): Promise<Electron.BrowserWindow> {
     port = null
   })
 
+  // **Hidden, not closed, on macOS**, where the app keeps running with no window, as legacy's
+  // does. Notifications and the badge are built in the renderer, and a closed window takes it with
+  // it while messages still arrive; the Dock icon shows the same window again.
+  window.on('close', (event) => {
+    if (process.platform !== 'darwin' || quitting || startFailed) return
+    event.preventDefault()
+    window.hide()
+  })
+
   await window.loadURL(appUrl)
 
   return window
@@ -459,7 +475,9 @@ void app.whenReady().then(async () => {
   await createWindow()
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) void createWindow()
+    const [existing] = BrowserWindow.getAllWindows()
+    if (existing === undefined) void createWindow()
+    else existing.show()
   })
 })
 
@@ -489,6 +507,7 @@ app.on('window-all-closed', () => {
 
 // The bridge outlives every window, so it is closed here rather than with one of them.
 app.on('before-quit', () => {
+  quitting = true
   // Urgent, so it reaches the disk without waiting for a flush; `will-quit` below writes whatever
   // follows it.
   logDatabase('at quit')

@@ -2,11 +2,12 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
-import { PUSH_WORDS } from '#src/pushWords'
+import { PUSH_ONLY_WORDS } from '#src/pushWords'
 
 /**
- * Writes the push words (`src/pushWords.ts`) in every language of the catalogue into the native
- * push handlers, for a push that arrives before the app has ever run and handed over its own.
+ * Writes the push words, every notification's (`NOTIFICATION_WORD_SOURCES`) and the phones' own
+ * (`src/pushWords.ts`), in every language of the catalogue into the native push handlers, for a
+ * push that arrives before the app has ever run and handed over its own.
  *
  * The output is committed, so a build needs no Node step, and `codegen:check` is what stops it
  * drifting from the catalogue. A language carries only the words it translates; the rest fall back
@@ -41,6 +42,12 @@ const { translationsSimpleNoArgs: simple, translationsPlurals: plurals } = await
   translationsSimpleNoArgs: ByLocale<string>
   translationsPlurals: ByLocale<Forms>
 }>('translations.ts')
+const { NOTIFICATION_WORD_SOURCES } = (await import(
+  pathToFileURL(join(appRoot, '../../packages/localization/src/notificationWordSources.ts')).href
+)) as { NOTIFICATION_WORD_SOURCES: Record<string, Source> }
+
+/** Every word the native handlers read, by the name they read it by. */
+const PUSH_WORDS: Record<string, Source> = { ...NOTIFICATION_WORD_SOURCES, ...PUSH_ONLY_WORDS }
 
 /** A plural's form for one, as `tr(key, { count: 1 })` gives it in that language. */
 function formForOne(forms: Forms | undefined, locale: string): string | undefined {
@@ -51,7 +58,7 @@ function formForOne(forms: Forms | undefined, locale: string): string | undefine
 
 function english(): Words {
   return Object.fromEntries(
-    Object.entries(PUSH_WORDS as Record<string, Source>).map(([name, from]) => {
+    Object.entries(PUSH_WORDS).map(([name, from]) => {
       const word =
         'text' in from ? englishSimple[from.text] : formForOne(englishPlurals[from.one], 'en')
       if (word === undefined) throw new Error(`no English for the push word ${name}`)
@@ -62,7 +69,7 @@ function english(): Words {
 
 function translated(locale: string): Words {
   const words: Words = {}
-  for (const [name, from] of Object.entries(PUSH_WORDS as Record<string, Source>)) {
+  for (const [name, from] of Object.entries(PUSH_WORDS)) {
     const word =
       'text' in from ? simple[locale]?.[from.text] : formForOne(plurals[locale]?.[from.one], locale)
     if (word !== undefined) words[name] = word

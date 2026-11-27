@@ -72,7 +72,7 @@ jobject outcome(JNIEnv* env, const session_bridge::PushResult& r) {
             type,
             "<init>",
             "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;"
-            "Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;IJJ[Ljava/lang/String;)V");
+            "Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;IJJJ[Ljava/lang/String;)V");
     if (!make)
         return nullptr;
 
@@ -98,6 +98,7 @@ jobject outcome(JNIEnv* env, const session_bridge::PushResult& r) {
             c && c->attachment ? env->NewStringUTF(attachment_name(*c->attachment)) : nullptr,
             static_cast<jint>(c ? c->attachments : 0),
             static_cast<jlong>(c ? c->timestamp.time_since_epoch().count() : 0),
+            static_cast<jlong>(c ? r.message_id.value_or(-1) : -1),
             static_cast<jlong>(r.badge.value_or(-1)),
             stale);
 }
@@ -157,4 +158,64 @@ extern "C" JNIEXPORT jobject JNICALL Java_org_getsession_push_PushNative_handle(
     }
     log_line("push: " + result->why);
     return outcome(env, *result);
+}
+
+/// `org.getsession.push.ActionOutcome`: whether it is done, and what to take down.
+jobject action_outcome(JNIEnv* env, const session_bridge::ActionResult& r) {
+    jclass type = env->FindClass("org/getsession/push/ActionOutcome");
+    if (!type)
+        return nullptr;
+    jmethodID make = env->GetMethodID(type, "<init>", "(Z[Ljava/lang/String;)V");
+    if (!make)
+        return nullptr;
+    jclass string_type = env->FindClass("java/lang/String");
+    jobjectArray stale =
+            env->NewObjectArray(static_cast<jsize>(r.stale.size()), string_type, nullptr);
+    for (size_t i = 0; i < r.stale.size(); ++i) {
+        jstring id = env->NewStringUTF(r.stale[i].c_str());
+        env->SetObjectArrayElement(stale, static_cast<jsize>(i), id);
+        env->DeleteLocalRef(id);
+    }
+    return env->NewObject(type, make, r.done ? JNI_TRUE : JNI_FALSE, stale);
+}
+
+/// Carries out a notification's action: marks `conversation` read, and sends `reply` there when it
+/// is not null. On the app's own Client when it is open, otherwise on one opened from `dbPath` with
+/// `keyHex`, as a push is. Blocks until done or the deadline.
+extern "C" JNIEXPORT jobject JNICALL Java_org_getsession_push_PushNative_act(
+        JNIEnv* env,
+        jclass,
+        jstring conversation,
+        jstring reply,
+        jboolean mark_read,
+        jstring db_path,
+        jstring key_hex,
+        jstring netid) {
+    session_bridge::NotificationAction action;
+    action.conversation = text(env, conversation);
+    if (reply)
+        action.reply = text(env, reply);
+    action.mark_read = mark_read == JNI_TRUE;
+    std::optional<session_bridge::ActionResult> result;
+    try {
+        result = session_bridge_rn::act_on_app_bridge(
+                action, session_bridge::ACTION_DEADLINE, log_line);
+        if (!result) {
+            const auto hex = text(env, key_hex);
+            if (hex.size() != 64 || !oxenc::is_hex(hex)) {
+                result = session_bridge::ActionResult{false, "no database key", {}};
+            } else {
+                session_bridge::ColdPush where;
+                where.db_path = text(env, db_path);
+                oxenc::from_hex(hex.begin(), hex.end(), where.key.begin());
+                where.netid = text(env, netid);
+                result = session_bridge::handle_cold_action(
+                        where, action, session_bridge::ACTION_DEADLINE, log_line);
+            }
+        }
+    } catch (const std::exception& e) {
+        result = session_bridge::ActionResult{false, std::string{"threw: "} + e.what(), {}};
+    }
+    log_line("action: " + result->why);
+    return action_outcome(env, *result);
 }

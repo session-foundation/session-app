@@ -1,3 +1,4 @@
+import type { NotificationTap } from '@session/app'
 import type { QrMark, WithSpan } from '@session/basic-types'
 import type { DiagnosticsSnapshot, ExportPart, LogFileInfo } from '@session/logging'
 
@@ -83,6 +84,24 @@ declare global {
       readonly platform: string
       /** The Help menu's Keyboard Shortcuts; returns the unsubscribe. */
       onKeyboardShortcuts(listener: () => void): () => void
+      /** A notification main posts, its words written; see main's notifications.ts. */
+      postNotification(request: {
+        id: string
+        title: string
+        body: string
+        tap: NotificationTap | null
+        silent: boolean
+        onlyUnfocused: boolean
+      }): void
+      removeNotifications(ids: readonly string[]): void
+      setBadgeCount(count: number): void
+      /** Where a clicked notification leads, as main says; returns the unsubscribe. */
+      onNotificationTap(listener: (tap: unknown) => void): () => void
+      /**
+       * Main took the notification down because the window has focus, or would not show it for
+       * that: everything it counted has been seen. Returns the unsubscribe.
+       */
+      onNotificationsSeen(listener: () => void): () => void
       /** Flag variables main read at launch, by full name; only those set. */
       readonly launchOverrides: Readonly<Record<string, string>>
     }

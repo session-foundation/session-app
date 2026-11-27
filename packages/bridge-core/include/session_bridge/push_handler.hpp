@@ -32,6 +32,8 @@ struct PushResult {
     std::optional<int64_t> badge;
     /// What happened, in words for the log: never message content.
     std::string why;
+    /// The message `show` is about, which tapping it lands on: set for a message the Client keeps.
+    std::optional<int64_t> message_id;
 };
 
 /// How long handling a push may take before it ends with whatever it has: inside iOS's 30 seconds
@@ -82,6 +84,86 @@ PushResult handle_cold_push(
         const ColdPush& where,
         std::string_view enc_payload,
         std::string_view you,
+        std::chrono::milliseconds deadline,
+        const PushLog& log);
+
+/// How long before the horizon a message may be stamped and still be announced: a message carries
+/// the moment its sender pressed send, by its sender's clock. A message claimed already is not
+/// announced twice.
+inline constexpr std::chrono::minutes ARRIVAL_SKEW{5};
+
+/// A notification to post for a message that arrived while the app runs, and the message.
+struct ArrivalNotification {
+    session::push::NotificationContent content;
+    int64_t message_id;
+};
+
+/// What to post for messages that arrived while the app runs, on a Client already open:
+/// libsession's decision (`Notifications::decide`) for each incoming message stamped after
+/// `horizon` less ARRIVAL_SKEW, which claims it, so that a push for the same message shows nothing.
+///
+/// The horizon is when this device first had the account, and never moves: what is older is the
+/// history a restore fetches, and is not announced. Not when messages were last taken in, which
+/// would silence a message sent just before a poll, or one whose sender's send was slow or retried
+/// and so arrives long after the moment it carries. Blocks: never on the Client's own loop.
+std::vector<ArrivalNotification> decide_arrivals(
+        session::push::Notifications& notifications,
+        const std::vector<session::client::Message>& arrived,
+        std::string_view you,
+        std::chrono::sys_time<std::chrono::milliseconds> horizon);
+
+/// What has changed for notifications already shown, after read state may have: those to take
+/// down, as `Notifications::stale` reports them, and the badge.
+struct NotificationRefresh {
+    std::vector<std::string> stale;
+    int64_t badge = 0;
+};
+
+/// Blocks: never on the Client's own loop.
+NotificationRefresh refresh_notifications(
+        session::client::Client& client, session::push::Notifications& notifications);
+
+/// What a notification's button asks for: its conversation marked read, or a reply sent there.
+struct NotificationAction {
+    /// The conversation, as its string id: a message notification's thread.
+    std::string conversation;
+    /// The reply to send, or nullopt to mark read only.
+    std::optional<std::string> reply;
+    /// Whether to mark the conversation read: always for Mark read, and for a reply unless a newer
+    /// notification of the conversation is still up, so that the rest can be answered one by one.
+    bool mark_read = true;
+};
+
+struct ActionResult {
+    /// Done: marked read, and for a reply, the reply accepted by the swarm.
+    bool done = false;
+    /// What happened, in words for the log: never message content.
+    std::string why;
+    /// Notifications to take down now that the conversation is read: the one acted on and any
+    /// other of its messages', as `Notifications::stale` reports them.
+    std::vector<std::string> stale;
+};
+
+/// How long a notification's action may take, inside what either OS lets a process run for once
+/// it has been woken for one.
+inline constexpr std::chrono::milliseconds ACTION_DEADLINE{20'000};
+
+/// Carries out a notification's action on a Client already open, waiting for a reply to reach the
+/// swarm until `deadline`, and reports what it made stale: the caller takes those down itself,
+/// since a process woken only for the action may be frozen before anything else would. Blocks:
+/// never on the Client's own loop.
+ActionResult handle_action(
+        session::client::Client& client,
+        session::push::Notifications& notifications,
+        const NotificationAction& action,
+        std::chrono::milliseconds deadline,
+        const PushLog& log);
+
+/// The same with a Client of its own, opened and closed as `handle_cold_push` does: for a process
+/// in which the app's own Client is not open, never beside it. Never throws.
+ActionResult handle_cold_action(
+        const ColdPush& where,
+        const NotificationAction& action,
         std::chrono::milliseconds deadline,
         const PushLog& log);
 

@@ -4,6 +4,7 @@ export type { LogLevel, SessionStoreOptions } from './store'
 export type {
   CacheSettings,
   JumpOutcome,
+  NotificationSwitch,
   RecoveryPassword,
   SessionActions,
   SessionStore,
@@ -17,6 +18,7 @@ export {
   useConversation,
   useConversations,
   useFlagToggles,
+  useNotificationSettings,
   useHydrated,
   useMessage,
   useMessageTransfers,
@@ -33,13 +35,13 @@ export {
 export type { Transcript } from './hooks'
 export { classifyStartupFailure, isClearable } from './startupFailure'
 export type { StartupFailureKind } from './startupFailure'
-export { emptyState, emptyWindow, MAX_JUMPS, transferKey } from './types'
+export { DELIVERY_MODES, emptyState, emptyWindow, MAX_JUMPS, transferKey } from './types'
 export type {
   AttachmentTransferState,
   Landing,
   MessageTransfers,
   MessageWindow,
-  NotificationMode,
+  DeliveryMode,
   SessionState,
   StoredAppearance,
 } from './types'

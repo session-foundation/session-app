@@ -1,13 +1,57 @@
-import { memoryPorts, resolveBuildVariant, setPorts } from '@session/app'
+import { memoryPorts, resolveBuildVariant, setPorts, type NotificationTap } from '@session/app'
 import { parseNetworkName } from '@session/basic-types'
 import { getLocale, subscribeLocale } from '@session/localization'
 
 import { mediaUrl } from '@session/app/mediaUrl'
 
 import { flushLogRecords } from './logs'
+import { createNotificationQueue } from './notificationQueue'
 import { chooseFiles, releasePreview, toPickedFiles } from './pickedFiles'
 
 const memory = memoryPorts()
+
+/** What main keeps the one notification under. */
+const SUMMARY_ID = 'summary'
+
+/** The one notification for every message not yet seen, as legacy desktop keeps it. */
+export const notificationQueue = createNotificationQueue({
+  show: (summary) => {
+    if (summary === null) {
+      window.sessionDesktop.removeNotifications([SUMMARY_ID])
+      return
+    }
+    window.sessionDesktop.postNotification({
+      id: SUMMARY_ID,
+      ...summary,
+      // The OS's own sound, only with the Notifications page's audio switch on.
+      onlyUnfocused: true,
+    })
+  },
+  nowMs: () => Date.now(),
+  schedule: (run, ms) => {
+    const timer = setTimeout(run, ms)
+    return () => {
+      clearTimeout(timer)
+    }
+  },
+})
+window.sessionDesktop.onNotificationsSeen(() => {
+  notificationQueue.clear()
+})
+
+/** What main says a click leads to, checked: it came over IPC. */
+function tapOf(value: unknown): NotificationTap | null {
+  if (typeof value !== 'object' || value === null) return null
+  const { kind, conversationId, messageId } = value as Record<string, unknown>
+  if (kind === 'requests') return { kind }
+  if (kind === 'conversation' && typeof conversationId === 'string')
+    return {
+      kind,
+      conversationId,
+      messageId: Number.isSafeInteger(messageId) ? (messageId as number) : undefined,
+    }
+  return null
+}
 
 /**
  * The desktop app's OS ports.
@@ -19,6 +63,34 @@ const memory = memoryPorts()
  */
 setPorts(
   memoryPorts({
+    notifications: {
+      ...memory.notifications,
+      post: (notification, options) => {
+        notificationQueue.add(notification, options)
+      },
+      remove: (ids) => {
+        notificationQueue.remove(ids)
+      },
+      preview: (sample) => {
+        window.sessionDesktop.postNotification({
+          id: 'preview',
+          ...sample,
+          tap: null,
+          silent: false,
+          onlyUnfocused: false,
+        })
+        return Promise.resolve()
+      },
+      onTap: (handler) =>
+        window.sessionDesktop.onNotificationTap((tap) => {
+          const known = tapOf(tap)
+          if (known !== null) handler(known)
+        }),
+      setBadgeCount: (count) => {
+        window.sessionDesktop.setBadgeCount(count)
+        return Promise.resolve()
+      },
+    },
     files: {
       ...memory.files,
       pickFiles: async (options) => toPickedFiles(await chooseFiles(options ?? {})),

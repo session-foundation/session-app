@@ -26,7 +26,7 @@ function run(events: OnboardingEvent[], design: OnboardingDesign = 'phone'): Onb
 
 const NAME: OnboardingEvent = { type: 'nameEntered', name: 'Ada' }
 const PHRASE: OnboardingEvent = { type: 'phraseEntered', from: { words: ['one', 'two'] } }
-const FAST: OnboardingEvent = { type: 'notificationsChosen', mode: 'fast' }
+const FAST: OnboardingEvent = { type: 'notificationsChosen', mode: 'instant' }
 const CREATE: OnboardingEvent = { type: 'chooseCreate' }
 const RESTORE: OnboardingEvent = { type: 'chooseRestore' }
 
@@ -288,7 +288,7 @@ describe('the path back', () => {
   const FAILED: OnboardingEvent = { type: 'commitFailed' }
   const ARRIVED: OnboardingEvent = {
     type: 'notificationsChosen',
-    mode: 'fast',
+    mode: 'instant',
     profileArrived: true,
   }
 
@@ -390,25 +390,29 @@ describe('the wait is skipped when the profile is already here', () => {
     const state = run([
       RESTORE,
       PHRASE,
-      { type: 'notificationsChosen', mode: 'fast', profileArrived: true },
+      { type: 'notificationsChosen', mode: 'instant', profileArrived: true },
     ])
 
     expect(state.step).toBe('done')
-    expect(state.notifications).toBe('fast')
+    expect(state.notifications).toBe('instant')
   })
 
   it('still waits when it has not', () => {
     expect(run([RESTORE, PHRASE, FAST]).step).toBe('loading')
     expect(
-      run([RESTORE, PHRASE, { type: 'notificationsChosen', mode: 'slow', profileArrived: false }])
-        .step,
+      run([
+        RESTORE,
+        PHRASE,
+        { type: 'notificationsChosen', mode: 'periodic', profileArrived: false },
+      ]).step,
     ).toBe('loading')
   })
 
   /** Nothing is being fetched in the create branch, so an arrival there would be meaningless. */
   it('ignores it when creating', () => {
     expect(
-      run([CREATE, NAME, { type: 'notificationsChosen', mode: 'fast', profileArrived: true }]).step,
+      run([CREATE, NAME, { type: 'notificationsChosen', mode: 'instant', profileArrived: true }])
+        .step,
     ).toBe('done')
   })
 })

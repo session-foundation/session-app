@@ -34,4 +34,14 @@ std::optional<::session_bridge::PushResult> handle_push_on_app_bridge(
     return push_bridge->handle_push(enc_payload, you, open, deadline, log);
 }
 
+std::optional<::session_bridge::ActionResult> act_on_app_bridge(
+        const ::session_bridge::NotificationAction& action,
+        std::chrono::milliseconds deadline,
+        const ::session_bridge::PushLog& log) {
+    std::shared_lock lock{push_mutex};
+    if (!push_bridge)
+        return std::nullopt;
+    return push_bridge->handle_action(action, deadline, log);
+}
+
 }  // namespace session_bridge_rn

@@ -418,6 +418,16 @@ export class DesktopApp implements ISessionApp, IPerformanceProbe, IFileChooser 
 
   // -- IFileChooser -----------------------------------------------------------------------
 
+  /**
+   * What main sends the window when a notification is clicked: the OS's notification itself
+   * cannot be clicked from here, and shows nothing for a window that has the focus.
+   */
+  async tapNotification(tap: object): Promise<void> {
+    await this.app.evaluate(({ BrowserWindow }, sent) => {
+      BrowserWindow.getAllWindows()[0]?.webContents.send('notifications:tap', sent)
+    }, tap)
+  }
+
   // Each arms one answer. A dialog nothing armed rejects rather than opening, so a spec that
   // exports twice after arming once fails there instead of reusing the answer.
   async answerSaveDialogWith(path: string): Promise<void> {

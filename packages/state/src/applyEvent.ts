@@ -70,6 +70,12 @@ export function applyEvent(state: SessionState, event: SessionEvent): SessionSta
     case 'log':
       return state
 
+    // Posted, taken down and counted by the platform (`followNotifications`), not drawn.
+    case 'notification':
+    case 'notifications-stale':
+    case 'badge':
+      return state
+
     default:
       // A new SessionEvent arm is a compile error here, as it is in the shim and the fake.
       // Still returns state: a bridge newer than the app is survivable.

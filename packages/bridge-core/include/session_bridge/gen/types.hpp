@@ -519,6 +519,87 @@ struct BoolResult {
             value{std::move(value_)} {}
 };
 
+/// What a notification shows: the sender's name and the message, the name only, or neither -- a
+/// generic "You've got a new message". libsession keeps it with the device's local settings and
+/// applies it when it decides what a push shows.
+enum class NotificationContent {
+    name_and_content,
+    name_only,
+    none,
+};
+
+template <>
+struct EnumTraits<NotificationContent> {
+    static constexpr std::string_view name = "NotificationContent";
+    static constexpr std::array<std::string_view, 3> names{"nameAndContent", "nameOnly", "none"};
+
+    static constexpr std::string_view to_string(NotificationContent value) {
+        return names[static_cast<std::size_t>(value)];
+    }
+
+    static constexpr std::optional<NotificationContent> parse(std::string_view text) {
+        for (std::size_t i = 0; i < names.size(); i++)
+            if (names[i] == text)
+                return static_cast<NotificationContent>(i);
+        return std::nullopt;
+    }
+};
+
+struct NotificationContentResult {
+    static constexpr std::string_view type_tag = "notificationContent";
+
+    ::session_bridge::NotificationContent content;
+
+    explicit NotificationContentResult(::session_bridge::NotificationContent content_) :
+            content{std::move(content_)} {}
+};
+
+/// The sound an iOS notification plays: one of legacy iOS's notification sounds, or `none`. Android
+/// sets sounds per notification channel in its own settings, and desktop has an on or off switch,
+/// so only iOS chooses one. libsession keeps it with the device's local settings, as the number
+/// legacy iOS stored, so a choice made there carries over.
+enum class NotificationSound {
+    none,
+    note,
+    aurora,
+    bamboo,
+    chord,
+    circles,
+    complete,
+    hello,
+    input,
+    keys,
+    popcorn,
+    pulse,
+    synth,
+};
+
+template <>
+struct EnumTraits<NotificationSound> {
+    static constexpr std::string_view name = "NotificationSound";
+    static constexpr std::array<std::string_view, 13> names{"none", "note", "aurora", "bamboo", "chord", "circles", "complete", "hello", "input", "keys", "popcorn", "pulse", "synth"};
+
+    static constexpr std::string_view to_string(NotificationSound value) {
+        return names[static_cast<std::size_t>(value)];
+    }
+
+    static constexpr std::optional<NotificationSound> parse(std::string_view text) {
+        for (std::size_t i = 0; i < names.size(); i++)
+            if (names[i] == text)
+                return static_cast<NotificationSound>(i);
+        return std::nullopt;
+    }
+};
+
+struct NotificationSoundResult {
+    static constexpr std::string_view type_tag = "notificationSound";
+
+    ::session_bridge::NotificationSound sound;
+
+    explicit NotificationSoundResult(::session_bridge::NotificationSound sound_) :
+            sound{std::move(sound_)} {}
+};
+
 /// How `closeClient` went. `closed` is false when `reopenClient` cancelled it while it waited.
 /// `waitedMs` is how long it waited for outbound work, `closeMs` how long destroying the Client
 /// took, `outboundBusy` whether outbound work was still in flight when it did -- a send that will
@@ -821,6 +902,8 @@ using Result = std::variant<
         HexResult,
         PrefResult,
         BoolResult,
+        NotificationContentResult,
+        NotificationSoundResult,
         ClientClosedResult,
         SeedHiddenResult,
         PathResult,
@@ -948,6 +1031,119 @@ struct MessagesAddedSessionEvent {
 
     explicit MessagesAddedSessionEvent(std::vector<::session_bridge::Message> messages_) :
             messages{std::move(messages_)} {}
+};
+
+enum class IncomingNotificationKind {
+    message,
+    request,
+};
+
+template <>
+struct EnumTraits<IncomingNotificationKind> {
+    static constexpr std::string_view name = "IncomingNotificationKind";
+    static constexpr std::array<std::string_view, 2> names{"message", "request"};
+
+    static constexpr std::string_view to_string(IncomingNotificationKind value) {
+        return names[static_cast<std::size_t>(value)];
+    }
+
+    static constexpr std::optional<IncomingNotificationKind> parse(std::string_view text) {
+        for (std::size_t i = 0; i < names.size(); i++)
+            if (names[i] == text)
+                return static_cast<IncomingNotificationKind>(i);
+        return std::nullopt;
+    }
+};
+
+/// The kind of a notified message's first attachment, for the platform's placeholder word.
+enum class NotificationAttachment {
+    image,
+    animated,
+    video,
+    audio,
+    voice,
+    file,
+};
+
+template <>
+struct EnumTraits<NotificationAttachment> {
+    static constexpr std::string_view name = "NotificationAttachment";
+    static constexpr std::array<std::string_view, 6> names{"image", "animated", "video", "audio", "voice", "file"};
+
+    static constexpr std::string_view to_string(NotificationAttachment value) {
+        return names[static_cast<std::size_t>(value)];
+    }
+
+    static constexpr std::optional<NotificationAttachment> parse(std::string_view text) {
+        for (std::size_t i = 0; i < names.size(); i++)
+            if (names[i] == text)
+                return static_cast<NotificationAttachment>(i);
+        return std::nullopt;
+    }
+};
+
+/// A notification to post for a message that arrived while the app runs, as libsession decided it
+/// (its push `decide`): the same rules as a push, so a muted conversation, a blocked sender, a
+/// request after its first message and a message already read are never posted, and a message a push
+/// already showed is not posted twice. Each platform writes the words, in the person's language.
+///
+/// - `message`: from `sender`, saying `body`, or carrying `attachments` of which the first is
+///   `attachment`. `sender` is absent when the content setting hides names; `body` and the
+///   attachments when it hides content.
+/// - `request`: the first message of a message request, shown with neither sender nor content.
+///
+/// `id` names it for a later `notifications-stale`. `conversationId` is the conversation a
+/// `message` belongs to, and `messageId` the message, which tapping it lands on; both absent for a
+/// request, which opens the requests list.
+struct IncomingNotification {
+    std::string id;
+    ::session_bridge::IncomingNotificationKind kind;
+    std::optional<std::string> conversation_id;
+    std::optional<double> message_id;
+    std::optional<std::string> sender;
+    std::optional<std::string> body;
+    std::optional<::session_bridge::NotificationAttachment> attachment;
+    double attachments;
+    double timestamp;
+
+    IncomingNotification(std::string id_, ::session_bridge::IncomingNotificationKind kind_, std::optional<std::string> conversation_id_, std::optional<double> message_id_, std::optional<std::string> sender_, std::optional<std::string> body_, std::optional<::session_bridge::NotificationAttachment> attachment_, double attachments_, double timestamp_) :
+            id{std::move(id_)}, kind{std::move(kind_)}, conversation_id{std::move(conversation_id_)}, message_id{std::move(message_id_)}, sender{std::move(sender_)}, body{std::move(body_)}, attachment{std::move(attachment_)}, attachments{std::move(attachments_)}, timestamp{std::move(timestamp_)} {}
+};
+
+/// A message arrived while the app runs that libsession says to notify about: see
+/// `IncomingNotification`. Not for messages from before this device first had the account, so
+/// the history a restore fetches is never announced; a message arriving late, from a slow or
+/// retried send, still is. After the `messages-added` that carried it.
+struct NotificationSessionEvent {
+    static constexpr std::string_view type_tag = "notification";
+
+    ::session_bridge::IncomingNotification notification;
+
+    explicit NotificationSessionEvent(::session_bridge::IncomingNotification notification_) :
+            notification{std::move(notification_)} {}
+};
+
+/// Notifications posted earlier, by this process or a push, whose messages have since been read
+/// or deleted, here or on another device: take them down. Each id is reported once.
+struct NotificationsStaleSessionEvent {
+    static constexpr std::string_view type_tag = "notifications-stale";
+
+    std::vector<std::string> ids;
+
+    explicit NotificationsStaleSessionEvent(std::vector<std::string> ids_) :
+            ids{std::move(ids_)} {}
+};
+
+/// The count an app icon shows: unread messages, each message request counted once, leaving out
+/// muted and blocked conversations. Sent each time it changes, the first time once messages arrive
+/// or are read.
+struct BadgeSessionEvent {
+    static constexpr std::string_view type_tag = "badge";
+
+    double count;
+
+    explicit BadgeSessionEvent(double count_) :
+            count{std::move(count_)} {}
 };
 
 struct MessagesUpdatedSessionEvent {
@@ -1100,6 +1296,9 @@ using SessionEvent = std::variant<
         ConversationUpdatedSessionEvent,
         ConversationRemovedSessionEvent,
         MessagesAddedSessionEvent,
+        NotificationSessionEvent,
+        NotificationsStaleSessionEvent,
+        BadgeSessionEvent,
         MessagesUpdatedSessionEvent,
         HistoryReplacedSessionEvent,
         AttachmentProgressSessionEvent,
@@ -1504,10 +1703,53 @@ struct SetPushTokenCommand {
             service{std::move(service_)}, token{std::move(token_)}, force{std::move(force_)} {}
 };
 
-/// Removes this device's push subscription, as when somebody switches to slow mode. Answers `ok`
+/// Removes this device's push subscription, as when somebody leaves Instant. Answers `ok`
 /// once the push server has accepted the removal, or at once when there was none to remove.
 struct ClearPushTokenCommand {
     static constexpr std::string_view type_tag = "clearPushToken";
+};
+
+/// What notifications on this device show. Answers `notificationContent`; `nameAndContent` until
+/// somebody chooses. Refused without an account, whose local settings hold it.
+struct GetNotificationContentCommand {
+    static constexpr std::string_view type_tag = "getNotificationContent";
+};
+
+/// Stores what notifications on this device show. Answers `ok`. Refused without an account.
+struct SetNotificationContentCommand {
+    static constexpr std::string_view type_tag = "setNotificationContent";
+
+    ::session_bridge::NotificationContent content;
+
+    explicit SetNotificationContentCommand(::session_bridge::NotificationContent content_) :
+            content{std::move(content_)} {}
+};
+
+/// The sound iOS notifications on this device play. Answers `notificationSound`; `note` until
+/// somebody chooses, and for a stored sound this list does not have. Refused without an account.
+struct GetNotificationSoundCommand {
+    static constexpr std::string_view type_tag = "getNotificationSound";
+};
+
+/// Stores the sound iOS notifications play. Answers `ok`. Refused without an account.
+struct SetNotificationSoundCommand {
+    static constexpr std::string_view type_tag = "setNotificationSound";
+
+    ::session_bridge::NotificationSound sound;
+
+    explicit SetNotificationSoundCommand(::session_bridge::NotificationSound sound_) :
+            sound{std::move(sound_)} {}
+};
+
+/// The person's own word for themselves, in their language (`You` in English), which a mention of
+/// them becomes in a notification's body. Answers `ok`. Until it is set, `You`.
+struct SetNotificationYouCommand {
+    static constexpr std::string_view type_tag = "setNotificationYou";
+
+    std::string you;
+
+    explicit SetNotificationYouCommand(std::string you_) :
+            you{std::move(you_)} {}
 };
 
 /// Interpret a push payload far enough to notify. Answering from the payload alone matters on
@@ -1971,6 +2213,11 @@ using Command = std::variant<
         ReopenClientCommand,
         SetPushTokenCommand,
         ClearPushTokenCommand,
+        GetNotificationContentCommand,
+        SetNotificationContentCommand,
+        GetNotificationSoundCommand,
+        SetNotificationSoundCommand,
+        SetNotificationYouCommand,
         HandlePushPayloadCommand,
         GetConversationsCommand,
         GetMessageRequestsCommand,

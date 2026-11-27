@@ -47,11 +47,11 @@ export type BuildVariant = (typeof BUILD_VARIANTS)[number]
 /** What a variant can and cannot do, which is what a screen asks rather than the variant's name. */
 export interface VariantTraits {
   /**
-   * The push service behind fast mode, or null where there is none.
+   * The push service behind Instant delivery, or null where there is none.
    *
-   * Which service the build would talk to, not that it does: whether fast mode is on offer is
-   * `NotificationsPort.fastModeAvailable`, which also needs registration with the service and, on
-   * Android, a device that has the service. See the TODO where each app sets it.
+   * Which service the build would talk to, not that it does: whether Instant can be used is
+   * `NotificationsPort.deliveryModes`, which also needs registration with the service and, on
+   * Android, a device that has the service.
    */
   pushService: 'apple' | 'google' | 'huawei' | null
   /**

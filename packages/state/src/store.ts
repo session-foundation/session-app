@@ -6,6 +6,8 @@ import type {
   Message,
   MessagePage,
   NetworkPaths,
+  NotificationContent,
+  NotificationSound,
   OutgoingMessage,
   SendPlan,
   SessionClient,
@@ -27,7 +29,8 @@ import {
   MAX_JUMPS,
   type ListName,
   type MessageWindow,
-  type NotificationMode,
+  DELIVERY_MODES,
+  type DeliveryMode,
   type SessionState,
   type StoredAppearance,
 } from './types'
@@ -36,6 +39,29 @@ import {
 const THEME_PREF = 'appearance.theme'
 const ACCENT_PREF = 'appearance.accent'
 const NOTIFICATION_MODE_PREF = 'notifications.mode'
+
+/** The device's notification switches, stored as `on` or `off`; see `SessionState`. */
+const NOTIFICATION_SWITCH_PREFS = {
+  soundWhenOpen: 'notifications.soundWhenOpen',
+  notificationsShown: 'notifications.shown',
+  audioNotifications: 'notifications.audio',
+} as const
+
+export type NotificationSwitch = keyof typeof NOTIFICATION_SWITCH_PREFS
+
+function parseSwitch(stored: string | null | undefined): boolean | null {
+  return stored === 'on' ? true : stored === 'off' ? false : null
+}
+
+/**
+ * The stored delivery mode, or null for none. `fast` and `slow` are what builds before there were
+ * four modes stored, and mean `instant` and `periodic`.
+ */
+function parseDeliveryMode(stored: string | null | undefined): DeliveryMode | null {
+  if (stored === 'fast') return 'instant'
+  if (stored === 'slow') return 'periodic'
+  return DELIVERY_MODES.find((mode) => mode === stored) ?? null
+}
 /** Where the flags switched in Developer Settings are kept: a JSON object of name to value. */
 const FLAG_TOGGLES_PREF = 'developer.flagToggles'
 
@@ -121,8 +147,14 @@ export interface SessionActions {
    * the Appearance screen, once built, will too.
    */
   setAppearance: (appearance: StoredAppearance) => Promise<void>
-  /** Stores how this device hears about messages. See `notificationMode`. */
-  setNotificationMode: (mode: NotificationMode) => Promise<void>
+  /** Stores how new messages reach this device. See `deliveryMode`. */
+  setDeliveryMode: (mode: DeliveryMode) => Promise<void>
+  /** Stores what notifications show, in libsession's local settings. */
+  setNotificationContent: (content: NotificationContent) => Promise<void>
+  /** Stores the sound iOS notifications play, in libsession's local settings. */
+  setNotificationSound: (sound: NotificationSound) => Promise<void>
+  /** Stores one of the device's notification switches. */
+  setNotificationSwitch: (name: NotificationSwitch, value: boolean) => Promise<void>
   /**
    * The recovery password, handed straight to the caller and never kept in the store: a string in
    * JavaScript cannot be wiped, so the fewer places hold it the better, and none of them a log.
@@ -152,7 +184,11 @@ export interface SessionActions {
    * Reads the newest page into a window that has none. A read that fails is logged and marks the
    * window `firstPageFailed` rather than rejecting.
    */
-  loadHistory: (id: ConversationId) => Promise<void>
+  /**
+   * `openAt`: a message to open on, as a tapped notification names it. The first window is read
+   * around it and lands on it; the newest page instead where it is not there to land on.
+   */
+  loadHistory: (id: ConversationId, openAt?: number) => Promise<void>
   /**
    * The page before the window's oldest message, joined to it; nothing while one is out. A read
    * that fails is logged and marks the window `olderPageFailed` rather than rejecting.
@@ -571,6 +607,22 @@ export function createSessionStore(
   }
 
   /**
+   * The window read around `messageId`, or null where it is not there to land on: deleted, purged,
+   * or never received.
+   */
+  async function windowAround(id: ConversationId, messageId: number): Promise<MessagePage | null> {
+    let page: MessagePage
+    try {
+      page = await client.getMessages(id, { limit: JUMP_WINDOW, around: messageId })
+    } catch (error) {
+      if (error instanceof SessionClientError && error.code === MESSAGE_NOT_FOUND) return null
+      throw error
+    }
+    const held = page.messages.find((m) => m.id === messageId)
+    return held === undefined || held.deleted !== undefined ? null : page
+  }
+
+  /**
    * Makes every read still out for `id` land nowhere, ahead of one that may replace the window.
    * `resume` asks again for the pages that were on their way, for when that read leaves the window
    * as it was: their ends would otherwise wait for a scroll, with no Retry row to press.
@@ -854,12 +906,28 @@ export function createSessionStore(
         return
       }
 
-      const [theme, accent, hidden, toggles, mode] = await Promise.all([
+      const [
+        theme,
+        accent,
+        hidden,
+        toggles,
+        mode,
+        content,
+        notificationSound,
+        sound,
+        shown,
+        audio,
+      ] = await Promise.all([
         client.getPref(THEME_PREF),
         client.getPref(ACCENT_PREF),
         client.getRecoveryPasswordHidden(),
         client.getPref(FLAG_TOGGLES_PREF),
         client.getPref(NOTIFICATION_MODE_PREF),
+        client.getNotificationContent(),
+        client.getNotificationSound(),
+        client.getPref(NOTIFICATION_SWITCH_PREFS.soundWhenOpen),
+        client.getPref(NOTIFICATION_SWITCH_PREFS.notificationsShown),
+        client.getPref(NOTIFICATION_SWITCH_PREFS.audioNotifications),
         readList('conversations'),
         readList('requests'),
         askNetworkStatus(),
@@ -873,7 +941,12 @@ export function createSessionStore(
         appearance,
         recoveryPasswordHidden: hidden,
         flagToggles: parseFlagToggles(toggles),
-        notificationMode: mode === 'fast' || mode === 'slow' ? mode : null,
+        deliveryMode: parseDeliveryMode(mode),
+        notificationContent: content,
+        notificationSound,
+        soundWhenOpen: parseSwitch(sound),
+        notificationsShown: parseSwitch(shown),
+        audioNotifications: parseSwitch(audio),
         hydrated: true,
       })
     },
@@ -896,10 +969,28 @@ export function createSessionStore(
       store.setState({ appearance })
     },
 
-    async setNotificationMode(mode): Promise<void> {
+    async setNotificationContent(content): Promise<void> {
+      if (store.getState().account?.haveAccount !== true) return
+      await client.setNotificationContent(content)
+      store.setState({ notificationContent: content })
+    },
+
+    async setNotificationSound(sound): Promise<void> {
+      if (store.getState().account?.haveAccount !== true) return
+      await client.setNotificationSound(sound)
+      store.setState({ notificationSound: sound })
+    },
+
+    async setNotificationSwitch(name, value): Promise<void> {
+      if (store.getState().account?.haveAccount !== true) return
+      await client.setPref(NOTIFICATION_SWITCH_PREFS[name], value ? 'on' : 'off')
+      store.setState({ [name]: value })
+    },
+
+    async setDeliveryMode(mode): Promise<void> {
       if (store.getState().account?.haveAccount !== true) return
       await client.setPref(NOTIFICATION_MODE_PREF, mode)
-      store.setState({ notificationMode: mode })
+      store.setState({ deliveryMode: mode })
     },
 
     async getRecoveryPassword(): Promise<RecoveryPassword> {
@@ -919,7 +1010,7 @@ export function createSessionStore(
       store.setState({ recoveryPasswordHidden: true })
     },
 
-    async loadHistory(id): Promise<void> {
+    async loadHistory(id, openAt): Promise<void> {
       const existing = store.getState().histories[id]
       if (existing?.fetching) return
       patchWindow(id, { fetching: true, firstPageFailed: false })
@@ -927,6 +1018,12 @@ export function createSessionStore(
       await whileReading(id, async () => {
         let page: MessagePage
         try {
+          const around = openAt === undefined ? null : await windowAround(id, openAt)
+          if (around !== null && openAt !== undefined) {
+            if (generationOf(id) !== generation) return
+            replaceWindow(id, around, { messageId: openAt, from: undefined })
+            return
+          }
           page = await client.getMessages(id, { limit: FIRST_PAGE })
         } catch (error) {
           log('warn', 'session', `could not read a conversation's first page: ${String(error)}`)

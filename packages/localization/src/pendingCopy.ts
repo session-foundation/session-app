@@ -200,4 +200,77 @@ export const PENDING_COPY = {
    */
   onionRoutingPathYourMessages: 'Your messages',
   onionRoutingPathContactsGroups: 'Contacts and groups',
+  /**
+   * How new messages reach the device: the mobile setting that replaced Fast and Slow Mode, with
+   * four choices on Android and three on iOS. The names are to be reviewed with the team before
+   * keys are added.
+   */
+  messageDelivery: 'Message delivery',
+  messageDeliveryDescription:
+    "Choose how new messages reach this device while you're not using Session.",
+  /**
+   * The push mode, named by the service the build uses; the generic one where the build names none.
+   * Named by who carries the push rather than by speed, since Always connected is instant too.
+   */
+  deliveryPushGoogle: 'Google push',
+  deliveryPushApple: 'Apple push',
+  deliveryPushHuawei: 'Huawei push',
+  deliveryPush: 'Push notifications',
+  deliveryInstantDescriptionGoogle:
+    'Instant, through Google. Google learns when a message arrives, not who sent it or what it says.',
+  deliveryInstantDescriptionApple:
+    'Instant, through Apple. Apple learns when a message arrives, not who sent it or what it says.',
+  deliveryInstantDescriptionHuawei:
+    'Instant, through Huawei. Huawei learns when a message arrives, not who sent it or what it says.',
+  deliveryInstantDescription:
+    "Instant, through your device's notification service. It learns when a message arrives, not who sent it or what it says.",
+  /** Under Instant: communities have no push, so their messages wait for a background check. */
+  deliveryInstantCommunities: 'Community messages arrive with periodic checks.',
+  deliveryUnavailableBuild: "Push notifications aren't included in this build.",
+  deliveryUnavailableDeviceGoogle: 'Not available on this device: it needs Google Play services.',
+  deliveryUnavailableDeviceHuawei: 'Not available on this device: it needs Huawei Mobile Services.',
+  deliveryUnavailableDevice: 'Not available on this device.',
+  deliveryUnavailableNetwork: 'Push notifications work on mainnet only.',
+  deliveryAlwaysConnected: 'Always connected',
+  deliveryAlwaysConnectedDescription:
+    'Instant, with a permanent notification. Session stays connected itself, so no one else is involved, but it uses more battery.',
+  deliveryPeriodic: 'Periodic checks',
+  deliveryPeriodicDescription:
+    'Session checks for new messages now and then, when your device allows. Messages can arrive late.',
+  deliveryWhileOpen: 'Only while open',
+  deliveryWhileOpenDescription:
+    "Nothing runs in the background. You'll see new messages when you open Session.",
+  /** The Notifications page's warning when the OS does not let the app post notifications. */
+  notificationsOffForSession: "Notifications are turned off for Session in your device's settings.",
+  /** Android's "Run App in the Background", which says nothing about what it does. */
+  backgroundActivityDescription:
+    'Stops Android pausing Session to save battery, so background checks happen when they should.',
+  /** iOS, when Background App Refresh is off for the app, by the delivery mode chosen. */
+  backgroundRefreshOffPeriodic:
+    "Background App Refresh is off for Session, so it can't check for new messages in the background.",
+  backgroundRefreshOffInstant:
+    "Background App Refresh is off for Session. Notifications still arrive, but the backup checks for missed messages can't run.",
+  /** The Message Requests channel's row, beside the catalogue's lines for the other channels. */
+  deviceSettingsMessageRequestNotifications:
+    'Open Device Settings for Message Request Notifications.',
+  /** The body of the notification Preview Notification posts when content is shown. */
+  previewNotificationBody: 'This is how a message notification looks.',
+  /**
+   * The iOS notification sounds' names, which legacy iOS shows untranslated (its own TODO asks
+   * whether they should be). `none` is not here: it is the catalogue's `none`.
+   */
+  notificationSoundNames: {
+    note: 'Note',
+    aurora: 'Aurora',
+    bamboo: 'Bamboo',
+    chord: 'Chord',
+    circles: 'Circles',
+    complete: 'Complete',
+    hello: 'Hello',
+    input: 'Input',
+    keys: 'Keys',
+    popcorn: 'Popcorn',
+    pulse: 'Pulse',
+    synth: 'Synth',
+  },
 } as const

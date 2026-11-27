@@ -3,9 +3,14 @@ export { NavProvider, useNav } from './nav/NavContext'
 export type { NavPort } from './nav/NavContext'
 export { CameraProvider, useCamera } from './camera/CameraContext'
 export type { CameraAccess, CameraPort } from './camera/CameraContext'
-export { conversationFromPath, routes } from './nav/routes'
+export { conversationFromPath, LAND_ON_PARAM, landingFromParam, routes } from './nav/routes'
 export { requirePorts, resetPorts, setPorts } from './ports'
 export { followPushRegistration, type PushRegistrationDeps } from './pushRegistration'
+export { followNotifications, type NotificationDeps } from './notifications'
+export {
+  followNotificationPermission,
+  type NotificationPermissionDeps,
+} from './notificationPermission'
 export { ExportAccessRefused } from './exportAccess'
 export { suggestedExportName } from './exportFileName'
 export type { ExportAccess } from './exportAccess'
@@ -34,6 +39,9 @@ export type {
   MediaPort,
   MediaProbePort,
   NotificationsPort,
+  DeliveryModeOffer,
+  NotificationChannel,
+  NotificationTap,
   PushToken,
   PushInstallMarker,
   PushTokenSource,

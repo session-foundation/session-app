@@ -8,12 +8,15 @@ import type {
   ConversationId,
   ConversationList,
   Deletion,
+  IncomingNotification,
   ListPlacement,
   Message,
   MessageCursor,
   NetworkPaths,
   NetworkStatus,
   OutgoingAttachment,
+  NotificationContent,
+  NotificationSound,
   PushService,
   SendPlan,
 } from './domain'
@@ -269,10 +272,29 @@ export type Command =
    */
   | { type: 'setPushToken'; service: PushService; token: string; force?: boolean }
   /**
-   * Removes this device's push subscription, as when somebody switches to slow mode. Answers `ok`
+   * Removes this device's push subscription, as when somebody leaves Instant. Answers `ok`
    * once the push server has accepted the removal, or at once when there was none to remove.
    */
   | { type: 'clearPushToken' }
+  /**
+   * What notifications on this device show. Answers `notificationContent`; `nameAndContent` until
+   * somebody chooses. Refused without an account, whose local settings hold it.
+   */
+  | { type: 'getNotificationContent' }
+  /** Stores what notifications on this device show. Answers `ok`. Refused without an account. */
+  | { type: 'setNotificationContent'; content: NotificationContent }
+  /**
+   * The sound iOS notifications on this device play. Answers `notificationSound`; `note` until
+   * somebody chooses, and for a stored sound this list does not have. Refused without an account.
+   */
+  | { type: 'getNotificationSound' }
+  /** Stores the sound iOS notifications play. Answers `ok`. Refused without an account. */
+  | { type: 'setNotificationSound'; sound: NotificationSound }
+  /**
+   * The person's own word for themselves, in their language (`You` in English), which a mention of
+   * them becomes in a notification's body. Answers `ok`. Until it is set, `You`.
+   */
+  | { type: 'setNotificationYou'; you: string }
   /**
    * Interpret a push payload far enough to notify. Answering from the payload alone matters on
    * iOS, where the notification service extension runs while the app holds the database.
@@ -486,6 +508,8 @@ export type Result =
   | { type: 'hex'; hex: string }
   | { type: 'pref'; value?: string }
   | { type: 'bool'; value: boolean }
+  | { type: 'notificationContent'; content: NotificationContent }
+  | { type: 'notificationSound'; sound: NotificationSound }
   /**
    * How `closeClient` went. `closed` is false when `reopenClient` cancelled it while it waited.
    * `waitedMs` is how long it waited for outbound work, `closeMs` how long destroying the Client
@@ -569,6 +593,24 @@ export type SessionEvent =
    * and when what this device holds of one of that message's attachments changes.
    */
   | { type: 'messages-added'; messages: Message[] }
+  /**
+   * A message arrived while the app runs that libsession says to notify about: see
+   * `IncomingNotification`. Not for messages from before this device first had the account, so
+   * the history a restore fetches is never announced; a message arriving late, from a slow or
+   * retried send, still is. After the `messages-added` that carried it.
+   */
+  | { type: 'notification'; notification: IncomingNotification }
+  /**
+   * Notifications posted earlier, by this process or a push, whose messages have since been read
+   * or deleted, here or on another device: take them down. Each id is reported once.
+   */
+  | { type: 'notifications-stale'; ids: string[] }
+  /**
+   * The count an app icon shows: unread messages, each message request counted once, leaving out
+   * muted and blocked conversations. Sent each time it changes, the first time once messages arrive
+   * or are read.
+   */
+  | { type: 'badge'; count: number }
   | { type: 'messages-updated'; messages: Message[] }
   | { type: 'history-replaced'; conversationId: ConversationId }
   /**

@@ -14,9 +14,11 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   type ReactNode,
 } from 'react'
 import { useStore } from 'zustand'
+import { useShallow } from 'zustand/react/shallow'
 
 import {
   conversationSelector,
@@ -27,7 +29,13 @@ import {
 } from './selectors'
 import type { StartupFailureKind } from './startupFailure'
 import type { SessionActions, SessionStore } from './store'
-import type { AttachmentTransferState, MessageTransfers, Landing, StoredAppearance } from './types'
+import type {
+  AttachmentTransferState,
+  Landing,
+  MessageTransfers,
+  SessionState,
+  StoredAppearance,
+} from './types'
 import { emptyWindow } from './types'
 
 const StoreContext = createContext<SessionStore | null>(null)
@@ -83,6 +91,31 @@ export function useAppearance(): StoredAppearance | null {
 export function useRecoveryPasswordHidden(): boolean {
   const store = useSessionStore()
   return useStore(store, (state) => state.recoveryPasswordHidden)
+}
+
+/** The device's notification settings, as the Notifications page shows them. */
+interface NotificationSettings {
+  deliveryMode: SessionState['deliveryMode']
+  notificationContent: SessionState['notificationContent']
+  notificationSound: SessionState['notificationSound']
+  soundWhenOpen: boolean | null
+  notificationsShown: boolean | null
+  audioNotifications: boolean | null
+}
+
+export function useNotificationSettings(): NotificationSettings {
+  const store = useSessionStore()
+  return useStore(
+    store,
+    useShallow((state) => ({
+      deliveryMode: state.deliveryMode,
+      notificationContent: state.notificationContent,
+      notificationSound: state.notificationSound,
+      soundWhenOpen: state.soundWhenOpen,
+      notificationsShown: state.notificationsShown,
+      audioNotifications: state.audioNotifications,
+    })),
+  )
 }
 
 /** The flags switched in Developer Settings. See `flagToggles`. */
@@ -168,20 +201,31 @@ export interface Transcript {
  * `ready` is separate from an empty list on purpose: a conversation nobody has said
  * anything in and one that has not been read off disk yet look identical otherwise.
  */
-export function useMessages(id: ConversationId | undefined): Transcript {
+export function useMessages(id: ConversationId | undefined, openAt?: number): Transcript {
   const store = useSessionStore()
-  const transcript = useHeldMessages(id)
-  const { ready, firstPageFailed } = transcript
+  const held = useHeldMessages(id)
+  const { ready, firstPageFailed } = held
   const fetching = useStore(store, (state) =>
     id === undefined ? false : (state.histories[id]?.fetching ?? false),
   )
+  // `openAt` places the first window only, a Retry of it included: a window read again later, as
+  // history-replaced asks, is the newest page.
+  const opensAt = useRef(openAt)
+  useEffect(() => {
+    if (ready) opensAt.current = undefined
+  }, [ready])
 
   useEffect(() => {
     if (id === undefined) return
     // Also covers history-replaced, which drops the window and leaves ready false. A failed read
     // waits for `reload`, or this would ask again the moment it failed.
-    if (!ready && !fetching && !firstPageFailed) void store.actions.loadHistory(id)
+    if (!ready && !fetching && !firstPageFailed) void store.actions.loadHistory(id, opensAt.current)
   }, [id, ready, fetching, firstPageFailed, store])
+
+  const reload = useCallback(() => {
+    if (id !== undefined) void store.actions.loadHistory(id, opensAt.current)
+  }, [id, store])
+  const transcript = useMemo(() => ({ ...held, reload }), [held, reload])
 
   // Dropped when this stops showing `id`, and reloaded on the way back.
   //

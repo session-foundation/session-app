@@ -1,6 +1,13 @@
 import type { NetworkName, QrMark, WithSpan } from '@session/basic-types'
-import type { AttachmentRef, PixelSize, PushService } from '@session/client'
+import type {
+  AttachmentRef,
+  IncomingNotification,
+  NotificationSound,
+  PixelSize,
+  PushService,
+} from '@session/client'
 import type { BuildFacts, DiagnosticsSnapshot, ExportPart, LogFileInfo } from '@session/logging'
+import type { DeliveryMode } from '@session/state'
 
 import type { BuildVariant } from './buildVariant'
 /**
@@ -181,23 +188,42 @@ export interface PushInstallMarker {
   markSubscribed(): void
 }
 
+/** Android's notification channels, whose sound and vibration are set in Android's settings. */
+export type NotificationChannel = 'messages' | 'requests' | 'calls'
+
+/** Where a tapped notification leads: a message's conversation, or the message requests. */
+/** Where a tapped notification leads: its conversation, open on its message where it names one. */
+export type NotificationTap =
+  | { kind: 'conversation'; conversationId: string; messageId?: number | undefined }
+  | { kind: 'requests' }
+
+/** One delivery mode as the platform offers it. */
+export interface DeliveryModeOffer {
+  mode: DeliveryMode
+  /**
+   * Why the mode cannot be used, or null when it can: `build` when this build leaves it out (no
+   * push service in an F-Droid build), `device` when the device lacks what it needs (no Play
+   * services), `network` when the app is on a network the push server does not watch (anything
+   * but mainnet).
+   */
+  unavailable: 'build' | 'device' | 'network' | null
+}
+
 export interface NotificationsPort {
   /**
-   * Whether this build has a push service behind it.
+   * The delivery modes this platform offers, in the order they are listed, each with whether it can
+   * be used here. Empty where `notificationModesApply` is false.
    *
-   * Onboarding asks which of two notification modes to use, and marks the push one either
-   * `recommended` or `unavailable`. Which of those it is depends on how the build was assembled --
-   * a Play build has FCM, an F-Droid or web-download build does not, and desktop has neither --
-   * so it is answered at the app edge rather than guessed at from the platform.
-   *
-   * False everywhere today: there is no push service wired up on any of the three. It turns true
-   * per build as one arrives.
+   * A mode that cannot be used stays in the list, marked, rather than being dropped: Instant is the
+   * recommended choice wherever it exists, and leaving it out makes the others look like the only
+   * design rather than the fallback. Which modes there are, and whether each works, depends on how
+   * the build was assembled and on the device, so it is answered at the app edge.
    */
-  readonly fastModeAvailable: boolean
+  readonly deliveryModes: readonly DeliveryModeOffer[]
   /**
-   * Which push service fast mode would use.
+   * Which push service Instant would use.
    *
-   * Not decoration: the catalogue carries three descriptions of fast mode -- Apple's, Google's and
+   * Not decoration: the catalogue carries three descriptions of Instant -- Apple's, Google's and
    * Huawei's -- and onboarding has to name the one this build would actually talk to. Reading it
    * off `Platform.OS` would be wrong on Android, where a Play build and a Huawei build are the
    * same platform and different services, so this is answered where the build is assembled.
@@ -220,15 +246,48 @@ export interface NotificationsPort {
    */
   readonly notificationModesApply: boolean
   /**
-   * Where fast mode gets its push token: null where this build has no push service behind it,
-   * which is also when `fastModeAvailable` is false. See `PushTokenSource`.
+   * Where Instant gets its push token: null where this build has no push service behind it,
+   * which is also when Instant is unavailable. See `PushTokenSource`.
    */
   readonly pushTokens: PushTokenSource | null
   /** Null where there is no push service. See `PushInstallMarker`. */
   readonly pushInstallMarker: PushInstallMarker | null
+  /**
+   * Whether a notification makes its sound while the app is in front, until somebody chooses. On
+   * for both phones, though legacy iOS has it off.
+   */
+  readonly soundWhenOpenDefault: boolean
+  /** Whether the OS lets the app post notifications, or null where it cannot be asked. */
+  readonly notificationsAllowed: (() => Promise<boolean>) | null
+  /** Opens the OS's notification settings for the app, or null where there are none to open. */
+  readonly openSettings: (() => void) | null
+  /** Android's notification channels: opens one channel's own settings. Null elsewhere. */
+  readonly openChannelSettings: ((channel: NotificationChannel) => void) | null
+  /**
+   * Android's battery-optimisation exemption, which the background delivery modes depend on:
+   * whether the app has it, and asking for it or giving it back. Null elsewhere.
+   */
+  readonly backgroundActivity: { allowed(): Promise<boolean>; change(): void } | null
+  /** Whether iOS has Background App Refresh on for the app. Null elsewhere. */
+  readonly backgroundRefreshOn: (() => Promise<boolean>) | null
+  /**
+   * Plays one of the notification sounds, as the Sound screen does when one is picked. Null where
+   * the sound is not chosen in the app, which hides the Sound row: Android sets it on each
+   * notification channel in its own settings, and desktop has only an on or off switch.
+   */
+  readonly playSound: ((sound: NotificationSound) => void) | null
+  /** Posts a sample notification, or null where the platform cannot post one. */
+  readonly preview: ((sample: { title: string; body: string }) => Promise<void>) | null
   requestPermission(): Promise<boolean>
-  show(notification: { conversationId: string; title: string; body: string }): Promise<void>
-  onTap(handler: (conversationId: string) => void): () => void
+  /**
+   * Posts a notification for a message that arrived while the app runs, in the platform's words
+   * (see `followNotifications`). `audio` is desktop's switch; the phones' sound is their own. Null
+   * where nothing posts one.
+   */
+  readonly post: ((notification: IncomingNotification, options: { audio: boolean }) => void) | null
+  /** Takes down notifications by their ids, posted here or by a push. Null where none are. */
+  readonly remove: ((ids: readonly string[]) => void) | null
+  onTap(handler: (tap: NotificationTap) => void): () => void
   setBadgeCount(count: number): Promise<void>
 }
 

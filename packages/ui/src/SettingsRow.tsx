@@ -9,6 +9,7 @@ import {
 import { useWindowDimensions } from 'react-native'
 import { XStack, YStack } from 'tamagui'
 
+import { forwardChevron } from './backChevron'
 import type { MarkProps } from './Brand'
 import { Icon } from './Icon'
 import type { IconName } from './Icon.types'
@@ -78,12 +79,23 @@ export interface SettingsRowProps {
    */
   subtitle?: string
   /**
+   * An aside after the subtitle, a blank line below it and in the secondary text colour: something
+   * worth knowing about the row that is not part of what it does, as Instant's word on communities.
+   */
+  note?: string | undefined
+  /**
    * How the row's settings stand, a line each under the subtitle: one for a setting, or a summary
    * of a screen's settings on the row that opens it, as legacy iOS's developer settings have.
    */
   details?: readonly SettingsRowDetail[] | undefined
-  /** A value, a switch, a button. No chevron by default. */
+  /** A value, a switch, a button. No chevron by default: see `leadsTo`. */
   trailing?: ReactNode
+  /**
+   * Where pressing the row goes, drawn after anything trailing: `screen`, a chevron, for a row that
+   * opens another screen; `outside`, the link-out glyph, for one that leaves the app for a website
+   * or the OS's settings. A row that acts where it is has neither.
+   */
+  leadsTo?: 'screen' | 'outside' | undefined
   /**
    * The trailing control is wide, a labelled button, so at the accessibility text sizes it goes
    * under the text instead of squeezing it. A glyph or a switch stays beside it.
@@ -115,8 +127,10 @@ export function SettingsRow({
   label,
   icon,
   subtitle,
+  note,
   details,
-  trailing,
+  trailing: given,
+  leadsTo,
   wideTrailing = false,
   trailingYields = false,
   accentIcon = false,
@@ -126,6 +140,28 @@ export function SettingsRow({
   testID,
 }: SettingsRowProps) {
   const inert = disabled || onPress === undefined
+  const glyph =
+    leadsTo === undefined ? null : leadsTo === 'screen' ? (
+      <Icon
+        name={forwardChevron()}
+        size="md"
+        color={disabled ? '$textDisabled' : '$textSecondary'}
+      />
+    ) : (
+      // The accent on dark, body text on light, where the accent is too faint as a glyph.
+      <Icon name="externalLink" size="md" color={disabled ? '$textDisabled' : '$accentText'} />
+    )
+  const trailing =
+    glyph === null ? (
+      given
+    ) : given === undefined ? (
+      glyph
+    ) : (
+      <XStack alignItems="center" gap="$xs">
+        {given}
+        {glyph}
+      </XStack>
+    )
   const tone = disabled ? '$textDisabled' : destructive ? '$dangerColor' : '$textPrimary'
   // `accentText`, not the accent: as a glyph the accent is too faint on a light ground.
   const iconTone = accentIcon && !disabled ? '$accentText' : tone
@@ -133,6 +169,7 @@ export function SettingsRow({
     label,
     icon,
     subtitle,
+    note,
     details,
     trailing,
     wideTrailing,
@@ -163,6 +200,7 @@ interface RowContentProps {
   label: string
   icon?: SettingsRowProps['icon'] | undefined
   subtitle?: string | undefined
+  note?: string | undefined
   details?: readonly SettingsRowDetail[] | undefined
   trailing?: ReactNode | undefined
   wideTrailing: boolean
@@ -177,11 +215,20 @@ interface RowContentProps {
   iconTone: string
 }
 
+/**
+ * A hovered or pressed row's ground. A row with a note steps to the next surface rather than take
+ * the overlay: secondary text clears AA on every surface but only 3:1 under an overlay.
+ */
+function stateGround(note: string | undefined, overlay: '$hoverOverlay' | '$pressedOverlay') {
+  return note === undefined ? overlay : '$backgroundTertiary'
+}
+
 /** What a row draws, pressable or not. */
 function RowContent({
   label,
   icon,
   subtitle,
+  note,
   details,
   trailing,
   wideTrailing,
@@ -232,14 +279,14 @@ function RowContent({
           ? {}
           : {
               '$platform-web': { cursor: 'pointer' },
-              hoverStyle: { backgroundColor: '$hoverOverlay' },
-              pressStyle: { backgroundColor: '$pressedOverlay' },
+              hoverStyle: { backgroundColor: stateGround(note, '$hoverOverlay') },
+              pressStyle: { backgroundColor: stateGround(note, '$pressedOverlay') },
               // Native: without this a frame with a `pressStyle` claims the touch from
               // `PressArea` and the row never fires. Pressable rows only: it takes the subtree
               // with it, and on a static row the trailing control is what gets pressed.
               ...PRESS_PASSTHROUGH,
               ...(hovered && !pressed ? { forceStyle: 'hover' as const } : {}),
-              ...(pressed ? { backgroundColor: '$pressedOverlay' } : {}),
+              ...(pressed ? { backgroundColor: stateGround(note, '$pressedOverlay') } : {}),
             })}
       >
         {icon === undefined ? null : (
@@ -282,6 +329,11 @@ function RowContent({
               whiteSpace="pre-line"
             >
               {subtitle}
+              {note === undefined ? null : (
+                <Text size="$label" color={disabled ? '$textDisabled' : '$textSecondary'}>
+                  {`\n\n${note}`}
+                </Text>
+              )}
             </Text>
           )}
           {details === undefined || details.length === 0 ? null : (

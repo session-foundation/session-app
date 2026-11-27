@@ -1,4 +1,4 @@
-import type { NotificationMode } from '@session/state'
+import type { DeliveryMode } from '@session/state'
 
 /**
  * Onboarding as a state machine, ported from the legacy clients.
@@ -14,7 +14,7 @@ import type { NotificationMode } from '@session/state'
  * account exists and has no name yet, so it is asked for. See `afterFailedRestore`.
  *
  * **The two designs run different sequences, not the same one laid out differently.** Desktop has
- * no notification-mode step: fast mode is a push service and desktop has none to offer.
+ * no delivery-mode step: Instant is a push service and desktop has none to offer.
  *
  * A pure reducer rather than `useState` across five screens, because three things here are easy to
  * get subtly wrong and invisible afterwards:
@@ -64,14 +64,6 @@ export function asksAboutNotifications(design: OnboardingDesign): boolean {
 /** What the recovery screen collected, in the shape the bridge takes it. */
 export type RecoveryInput = { words: string[]; language?: string } | { hexSeed: string }
 
-/**
- * Whether notifications are pushed to the device or polled for.
- *
- * Named for what it is rather than for the marketing: fast mode is a push service, and on a build
- * without one it is not merely slower but absent, which is what `unavailable` marks.
- */
-export type { NotificationMode }
-
 export interface OnboardingState {
   step: OnboardingStep
   design: OnboardingDesign
@@ -86,7 +78,7 @@ export interface OnboardingState {
   /** Held rather than applied, because in the create branch there is nothing to apply it to yet. */
   displayName: string | null
   recovery: RecoveryInput | null
-  notifications: NotificationMode | null
+  notifications: DeliveryMode | null
   /**
    * The bridge refused the last step, the one that actually makes the account.
    *
@@ -116,7 +108,7 @@ export type OnboardingEvent =
   | { type: 'phraseEntered'; from: RecoveryInput }
   | {
       type: 'notificationsChosen'
-      mode: NotificationMode
+      mode: DeliveryMode
       /**
        * Whether the restored profile is already here, which decides if there is anything to wait
        * for.

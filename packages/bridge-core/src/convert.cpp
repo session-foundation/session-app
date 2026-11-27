@@ -279,4 +279,38 @@ ListPlacement to_bridge(::session::client::ListPlacement&& from) {
     return ListPlacement{to_bridge(from.from), to_bridge(from.to), std::move(after)};
 }
 
+IncomingNotification to_bridge(push::NotificationContent&& from, int64_t message_id) {
+    using Kind = push::NotificationContent::Kind;
+    std::optional<NotificationAttachment> attachment;
+    if (from.attachment) {
+        switch (*from.attachment) {
+            case push::AttachmentKind::image: attachment = NotificationAttachment::image; break;
+            case push::AttachmentKind::animated:
+                attachment = NotificationAttachment::animated;
+                break;
+            case push::AttachmentKind::video: attachment = NotificationAttachment::video; break;
+            case push::AttachmentKind::audio: attachment = NotificationAttachment::audio; break;
+            case push::AttachmentKind::voice: attachment = NotificationAttachment::voice; break;
+            case push::AttachmentKind::file: attachment = NotificationAttachment::file; break;
+        }
+    }
+    bool request = from.kind == Kind::message_request;
+    std::optional<std::string> conversation;
+    std::optional<double> message;
+    if (from.kind == Kind::message) {
+        conversation = std::move(from.thread);
+        message = static_cast<double>(message_id);
+    }
+    return IncomingNotification{
+            std::move(from.id),
+            request ? IncomingNotificationKind::request : IncomingNotificationKind::message,
+            std::move(conversation),
+            message,
+            std::move(from.sender),
+            std::move(from.body),
+            attachment,
+            static_cast<double>(from.attachments),
+            epoch_ms(from.timestamp)};
+}
+
 }  // namespace session_bridge

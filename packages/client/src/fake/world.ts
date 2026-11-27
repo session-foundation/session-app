@@ -35,10 +35,13 @@ import {
   type ConversationId,
   type ConversationList,
   type Deletion,
+  type IncomingNotification,
   type ListPlacement,
   type Message,
   type NetworkPaths,
   type NetworkStatus,
+  type NotificationAttachment,
+  type NotificationContent,
   type OutgoingAttachment,
   type QuotedMessage,
   type Reply,
@@ -101,6 +104,32 @@ function encryptedSize(sizeBytes: number): number {
 
 /** How many reports a transfer makes between starting and finishing. */
 const TRANSFER_STEPS = 20
+
+/** How far before the horizon a message may be stamped and still be notified, as the bridge has. */
+const ARRIVAL_SKEW_MS = 5 * 60 * 1000
+
+/** What a notification of `message` says when the content setting shows it. */
+function contentOf(
+  message: Message,
+): Pick<IncomingNotification, 'body' | 'attachment' | 'attachments'> {
+  const first = message.attachments[0]
+  return {
+    ...(message.body === '' ? {} : { body: message.body }),
+    ...(first === undefined ? {} : { attachment: attachmentKind(first) }),
+    attachments: message.attachments.length,
+  }
+}
+
+/** libsession's `kind_of`: the placeholder word a notification uses for an attachment. */
+function attachmentKind(attachment: Attachment): NotificationAttachment {
+  if (attachment.voiceMessage) return 'voice'
+  const type = attachment.contentType ?? ''
+  if (type === 'image/gif') return 'animated'
+  if (type.startsWith('image/')) return 'image'
+  if (type.startsWith('video/')) return 'video'
+  if (type.startsWith('audio/')) return 'audio'
+  return 'file'
+}
 
 /**
  * How many of the world's ticks a megabyte takes to move.
@@ -377,6 +406,18 @@ export class FakeAccount {
   private readonly conversations = new Map<ConversationId, FakeConversationState>()
   /** Which list each row was last reported in, which is the `from` its next placement gives. */
   private readonly placed = new Map<ConversationId, ConversationList>()
+  /** What notifications show, as libsession's local settings hold it. */
+  notificationContent: NotificationContent = 'nameAndContent'
+  /** Notifications shown and not yet taken down, by id, with the conversation and message. */
+  private readonly shownNotifications = new Map<
+    string,
+    { conversation: ConversationId; message: number }
+  >()
+  /** Requests whose first message has been notified, so no later one is. */
+  private readonly requestsNotified = new Set<ConversationId>()
+  private badge: number | null = null
+  /** When this account first took a message in here, as the bridge's horizon: set once. */
+  private notifyHorizon: number | null = null
   private readonly listeners = new Set<(event: SessionEvent) => void>()
   private readonly prefs = new Map<string, string>()
   private world: FakeWorld | undefined
@@ -631,7 +672,62 @@ export class FakeAccount {
     // bridge could also produce. A handler that only works on larger ones is broken.
     this.announce('messages-added', [message])
     this.announceRow(state.conversation, conversation)
+    if (!message.outgoing) this.notifyArrival(conversation, message)
+    this.reportBadge()
     return message
+  }
+
+  /**
+   * libsession's push decision, for a message that arrived while the app runs: nothing for a
+   * blocked sender, a muted conversation, a request after its first message, or history from before
+   * this account first took a message in here; the content setting decides what is said.
+   */
+  private notifyArrival(conversation: Conversation, message: Message): void {
+    // The wall clock, as libsession's decision and the bridge's horizon use, not the world's.
+    const now = Date.now()
+    this.notifyHorizon ??= now
+    if (conversation.blocked || (conversation.muteUntil ?? 0) > now) return
+    if (message.timestamp <= this.notifyHorizon - ARRIVAL_SKEW_MS) return
+    if (conversation.request) {
+      if (this.requestsNotified.has(conversation.id)) return
+      this.requestsNotified.add(conversation.id)
+    }
+    const id = `message-${String(message.id)}`
+    this.shownNotifications.set(id, { conversation: conversation.id, message: message.id })
+    const notification: IncomingNotification = conversation.request
+      ? { id, kind: 'request', attachments: 0, timestamp: message.timestamp }
+      : {
+          id,
+          kind: 'message',
+          conversationId: conversation.id,
+          messageId: message.id,
+          attachments: 0,
+          timestamp: message.timestamp,
+          ...(this.notificationContent === 'none' ? {} : { sender: conversation.displayName }),
+          ...(this.notificationContent === 'nameAndContent' ? contentOf(message) : {}),
+        }
+    this.emit({ type: 'notification', notification })
+  }
+
+  /** Takes down what `isStale` picks, as libsession's `stale` reports it. */
+  private takeDown(isStale: (shown: { conversation: ConversationId; message: number }) => boolean) {
+    const ids = [...this.shownNotifications].filter(([, shown]) => isStale(shown)).map(([id]) => id)
+    for (const id of ids) this.shownNotifications.delete(id)
+    if (ids.length > 0) this.emit({ type: 'notifications-stale', ids })
+  }
+
+  /** Unread messages, each request once, leaving muted and blocked conversations out. */
+  private reportBadge(): void {
+    const now = Date.now()
+    let count = 0
+    for (const [, state] of this.conversations) {
+      const c = state.conversation
+      if (c.blocked || (c.muteUntil ?? 0) > now || c.unreadCount === 0) continue
+      count += c.request ? 1 : c.unreadCount
+    }
+    if (count === this.badge) return
+    this.badge = count
+    this.emit({ type: 'badge', count })
   }
 
   updateMessage(id: ConversationId, messageId: number, patch: Partial<Message>): void {
@@ -671,6 +767,8 @@ export class FakeAccount {
     )
       return
     this.announceRow(state.conversation, conversation)
+    this.takeDown((shown) => shown.conversation === id)
+    this.reportBadge()
   }
 
   /**
@@ -690,6 +788,7 @@ export class FakeAccount {
         gallery: false,
       })
       this.withdrawOrphanedTransfers()
+      this.takeDown((shown) => shown.message === messageId)
       return
     }
   }
@@ -704,6 +803,8 @@ export class FakeAccount {
 
   removeConversation(id: ConversationId): void {
     if (!this.conversations.delete(id)) return
+    this.requestsNotified.delete(id)
+    this.takeDown((shown) => shown.conversation === id)
     this.withdrawOrphanedTransfers()
     const list = this.placed.get(id) ?? 'none'
     this.placed.delete(id)
@@ -725,6 +826,13 @@ export class FakeAccount {
       return
     }
     this.interruptInFlight()
+    this.reportBadgeAfresh()
+  }
+
+  /** As the real bridge refreshes on opening: the badge is reported again, moved or not. */
+  private reportBadgeAfresh(): void {
+    this.badge = null
+    this.reportBadge()
   }
 
   /**
@@ -735,6 +843,7 @@ export class FakeAccount {
   reopen(): void {
     this.dropTransfers('the transfer did not survive closing the client')
     this.interruptInFlight()
+    this.reportBadgeAfresh()
   }
 
   /** Whether anything is still going somewhere, as libsession's `outbound_busy` answers. */

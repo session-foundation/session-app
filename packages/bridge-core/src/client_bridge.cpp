@@ -4,6 +4,7 @@
 #include <session/client/conversation.hpp>
 #include <session/client/conversation_id.hpp>
 #include <session/client/error_codes.hpp>
+#include <session/config/local.hpp>
 #include <session/core/devices.hpp>
 #include <session/image/source.hpp>
 #include <session/image/thumbhash.hpp>
@@ -52,9 +53,11 @@
 
 #include "convert.hpp"
 #include "session_bridge/media_url.hpp"
+#include "session_bridge/notification_sound.hpp"
 #include "session_bridge/push_handler.hpp"
 #include "session_bridge/staged_thumbnails.hpp"
 #include "session_bridge/utf8_path.hpp"
+#include "session_bridge/worker.hpp"
 #include "mark_downloaded.hpp"
 
 namespace session_bridge {
@@ -491,7 +494,107 @@ struct ClientBridge::Impl {
     /// The destroy under way, if any. Under `client_lock`.
     std::shared_ptr<CloseWatch> close_watch;
 
-    explicit Impl(Sink s, InitOptions o) : sink{std::move(s)}, options{std::move(o)} {}
+    /// Notifications for messages that arrive while the Client is open, decided on `arrival_worker`
+    /// because deciding waits on the Client's loop, which delivered them. Shared with each job, and
+    /// held by it while it runs, so that `close` can clear `impl` and know no job still uses it.
+    struct ArrivalState {
+        std::mutex m;
+        Impl* impl = nullptr;
+        /// The person's word for themselves, which a mention of them becomes. Under its own lock,
+        /// taken with nothing else held after it: it is set from `call`, which holds
+        /// `client_lock`, and a job holding `m` takes `client_lock`, so setting it under `m`
+        /// would let the two wait on each other.
+        std::mutex you_m;
+        std::string you;
+
+        std::string you_now() {
+            std::lock_guard lock{you_m};
+            return you;
+        }
+        /// A refresh is queued and not yet started, so another change need not queue one.
+        std::atomic<bool> refresh_queued{false};
+        /// The badge last reported, so that only a change is.
+        std::optional<int64_t> badge;
+    };
+    std::shared_ptr<ArrivalState> arrival = std::make_shared<ArrivalState>();
+    Worker arrival_worker;
+
+    /// When this device first had the account, in Core's globals: set once and never moved, since
+    /// what is older is the history a restore fetches (see `decide_arrivals`).
+    static constexpr std::string_view HORIZON_KEY = "notifications.horizon";
+
+    /// Runs `f` on the open Client and its push subscription off Core's loop, as a push handled on
+    /// it is: not at all while there is no account or the Client is closing for the background.
+    template <typename F>
+    void on_open_notifications(F&& f) {
+        std::shared_lock use{push_use, std::defer_lock};
+        {
+            std::lock_guard lock{client_lock};
+            if (close_cancelled || !client || background != Background::open ||
+                !client->core.globals.have_account())
+                return;
+            push_notifications();
+            use.lock();
+        }
+        f(*client, *notifications);
+    }
+
+    /// Takes down what was read or deleted, and reports the badge when it moved. Under
+    /// `arrival->m`.
+    void refresh_notifications_now(client::Client& c, push::Notifications& n) {
+        auto refresh = session_bridge::refresh_notifications(c, n);
+        if (!refresh.stale.empty())
+            event(NotificationsStaleSessionEvent{std::move(refresh.stale)});
+        if (arrival->badge != refresh.badge) {
+            arrival->badge = refresh.badge;
+            event(BadgeSessionEvent{static_cast<double>(refresh.badge)});
+        }
+    }
+
+    /// Queued from Core's loop as messages arrive. Takes copies: the batch itself is moved into its
+    /// event before this job runs.
+    void notify_arrivals(std::vector<client::Message> incoming) {
+        arrival_worker.post([state = arrival, incoming = std::move(incoming)] {
+            std::lock_guard guard{state->m};
+            if (!state->impl)
+                return;
+            state->impl->on_open_notifications([&](client::Client& c, push::Notifications& n) {
+                using sys_ms = std::chrono::sys_time<std::chrono::milliseconds>;
+                auto& globals = c.core.globals;
+                auto now = std::chrono::floor<std::chrono::milliseconds>(
+                        std::chrono::system_clock::now());
+                auto stored = globals.get_integer(HORIZON_KEY);
+                // None yet, on a new install, a restore, or the first run of a build with this:
+                // what has arrived is history, and from now on nothing is.
+                if (!stored)
+                    globals.set(HORIZON_KEY, int64_t{now.time_since_epoch().count()});
+                sys_ms horizon = stored ? sys_ms{std::chrono::milliseconds{*stored}} : now;
+                for (auto& shown : decide_arrivals(n, incoming, state->you_now(), horizon))
+                    state->impl->event(NotificationSessionEvent{
+                            to_bridge(std::move(shown.content), shown.message_id)});
+                state->impl->refresh_notifications_now(c, n);
+            });
+        });
+    }
+
+    /// Queued from Core's loop when read state may have changed; one at a time.
+    void queue_notification_refresh() {
+        if (arrival->refresh_queued.exchange(true))
+            return;
+        arrival_worker.post([state = arrival] {
+            state->refresh_queued = false;
+            std::lock_guard guard{state->m};
+            if (!state->impl)
+                return;
+            state->impl->on_open_notifications([&](client::Client& c, push::Notifications& n) {
+                state->impl->refresh_notifications_now(c, n);
+            });
+        });
+    }
+
+    explicit Impl(Sink s, InitOptions o) : sink{std::move(s)}, options{std::move(o)} {
+        arrival->you = options.notification_you;
+    }
 
     /// Builds the Client, and can do it again.
     ///
@@ -516,11 +619,15 @@ struct ClientBridge::Impl {
                         [impl](client::AnyConversation&& c, client::ListPlacement&& p) {
                             impl->event(ConversationUpdatedSessionEvent{
                                     to_bridge(std::move(c)), to_bridge(std::move(p))});
+                            // Read here or elsewhere, muted, or a request approved.
+                            impl->queue_notification_refresh();
                         },
                 .conversation_removed =
                         [impl](client::ConversationId&& id, client::ConversationList list) {
                             impl->event(ConversationRemovedSessionEvent{
                                     id.to_string(), to_bridge(list)});
+                            // Its unread messages leave the badge, and its notifications go stale.
+                            impl->queue_notification_refresh();
                         },
                 // No whole-list handlers. The placements above are complete on their own, and an
                 // unset list handler is what spares libsession reading the whole list on every
@@ -530,11 +637,19 @@ struct ClientBridge::Impl {
                 // conversation, which is why neither of these is told one.
                 .messages_added =
                         [impl](std::vector<client::Message>&& ms) {
+                            std::vector<client::Message> incoming;
+                            for (const auto& m : ms)
+                                if (!m.outgoing)
+                                    incoming.push_back(m);
                             impl->event(MessagesAddedSessionEvent{to_bridge(std::move(ms))});
+                            if (!incoming.empty())
+                                impl->notify_arrivals(std::move(incoming));
                         },
                 .messages_updated =
                         [impl](std::vector<client::Message>&& ms) {
                             impl->event(MessagesUpdatedSessionEvent{to_bridge(std::move(ms))});
+                            // Deleted, or unsent by its author.
+                            impl->queue_notification_refresh();
                         },
                 .history_replaced =
                         [impl](const client::ConversationId& id) {
@@ -701,6 +816,10 @@ struct ClientBridge::Impl {
     void on_account() {
         publish_device_info();
         attach_network();
+        // What went stale while another process had the database, as iOS's notification extension
+        // does while the app is away and cannot take a notification down itself, comes down now;
+        // and the badge is reported afresh for the app's icon.
+        queue_notification_refresh();
     }
 
     /// Marks the account about to be minted as one nobody has confirmed yet.
@@ -1315,6 +1434,28 @@ struct ClientBridge::Impl {
         throw std::invalid_argument{"setPushToken.service is not a push service"};
     }
 
+    static NotificationContent notification_content(config::notify_content stored) {
+        switch (stored) {
+            // Unset means the default, which is to show both.
+            case config::notify_content::defaulted:
+            case config::notify_content::name_and_preview:
+                return NotificationContent::name_and_content;
+            case config::notify_content::name_no_preview: return NotificationContent::name_only;
+            case config::notify_content::no_name_no_preview: return NotificationContent::none;
+        }
+        return NotificationContent::name_and_content;
+    }
+
+    static config::notify_content notify_content(NotificationContent content) {
+        switch (content) {
+            case NotificationContent::name_and_content:
+                return config::notify_content::name_and_preview;
+            case NotificationContent::name_only: return config::notify_content::name_no_preview;
+            case NotificationContent::none: return config::notify_content::no_name_no_preview;
+        }
+        throw std::invalid_argument{"setNotificationContent.content is not a content setting"};
+    }
+
     push::Notifications& push_notifications() {
         if (!notifications)
             notifications.emplace(*client);
@@ -1335,6 +1476,42 @@ struct ClientBridge::Impl {
 
     void handle(double id, const ClearPushTokenCommand&) {
         push_notifications().unsubscribe(on(id, [this, id](bool) { ok(id); }));
+    }
+
+    // The device's local settings are Core's, read and written on its loop like every config.
+    void handle(double id, const GetNotificationContentCommand&) {
+        auto stored = client->core.loop().call_get(
+                [&] { return client->core.configs.local().get_notification_content(); });
+        respond(id, NotificationContentResult{notification_content(stored)});
+    }
+
+    void handle(double id, const SetNotificationContentCommand& cmd) {
+        client->core.loop().call_get([&] {
+            client->core.configs.local().set_notification_content(notify_content(cmd.content));
+        });
+        ok(id);
+    }
+
+    void handle(double id, const SetNotificationYouCommand& cmd) {
+        {
+            std::lock_guard guard{arrival->you_m};
+            arrival->you = cmd.you;
+        }
+        ok(id);
+    }
+
+    void handle(double id, const GetNotificationSoundCommand&) {
+        auto stored = client->core.loop().call_get(
+                [&] { return client->core.configs.local().get_ios_notification_sound(); });
+        respond(id, NotificationSoundResult{notification_sound(stored)});
+    }
+
+    void handle(double id, const SetNotificationSoundCommand& cmd) {
+        client->core.loop().call_get([&] {
+            client->core.configs.local().set_ios_notification_sound(
+                    stored_notification_sound(cmd.sound));
+        });
+        ok(id);
     }
 
     void handle(double id, const HandlePushPayloadCommand&) {
@@ -1883,6 +2060,7 @@ struct ClientBridge::Impl {
 
 ClientBridge::ClientBridge(InitOptions options, Sink sink) :
         _impl{std::make_unique<Impl>(std::move(sink), options)} {
+    _impl->arrival->impl = _impl.get();
 
     // **A database that will not open leaves a bridge without a client, not no bridge.** Thrown
     // from here it took the bridge with it, so the app had nothing to ask and nothing to show: on
@@ -1920,6 +2098,13 @@ ClientBridge::~ClientBridge() {
 void ClientBridge::close() {
     if (!_impl)
         return;
+    // Before anything takes `client_lock`, which a running arrival job may be waiting on while it
+    // holds the state: this waits for that job, and no later one reaches the Impl.
+    {
+        std::lock_guard guard{_impl->arrival->m};
+        _impl->arrival->impl = nullptr;
+    }
+    _impl->arrival_worker.stop();
     // A close for the background still under way answers on this Impl, so it has to end first:
     // cancelled if it is still waiting, and otherwise done once the Client it took is destroyed.
     _impl->close_cancelled = true;
@@ -1971,6 +2156,35 @@ std::optional<PushResult> ClientBridge::handle_push(
     } catch (const std::exception& e) {
         return PushResult{
                 generic_notification(), {}, std::nullopt, std::string{"threw: "} + e.what()};
+    }
+}
+
+std::optional<ActionResult> ClientBridge::handle_action(
+        const NotificationAction& action,
+        std::chrono::milliseconds deadline,
+        const std::function<void(std::string_view)>& log) {
+    if (!_impl)
+        return std::nullopt;
+    // Held for the whole action, so the refresh its own changes queue waits: that refresh would
+    // take the conversation's notifications as stale first, and hand them to JavaScript, which an
+    // app woken only for the action may never run before it is frozen again. The action reports
+    // them instead, to the native code that takes them down.
+    std::lock_guard arrivals{_impl->arrival->m};
+    // As a push: held shared against a replacement of the Client, outside `client_lock`.
+    std::shared_lock use{_impl->push_use, std::defer_lock};
+    {
+        std::lock_guard lock{_impl->client_lock};
+        if (_impl->close_cancelled || !_impl->client ||
+            _impl->background != Impl::Background::open)
+            return std::nullopt;
+        _impl->push_notifications();
+        use.lock();
+    }
+    try {
+        return session_bridge::handle_action(
+                *_impl->client, *_impl->notifications, action, deadline, log);
+    } catch (const std::exception& e) {
+        return ActionResult{false, std::string{"threw: "} + e.what(), {}};
     }
 }
 

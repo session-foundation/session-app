@@ -3,6 +3,7 @@ import {
   memoryPorts,
   resolveBuildVariant,
   setPorts,
+  type DeliveryModeOffer,
   type MediaPort,
 } from '@session/app'
 import { mediaUrl } from '@session/app/mediaUrl'
@@ -18,6 +19,7 @@ import { exportFiles, sweepStagedExports } from './files'
 import { flagOverride } from './flagOverrides'
 import { endingRun, logDirectory, logFiles, logWriter, lowPowerRows, osName } from './logs'
 import { pickers } from './pickers'
+import { notificationSettings } from './notificationSettings'
 import { pushTokens } from './pushTokens'
 import { restartProcess, terminateProcess } from './processExit'
 import { SessionLogs } from './sessionLogs'
@@ -116,6 +118,37 @@ async function diagnosticsSnapshot(): Promise<DiagnosticsSnapshot> {
 }
 
 /**
+ * The delivery modes this build offers. Always connected is Android's: iOS lets no app keep a
+ * connection open in the background.
+ *
+ * Instant needs a token source, which exists only where the build registered a push service with
+ * the device at startup -- on Android, also a device that has that service (Play Services or
+ * microG, HMS Core). Without one it is the build's doing when the variant names no push service,
+ * and the device's when it does.
+ */
+function deliveryModes(): DeliveryModeOffer[] {
+  const instant: DeliveryModeOffer = {
+    mode: 'instant',
+    // The network first: off mainnet there is nothing to subscribe to, whatever the device has.
+    unavailable:
+      parseNetworkName(process.env['EXPO_PUBLIC_SESSION_NETID']) !== 'mainnet'
+        ? 'network'
+        : pushTokens !== null
+          ? null
+          : VARIANT_TRAITS[VARIANT].pushService === null
+            ? 'build'
+            : 'device',
+  }
+  const background: DeliveryModeOffer[] = [
+    { mode: 'periodic', unavailable: null },
+    { mode: 'while-open', unavailable: null },
+  ]
+  return Platform.OS === 'android'
+    ? [instant, { mode: 'always-connected', unavailable: null }, ...background]
+    : [instant, ...background]
+}
+
+/**
  * The mobile app's OS ports.
  *
  * Real where a screen has arrived that needs it, and a memory implementation everywhere else.
@@ -146,12 +179,9 @@ const ports = memoryPorts({
     notificationModesApply: true,
     pushTokens,
     pushInstallMarker,
-    // A source exists only where the build registered a push service at startup, which on Android
-    // it does only when the device has that service too: Play services, or microG.
-    fastModeAvailable: pushTokens !== null,
+    ...notificationSettings,
+    deliveryModes: deliveryModes(),
     pushService: VARIANT_TRAITS[VARIANT].pushService,
-    requestPermission: () => Promise.resolve(true),
-    show: () => Promise.resolve(),
     onTap: () => () => undefined,
     setBadgeCount: () => Promise.resolve(),
   },

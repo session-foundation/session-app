@@ -157,6 +157,26 @@ const handlers: { [K in Command['type']]: Handler<K> } = {
     await client.clearPushToken()
     return empty
   },
+  getNotificationContent: async (client) => ({
+    type: 'notificationContent',
+    content: await client.getNotificationContent(),
+  }),
+  setNotificationContent: async (client, cmd) => {
+    await client.setNotificationContent(cmd.content)
+    return empty
+  },
+  setNotificationYou: async (client, cmd) => {
+    await client.setNotificationYou(cmd.you)
+    return empty
+  },
+  getNotificationSound: async (client) => ({
+    type: 'notificationSound',
+    sound: await client.getNotificationSound(),
+  }),
+  setNotificationSound: async (client, cmd) => {
+    await client.setNotificationSound(cmd.sound)
+    return empty
+  },
   handlePushPayload: () => unsupported('handlePushPayload'),
 
   getConversations: async (client) => ({

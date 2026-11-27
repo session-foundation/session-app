@@ -1,6 +1,6 @@
 import { unknownDiagnostics } from '@session/logging'
 
-import type { Ports } from './ports'
+import type { NotificationTap, Ports } from './ports'
 
 /**
  * Ports that do nothing, for tests and for the dev loop before an app has real ones.
@@ -10,7 +10,7 @@ import type { Ports } from './ports'
  */
 export function memoryPorts(overrides: Partial<Ports> = {}): Ports {
   let databaseKey: Uint8Array | null = null
-  const notificationTaps = new Set<(conversationId: string) => void>()
+  const notificationTaps = new Set<(tap: NotificationTap) => void>()
   const focusHandlers = new Set<(focused: boolean) => void>()
 
   return {
@@ -51,9 +51,8 @@ export function memoryPorts(overrides: Partial<Ports> = {}): Ports {
       imageSize: () => Promise.resolve(null),
     },
     notifications: {
-      // No push service on any build yet, so onboarding marks fast mode unavailable rather than
-      // recommending something that would never arrive.
-      fastModeAvailable: false,
+      // Nothing to choose: see `notificationModesApply`.
+      deliveryModes: [],
       // None to name, which is the honest answer for a build with no push service in it.
       pushService: null,
       // Nothing suspends a memory implementation. The mobile app overrides this; desktop is
@@ -61,8 +60,17 @@ export function memoryPorts(overrides: Partial<Ports> = {}): Ports {
       notificationModesApply: false,
       pushTokens: null,
       pushInstallMarker: null,
+      soundWhenOpenDefault: false,
+      notificationsAllowed: null,
+      openSettings: null,
+      openChannelSettings: null,
+      backgroundActivity: null,
+      backgroundRefreshOn: null,
+      playSound: null,
+      preview: null,
       requestPermission: () => Promise.resolve(true),
-      show: () => Promise.resolve(),
+      post: null,
+      remove: null,
       onTap: (handler) => {
         notificationTaps.add(handler)
         return () => notificationTaps.delete(handler)

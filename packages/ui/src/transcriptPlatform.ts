@@ -37,6 +37,7 @@ export function useTranscriptPlatform({
   atEnd,
   onScreen,
   firstPassRows,
+  opensAtEnd,
   toEnd,
   onPlaced,
   onReaderTouch,
@@ -58,9 +59,10 @@ export function useTranscriptPlatform({
   // The first pass is drawn before this runs and painted after it, so the list is never seen at
   // its start.
   useLayoutEffect(() => {
+    if (!opensAtEnd) return
     toEnd(false)
     onPlaced()
-  }, [toEnd, onPlaced])
+  }, [toEnd, onPlaced, opensAtEnd])
 
   // Anchoring does nothing at offset 0, where rows added above would be scrolled to rather than
   // past: move past them by what they added.

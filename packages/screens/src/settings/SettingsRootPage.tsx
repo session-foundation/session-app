@@ -30,6 +30,7 @@ import { confirmLink } from './confirmLink'
 import { ConversationsPage } from './ConversationsPage'
 import { DeveloperSettingsPage, developerScreen } from './DeveloperSettingsPage'
 import { HelpPage } from './HelpPage'
+import { NotificationsPage } from './notifications/NotificationsPage'
 import { openRecoveryPassword } from './RecoveryPasswordPage'
 import { SessionInfo } from './SessionInfo'
 import { endAfterClear } from '../endAfterClear'
@@ -208,7 +209,14 @@ export function SettingsRootPage() {
     ],
     [
       { label: tr('sessionPrivacy'), icon: 'lockKeyhole', testID: row('privacy') },
-      { label: tr('sessionNotifications'), icon: 'volume', testID: row('notifications') },
+      {
+        label: tr('sessionNotifications'),
+        icon: 'volume',
+        testID: row('notifications'),
+        onPress: () => {
+          modals.push({ title: tr('sessionNotifications'), render: () => <NotificationsPage /> })
+        },
+      },
       {
         label: tr('sessionConversations'),
         icon: 'messageSquare',

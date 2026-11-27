@@ -3,7 +3,6 @@ import { PENDING_COPY, tr } from '@session/localization'
 import { useConversations, useSessionActions } from '@session/state'
 import { ELEMENT } from '@session/test-ids'
 import {
-  Icon,
   LABEL_MAX_SCALE,
   PathFlow,
   pathFlowTripMs,
@@ -172,8 +171,7 @@ export function PathPage() {
       <SettingsGroup>
         <SettingsRow
           label={tr('learnMore')}
-          // As the help screen's links: the accent on dark, body text on light.
-          trailing={<Icon name="externalLink" size="md" color="$accentText" />}
+          leadsTo="outside"
           onPress={() => confirmLink(modals, LEARN_MORE_URL)}
           testID={ELEMENT.settings.pathLearnMore}
         />
