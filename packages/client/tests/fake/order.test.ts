@@ -115,7 +115,9 @@ describe('the fake places every change to a list', () => {
     const [conversation] = await alice.getConversations()
     if (!conversation) throw new Error('expected a conversation')
 
-    await alice.markRead(conversation.id)
+    // A pin announces the row, so the subscriber is holding it in a list.
+    await alice.setPriority(conversation.id, 1)
+    world.settle()
     const seen = watch(alice)
     await alice.deleteConversation(conversation.id)
     world.settle()
@@ -124,5 +126,22 @@ describe('the fake places every change to a list', () => {
     expect(seen.types()).toBe('saw: conversation-removed')
     const removal = seen.events[0]
     expect(removal?.type === 'conversation-removed' && removal.list).toBe('conversations')
+  })
+
+  it('names no list for a removed row it never announced', async () => {
+    const { world, clients } = friends(['Alice', 'Bob'])
+    const alice = clients['Alice']
+    if (!alice) throw new Error('fixture did not produce a client')
+    const [conversation] = await alice.getConversations()
+    if (!conversation) throw new Error('expected a conversation')
+
+    const seen = watch(alice)
+    await alice.deleteConversation(conversation.id)
+    world.settle()
+    seen.stop()
+
+    expect(seen.types()).toBe('saw: conversation-removed')
+    const removal = seen.events[0]
+    expect(removal?.type === 'conversation-removed' && removal.list).toBe('none')
   })
 })

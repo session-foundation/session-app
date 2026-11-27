@@ -1554,6 +1554,32 @@ export function runSessionClientContract(
       expect(next?.id).toBeGreaterThan(highest)
     })
 
+    it('reads up to the timestamp it is given, and never back', async () => {
+      const { alice, bob, aliceId, bobId, settle } = await harness.friends()
+      await bob.sendMessage(aliceId, { body: 'one' })
+      await settle()
+      await bob.sendMessage(aliceId, { body: 'two' })
+      await settle()
+      const unread = async (): Promise<number | undefined> =>
+        (await alice.getConversations()).find((c: Conversation) => c.id === bobId)?.unreadCount
+
+      const incoming = (await alice.getMessages(bobId)).messages.filter((m) => !m.outgoing)
+      const oldest = incoming[0]
+      const newest = incoming[incoming.length - 1]
+      if (!oldest || !newest) throw new Error('unreachable')
+      expect(await unread()).toBe(2)
+
+      // A screen reads up to the newest message it shows, so the mark has to stop where it is told.
+      await alice.markRead(bobId, oldest.timestamp - 1)
+      expect(await unread()).toBe(2)
+      // Inclusive: the message at the mark is read.
+      await alice.markRead(bobId, newest.timestamp)
+      expect(await unread()).toBe(0)
+      // A stale mark from a screen that loaded earlier must not bring anything back.
+      await alice.markRead(bobId, oldest.timestamp - 1)
+      expect(await unread()).toBe(0)
+    })
+
     it('refuses a seed that is not 16 or 32 bytes of hex', async () => {
       const { alice } = await harness.friends()
 
