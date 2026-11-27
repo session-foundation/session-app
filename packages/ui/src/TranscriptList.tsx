@@ -24,6 +24,7 @@ import { readEdges as readEdgesOf, type EdgesAsked } from './pageEdges'
 import { usePaneSurface } from './paneSurface'
 import { useRovingRows, type RovingRowsProps } from './rovingRows'
 import { useRowScroller } from './rowScroller'
+import { seenRows } from './seenRows'
 import type { RowsOnScreen, ScrollReading } from './rowScroller.types'
 import { useTranscriptPlatform } from './transcriptPlatform'
 import { useReducedMotion } from './useReducedMotion'
@@ -96,6 +97,11 @@ export interface TranscriptListProps<T> extends RovingRowsProps {
   /** The keys of the rows drawn inside the viewport, each time that set changes. */
   onRowsOnScreen?: ((keys: ReadonlySet<string>) => void) | undefined
   /**
+   * The keys of the rows whose bottom edge is on screen, in order, each time that changes: the rows
+   * that have been seen. See `seenRows` for what counts.
+   */
+  onRowsSeen?: ((keys: readonly string[]) => void) | undefined
+  /**
    * Whether the page before the first row is held back until a scroll to the top by a tap on the
    * status bar ends, said when that changes: a wait of most of a second, with history before it.
    */
@@ -144,6 +150,8 @@ const SETTLE_ABOVE_MS = 600
 const TO_TOP_MS = 1500
 
 const VIEWABILITY = { itemVisiblePercentThreshold: 1 } as const
+/** Wholly on screen, which is when the last row's bottom edge is showing. */
+const WHOLLY = { itemVisiblePercentThreshold: 100 } as const
 
 const FILLS = { flex: 1 } as const
 const HIDDEN = { flex: 1, opacity: 0 } as const
@@ -171,6 +179,7 @@ export function TranscriptList<T>({
   opensAt,
   onAtEnd,
   onRowsOnScreen,
+  onRowsSeen,
   onWaitsForStart,
   header,
   footer,
@@ -377,6 +386,7 @@ export function TranscriptList<T>({
     onFarFromEnd,
     onAtEnd,
     onRowsOnScreen,
+    onRowsSeen,
     onWaitsForStart,
     platform,
     rows,
@@ -412,6 +422,7 @@ export function TranscriptList<T>({
       onFarFromEnd,
       onAtEnd,
       onRowsOnScreen,
+      onRowsSeen,
       onWaitsForStart,
       platform,
       rows,
@@ -511,6 +522,30 @@ export function TranscriptList<T>({
     if (followsEnd()) toEnd(false)
   }, [followsEnd, toEnd])
 
+  // The rows on screen and the rows wholly on screen, by index, each with its key: what is seen is
+  // worked out from both and from whether the list sits at its end (`seenRows`).
+  const visibleRows = useRef(new Map<number, string>())
+  const wholeRows = useRef<ReadonlySet<number>>(new Set())
+  const seenReported = useRef('')
+  const reportSeen = useCallback(() => {
+    const tell = latest.current.onRowsSeen
+    if (tell === undefined) return
+    const { offsetPx, viewportPx, contentPx } = scroll.current
+    const atEndNow = contentPx - offsetPx - viewportPx <= AT_END_SLACK_PX
+    const seen = seenRows({
+      visible: [...visibleRows.current.keys()],
+      whole: wholeRows.current,
+      atEnd: atEndNow,
+    }).flatMap((index) => {
+      const key = visibleRows.current.get(index)
+      return key === undefined ? [] : [key]
+    })
+    const reported = seen.join('\n')
+    if (reported === seenReported.current) return
+    seenReported.current = reported
+    tell(seen)
+  }, [])
+
   const onScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent
@@ -566,8 +601,9 @@ export function TranscriptList<T>({
       // the reader leaving it.
       else followEnd()
       report()
+      reportSeen()
     },
-    [followEnd, followsEnd, onScrolledToTop, place, report, tellWaitsForStart],
+    [followEnd, followsEnd, onScrolledToTop, place, report, reportSeen, tellWaitsForStart],
   )
 
   const onContentSizeChange = useCallback(
@@ -578,8 +614,9 @@ export function TranscriptList<T>({
       followEnd()
       placeAtEnd()
       report()
+      reportSeen()
     },
-    [followEnd, placeAtEnd, report],
+    [followEnd, placeAtEnd, report, reportSeen],
   )
 
   const onLayout = useCallback(
@@ -590,8 +627,9 @@ export function TranscriptList<T>({
       followEnd()
       placeAtEnd()
       report()
+      reportSeen()
     },
-    [followEnd, placeAtEnd, report],
+    [followEnd, placeAtEnd, report, reportSeen],
   )
 
   const onViewableItemsChanged = useCallback(
@@ -600,6 +638,12 @@ export function TranscriptList<T>({
     }: {
       viewableItems: { index?: number | null | undefined; key?: string | undefined }[]
     }) => {
+      visibleRows.current = new Map(
+        viewableItems.flatMap(({ index, key }) =>
+          typeof index === 'number' && key !== undefined ? [[index, key] as const] : [],
+        ),
+      )
+      reportSeen()
       const indices = viewableItems.flatMap(({ index }) =>
         typeof index === 'number' ? [index] : [],
       )
@@ -617,8 +661,25 @@ export function TranscriptList<T>({
       readEdges.current()
       latest.current.onRowsOnScreen?.(all)
     },
-    [],
+    [reportSeen],
   )
+  // Made once: FlatList refuses a change to its viewability pairs after its first render.
+  const viewabilityPairs = useRef([
+    { viewabilityConfig: VIEWABILITY, onViewableItemsChanged },
+    {
+      viewabilityConfig: WHOLLY,
+      onViewableItemsChanged: ({
+        viewableItems,
+      }: {
+        viewableItems: { index?: number | null | undefined }[]
+      }) => {
+        wholeRows.current = new Set(
+          viewableItems.flatMap(({ index }) => (typeof index === 'number' ? [index] : [])),
+        )
+        reportSeen()
+      },
+    },
+  ]).current
 
   const api = useMemo(
     (): TranscriptListHandle => ({
@@ -762,8 +823,7 @@ export function TranscriptList<T>({
       onLayout={onLayout}
       {...platform.listProps}
       onScrollToIndexFailed={rows.onScrollToIndexFailed}
-      onViewableItemsChanged={onViewableItemsChanged}
-      viewabilityConfig={VIEWABILITY}
+      viewabilityConfigCallbackPairs={viewabilityPairs}
       ListHeaderComponent={startSpacer}
       ListFooterComponent={endSpacer}
       data={data}
