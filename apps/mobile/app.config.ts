@@ -11,6 +11,7 @@ import type { ConfigContext, ExpoConfig } from 'expo/config'
 import { withBuildVariants } from '#plugins/withBuildVariants'
 import { withFcm } from '#plugins/withFcm'
 import { withHms } from '#plugins/withHms'
+import { withNotificationService } from '#plugins/withNotificationService'
 import { withSessionMedia } from '#plugins/withSessionMedia'
 
 /**
@@ -305,10 +306,19 @@ function appGroup(config: ConfigContext['config']): string {
 /** The plugins written in this file, which take the computed config rather than a plugin entry. */
 const withLocalPlugins: ConfigPlugins.ConfigPlugin = (config) =>
   withHms(
-    withFcm(
-      withBuildVariants(
-        withSessionMedia(withExportStorageAccess(withNoBackups(withPermissionStrings(config)))),
+    withNotificationService(
+      withFcm(
+        withBuildVariants(
+          withSessionMedia(withExportStorageAccess(withNoBackups(withPermissionStrings(config)))),
+        ),
       ),
+      {
+        // What the app was given above, already suffixed: computing them again would suffix twice.
+        bundleId: config.ios?.bundleIdentifier ?? bundleId(config),
+        appGroup: config.ios?.infoPlist?.['SessionAppGroup'] ?? appGroup(config),
+        // Granted by Apple per app on request; see the plugin. A host knob, as signing is.
+        filtering: process.env['SESSION_IOS_NOTIFICATION_FILTERING'] === '1',
+      },
     ),
   )
 

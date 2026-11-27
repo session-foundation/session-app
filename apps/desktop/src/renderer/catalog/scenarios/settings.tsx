@@ -151,24 +151,16 @@ export const SETTINGS_SCENARIOS: readonly AnyStory[] = [
       />
     ),
   }),
-  // The phones' Notification Content screen: Android with Preview Notification under the choices,
-  // and iOS, which has no preview yet.
-  defineStory<{ platform: 'android' | 'ios' }>({
+  // The phones' Notification Content screen, the same on Android and iOS: the choices, with
+  // Preview Notification under them.
+  defineStory<Record<string, never>>({
     component: 'settings',
     story: 'notificationContent',
     width: SECTION_WIDTH,
     sensitive: { rtl: true, theme: true },
-    variants: {
-      android: { platform: 'android' },
-      ios: { platform: 'ios' },
-    },
-    render: ({ platform }) => (
-      <NotificationContentChoice
-        selected="nameOnly"
-        canPreview={platform === 'android'}
-        onSelect={noop}
-        onPreview={noop}
-      />
+    variants: { phones: {} },
+    render: () => (
+      <NotificationContentChoice selected="nameOnly" canPreview onSelect={noop} onPreview={noop} />
     ),
   }),
   // iOS's Sound screen with a sound other than the default chosen, so the default's mark and the

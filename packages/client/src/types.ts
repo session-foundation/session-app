@@ -172,6 +172,11 @@ export interface SessionClient {
   /** Cancels a waiting `closeClient`, or builds the Client again once it has closed. */
   reopenClient(): Promise<void>
   /**
+   * Stops or restarts fetching new messages; sends carry on. For iOS, while the notification
+   * extension receives. See `setReceiving` in the protocol.
+   */
+  setReceiving(on: boolean): Promise<void>
+  /**
    * Subscribes this device to pushes through `service` with the token it issued, or renews the
    * subscription. True when a request went out, false when the stored one already matched and was
    * recent. With `force`, sent whatever is stored. Refused without a network or an account. See

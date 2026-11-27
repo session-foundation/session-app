@@ -27,6 +27,11 @@ export interface NodeBridgeOptions extends Omit<SessionBridgeOptions, 'rawKeyHex
    * the OS keyring, and never let it reach the renderer.
    */
   rawKey?: Uint8Array
+  /**
+   * Whether a database created now keeps SQLite's header in plaintext. Only iOS turns it on;
+   * desktop and Android leave it off. An existing database opens as it was made either way.
+   */
+  plaintextHeaderWhenNew?: boolean
   /** Overrides where the addon is loaded from. `SESSION_BRIDGE_ADDON` does the same. */
   addonPath?: string
 }

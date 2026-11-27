@@ -186,6 +186,8 @@ function validParts(parts: unknown): ExportPart[] | null {
   const valid: ExportPart[] = []
   for (const part of parts as unknown[]) {
     if (typeof part !== 'object' || part === null) return null
+    // No process writes beside the logs on desktop, so no part may name such a directory.
+    if ('extension' in part) return null
     const { text, file } = part as { text?: unknown; file?: unknown }
     if (typeof text === 'string' && text.length <= MAX_TEXT_PART) valid.push({ text })
     else if (typeof file === 'string' && LOG_FILE_NAME.test(file)) valid.push({ file })

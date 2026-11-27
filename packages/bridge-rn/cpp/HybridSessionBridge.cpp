@@ -304,6 +304,10 @@ void HybridSessionBridge::init(const SessionBridgeOptions& options) {
         init.raw_key = key_from_hex(*options.rawKeyHex);
     else if (options.password)
         init.password = *options.password;
+#if defined(__APPLE__)
+    // The database is in the app group, which the notification extension shares.
+    init.plaintext_header_when_new = true;
+#endif
     init.on_database_replaced = ::session_bridge_rn::forget_media;
 
     _bridge = std::make_unique<::session_bridge::ClientBridge>(

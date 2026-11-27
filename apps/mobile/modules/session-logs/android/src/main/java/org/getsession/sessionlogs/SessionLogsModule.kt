@@ -30,6 +30,9 @@ class SessionLogsModule : Module() {
   // The writer's LOG_FILE_NAME in @session/logging, without its groups;
   // packages/app/tests/logFileName.contract.test.ts reads this line and fails when the two differ.
   private val logFile = Regex("^session-\\d{8}T\\d{6}Z-\\d+\\.log$")
+  // EXTENSION_LOG_DIRS in @session/logging, checked by the same contract test: the directories
+  // beside the logs a part may name, and nothing else. No Android process writes to one yet.
+  private val extensionDirs = setOf("notification-service")
 
   private var memoryCallbacks: ComponentCallbacks2? = null
   // The context the callbacks were registered on, kept so they are unregistered from that same
@@ -95,8 +98,11 @@ class SessionLogsModule : Module() {
                 gzip.write(text.toByteArray(Charsets.UTF_8))
               } else if (name != null) {
                 require(logFile.matches(name)) { "not a log file name: $name" }
+                val ext = part["extension"]
+                require(ext == null || ext in extensionDirs) { "not an extension log directory: $ext" }
+                val folder = if (ext == null) File(directory) else File(directory, ext)
                 // A file rotated away since the list was taken is skipped rather than failing.
-                val log = File(directory, name)
+                val log = File(folder, name)
                 if (log.exists()) log.inputStream().use { it.copyTo(gzip, 64 * 1024) }
               }
             }

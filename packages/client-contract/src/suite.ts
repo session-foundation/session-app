@@ -997,6 +997,17 @@ export function runSessionClientContract(
       expect(await alice.getNotificationContent()).toBe('nameOnly')
     })
 
+    it('stops and restarts receiving, and refuses to while closed for the background', async () => {
+      const { alice } = await harness.friends()
+      await alice.setReceiving(false)
+      await alice.setReceiving(true)
+
+      await alice.closeClient(10_000, 15_000)
+      expect(await failure(() => alice.setReceiving(true))).toBeDefined()
+      await alice.reopenClient()
+      await alice.setReceiving(true)
+    })
+
     it('notifies a message that arrives, naming the message for a tap to land on', async () => {
       const { client, conversationId, receive } = await harness.receivesMessages()
       const seen = collect(client)

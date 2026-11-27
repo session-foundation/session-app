@@ -2204,6 +2204,27 @@ struct JSIConverter<::session_bridge::ReopenClientCommand> final {
 };
 
 template <>
+struct JSIConverter<::session_bridge::SetReceivingCommand> final {
+    static inline ::session_bridge::SetReceivingCommand fromJSI(jsi::Runtime& runtime, const jsi::Value& arg) {
+        jsi::Object obj = arg.asObject(runtime);
+        return ::session_bridge::SetReceivingCommand(
+                JSIConverter<bool>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "on"))));
+    }
+    static inline jsi::Value toJSI(jsi::Runtime& runtime, const ::session_bridge::SetReceivingCommand& arg) {
+        jsi::Object obj(runtime);
+        obj.setProperty(runtime, PropNameIDCache::get(runtime, "type"), ::session_bridge::ascii(runtime, ::session_bridge::SetReceivingCommand::type_tag));
+        obj.setProperty(runtime, PropNameIDCache::get(runtime, "on"), JSIConverter<bool>::toJSI(runtime, arg.on));
+        return obj;
+    }
+    static inline bool canConvert(jsi::Runtime& runtime, const jsi::Value& value) {
+        if (!value.isObject())
+            return false;
+        jsi::Value type = value.getObject(runtime).getProperty(runtime, PropNameIDCache::get(runtime, "type"));
+        return type.isString() && type.getString(runtime).utf8(runtime) == ::session_bridge::SetReceivingCommand::type_tag;
+    }
+};
+
+template <>
 struct JSIConverter<::session_bridge::PushService> final {
     static inline ::session_bridge::PushService fromJSI(jsi::Runtime& runtime, const jsi::Value& arg) {
         std::string text = JSIConverter<std::string>::fromJSI(runtime, arg);
@@ -3278,6 +3299,8 @@ struct JSIConverter<::session_bridge::Command> final {
             return JSIConverter<::session_bridge::CloseClientCommand>::fromJSI(runtime, arg);
         if (tag == "reopenClient")
             return JSIConverter<::session_bridge::ReopenClientCommand>::fromJSI(runtime, arg);
+        if (tag == "setReceiving")
+            return JSIConverter<::session_bridge::SetReceivingCommand>::fromJSI(runtime, arg);
         if (tag == "setPushToken")
             return JSIConverter<::session_bridge::SetPushTokenCommand>::fromJSI(runtime, arg);
         if (tag == "clearPushToken")
@@ -3378,7 +3401,7 @@ struct JSIConverter<::session_bridge::Command> final {
         if (!type.isString())
             return false;
         std::string tag = type.getString(runtime).utf8(runtime);
-        return tag == "getAccountInfo" || tag == "createAccount" || tag == "restoreAccountFromWords" || tag == "checkRecoveryPhrase" || tag == "restoreAccountFromSeed" || tag == "discardAccount" || tag == "keepAccount" || tag == "getSeedMnemonic" || tag == "getSeedHex" || tag == "hideRecoveryPassword" || tag == "getRecoveryPasswordHidden" || tag == "setDisplayName" || tag == "attachNetwork" || tag == "warmNetworkCache" || tag == "getNetworkStatus" || tag == "setPollInterval" || tag == "pollOnce" || tag == "closeClient" || tag == "reopenClient" || tag == "setPushToken" || tag == "clearPushToken" || tag == "getNotificationContent" || tag == "setNotificationContent" || tag == "getNotificationSound" || tag == "setNotificationSound" || tag == "setNotificationYou" || tag == "handlePushPayload" || tag == "getConversations" || tag == "getMessageRequests" || tag == "getConversation" || tag == "openDm" || tag == "markRead" || tag == "setBlocked" || tag == "setNickname" || tag == "setPriority" || tag == "approveConversation" || tag == "deleteConversation" || tag == "getMessages" || tag == "sendMessage" || tag == "attachmentSendPlan" || tag == "getAttachmentUploadLimit" || tag == "retrySend" || tag == "deleteMessage" || tag == "setGallery" || tag == "downloadAttachment" || tag == "exportAttachment" || tag == "setAutoDownload" || tag == "getCacheDir" || tag == "getAttachmentCacheLimit" || tag == "setAttachmentCacheLimit" || tag == "getAttachmentCacheSize" || tag == "getThumbnailEdge" || tag == "setThumbnailEdge" || tag == "getConfigSizes" || tag == "getNetworkPaths" || tag == "getPref" || tag == "setPref" || tag == "deliverTestMessage" || tag == "getTestAccountSeed" || tag == "approveTestContact" || tag == "echoTestFrame";
+        return tag == "getAccountInfo" || tag == "createAccount" || tag == "restoreAccountFromWords" || tag == "checkRecoveryPhrase" || tag == "restoreAccountFromSeed" || tag == "discardAccount" || tag == "keepAccount" || tag == "getSeedMnemonic" || tag == "getSeedHex" || tag == "hideRecoveryPassword" || tag == "getRecoveryPasswordHidden" || tag == "setDisplayName" || tag == "attachNetwork" || tag == "warmNetworkCache" || tag == "getNetworkStatus" || tag == "setPollInterval" || tag == "pollOnce" || tag == "closeClient" || tag == "reopenClient" || tag == "setReceiving" || tag == "setPushToken" || tag == "clearPushToken" || tag == "getNotificationContent" || tag == "setNotificationContent" || tag == "getNotificationSound" || tag == "setNotificationSound" || tag == "setNotificationYou" || tag == "handlePushPayload" || tag == "getConversations" || tag == "getMessageRequests" || tag == "getConversation" || tag == "openDm" || tag == "markRead" || tag == "setBlocked" || tag == "setNickname" || tag == "setPriority" || tag == "approveConversation" || tag == "deleteConversation" || tag == "getMessages" || tag == "sendMessage" || tag == "attachmentSendPlan" || tag == "getAttachmentUploadLimit" || tag == "retrySend" || tag == "deleteMessage" || tag == "setGallery" || tag == "downloadAttachment" || tag == "exportAttachment" || tag == "setAutoDownload" || tag == "getCacheDir" || tag == "getAttachmentCacheLimit" || tag == "setAttachmentCacheLimit" || tag == "getAttachmentCacheSize" || tag == "getThumbnailEdge" || tag == "setThumbnailEdge" || tag == "getConfigSizes" || tag == "getNetworkPaths" || tag == "getPref" || tag == "setPref" || tag == "deliverTestMessage" || tag == "getTestAccountSeed" || tag == "approveTestContact" || tag == "echoTestFrame";
     }
 };
 

@@ -1892,6 +1892,22 @@ struct Codec<::session_bridge::ReopenClientCommand> {
 };
 
 template <>
+struct Codec<::session_bridge::SetReceivingCommand> {
+    static constexpr std::string_view name = "SetReceivingCommand";
+    static Napi::Value to(Napi::Env env, const ::session_bridge::SetReceivingCommand& value) {
+        Napi::Object obj = Napi::Object::New(env);
+        obj.Set("type", Napi::String::New(env, ::session_bridge::SetReceivingCommand::type_tag.data(), ::session_bridge::SetReceivingCommand::type_tag.size()));
+        obj.Set("on", Codec<bool>::to(env, value.on));
+        return obj;
+    }
+    static ::session_bridge::SetReceivingCommand from(const Napi::Value& value, std::string_view where) {
+        Napi::Object obj = object(value, where);
+        return ::session_bridge::SetReceivingCommand(
+                Codec<bool>::from(obj.Get("on"), "SetReceivingCommand.on"));
+    }
+};
+
+template <>
 struct Codec<::session_bridge::PushService> {
     static constexpr std::string_view name = "PushService";
     static Napi::Value to(Napi::Env env, ::session_bridge::PushService value) {
@@ -2767,6 +2783,8 @@ struct Codec<::session_bridge::Command> {
             return Codec<::session_bridge::CloseClientCommand>::from(value, where);
         if (tag == "reopenClient")
             return Codec<::session_bridge::ReopenClientCommand>::from(value, where);
+        if (tag == "setReceiving")
+            return Codec<::session_bridge::SetReceivingCommand>::from(value, where);
         if (tag == "setPushToken")
             return Codec<::session_bridge::SetPushTokenCommand>::from(value, where);
         if (tag == "clearPushToken")

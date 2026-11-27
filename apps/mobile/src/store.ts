@@ -24,7 +24,11 @@ import { tr } from '@session/localization'
 import { createSessionStore } from '@session/state'
 import { AppState, PixelRatio, Platform } from 'react-native'
 
-import { followNotificationPrefs } from './notificationSettings'
+import {
+  followNotificationActions,
+  followNotificationPrefs,
+  holdTapsUntilOpen,
+} from './notificationSettings'
 import { onScreen } from './pushPresence'
 import { followNotificationWords } from './notificationWords'
 import { mobileClient } from './client'
@@ -181,7 +185,7 @@ export const storePromise = openTransportOrRefusal().then((transport) => {
   })
   watchStore(store)
   followFlagToggles(store)
-  followAppLifecycle(client, () => {
+  const { whileOpen, onceInFront } = followAppLifecycle(client, () => {
     void store.actions.reread()
   })
   followNotificationPermission({
@@ -222,5 +226,7 @@ export const storePromise = openTransportOrRefusal().then((transport) => {
   })
   followNotificationWords(client)
   followNotificationPrefs(store)
+  followNotificationActions(client, whileOpen)
+  holdTapsUntilOpen(onceInFront)
   return store
 })

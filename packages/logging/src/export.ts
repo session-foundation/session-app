@@ -1,7 +1,7 @@
 import { roughBytes, type Rows, type WithSpan } from '@session/basic-types'
 
 import type { BuildFacts, DatabaseSizes, DeviceFacts, DeviceState, StorageFacts } from './facts'
-import { utcOffset, versionText } from './startup'
+import { LAUNCH_PREFIX, utcOffset, versionText } from './startup'
 import type { SweepCounts } from './sweep'
 import type { LogFields } from './values'
 import { basicUtc, BUDGET_BYTES, type LogFileInfo } from './writer'
@@ -11,7 +11,24 @@ import { basicUtc, BUDGET_BYTES, type LogFileInfo } from './writer'
  * reads straight off disk. Files are named rather than read into JavaScript because twenty
  * megabytes crossing into a phone's JS thread is the cost the native compressor exists to avoid.
  */
-export type ExportPart = { text: string } | { file: string }
+export type ExportPart =
+  { text: string } | { file: string; extension?: ExtensionLogDir | undefined }
+
+/**
+ * The directories beside the logs where a process without the app's logger writes its runs: the
+ * notification extension's. A part naming one is read from there; the native compressors and the
+ * desktop's main process allow these and no others, so no part can reach outside the log directory
+ * through it (`packages/app/tests/logFileName.contract.test.ts` holds their copies to this list).
+ */
+export const EXTENSION_LOG_DIRS = ['notification-service'] as const
+
+export type ExtensionLogDir = (typeof EXTENSION_LOG_DIRS)[number]
+
+/** One extension's runs, oldest first, as its directory lists them. */
+export interface ExtensionRuns {
+  extension: ExtensionLogDir
+  files: LogFileInfo[]
+}
 
 /** What `exportFileName` makes: the platform and version reduced to `[a-z0-9.-]`, then the time. */
 const EXPORT_NAME = /^session-logs-[a-z0-9.-]+-\d{8}T\d{6}Z\.log\.gz$/
@@ -260,4 +277,19 @@ export function exportParts(header: readonly string[], plan: ExportPlan): Export
         : [{ text: `${continued}\n` }, { file: file.name }]
     }),
   ]
+}
+
+/**
+ * The extensions' runs, after the app's own files: each extension under a line saying whose they
+ * are, then its runs oldest first, each opening with its own `── Session …` launch line.
+ */
+export function extensionParts(runs: readonly ExtensionRuns[]): ExportPart[] {
+  return runs.flatMap(({ extension, files }): ExportPart[] =>
+    files.length === 0
+      ? []
+      : [
+          { text: `${LAUNCH_PREFIX}${extension}: ${String(files.length)} runs, oldest first\n` },
+          ...files.map((file): ExportPart => ({ file: file.name, extension })),
+        ],
+  )
 }

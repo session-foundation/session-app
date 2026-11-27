@@ -17,7 +17,15 @@ import { AppState, Linking, Platform, Share } from 'react-native'
 
 import { exportFiles, sweepStagedExports } from './files'
 import { flagOverride } from './flagOverrides'
-import { endingRun, logDirectory, logFiles, logWriter, lowPowerRows, osName } from './logs'
+import {
+  endingRun,
+  extensionRuns,
+  logDirectory,
+  logFiles,
+  logWriter,
+  lowPowerRows,
+  osName,
+} from './logs'
 import { pickers } from './pickers'
 import { notificationSettings } from './notificationSettings'
 import { pushTokens } from './pushTokens'
@@ -182,8 +190,6 @@ const ports = memoryPorts({
     ...notificationSettings,
     deliveryModes: deliveryModes(),
     pushService: VARIANT_TRAITS[VARIANT].pushService,
-    onTap: () => () => undefined,
-    setBadgeCount: () => Promise.resolve(),
   },
   build: {
     // The version app.json gives the build, which is what the stores and the OS know it as.
@@ -249,6 +255,7 @@ const ports = memoryPorts({
       await writer.flush()
       return writer.files()
     },
+    extensionRuns: Platform.OS === 'ios' ? extensionRuns : null,
     span: (first, last) => logSpan(logFiles, first, last),
     /**
      * Compressed natively into the storage module's exports directory, then shared, as the legacy

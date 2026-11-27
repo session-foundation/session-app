@@ -1,7 +1,7 @@
-import { conversationFromPath } from '@session/app'
+import { conversationFromPath, requirePorts, routes } from '@session/app'
 import { SessionShell, useLocale } from '@session/screens'
 import { useMedia, useTokenColor } from '@session/ui'
-import { Stack, usePathname } from 'expo-router'
+import { router, Stack, usePathname } from 'expo-router'
 import { useEffect } from 'react'
 
 import { reportOpenConversation } from './pushPresence'
@@ -27,6 +27,19 @@ export function MobileShell() {
   useEffect(() => {
     reportOpenConversation(openConversation)
   }, [openConversation])
+  // A tapped notification's conversation, or the requests for a request's, where the platform
+  // hands taps over rather than opening a link (iOS).
+  useEffect(
+    () =>
+      requirePorts().notifications.onTap((tap) => {
+        router.push(
+          tap.kind === 'requests'
+            ? routes.requests()
+            : routes.conversation(tap.conversationId, tap.messageId),
+        )
+      }),
+    [],
+  )
   const twoPanes = useMedia().gtSm
   // The screens draw their own headers and backgrounds; this only shows between them mid-push.
   const background = useTokenColor('$backgroundPrimary')

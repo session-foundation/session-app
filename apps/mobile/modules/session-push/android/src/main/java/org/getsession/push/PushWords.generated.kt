@@ -19,6 +19,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Message Requests",
     "markRead" to "Mark read",
     "reply" to "Reply",
+    "send" to "Send",
     "replyFailed" to "Message delivery failed",
   )
 
@@ -118,6 +119,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Boodskap Versoeke",
     "markRead" to "Merk gelees",
     "reply" to "Antwoord",
+    "send" to "Stuur",
     "replyFailed" to "Boodskap aflewering het misluk",
   )
 
@@ -136,6 +138,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "طلبات المُراسلة",
     "markRead" to "تحديد كمقروء",
     "reply" to "رد",
+    "send" to "إرسال",
     "replyFailed" to "فشل توصيل الرسالة",
   )
 
@@ -152,6 +155,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Mesaj tələbləri",
     "markRead" to "Oxundu olaraq işarələ",
     "reply" to "Cavabla",
+    "send" to "Göndər",
     "replyFailed" to "Mesaj çatdırılmadı",
   )
 
@@ -165,6 +169,7 @@ internal object PushWordsGenerated {
     "voice" to "وائس پیغام",
     "file" to "دستاویز",
     "reply" to "جواب",
+    "send" to "بھیج",
   )
 
   private fun l4() = mapOf(
@@ -180,6 +185,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Запыты на паведамленні",
     "markRead" to "Пазначыць як прачытанае",
     "reply" to "Адказаць",
+    "send" to "Адправіць",
     "replyFailed" to "Не ўдалося даставіць паведамленне",
   )
 
@@ -196,6 +202,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Заявки за съобщения",
     "markRead" to "Прочетено",
     "reply" to "Отговор",
+    "send" to "Изпращане",
     "replyFailed" to "Доставката на съобщението неуспешна",
   )
 
@@ -211,6 +218,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "বার্তা অনুরোধ",
     "markRead" to "পড়া হিসেবে চিহ্নিত করুন",
     "reply" to "উত্তর দিন",
+    "send" to "পাঠান",
     "replyFailed" to "বার্তা ডেলিভারি ব্যর্থ",
   )
 
@@ -227,6 +235,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Sol·licituds de missatges",
     "markRead" to "Marcar com a llegit",
     "reply" to "Responeu",
+    "send" to "Enviar",
     "replyFailed" to "Error en el lliurament del missatge",
   )
 
@@ -243,6 +252,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Žádosti o komunikaci",
     "markRead" to "Označit jako přečtené",
     "reply" to "Odpovědět",
+    "send" to "Odeslat",
     "replyFailed" to "Selhalo doručení zprávy",
   )
 
@@ -259,6 +269,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Ceisiadau Negeseuon",
     "markRead" to "Marcio wedi'i ddarllen",
     "reply" to "Ateb",
+    "send" to "Anfon",
     "replyFailed" to "Methodd trosglwyddo neges",
   )
 
@@ -290,6 +301,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Nachrichtenanfragen",
     "markRead" to "Als gelesen markieren",
     "reply" to "Antworten",
+    "send" to "Senden",
     "replyFailed" to "Diese Nachricht konnte nicht zugestellt werden",
   )
 
@@ -306,6 +318,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Αιτήματα μηνυμάτων",
     "markRead" to "Σήμανση ως αναγνωσμένο",
     "reply" to "Απάντηση",
+    "send" to "Αποστολή",
     "replyFailed" to "Η παράδοση του μηνύματος απέτυχε",
   )
 
@@ -323,6 +336,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Mesaĝpetoj",
     "markRead" to "Marki legita",
     "reply" to "Respondi",
+    "send" to "Sendi",
     "replyFailed" to "Mesaĝa livero malsukcesis",
   )
 
@@ -339,6 +353,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Solicitudes de mensajes",
     "markRead" to "Marcar como leído",
     "reply" to "Responder",
+    "send" to "Enviar",
     "replyFailed" to "Fallo al entregar el mensaje",
   )
 
@@ -354,6 +369,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Solicitudes de Mensaje",
     "markRead" to "Marcar como leído",
     "reply" to "Responder",
+    "send" to "Enviar",
     "replyFailed" to "Fallo al entregar el mensaje",
   )
 
@@ -369,6 +385,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Sõnumitaotlused",
     "markRead" to "Märgi loetuks",
     "reply" to "Vasta",
+    "send" to "Saada",
     "replyFailed" to "Sõnumi kohaletoimetamine ebaõnnestus",
   )
 
@@ -385,6 +402,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Mezu-eskaerak",
     "markRead" to "Irakurriak markatu",
     "reply" to "Erantzun",
+    "send" to "Bidali",
     "replyFailed" to "Mezuaren entrega huts egin du",
   )
 
@@ -403,6 +421,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "درخواست‌های پیام",
     "markRead" to "علامت خوانده شده",
     "reply" to "پاسخ",
+    "send" to "ارسال",
     "replyFailed" to "تحویل پیام شکست خورد",
   )
 
@@ -419,6 +438,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Viestipyynnöt",
     "markRead" to "Merkitse luetuksi",
     "reply" to "Vastaa",
+    "send" to "Lähetä",
     "replyFailed" to "Viestin toimitus epäonnistui",
   )
 
@@ -446,6 +466,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Demandes de message",
     "markRead" to "Marquer comme lu",
     "reply" to "Répondre",
+    "send" to "Envoyer",
     "replyFailed" to "La transmission du message a échoué",
   )
 
@@ -461,6 +482,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Solicitudes de mensaxes",
     "markRead" to "Marcar como lida",
     "reply" to "Responder",
+    "send" to "Enviar",
     "replyFailed" to "Erro na entrega da mensaxe",
   )
 
@@ -477,6 +499,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Neman Saƙo",
     "markRead" to "Alamar Karantawa",
     "reply" to "Amsa",
+    "send" to "Aika",
     "replyFailed" to "An kasa aikawa saƙo",
   )
 
@@ -493,6 +516,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "בקשות הודעה",
     "markRead" to "סמן כנקרא",
     "reply" to "השב",
+    "send" to "שלח",
     "replyFailed" to "מסירת ההודעה נכשלה",
   )
 
@@ -510,6 +534,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "संदेश अनुरोध",
     "markRead" to "पढ़ा हुआ चिह्नित करें",
     "reply" to "जवाब",
+    "send" to "भेजें",
     "replyFailed" to "संदेश प्रेषण असफल हुआ",
   )
 
@@ -525,6 +550,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Zahtjevi za porukama",
     "markRead" to "Označi kao pročitano",
     "reply" to "Odgovori",
+    "send" to "Pošalji",
     "replyFailed" to "Neuspješno dostavljanje poruke",
   )
 
@@ -542,6 +568,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Üzenetkérelmek",
     "markRead" to "Jelölés olvasottként",
     "reply" to "Válasz",
+    "send" to "Küldés",
     "replyFailed" to "Üzenet kézbesítése sikertelen",
   )
 
@@ -559,6 +586,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Հաղորդագրության հարցումներ",
     "markRead" to "Նշել որպես ընթերցված",
     "reply" to "Պատասխանել",
+    "send" to "Ուղարկել",
     "replyFailed" to "Հաղորդագրության առաքումը ձախողվեց",
   )
 
@@ -575,6 +603,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Permintaan Pesan",
     "markRead" to "Tandai dibaca",
     "reply" to "Balas",
+    "send" to "Kirim",
     "replyFailed" to "Pengiriman pesan gagal",
   )
 
@@ -590,6 +619,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Richieste di messaggi",
     "markRead" to "Segna come letto",
     "reply" to "Rispondi",
+    "send" to "Invia",
     "replyFailed" to "L'invio del messaggio non è riuscito",
   )
 
@@ -607,6 +637,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "メッセージリクエスト",
     "markRead" to "既読にする",
     "reply" to "返信",
+    "send" to "送信",
     "replyFailed" to "メッセージの配信に失敗しました",
   )
 
@@ -623,6 +654,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "შეტყობინების მოთხოვნები",
     "markRead" to "მონიშვნა, როგორც წაკითხული",
     "reply" to "Პასუხი",
+    "send" to "Გაგზავნა",
     "replyFailed" to "შეტყობინების მიწოდება ვერ განხორციელდა",
   )
 
@@ -639,6 +671,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "សំណាងល្អនៅមុខបន្ថែម!",
     "markRead" to "សម្គាល់ថាបានអាន",
     "reply" to "ឆ្លើយតប",
+    "send" to "ផ្ញើ",
     "replyFailed" to "ការចែកសារប្រើវិញដោយម្ចាស់",
   )
 
@@ -655,6 +688,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Daxwazên Peyamê",
     "markRead" to "Wekî Xwendî Nîşan Bide",
     "reply" to "Cewab bide",
+    "send" to "ناردن",
     "replyFailed" to "Teslîmkirina peyamê bi ser neket",
   )
 
@@ -671,6 +705,7 @@ internal object PushWordsGenerated {
     "channel" to "ಸಂದೇಶ ಅಧಿಸೂಚನೆಗಳು",
     "markRead" to "ಓದಿದ ಎಂದು ಗುರುತು",
     "reply" to "ಮಾರುತ್ತರ",
+    "send" to "ಕಳುಹಿಸಿ",
     "replyFailed" to "ಸಂದೇಶ ವಿತರಣೆಗೆ ವೈಫಲ್ಯ",
   )
 
@@ -688,6 +723,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "메시지 요청",
     "markRead" to "읽음으로 표시",
     "reply" to "답장",
+    "send" to "전송",
     "replyFailed" to "메시지 전송 실패",
   )
 
@@ -704,6 +740,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "داواکارییەکانی نامە",
     "markRead" to "Mark ئیبیننیشت",
     "reply" to "وەلامدانەوە",
+    "send" to "ناردن",
     "replyFailed" to "فیر خالةنامە",
   )
 
@@ -719,6 +756,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Okikusa ekizamanyo",
     "markRead" to "Kaka somesa",
     "reply" to "Ddamu",
+    "send" to "Sindikira",
     "replyFailed" to "Okutuusibwa okw’obubaka kugalindwa",
   )
 
@@ -739,6 +777,7 @@ internal object PushWordsGenerated {
     "channel" to "Pranešimai apie žinutes",
     "markRead" to "Žymėti kaip skaitytą",
     "reply" to "Atsakyti",
+    "send" to "Siųsti",
     "replyFailed" to "Žinutės pristatymas nepavyko",
   )
 
@@ -754,6 +793,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Ziņu pieprasījumi",
     "markRead" to "Atzīmēt kā izlasītu",
     "reply" to "Atbildēt",
+    "send" to "Nosūtīt",
     "replyFailed" to "Ziņojuma piegāde neizdevās",
   )
 
@@ -770,6 +810,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Барања за пораки",
     "markRead" to "Означи како прочитано",
     "reply" to "Одговори",
+    "send" to "Испрати",
     "replyFailed" to "Неуспешно испраќање порака",
   )
 
@@ -786,6 +827,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Мессеж хүсэлтүүд",
     "markRead" to "Уншсан тэмдэглэгээ",
     "reply" to "Хариулах",
+    "send" to "Илгээх",
     "replyFailed" to "Мессеж хүргэлт амжилтгүй",
   )
 
@@ -800,6 +842,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Permintaan Mesej",
     "markRead" to "Tandakan Dibaca",
     "reply" to "Balas",
+    "send" to "Hantar",
     "replyFailed" to "Penghantaran mesej gagal",
   )
 
@@ -817,6 +860,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "မက်ဆေ့ချ် တောင်းဆိုမှုများ",
     "markRead" to "ဖတ်ပြီးပြီဟု မှတ်သားပါ",
     "reply" to "အကြောင်းပြန်ရန်",
+    "send" to "ပို့ရန်",
     "replyFailed" to "မက်ဆေ့ချ် ပို့ခြင်း မအောင်မြင်ပါ။",
   )
 
@@ -850,6 +894,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "सन्देश अनुरोधहरू",
     "markRead" to "पढिएको",
     "reply" to "जवाफ",
+    "send" to "पठाउनुहोस्",
     "replyFailed" to "सन्देश वितरण असफल भयो",
   )
 
@@ -864,6 +909,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Berichtverzoeken",
     "markRead" to "Markeren als gelezen",
     "reply" to "Antwoord",
+    "send" to "Verzenden",
     "replyFailed" to "Berichtaflevering mislukt",
   )
 
@@ -912,6 +958,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Kapebangu kachikalata",
     "markRead" to "Thambitsani werenga",
     "reply" to "Yankhani",
+    "send" to "Kachana",
     "replyFailed" to "Kulephera kwachukulidwako chikalata",
   )
 
@@ -928,6 +975,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "ਸੁਨੇਹਾ ਬੇਨਤੀ",
     "markRead" to "ਪੜ੍ਹਿਆ ਦਰਜ ਕਰੋ",
     "reply" to "sooner ",
+    "send" to "ਭੇਜੋ",
     "replyFailed" to "ਸੁਨੇਹਾ ਡਿਲਿਵਰੀ ਅਸਫਲ ਹੋਈ",
   )
 
@@ -944,6 +992,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Prośby o wiadomość",
     "markRead" to "Oznacz jako przeczytane",
     "reply" to "Odpowiedz",
+    "send" to "Wyślij",
     "replyFailed" to "Nie udało się dostarczyć wiadomości",
   )
 
@@ -959,6 +1008,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "پیغام غوښتنې",
     "markRead" to "لوستل شوی",
     "reply" to "ځواب",
+    "send" to "لیږل",
     "replyFailed" to "پیغام تحویل ناکام",
   )
 
@@ -976,6 +1026,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Pedidos de mensagem",
     "markRead" to "Marcar como lida",
     "reply" to "Responder",
+    "send" to "Enviar",
     "replyFailed" to "Envio de mensagem falhou",
   )
 
@@ -993,6 +1044,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Pedidos de Mensagem",
     "markRead" to "Marcar como lida",
     "reply" to "Responder",
+    "send" to "Enviar",
     "replyFailed" to "Falha na entrega de mensagem",
   )
 
@@ -1007,6 +1059,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Solicitări de mesaje",
     "markRead" to "Marchează ca citit",
     "reply" to "Răspunde",
+    "send" to "Trimite",
     "replyFailed" to "Eroare la livrarea mesajului",
   )
 
@@ -1024,6 +1077,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Запросы на переписку",
     "markRead" to "Пометить как прочитанное",
     "reply" to "Ответить",
+    "send" to "Отправить",
     "replyFailed" to "Ошибка доставки сообщения",
   )
 
@@ -1038,6 +1092,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Zahtjevi za poruke",
     "markRead" to "Označi pročitano",
     "reply" to "Odgovori",
+    "send" to "Pošalji",
     "replyFailed" to "Neuspješna isporuka poruke",
   )
 
@@ -1054,6 +1109,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "පණිවිඩ ඉල්ලීම්",
     "markRead" to "මග කියනවා",
     "reply" to "පිළිතුරු",
+    "send" to "යවන්න",
     "replyFailed" to "පණිවිඩය අසමත් වීම",
   )
 
@@ -1069,6 +1125,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Žiadosti o správu",
     "markRead" to "Označiť ako prečítané",
     "reply" to "Odpovedať",
+    "send" to "Poslať",
     "replyFailed" to "Doručenie správy zlyhalo",
   )
 
@@ -1085,6 +1142,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Zahteve za sporočila",
     "markRead" to "Označi kot prebrano",
     "reply" to "Odgovori",
+    "send" to "Pošlji",
     "replyFailed" to "Dostava sporočila ni uspela",
   )
 
@@ -1099,6 +1157,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Mesazhe Session",
     "markRead" to "Vëri shenjë si të lexuar",
     "reply" to "Përgjigju",
+    "send" to "Dërgoje",
     "replyFailed" to "Dërgimi i mesazhit dështoi",
   )
 
@@ -1114,6 +1173,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Zahtevi za poruke",
     "markRead" to "Označi kao pročitano",
     "reply" to "Odgovori",
+    "send" to "Pošalji",
     "replyFailed" to "Dostava poruke nije uspela",
   )
 
@@ -1131,6 +1191,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Захтеви за поруке",
     "markRead" to "Означи прочитаним",
     "reply" to "Одговор",
+    "send" to "Пошаљи",
     "replyFailed" to "Испорука поруке није успела",
   )
 
@@ -1147,6 +1208,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Meddelandeförfrågningar",
     "markRead" to "Markera som läst",
     "reply" to "Svara",
+    "send" to "Skicka",
     "replyFailed" to "Meddelandet kunde inte levereras",
   )
 
@@ -1161,6 +1223,7 @@ internal object PushWordsGenerated {
     "channel" to "Arifa za Jumbe",
     "markRead" to "Soma nakili",
     "reply" to "Jibu",
+    "send" to "Tuma",
     "replyFailed" to "Ujumbe haujatumwa",
   )
 
@@ -1176,6 +1239,7 @@ internal object PushWordsGenerated {
     "channel" to "செய்தி அறிவிப்புகள்",
     "markRead" to "வாசிப்பு",
     "reply" to "பதில்",
+    "send" to "அனுப்பு",
     "replyFailed" to "செய்தி விநியோகம் தோல்வியுற்றது",
   )
 
@@ -1193,6 +1257,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "సందేశ అభ్యర్ధనలు",
     "markRead" to "చదివినట్టు గుర్తుపెట్టు",
     "reply" to "స్పంధించు",
+    "send" to "పంపుము",
     "replyFailed" to "సందేశం పంపుట విఫలమైనది",
   )
 
@@ -1209,6 +1274,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "ข้อความร้องขอ",
     "markRead" to "ทำเครื่องหมายว่าอ่านแล้ว",
     "reply" to "ตอบกลับ",
+    "send" to "ส่ง",
     "replyFailed" to "ส่งข้อความล้มเหลว",
   )
 
@@ -1223,6 +1289,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Mga Kahilingan sa Pagmemensahe",
     "markRead" to "Markahan bilang nabasa na",
     "reply" to "Sagutin",
+    "send" to "I-send",
     "replyFailed" to "Nabigo ang pagpapadala ng mensahe",
   )
 
@@ -1239,6 +1306,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "İleti İstekleri",
     "markRead" to "Okundu işaretle",
     "reply" to "Yanıtla",
+    "send" to "Gönder",
     "replyFailed" to "İleti teslimi başarısız oldu",
   )
 
@@ -1257,6 +1325,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Запити на повідомлення",
     "markRead" to "Позначити як прочитане",
     "reply" to "Відповісти",
+    "send" to "Відправити",
     "replyFailed" to "Збій доставки повідомлення",
   )
 
@@ -1272,6 +1341,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "پیغام کی درخواستیں",
     "markRead" to "پڑھا ہوا مارک کریں",
     "reply" to "جواب",
+    "send" to "بھیجیں",
     "replyFailed" to "پیغام کی ترسیل ناکام ہوگئی",
   )
 
@@ -1287,6 +1357,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Xabar So'rovlari",
     "markRead" to "O'qilgan deb belgilash",
     "reply" to "Javob berish",
+    "send" to "Jo'natish",
     "replyFailed" to "Xabar yetkazib berishda xato",
   )
 
@@ -1302,6 +1373,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Các yêu cầu tin nhắn",
     "markRead" to "Đánh dấu đã đọc",
     "reply" to "Trả lời",
+    "send" to "Gửi",
     "replyFailed" to "Phân phối tin nhắn bị thất bại",
   )
 
@@ -1318,6 +1390,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "Izicelo zoMyalezo",
     "markRead" to "Marka ukufundwayo",
     "reply" to "Phendula",
+    "send" to "Thumela",
     "replyFailed" to "Ukuleyisa komyalezo kuyasilela",
   )
 
@@ -1335,6 +1408,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "消息请求",
     "markRead" to "标记为已读",
     "reply" to "回复",
+    "send" to "发送",
     "replyFailed" to "消息发送失败",
   )
 
@@ -1352,6 +1426,7 @@ internal object PushWordsGenerated {
     "requestsChannel" to "訊息請求",
     "markRead" to "標示已讀",
     "reply" to "回覆",
+    "send" to "傳送",
     "replyFailed" to "訊息傳送失敗",
   )
 }
