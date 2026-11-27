@@ -10,6 +10,8 @@ add_library(SessionBridgeRN SHARED
     ../cpp/BridgeMediaSource.cpp
     ../cpp/JsMediaSource.cpp
     ../cpp/MediaSource.cpp
+    PushTarget.cpp
+    PushJni.cpp
     OnLoad.cpp
     SessionMediaJni.cpp)
 
@@ -18,6 +20,9 @@ include(${CMAKE_SOURCE_DIR}/../nitrogen/generated/android/SessionBridgeRN+autoli
 # Nitrogen's OnLoad.cpp includes our implementation header by name, so where it lives has to be
 # on the include path - the generated file has no way to know we put it in ../cpp.
 target_include_directories(SessionBridgeRN PRIVATE ${CMAKE_SOURCE_DIR}/../cpp)
+
+# Android's own sources, for the shared ones to include: PushTarget.hpp.
+target_include_directories(SessionBridgeRN PRIVATE ${CMAKE_SOURCE_DIR})
 
 # The shim, built for this ABI against a libsession that was cross-compiled separately.
 #

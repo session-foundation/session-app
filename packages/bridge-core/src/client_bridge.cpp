@@ -42,6 +42,7 @@
 #include <unordered_set>
 #include <optional>
 #include <ranges>
+#include <shared_mutex>
 #include <span>
 #include <stdexcept>
 #include <thread>
@@ -51,6 +52,7 @@
 
 #include "convert.hpp"
 #include "session_bridge/media_url.hpp"
+#include "session_bridge/push_handler.hpp"
 #include "session_bridge/staged_thumbnails.hpp"
 #include "session_bridge/utf8_path.hpp"
 #include "mark_downloaded.hpp"
@@ -376,6 +378,17 @@ struct ClientBridge::Impl {
     /// Push subscription for `client`, made on first use. It holds a reference to the Client it was
     /// made for, so it goes first wherever the Client is replaced or destroyed.
     std::optional<push::Notifications> notifications;
+    /// Held shared by a push handled on `client` (`ClientBridge::handle_push`), which runs without
+    /// `client_lock` so that requests are not stalled behind a fetch; held exclusively by whatever
+    /// drops `notifications`, which every replacement of `client` does first.
+    std::shared_mutex push_use;
+
+    /// Drops `notifications` once no push is being handled on the Client. Under `client_lock`, so
+    /// that no push can start in between.
+    void retire_notifications() {
+        std::unique_lock use{push_use};
+        notifications.reset();
+    }
     /// Why there is no client, when the database would not open: what every request is refused
     /// with until a discard opens a fresh one. Empty while a client is open.
     std::string open_failure;
@@ -487,7 +500,7 @@ struct ClientBridge::Impl {
     /// can be rebuilt as often as needed. They are moved into the Client, which is why they are
     /// constructed here on each call rather than held.
     void open_client() {
-        notifications.reset();
+        retire_notifications();
         auto* impl = this;
 
         // Every handler does the same two things and nothing else: fill a frame, and hand it to the
@@ -988,7 +1001,7 @@ struct ClientBridge::Impl {
         // Closed before anything is removed. Deleting a database out from under an open handle
         // leaves its pages alive until the last descriptor closes, which looks exactly like having
         // worked and is not.
-        notifications.reset();
+        retire_notifications();
         client.reset();
 
         std::error_code ec;
@@ -1185,7 +1198,7 @@ struct ClientBridge::Impl {
             background = Background::destroying;
             watch->handle = client->core.database().interrupt_handle();
             close_watch = watch;
-            notifications.reset();
+            retire_notifications();
             dying = std::move(client);
         }
 
@@ -1924,11 +1937,41 @@ void ClientBridge::close() {
         std::lock_guard lock{_impl->network_status_lock};
         _impl->network_status_open = false;
     }
-    _impl->notifications.reset();
+    {
+        // `close_cancelled` keeps any push from starting on the Client after this.
+        std::lock_guard lock{_impl->client_lock};
+        _impl->retire_notifications();
+    }
     _impl->client.reset();
     // Waits a bounded moment for a decode under way, so a stuck one cannot hold up a quit.
     _impl->staged->close();
     _impl.reset();
+}
+
+std::optional<PushResult> ClientBridge::handle_push(
+        std::string_view enc_payload,
+        std::string_view you,
+        std::optional<std::string_view> open,
+        std::chrono::milliseconds deadline,
+        const std::function<void(std::string_view)>& log) {
+    if (!_impl)
+        return std::nullopt;
+    std::shared_lock use{_impl->push_use, std::defer_lock};
+    {
+        std::lock_guard lock{_impl->client_lock};
+        if (_impl->close_cancelled || !_impl->client ||
+            _impl->background != Impl::Background::open)
+            return std::nullopt;
+        _impl->push_notifications();
+        use.lock();
+    }
+    try {
+        return session_bridge::handle_push(
+                *_impl->client, *_impl->notifications, enc_payload, you, open, deadline, log);
+    } catch (const std::exception& e) {
+        return PushResult{
+                generic_notification(), {}, std::nullopt, std::string{"threw: "} + e.what()};
+    }
 }
 
 void ClientBridge::fetch_media(double message_id, double index, MediaHandler cb) {

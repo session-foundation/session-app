@@ -1,0 +1,19 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <application>
+    <!-- No token until fast mode asks for one: Firebase reaches Google only after that choice. -->
+    <meta-data android:name="firebase_messaging_auto_init_enabled" android:value="false" />
+    <meta-data android:name="firebase_analytics_collection_deactivated" android:value="true" />
+
+    <service android:name="org.getsession.push.fcm.FcmService" android:exported="false">
+      <intent-filter>
+        <action android:name="com.google.firebase.MESSAGING_EVENT" />
+      </intent-filter>
+    </service>
+
+    <!-- Runs before the app's own code, so the provider is set before JS can ask for a token. -->
+    <provider
+      android:name="org.getsession.push.fcm.FcmInit"
+      android:authorities="${applicationId}.fcminit"
+      android:exported="false" />
+  </application>
+</manifest>

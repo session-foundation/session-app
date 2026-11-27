@@ -75,7 +75,12 @@ describe('the app config keeps everything on the device', () => {
       await config.mods?.android?.['dangerous']?.({
         ...config,
         modResults: null,
-        modRequest: { platform: 'android', modName: 'dangerous', platformProjectRoot: project },
+        modRequest: {
+          platform: 'android',
+          modName: 'dangerous',
+          projectRoot: '.',
+          platformProjectRoot: project,
+        },
       })
       const xml = (name: string) =>
         readFileSync(join(project, 'app/src/main/res/xml', name), 'utf8')

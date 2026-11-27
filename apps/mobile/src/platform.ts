@@ -18,6 +18,7 @@ import { exportFiles, sweepStagedExports } from './files'
 import { flagOverride } from './flagOverrides'
 import { endingRun, logDirectory, logFiles, logWriter, lowPowerRows, osName } from './logs'
 import { pickers } from './pickers'
+import { pushTokens } from './pushTokens'
 import { restartProcess, terminateProcess } from './processExit'
 import { SessionLogs } from './sessionLogs'
 import { attachmentsBytes, databaseSizes } from './storageSizes'
@@ -97,7 +98,7 @@ async function diagnosticsSnapshot(): Promise<DiagnosticsSnapshot> {
     },
     networkType: null,
     // What the notifications port says, which is what the app will actually do.
-    notifications: 'no push service in this build',
+    notifications: pushTokens === null ? 'no push service in this build' : 'push service available',
     // Capitalised like every other label in the header; the native modules name them in lower case.
     ...(native === undefined
       ? {}
@@ -143,16 +144,11 @@ const ports = memoryPorts({
     // notification delivery something to choose rather than something that just happens. True on
     // a tablet as well as a phone: it is the OS that decides this, not the screen size.
     notificationModesApply: true,
-    // No token source yet on either platform: FCM and APNs follow.
-    pushTokens: null,
+    pushTokens,
     pushInstallMarker,
-    // TODO: true only when all three hold, which no build trait alone can say:
-    // - the variant names a push service (`VARIANT_TRAITS[VARIANT].pushService`);
-    // - registration with that service exists, which it does not yet;
-    // - on Android, the device has that service: Google Play Services (or microG) for Google's,
-    //   HMS Core for Huawei's. Asked at runtime, since a sideloaded or F-Droid install may lack it.
-    // Saying true before then would offer a mode that silently never delivers.
-    fastModeAvailable: false,
+    // A source exists only where the build registered a push service at startup, which on Android
+    // it does only when the device has that service too: Play services, or microG.
+    fastModeAvailable: pushTokens !== null,
     pushService: VARIANT_TRAITS[VARIANT].pushService,
     requestPermission: () => Promise.resolve(true),
     show: () => Promise.resolve(),

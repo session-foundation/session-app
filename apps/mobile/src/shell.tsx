@@ -2,6 +2,9 @@ import { conversationFromPath } from '@session/app'
 import { SessionShell, useLocale } from '@session/screens'
 import { useMedia, useTokenColor } from '@session/ui'
 import { Stack, usePathname } from 'expo-router'
+import { useEffect } from 'react'
+
+import { reportOpenConversation } from './pushPresence'
 
 /**
  * The routed screens, inside the shell every platform shares.
@@ -20,6 +23,10 @@ import { Stack, usePathname } from 'expo-router'
 export function MobileShell() {
   useLocale()
   const pathname = usePathname()
+  const openConversation = conversationFromPath(pathname)
+  useEffect(() => {
+    reportOpenConversation(openConversation)
+  }, [openConversation])
   const twoPanes = useMedia().gtSm
   // The screens draw their own headers and backgrounds; this only shows between them mid-push.
   const background = useTokenColor('$backgroundPrimary')
@@ -39,7 +46,7 @@ export function MobileShell() {
         />
       }
       hasDetail
-      openConversationId={conversationFromPath(pathname) ?? undefined}
+      openConversationId={openConversation ?? undefined}
     />
   )
 }

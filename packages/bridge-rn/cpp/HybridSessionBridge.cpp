@@ -2,6 +2,10 @@
 
 #include "JsMediaSource.hpp"
 #include "MediaSource.hpp"
+// Android hands a push to the running bridge; iOS's notification extension is another process.
+#ifdef __ANDROID__
+#include "PushTarget.hpp"
+#endif
 
 #include <NitroModules/JSICache.hpp>
 #include <session_bridge/client_bridge.hpp>
@@ -321,6 +325,9 @@ void HybridSessionBridge::init(const SessionBridgeOptions& options) {
             });
     _media = std::make_shared<::session_bridge_rn::BridgeMediaSource>(*_bridge);
     ::session_bridge_rn::set_media_source(_media);
+#ifdef __ANDROID__
+    ::session_bridge_rn::set_push_bridge(_bridge.get());
+#endif
     _opened = true;
 }
 
@@ -507,6 +514,11 @@ void HybridSessionBridge::close() {
         ::session_bridge_rn::clear_media_source(_media.get());
         _media->detach();
     }
+#ifdef __ANDROID__
+    // Waits for a push being handled on the bridge, which the bridge must outlive.
+    if (_bridge)
+        ::session_bridge_rn::clear_push_bridge(_bridge.get());
+#endif
     // Destroy before dropping the sink: destroying joins Core's loop, so nothing can be
     // produced afterwards, and a frame in flight still has somewhere to go.
     _bridge.reset();

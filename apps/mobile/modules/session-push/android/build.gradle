@@ -1,0 +1,21 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'org.getsession'
+version = '0.0.0'
+
+android {
+  namespace "org.getsession.push"
+  defaultConfig {
+    versionCode 1
+    versionName '0.0.0'
+    consumerProguardFiles 'proguard-rules.pro'
+  }
+}
+
+dependencies {
+  // The database key, which a push handled while the app is not running opens the database with.
+  implementation project(':database-key')
+}

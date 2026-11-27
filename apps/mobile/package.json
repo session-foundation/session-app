@@ -20,8 +20,10 @@
     "ios": "LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 node --env-file-if-exists=../../.env ../../node_modules/expo/bin/cli run:ios",
     "prebuild": "LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 expo prebuild",
     "fake-media:push": "./scripts/push-fake-media.sh",
+    "codegen": "node --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/generatePushWords.ts",
+    "codegen:check": "node --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/generatePushWords.ts --check",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p scripts",
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
@@ -31,6 +33,7 @@
     "@session/basic-types": "workspace:*",
     "@session/bridge-rn": "workspace:*",
     "@session/client": "workspace:*",
+    "@session/localization": "workspace:*",
     "@session/logging": "workspace:*",
     "@session/screens": "workspace:*",
     "@session/state": "workspace:*",
@@ -71,7 +74,6 @@
     "@expo/config-plugins": "catalog:",
     "@session/build-stamp": "workspace:*",
     "@session/eslint-config": "workspace:*",
-    "@session/localization": "workspace:*",
     "@session/typescript-config": "workspace:*",
     "@tamagui/babel-plugin": "catalog:",
     "@types/react": "catalog:",

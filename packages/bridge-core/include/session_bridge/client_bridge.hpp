@@ -1,12 +1,14 @@
 #pragma once
 
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <filesystem>
 #include <functional>
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "session_bridge/gen/types.hpp"
@@ -171,6 +173,9 @@ using ThumbhashHandler = std::function<void(Thumbhash)>;
 ///
 /// Command responses go to the same sink as events, correlated by request id, because their
 /// relative order is load-bearing: see `Frame` in @session/bridge-types.
+/// See push_handler.hpp, which needs libsession's headers: this one deliberately does not.
+struct PushResult;
+
 class ClientBridge {
   public:
     /// Opens the database and publishes the initial state. Throws if the database cannot be
@@ -245,6 +250,20 @@ class ClientBridge {
     ///
     /// Returns a cancel, which answers `cb` with "cancelled" unless it has been answered already.
     std::function<void()> fetch_staged_thumbnail(std::string path, MediaHandler cb);
+
+    /// Handles one push on this bridge's Client, for a push that arrives while the app is
+    /// running: see `session_bridge::handle_push`. Nullopt when there is no Client to handle it on
+    /// (closed for the background, closing, or never opened), and the caller handles it with a
+    /// Client of its own (`handle_cold_push`).
+    ///
+    /// Blocks until done, so it must not be called on Core's loop or the JavaScript thread.
+    /// Requests carry on meanwhile; a close or a discard waits for it.
+    std::optional<PushResult> handle_push(
+            std::string_view enc_payload,
+            std::string_view you,
+            std::optional<std::string_view> open,
+            std::chrono::milliseconds deadline,
+            const std::function<void(std::string_view)>& log);
 
     /// Stops delivering frames and destroys the Client, which joins Core's loop. Idempotent, and
     /// implied by the destructor. Handlers for calls still in flight are dropped rather than
